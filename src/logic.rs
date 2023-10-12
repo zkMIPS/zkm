@@ -11,12 +11,12 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2_util::ceil_div_usize;
 
-use plonky2_evm::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use plonky2_evm::cross_table_lookup::Column;
-use plonky2_evm::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::Column;
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::logic::columns::NUM_COLUMNS;
-use plonky2_evm::stark::Stark;
-use plonky2_evm::util::{limb_from_bits_le, limb_from_bits_le_recursive, trace_rows_to_poly_values};
+use crate::stark::Stark;
+use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive, trace_rows_to_poly_values};
 
 const VAL_BITS: usize = 32;
 // Number of bits stored per field element. Ensure that this fits; it is not checked.
@@ -290,7 +290,7 @@ mod tests {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     use crate::logic::LogicStark;
-    use plonky2_evm::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
     fn test_stark_degree() -> Result<()> {

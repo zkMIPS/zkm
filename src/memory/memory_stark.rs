@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 
-use ethereum_types::U256;
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
@@ -24,8 +23,91 @@ use crate::memory::columns::{
 };
 use crate::memory::VALUE_LIMBS;
 use crate::stark::Stark;
-use crate::witness::memory::MemoryOpKind::Read;
-use crate::witness::memory::{MemoryAddress, MemoryOp};
+use crate::memory::memory_stark::MemoryOpKind::Read;
+use crate::memory::memory_stark::MemoryChannel::GeneralPurpose;
+
+pub const NUM_GP_CHANNELS: usize = 5;
+
+#[derive(Clone, Copy, Debug)]
+pub enum MemoryChannel {
+    Code,
+    GeneralPurpose(usize),
+}
+
+impl MemoryChannel {
+    pub fn index(&self) -> usize {
+        match *self {
+            #[allow(bindings_with_variant_name)]
+            Code => 0,
+            GeneralPurpose(n) => {
+                assert!(n < NUM_GP_CHANNELS);
+                n + 1
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub struct MemoryAddress {
+    pub(crate) context: usize,
+    pub(crate) segment: usize,
+    pub(crate) virt: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MemoryOpKind {
+    Read,
+    Write,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct MemoryOp {
+    /// true if this is an actual memory operation, or false if it's a padding row.
+    pub filter: bool,
+    pub timestamp: usize,
+    pub address: MemoryAddress,
+    pub kind: MemoryOpKind,
+    pub value: u32,
+}
+
+impl MemoryOp {
+    pub fn new(
+        channel: MemoryChannel,
+        clock: usize,
+        address: MemoryAddress,
+        kind: MemoryOpKind,
+        value: u32,
+    ) -> Self {
+        // FIXME
+        let timestamp = clock * NUM_GP_CHANNELS + channel.index();
+        MemoryOp {
+            filter: true,
+            timestamp,
+            address,
+            kind,
+            value,
+        }
+    }
+
+    pub(crate) fn new_dummy_read(address: MemoryAddress, timestamp: usize, value: u32) -> Self {
+        Self {
+            filter: false,
+            timestamp,
+            address,
+            kind: MemoryOpKind::Read,
+            value,
+        }
+    }
+
+    pub(crate) fn sorting_key(&self) -> (usize, usize, usize, usize) {
+        (
+            self.address.context,
+            self.address.segment,
+            self.address.virt,
+            self.timestamp,
+        )
+    }
+}
 
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res =
@@ -63,7 +145,7 @@ impl MemoryOp {
         row[ADDR_SEGMENT] = F::from_canonical_usize(segment);
         row[ADDR_VIRTUAL] = F::from_canonical_usize(virt);
         for j in 0..VALUE_LIMBS {
-            row[value_limb(j)] = F::from_canonical_u32((self.value >> (j * 32)).low_u32());
+            row[value_limb(j)] = F::from_canonical_u32(self.value);
         }
         row
     }
@@ -176,7 +258,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
                 while next.address.virt - curr.address.virt - 1 > max_rc {
                     let mut dummy_address = curr.address;
                     dummy_address.virt += max_rc + 1;
-                    let dummy_read = MemoryOp::new_dummy_read(dummy_address, 0, U256::zero());
+                    let dummy_read = MemoryOp::new_dummy_read(dummy_address, 0, 0u32);
                     memory_ops.push(dummy_read);
                     curr = dummy_read;
                 }
