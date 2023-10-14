@@ -50,6 +50,26 @@ pub(crate) mod columns {
     pub const NUM_COLUMNS: usize = RESULT.end;
 }
 
+pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
+    // We scale each filter flag with the associated opcode value.
+    // If a logic operation is happening on the CPU side, the CTL
+    // will enforce that the reconstructed opcode value from the
+    // opcode bits matches.
+    let mut res = vec![Column::linear_combination([
+        (columns::IS_AND, F::from_canonical_u8(0x16)),
+        (columns::IS_OR, F::from_canonical_u8(0x17)),
+        (columns::IS_XOR, F::from_canonical_u8(0x18)),
+    ])];
+    res.extend(columns::limb_bit_cols_for_input(columns::INPUT0).map(Column::le_bits));
+    res.extend(columns::limb_bit_cols_for_input(columns::INPUT1).map(Column::le_bits));
+    res.extend(columns::RESULT.map(Column::single));
+    res
+}
+
+pub fn ctl_filter<F: Field>() -> Column<F> {
+    Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
+}
+
 #[derive(Copy, Clone, Default)]
 pub struct LogicStark<F, const D: usize> {
     pub f: PhantomData<F>,
