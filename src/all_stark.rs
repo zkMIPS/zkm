@@ -4,8 +4,8 @@ use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
-//use crate::arithmetic::arithmetic_stark;
-//use crate::arithmetic::arithmetic_stark::ArithmeticStark;
+use crate::arithmetic::arithmetic_stark;
+use crate::arithmetic::arithmetic_stark::ArithmeticStark;
 //use crate::byte_packing::byte_packing_stark::{self, BytePackingStark};
 use crate::config::StarkConfig;
 use crate::cpu::cpu_stark;
@@ -25,7 +25,7 @@ use crate::stark::Stark;
 
 #[derive(Clone)]
 pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
-    //   pub arithmetic_stark: ArithmeticStark<F, D>,
+    pub arithmetic_stark: ArithmeticStark<F, D>,
     //   pub byte_packing_stark: BytePackingStark<F, D>,
     pub cpu_stark: CpuStark<F, D>,
     pub keccak_stark: KeccakStark<F, D>,
@@ -38,7 +38,7 @@ pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
     fn default() -> Self {
         Self {
-            //           arithmetic_stark: ArithmeticStark::default(),
+            arithmetic_stark: ArithmeticStark::default(),
             //           byte_packing_stark: BytePackingStark::default(),
             cpu_stark: CpuStark::default(),
             keccak_stark: KeccakStark::default(),
@@ -66,13 +66,13 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Table {
-    //    Arithmetic = 0,
+    Arithmetic = 0,
     //    BytePacking = 1,
-    Cpu = 0,
-    Keccak = 1,
-    KeccakSponge = 2,
-    Logic = 3,
-    Memory = 4,
+    Cpu = 1,
+    Keccak = 2,
+    KeccakSponge = 3,
+    Logic = 4,
+    Memory = 5,
 }
 
 pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
@@ -80,7 +80,7 @@ pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
 impl Table {
     pub(crate) fn all() -> [Self; NUM_TABLES] {
         [
-            //            Self::Arithmetic,
+            Self::Arithmetic,
             //            Self::BytePacking,
             Self::Cpu,
             Self::Keccak,
@@ -103,7 +103,6 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
     ]
 }
 
-/*
 fn ctl_arithmetic<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(
         vec![cpu_stark::ctl_arithmetic_base_rows()],
@@ -111,6 +110,7 @@ fn ctl_arithmetic<F: Field>() -> CrossTableLookup<F> {
     )
 }
 
+/*
 fn ctl_byte_packing<F: Field>() -> CrossTableLookup<F> {
     let cpu_packing_looking = TableWithColumns::new(
         Table::Cpu,

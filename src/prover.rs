@@ -176,7 +176,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    /*
     let arithmetic_proof = timed!(
         timing,
         "prove Arithmetic STARK",
@@ -191,6 +190,7 @@ where
             timing,
         )?
     );
+    /*
     let byte_packing_proof = timed!(
         timing,
         "prove byte packing STARK",
@@ -278,7 +278,7 @@ where
     );
 
     Ok([
-        //arithmetic_proof,
+        arithmetic_proof,
         //byte_packing_proof,
         cpu_proof,
         keccak_proof,
