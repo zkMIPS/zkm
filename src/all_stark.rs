@@ -66,8 +66,8 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Table {
-//    Arithmetic = 0,
-//    BytePacking = 1,
+    //    Arithmetic = 0,
+    //    BytePacking = 1,
     Cpu = 0,
     Keccak = 1,
     KeccakSponge = 2,
@@ -80,8 +80,8 @@ pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
 impl Table {
     pub(crate) fn all() -> [Self; NUM_TABLES] {
         [
-//            Self::Arithmetic,
-//            Self::BytePacking,
+            //            Self::Arithmetic,
+            //            Self::BytePacking,
             Self::Cpu,
             Self::Keccak,
             Self::KeccakSponge,
