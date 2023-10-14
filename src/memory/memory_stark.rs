@@ -17,14 +17,13 @@ use crate::cross_table_lookup::Column;
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::Lookup;
 use crate::memory::columns::{
-    value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER, FILTER,
-    FREQUENCIES, IS_READ, NUM_COLUMNS, RANGE_CHECK, SEGMENT_FIRST_CHANGE, TIMESTAMP,
-    VIRTUAL_FIRST_CHANGE,
+    value_limb, ADDR_CONTEXT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER, FILTER, FREQUENCIES,
+    IS_READ, NUM_COLUMNS, RANGE_CHECK, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
+use crate::memory::memory_stark::MemoryChannel::GeneralPurpose;
+use crate::memory::memory_stark::MemoryOpKind::Read;
 use crate::memory::VALUE_LIMBS;
 use crate::stark::Stark;
-use crate::memory::memory_stark::MemoryOpKind::Read;
-use crate::memory::memory_stark::MemoryChannel::GeneralPurpose;
 
 pub const NUM_GP_CHANNELS: usize = 5;
 
@@ -50,7 +49,6 @@ impl MemoryChannel {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct MemoryAddress {
     pub(crate) context: usize,
-    pub(crate) segment: usize,
     pub(crate) virt: usize,
 }
 
@@ -99,19 +97,13 @@ impl MemoryOp {
         }
     }
 
-    pub(crate) fn sorting_key(&self) -> (usize, usize, usize, usize) {
-        (
-            self.address.context,
-            self.address.segment,
-            self.address.virt,
-            self.timestamp,
-        )
+    pub(crate) fn sorting_key(&self) -> (usize, usize, usize) {
+        (self.address.context, self.address.virt, self.timestamp)
     }
 }
 
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
-    let mut res =
-        Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL]).collect_vec();
+    let mut res = Column::singles([IS_READ, ADDR_CONTEXT, ADDR_VIRTUAL]).collect_vec();
     res.extend(Column::singles((0..8).map(value_limb)));
     res.push(Column::single(TIMESTAMP));
     res
@@ -136,13 +128,8 @@ impl MemoryOp {
         row[FILTER] = F::from_bool(self.filter);
         row[TIMESTAMP] = F::from_canonical_usize(self.timestamp);
         row[IS_READ] = F::from_bool(self.kind == Read);
-        let MemoryAddress {
-            context,
-            segment,
-            virt,
-        } = self.address;
+        let MemoryAddress { context, virt } = self.address;
         row[ADDR_CONTEXT] = F::from_canonical_usize(context);
-        row[ADDR_SEGMENT] = F::from_canonical_usize(segment);
         row[ADDR_VIRTUAL] = F::from_canonical_usize(virt);
         for j in 0..VALUE_LIMBS {
             row[value_limb(j)] = F::from_canonical_u32(self.value);
@@ -159,32 +146,24 @@ pub fn generate_first_change_flags_and_rc<F: RichField>(trace_rows: &mut [[F; NU
         let next_row = trace_rows[idx + 1].as_slice();
 
         let context = row[ADDR_CONTEXT];
-        let segment = row[ADDR_SEGMENT];
         let virt = row[ADDR_VIRTUAL];
         let timestamp = row[TIMESTAMP];
         let next_context = next_row[ADDR_CONTEXT];
-        let next_segment = next_row[ADDR_SEGMENT];
         let next_virt = next_row[ADDR_VIRTUAL];
         let next_timestamp = next_row[TIMESTAMP];
 
         let context_changed = context != next_context;
-        let segment_changed = segment != next_segment;
         let virtual_changed = virt != next_virt;
 
         let context_first_change = context_changed;
-        let segment_first_change = segment_changed && !context_first_change;
-        let virtual_first_change =
-            virtual_changed && !segment_first_change && !context_first_change;
+        let virtual_first_change = virtual_changed && !context_first_change;
 
         let row = trace_rows[idx].as_mut_slice();
         row[CONTEXT_FIRST_CHANGE] = F::from_bool(context_first_change);
-        row[SEGMENT_FIRST_CHANGE] = F::from_bool(segment_first_change);
         row[VIRTUAL_FIRST_CHANGE] = F::from_bool(virtual_first_change);
 
         row[RANGE_CHECK] = if context_first_change {
             next_context - context - F::ONE
-        } else if segment_first_change {
-            next_segment - segment - F::ONE
         } else if virtual_first_change {
             next_virt - virt - F::ONE
         } else {
@@ -232,7 +211,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         }
     }
 
-    /// This memory STARK orders rows by `(context, segment, virt, timestamp)`. To enforce the
+    /// This memory STARK orders rows by `(context, virt, timestamp)`. To enforce the
     /// ordering, it range checks the delta of the first field that changed.
     ///
     /// This method adds some dummy operations to ensure that none of these range checks will be too
@@ -245,9 +224,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     fn fill_gaps(memory_ops: &mut Vec<MemoryOp>) {
         let max_rc = memory_ops.len().next_power_of_two() - 1;
         for (mut curr, next) in memory_ops.clone().into_iter().tuple_windows() {
-            if curr.address.context != next.address.context
-                || curr.address.segment != next.address.segment
-            {
+            if curr.address.context != next.address.context {
                 // We won't bother to check if there's a large context gap, because there can't be
                 // more than 500 contexts or so, as explained here:
                 // https://notes.ethereum.org/@vbuterin/proposals_to_adjust_memory_gas_costs
@@ -341,16 +318,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 
         let timestamp = local_values[TIMESTAMP];
         let addr_context = local_values[ADDR_CONTEXT];
-        let addr_segment = local_values[ADDR_SEGMENT];
         let addr_virtual = local_values[ADDR_VIRTUAL];
-        let value_limbs: Vec<_> = (0..8).map(|i| local_values[value_limb(i)]).collect();
+        let value_limbs: Vec<_> = (0..VALUE_LIMBS)
+            .map(|i| local_values[value_limb(i)])
+            .collect();
 
         let next_timestamp = next_values[TIMESTAMP];
         let next_is_read = next_values[IS_READ];
         let next_addr_context = next_values[ADDR_CONTEXT];
-        let next_addr_segment = next_values[ADDR_SEGMENT];
         let next_addr_virtual = next_values[ADDR_VIRTUAL];
-        let next_values_limbs: Vec<_> = (0..8).map(|i| next_values[value_limb(i)]).collect();
+        let next_values_limbs: Vec<_> = (0..VALUE_LIMBS)
+            .map(|i| next_values[value_limb(i)])
+            .collect();
 
         // The filter must be 0 or 1.
         let filter = local_values[FILTER];
@@ -363,44 +342,34 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         yield_constr.constraint(is_dummy * is_write);
 
         let context_first_change = local_values[CONTEXT_FIRST_CHANGE];
-        let segment_first_change = local_values[SEGMENT_FIRST_CHANGE];
         let virtual_first_change = local_values[VIRTUAL_FIRST_CHANGE];
-        let address_unchanged =
-            one - context_first_change - segment_first_change - virtual_first_change;
+        let address_unchanged = one - context_first_change - virtual_first_change;
 
         let range_check = local_values[RANGE_CHECK];
 
         let not_context_first_change = one - context_first_change;
-        let not_segment_first_change = one - segment_first_change;
         let not_virtual_first_change = one - virtual_first_change;
         let not_address_unchanged = one - address_unchanged;
 
         // First set of ordering constraint: first_change flags are boolean.
         yield_constr.constraint(context_first_change * not_context_first_change);
-        yield_constr.constraint(segment_first_change * not_segment_first_change);
         yield_constr.constraint(virtual_first_change * not_virtual_first_change);
         yield_constr.constraint(address_unchanged * not_address_unchanged);
 
         // Second set of ordering constraints: no change before the column corresponding to the nonzero first_change flag.
         yield_constr
-            .constraint_transition(segment_first_change * (next_addr_context - addr_context));
-        yield_constr
             .constraint_transition(virtual_first_change * (next_addr_context - addr_context));
-        yield_constr
-            .constraint_transition(virtual_first_change * (next_addr_segment - addr_segment));
         yield_constr.constraint_transition(address_unchanged * (next_addr_context - addr_context));
-        yield_constr.constraint_transition(address_unchanged * (next_addr_segment - addr_segment));
         yield_constr.constraint_transition(address_unchanged * (next_addr_virtual - addr_virtual));
 
         // Third set of ordering constraints: range-check difference in the column that should be increasing.
         let computed_range_check = context_first_change * (next_addr_context - addr_context - one)
-            + segment_first_change * (next_addr_segment - addr_segment - one)
             + virtual_first_change * (next_addr_virtual - addr_virtual - one)
             + address_unchanged * (next_timestamp - timestamp);
         yield_constr.constraint_transition(range_check - computed_range_check);
 
         // Enumerate purportedly-ordered log.
-        for i in 0..8 {
+        for i in 0..VALUE_LIMBS {
             yield_constr.constraint_transition(
                 next_is_read * address_unchanged * (next_values_limbs[i] - value_limbs[i]),
             );
@@ -418,15 +387,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let next_values = vars.get_next_values();
 
         let addr_context = local_values[ADDR_CONTEXT];
-        let addr_segment = local_values[ADDR_SEGMENT];
         let addr_virtual = local_values[ADDR_VIRTUAL];
-        let value_limbs: Vec<_> = (0..8).map(|i| local_values[value_limb(i)]).collect();
+        let value_limbs: Vec<_> = (0..VALUE_LIMBS)
+            .map(|i| local_values[value_limb(i)])
+            .collect();
         let timestamp = local_values[TIMESTAMP];
 
         let next_addr_context = next_values[ADDR_CONTEXT];
-        let next_addr_segment = next_values[ADDR_SEGMENT];
         let next_addr_virtual = next_values[ADDR_VIRTUAL];
-        let next_values_limbs: Vec<_> = (0..8).map(|i| next_values[value_limb(i)]).collect();
+        let next_values_limbs: Vec<_> = (0..VALUE_LIMBS)
+            .map(|i| next_values[value_limb(i)])
+            .collect();
         let next_is_read = next_values[IS_READ];
         let next_timestamp = next_values[TIMESTAMP];
 
@@ -443,31 +414,24 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         yield_constr.constraint(builder, is_dummy_write);
 
         let context_first_change = local_values[CONTEXT_FIRST_CHANGE];
-        let segment_first_change = local_values[SEGMENT_FIRST_CHANGE];
         let virtual_first_change = local_values[VIRTUAL_FIRST_CHANGE];
         let address_unchanged = {
             let mut cur = builder.sub_extension(one, context_first_change);
-            cur = builder.sub_extension(cur, segment_first_change);
             builder.sub_extension(cur, virtual_first_change)
         };
 
         let range_check = local_values[RANGE_CHECK];
 
         let not_context_first_change = builder.sub_extension(one, context_first_change);
-        let not_segment_first_change = builder.sub_extension(one, segment_first_change);
         let not_virtual_first_change = builder.sub_extension(one, virtual_first_change);
         let not_address_unchanged = builder.sub_extension(one, address_unchanged);
         let addr_context_diff = builder.sub_extension(next_addr_context, addr_context);
-        let addr_segment_diff = builder.sub_extension(next_addr_segment, addr_segment);
         let addr_virtual_diff = builder.sub_extension(next_addr_virtual, addr_virtual);
 
         // First set of ordering constraint: traces are boolean.
         let context_first_change_bool =
             builder.mul_extension(context_first_change, not_context_first_change);
         yield_constr.constraint(builder, context_first_change_bool);
-        let segment_first_change_bool =
-            builder.mul_extension(segment_first_change, not_segment_first_change);
-        yield_constr.constraint(builder, segment_first_change_bool);
         let virtual_first_change_bool =
             builder.mul_extension(virtual_first_change, not_virtual_first_change);
         yield_constr.constraint(builder, virtual_first_change_bool);
@@ -476,19 +440,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         yield_constr.constraint(builder, address_unchanged_bool);
 
         // Second set of ordering constraints: no change before the column corresponding to the nonzero first_change flag.
-        let segment_first_change_check =
-            builder.mul_extension(segment_first_change, addr_context_diff);
-        yield_constr.constraint_transition(builder, segment_first_change_check);
         let virtual_first_change_check_1 =
             builder.mul_extension(virtual_first_change, addr_context_diff);
         yield_constr.constraint_transition(builder, virtual_first_change_check_1);
-        let virtual_first_change_check_2 =
-            builder.mul_extension(virtual_first_change, addr_segment_diff);
-        yield_constr.constraint_transition(builder, virtual_first_change_check_2);
         let address_unchanged_check_1 = builder.mul_extension(address_unchanged, addr_context_diff);
         yield_constr.constraint_transition(builder, address_unchanged_check_1);
-        let address_unchanged_check_2 = builder.mul_extension(address_unchanged, addr_segment_diff);
-        yield_constr.constraint_transition(builder, address_unchanged_check_2);
         let address_unchanged_check_3 = builder.mul_extension(address_unchanged, addr_virtual_diff);
         yield_constr.constraint_transition(builder, address_unchanged_check_3);
 
@@ -497,11 +453,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             let diff = builder.sub_extension(next_addr_context, addr_context);
             builder.sub_extension(diff, one)
         };
-        let segment_diff = {
-            let diff = builder.sub_extension(next_addr_segment, addr_segment);
-            builder.sub_extension(diff, one)
-        };
-        let segment_range_check = builder.mul_extension(segment_first_change, segment_diff);
         let virtual_diff = {
             let diff = builder.sub_extension(next_addr_virtual, addr_virtual);
             builder.sub_extension(diff, one)
@@ -513,15 +464,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let computed_range_check = {
             // context_range_check = context_first_change * context_diff
             let mut sum =
-                builder.mul_add_extension(context_first_change, context_diff, segment_range_check);
-            sum = builder.add_extension(sum, virtual_range_check);
+                builder.mul_add_extension(context_first_change, context_diff, virtual_range_check);
             builder.add_extension(sum, timestamp_range_check)
         };
         let range_check_diff = builder.sub_extension(range_check, computed_range_check);
         yield_constr.constraint_transition(builder, range_check_diff);
 
         // Enumerate purportedly-ordered log.
-        for i in 0..8 {
+        for i in 0..VALUE_LIMBS {
             let value_diff = builder.sub_extension(next_values_limbs[i], value_limbs[i]);
             let zero_if_read = builder.mul_extension(address_unchanged, value_diff);
             let read_constraint = builder.mul_extension(next_is_read, zero_if_read);

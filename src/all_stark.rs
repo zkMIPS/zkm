@@ -25,27 +25,27 @@ use crate::stark::Stark;
 
 #[derive(Clone)]
 pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
- //   pub arithmetic_stark: ArithmeticStark<F, D>,
- //   pub byte_packing_stark: BytePackingStark<F, D>,
- //   pub cpu_stark: CpuStark<F, D>,
- //   pub keccak_stark: KeccakStark<F, D>,
- //   pub keccak_sponge_stark: KeccakSpongeStark<F, D>,
+    //   pub arithmetic_stark: ArithmeticStark<F, D>,
+    //   pub byte_packing_stark: BytePackingStark<F, D>,
+    //   pub cpu_stark: CpuStark<F, D>,
+    //   pub keccak_stark: KeccakStark<F, D>,
+    //   pub keccak_sponge_stark: KeccakSpongeStark<F, D>,
     pub logic_stark: LogicStark<F, D>,
     pub memory_stark: MemoryStark<F, D>,
- //   pub cross_table_lookups: Vec<CrossTableLookup<F>>,
+    //   pub cross_table_lookups: Vec<CrossTableLookup<F>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
     fn default() -> Self {
         Self {
- //           arithmetic_stark: ArithmeticStark::default(),
- //           byte_packing_stark: BytePackingStark::default(),
- //           cpu_stark: CpuStark::default(),
- //           keccak_stark: KeccakStark::default(),
- //           keccak_sponge_stark: KeccakSpongeStark::default(),
+            //           arithmetic_stark: ArithmeticStark::default(),
+            //           byte_packing_stark: BytePackingStark::default(),
+            //           cpu_stark: CpuStark::default(),
+            //           keccak_stark: KeccakStark::default(),
+            //           keccak_sponge_stark: KeccakSpongeStark::default(),
             logic_stark: LogicStark::default(),
             memory_stark: MemoryStark::default(),
-//            cross_table_lookups: all_cross_table_lookups(),
+            //            cross_table_lookups: all_cross_table_lookups(),
         }
     }
 }
@@ -53,11 +53,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
 impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
     pub(crate) fn num_lookups_helper_columns(&self, config: &StarkConfig) -> [usize; 2] {
         [
-//            self.arithmetic_stark.num_lookup_helper_columns(config),
-//            self.byte_packing_stark.num_lookup_helper_columns(config),
-//            self.cpu_stark.num_lookup_helper_columns(config),
-//            self.keccak_stark.num_lookup_helper_columns(config),
-//            self.keccak_sponge_stark.num_lookup_helper_columns(config),
+            //            self.arithmetic_stark.num_lookup_helper_columns(config),
+            //            self.byte_packing_stark.num_lookup_helper_columns(config),
+            //            self.cpu_stark.num_lookup_helper_columns(config),
+            //            self.keccak_stark.num_lookup_helper_columns(config),
+            //            self.keccak_sponge_stark.num_lookup_helper_columns(config),
             self.logic_stark.num_lookup_helper_columns(config),
             self.memory_stark.num_lookup_helper_columns(config),
         ]
