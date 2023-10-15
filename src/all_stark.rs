@@ -93,7 +93,7 @@ impl Table {
 
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
     vec![
-        //        ctl_arithmetic(),
+        ctl_arithmetic(),
         //        ctl_byte_packing(),
         ctl_keccak_sponge(),
         ctl_keccak_inputs(),
