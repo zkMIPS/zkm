@@ -200,11 +200,13 @@ fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
+    /*
     let cpu_memory_code_read = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_code_memory(),
         Some(cpu_stark::ctl_filter_code_memory()),
     );
+    */
     let cpu_memory_gp_ops = (0..NUM_GP_CHANNELS).map(|channel| {
         TableWithColumns::new(
             Table::Cpu,
@@ -228,8 +230,8 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         )
     });
     */
-    let all_lookers = iter::once(cpu_memory_code_read)
-        .chain(cpu_memory_gp_ops)
+    let all_lookers = cpu_memory_gp_ops
+        .into_iter()
         .chain(keccak_sponge_reads)
         //  .chain(byte_packing_ops)
         .collect();

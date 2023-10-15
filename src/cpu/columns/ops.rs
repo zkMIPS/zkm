@@ -9,7 +9,6 @@ use crate::util::transmute_no_compile_time_size_checks;
 pub struct OpsColumnsView<T: Copy> {
     pub binary_op: T,  // Combines ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags.
     pub ternary_op: T, // Combines ADDMOD, MULMOD and SUBMOD flags.
-    pub fp254_op: T,   // Combines ADD_FP254, MUL_FP254 and SUB_FP254 flags.
     pub eq_iszero: T,  // Combines EQ and ISZERO flags.
     pub logic_op: T,   // Combines AND, OR and XOR flags.
     pub not: T,

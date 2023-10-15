@@ -55,6 +55,7 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     // If a logic operation is happening on the CPU side, the CTL
     // will enforce that the reconstructed opcode value from the
     // opcode bits matches.
+    // FIXME: https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/cpu/kernel/opcodes.rs#L31
     let mut res = vec![Column::linear_combination([
         (columns::IS_AND, F::from_canonical_u8(0x16)),
         (columns::IS_OR, F::from_canonical_u8(0x17)),

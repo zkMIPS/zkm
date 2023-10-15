@@ -754,7 +754,7 @@ mod tests {
         let op = KeccakSpongeOp {
             base_address: MemoryAddress {
                 context: 0,
-                segment: Segment::Code as usize,
+                segment: Segment::MainMemory as usize,
                 virt: 0,
             },
             timestamp: 0,

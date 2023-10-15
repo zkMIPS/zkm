@@ -259,7 +259,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use ethereum_types::U256;
     use plonky2::field::types::{Field, PrimeField64};
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use rand::{Rng, SeedableRng};

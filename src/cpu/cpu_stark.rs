@@ -21,6 +21,7 @@ use crate::cpu::{
     modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
 };
 */
+use crate::cpu::{control_flow, membus, pc};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
@@ -101,7 +102,6 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
         columns,
         Some(Column::sum([
             COL_MAP.op.binary_op,
-            COL_MAP.op.fp254_op,
             COL_MAP.op.ternary_op,
             COL_MAP.op.shift,
         ])),
@@ -152,6 +152,7 @@ fn mem_time_and_channel<F: Field>(channel: usize) -> Column<F> {
     Column::linear_combination_with_constant([(COL_MAP.clock, scalar)], addend)
 }
 
+/*
 pub fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
     let mut cols = vec![
         Column::constant(F::ONE),                                      // is_read
@@ -170,6 +171,7 @@ pub fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
 
     cols
 }
+*/
 
 pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     let channel_map = COL_MAP.mem_channels[channel];
@@ -225,16 +227,22 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         /*
         bootstrap_kernel::eval_bootstrap_kernel_packed(local_values, next_values, yield_constr);
         contextops::eval_packed(local_values, next_values, yield_constr);
+        */
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
+        /*
         decode::eval_packed_generic(local_values, yield_constr);
         dup_swap::eval_packed(local_values, next_values, yield_constr);
         gas::eval_packed(local_values, next_values, yield_constr);
         halt::eval_packed(local_values, next_values, yield_constr);
         jumps::eval_packed(local_values, next_values, yield_constr);
+        */
         membus::eval_packed(local_values, yield_constr);
+        /*
         memio::eval_packed(local_values, next_values, yield_constr);
         modfp254::eval_packed(local_values, yield_constr);
+        */
         pc::eval_packed(local_values, next_values, yield_constr);
+        /*
         push0::eval_packed(local_values, next_values, yield_constr);
         shift::eval_packed(local_values, yield_constr);
         simple_logic::eval_packed(local_values, next_values, yield_constr);
@@ -265,16 +273,22 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
             yield_constr,
         );
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        */
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        /*
         decode::eval_ext_circuit(builder, local_values, yield_constr);
         dup_swap::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         gas::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         halt::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        */
         membus::eval_ext_circuit(builder, local_values, yield_constr);
+        /*
         memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         modfp254::eval_ext_circuit(builder, local_values, yield_constr);
+        */
         pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        /*
         push0::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         shift::eval_ext_circuit(builder, local_values, yield_constr);
         simple_logic::eval_ext_circuit(builder, local_values, next_values, yield_constr);

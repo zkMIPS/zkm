@@ -119,12 +119,14 @@ pub struct MemoryState {
 }
 
 impl MemoryState {
+    /*
     pub fn new(kernel_code: &[u8]) -> Self {
         let code_u256s = kernel_code.iter().map(|&x| x.into()).collect();
         let mut result = Self::default();
         result.contexts[0].segments[Segment::Code as usize].content = code_u256s;
         result
     }
+    */
 
     pub fn apply_ops(&mut self, ops: &[MemoryOp]) {
         for &op in ops {
