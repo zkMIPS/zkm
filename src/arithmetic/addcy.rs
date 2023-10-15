@@ -27,12 +27,7 @@ use crate::arithmetic::utils::u32_to_array;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Generate row for ADD, SUB, GT and LT operations.
-pub(crate) fn generate<F: PrimeField64>(
-    lv: &mut [F],
-    filter: usize,
-    left_in: u32,
-    right_in: u32,
-) {
+pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], filter: usize, left_in: u32, right_in: u32) {
     u32_to_array(&mut lv[INPUT_REGISTER_0], left_in);
     u32_to_array(&mut lv[INPUT_REGISTER_1], right_in);
     u32_to_array(&mut lv[INPUT_REGISTER_2], 0);

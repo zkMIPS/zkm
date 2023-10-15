@@ -8,6 +8,9 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::arithmetic::columns::*;
+use crate::arithmetic::modular::{
+    generate_modular_op, modular_constr_poly, modular_constr_poly_ext_circuit,
+};
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
@@ -22,10 +25,7 @@ pub(crate) fn generate_divmod<F: PrimeField64>(
 ) {
     let input_limbs = read_value_i64_limbs::<N_LIMBS, _>(lv, input_limbs_range);
     let pol_input: [i64; 2 * N_LIMBS - 1] = pol_extend(input_limbs);
-    //let (out, quo_input) = generate_modular_op(lv, nv, filter, pol_input, modulus_range);
-    // FIXME
-    let out = [F::ZERO; N_LIMBS];
-    let quo_input = [F::ZERO; N_LIMBS * 2];
+    let (out, quo_input) = generate_modular_op(lv, nv, filter, pol_input, modulus_range);
 
     debug_assert!(
         &quo_input[N_LIMBS..].iter().all(|&x| x == F::ZERO),
@@ -100,11 +100,9 @@ pub(crate) fn eval_packed_divmod_helper<P: PackedField>(
         quo[..N_LIMBS].copy_from_slice(&lv[quo_range]);
         quo
     };
-    let rem: [P; N_LIMBS] = read_value(lv, rem_range);
+    let rem = read_value(lv, rem_range);
 
-    // let mut constr_poly = modular_constr_poly(lv, nv, yield_constr, filter, rem, den, quo);
-    // FIXME
-    let mut constr_poly = [P::ZEROS; N_LIMBS * 2];
+    let mut constr_poly = modular_constr_poly(lv, nv, yield_constr, filter, rem, den, quo);
 
     let input = num;
     pol_sub_assign(&mut constr_poly, input);
@@ -164,10 +162,8 @@ pub(crate) fn eval_ext_circuit_divmod_helper<F: RichField + Extendable<D>, const
     };
     let rem: [ExtensionTarget<D>; N_LIMBS] = read_value(lv, rem_range);
 
-    //let mut constr_poly =
-    //    modular_constr_poly_ext_circuit(lv, nv, builder, yield_constr, filter, rem, den, quo);
-    // FIXME
-    let mut constr_poly = [ExtensionTarget::<D>::default(); 2 * N_LIMBS];
+    let mut constr_poly =
+        modular_constr_poly_ext_circuit(lv, nv, builder, yield_constr, filter, rem, den, quo);
 
     let input = num;
     pol_sub_assign_ext_circuit(builder, &mut constr_poly, input);

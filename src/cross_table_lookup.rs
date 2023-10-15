@@ -136,7 +136,7 @@ impl<F: Field> Column<F> {
         Self::linear_combination(
             cs.into_iter()
                 .map(|c| *c.borrow())
-                .zip(F::from_canonical_u16(256).powers()),
+                .zip(F::from_canonical_u16(32).powers()),
         )
     }
 

@@ -1,14 +1,15 @@
+pub mod addcy;
 pub mod arithmetic_stark;
 pub mod columns;
-pub mod shift;
-pub mod addcy;
 pub mod divmod;
+pub mod modular;
 pub mod mul;
+pub mod shift;
 pub mod utils;
 
+use crate::util::*;
 use num::Zero;
 use plonky2::field::types::PrimeField64;
-use crate::util::*;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum BinaryOperator {
@@ -30,7 +31,7 @@ impl BinaryOperator {
             BinaryOperator::Add => input0.overflowing_add(input1).0,
             BinaryOperator::Mul => input0.overflowing_mul(input1).0,
             BinaryOperator::Shl => {
-                if input0 < 256 {
+                if input0 < 32 {
                     input1 << input0
                 } else {
                     u32::zero()
@@ -45,7 +46,7 @@ impl BinaryOperator {
                 }
             }
             BinaryOperator::Shr => {
-                if input0 < 256 {
+                if input0 < 32 {
                     input1 >> input0
                 } else {
                     u32::zero()
@@ -99,9 +100,9 @@ pub(crate) enum TernaryOperator {
 impl TernaryOperator {
     pub(crate) fn result(&self, input0: u32, input1: u32, input2: u32) -> u32 {
         match self {
-            TernaryOperator::AddMod => ((input0 + input1) % input2),
-            TernaryOperator::MulMod => ((input0 * input1) % input2),
-            TernaryOperator::SubMod => ((input0 - input1) % input2),
+            TernaryOperator::AddMod => (input0 + input1) % input2,
+            TernaryOperator::MulMod => (input0 * input1) % input2,
+            TernaryOperator::SubMod => (input0 - input1) % input2,
         }
     }
 
@@ -222,8 +223,7 @@ fn ternary_op_to_rows<F: PrimeField64>(
 
     row1[row_filter] = F::ONE;
 
-    // FIXME
-    // modular::generate(&mut row1, &mut row2, row_filter, input0, input1, input2);
+    modular::generate(&mut row1, &mut row2, row_filter, input0, input1, input2);
 
     (row1, Some(row2))
 }
@@ -260,12 +260,11 @@ fn binary_op_to_rows<F: PrimeField64>(
             let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
             shift::generate(&mut row, &mut nv, false, input0, input1, result);
             (row, Some(nv))
-        }
-        /*
-        BinaryOperator::Byte => {
-            byte::generate(&mut row, input0, input1);
-            (row, None)
-        }
-        */
+        } /*
+          BinaryOperator::Byte => {
+              byte::generate(&mut row, input0, input1);
+              (row, None)
+          }
+          */
     }
 }
