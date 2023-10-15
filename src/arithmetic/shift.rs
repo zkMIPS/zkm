@@ -46,14 +46,14 @@ pub fn generate<F: PrimeField64>(
     result: u32,
 ) {
     // We use the multiplication logic to generate SHL
-    // TODO: It would probably be clearer/cleaner to read the U256
+    // TODO: It would probably be clearer/cleaner to read the U32
     // into an [i64;N] and then copy that to the lv table.
     // The first input is the shift we need to apply.
     u32_to_array(&mut lv[INPUT_REGISTER_0], shift);
     // The second register holds the input which needs shifting.
     u32_to_array(&mut lv[INPUT_REGISTER_1], input);
     u32_to_array(&mut lv[OUTPUT_REGISTER], result);
-    // If `shift >= 256`, the shifted displacement is set to 0.
+    // If `shift >= 32`, the shifted displacement is set to 0.
     // Compute 1 << shift and store it in the third input register.
     let shifted_displacement = if shift > 31 { 0 } else { 1 << shift };
 
@@ -230,16 +230,14 @@ mod tests {
             lv[IS_SHR] = F::ONE;
         }
 
-        /*
         for _i in 0..N_RND_TESTS {
-            let shift = U256::from(rng.gen::<u8>());
+            let shift = (rng.gen::<u8>() as u32) % 32u32;
 
-            let mut full_input = U256::from(0);
+            let mut full_input = 0;
             // set inputs to random values
             for ai in INPUT_REGISTER_1 {
                 lv[ai] = F::from_canonical_u16(rng.gen());
-                full_input =
-                    U256::from(lv[ai].to_canonical_u64()) + full_input * U256::from(1 << 16);
+                full_input = lv[ai].to_canonical_u64() as u32 + full_input * (1 << 16);
             }
 
             let output = if is_shl {
@@ -261,7 +259,6 @@ mod tests {
                 assert_eq!(acc, GoldilocksField::ZERO);
             }
         }
-        */
     }
 
     #[test]
@@ -274,7 +271,7 @@ mod tests {
         generate_eval_consistency_shift(false);
     }
 
-    fn generate_eval_consistency_shift_over_256(is_shl: bool) {
+    fn generate_eval_consistency_shift_over_32(is_shl: bool) {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
@@ -292,23 +289,21 @@ mod tests {
             lv[IS_SHR] = F::ONE;
         }
 
-        /* FIXME
         for _i in 0..N_RND_TESTS {
             let mut shift = rng.gen::<u32>();
-            while shift > U256::MAX - 256 {
-                shift = U256::from(rng.gen::<usize>());
+            while shift > u32::MAX - 32 {
+                shift = rng.gen::<u32>();
             }
-            shift += U256::from(256);
+            shift += 32;
 
-            let mut full_input = U256::from(0);
+            let mut full_input = 0;
             // set inputs to random values
             for ai in INPUT_REGISTER_1 {
                 lv[ai] = F::from_canonical_u16(rng.gen());
-                full_input =
-                    U256::from(lv[ai].to_canonical_u64()) + full_input * U256::from(1 << 16);
+                full_input = lv[ai].to_canonical_u64() as u32 + full_input * (1 << 16);
             }
 
-            let output = 0.into();
+            let output = 0;
             generate(&mut lv, &mut nv, is_shl, shift, full_input, output);
 
             let mut constraint_consumer = ConstraintConsumer::new(
@@ -322,16 +317,15 @@ mod tests {
                 assert_eq!(acc, GoldilocksField::ZERO);
             }
         }
-        */
     }
 
     #[test]
-    fn generate_eval_consistency_shl_over_256() {
-        generate_eval_consistency_shift_over_256(true);
+    fn generate_eval_consistency_shl_over_32() {
+        generate_eval_consistency_shift_over_32(true);
     }
 
     #[test]
-    fn generate_eval_consistency_shr_over_256() {
-        generate_eval_consistency_shift_over_256(false);
+    fn generate_eval_consistency_shr_over_32() {
+        generate_eval_consistency_shift_over_32(false);
     }
 }
