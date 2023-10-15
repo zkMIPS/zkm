@@ -42,20 +42,6 @@ impl MemoryAddress {
         }
     }
 
-    pub(crate) fn new_u256s(context: u32, segment: u32, virt: u32) -> Result<Self, ProgramError> {
-        // FIXME range check for context and virt
-        if segment >= Segment::COUNT as u32 {
-            return Err(MemoryError(SegmentTooLarge { segment }));
-        }
-
-        // Calling `as_usize` here is safe as those have been checked above.
-        Ok(Self {
-            context: context as usize,
-            segment: segment as usize,
-            virt: virt as usize,
-        })
-    }
-
     pub(crate) fn increment(&mut self) {
         self.virt = self.virt.saturating_add(1);
     }
@@ -161,15 +147,13 @@ impl MemoryState {
 
         let segment = Segment::all()[address.segment];
         let val = self.contexts[address.context].segments[address.segment].get(address.virt);
-        /* FIXME range check
         assert!(
-            val.bits() <= segment.bit_range(),
+            u32::BITS as usize <= segment.bit_range(),
             "Value {} exceeds {:?} range of {} bits",
             val,
             segment,
             segment.bit_range()
         );
-        */
         val
     }
 
@@ -179,15 +163,13 @@ impl MemoryState {
         }
 
         let segment = Segment::all()[address.segment];
-        /* FIXME: range check
         assert!(
-            val.bits() <= segment.bit_range(),
+            u32::BITS as usize <= segment.bit_range(),
             "Value {} exceeds {:?} range of {} bits",
             val,
             segment,
             segment.bit_range()
         );
-        */
         self.contexts[address.context].segments[address.segment].set(address.virt, val);
     }
 

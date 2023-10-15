@@ -271,7 +271,6 @@ mod tests {
 
                 let input0 = rng.gen::<u32>();
                 let input1 = {
-                    /* FIXME
                     let mut modulus_limbs = [0u8; 2];
                     // For the second half of the tests, set the top
                     // 16-start digits of the "modulus" to zero so it is
@@ -283,9 +282,7 @@ mod tests {
                             *mi = 0u8;
                         }
                     }
-                    (modulus_limbs[0] as u32) * (2**16) + modulus_limbs[1] as u32
-                    */
-                    0u32
+                    (modulus_limbs[0] as u32) * (1 << 16) + modulus_limbs[1] as u32
                 };
 
                 let result = if input1 == 0u32 {

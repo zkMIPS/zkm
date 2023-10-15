@@ -62,8 +62,7 @@ impl MemoryOp {
         row[ADDR_SEGMENT] = F::from_canonical_usize(segment);
         row[ADDR_VIRTUAL] = F::from_canonical_usize(virt);
         for j in 0..VALUE_LIMBS {
-            // FIXME
-            row[value_limb(j)] = F::from_canonical_u32(self.value);
+            row[value_limb(j)] = F::from_canonical_u32(self.value >> (j * 32));
         }
         row
     }
