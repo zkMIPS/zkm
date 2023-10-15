@@ -8,7 +8,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 // use crate::cpu::kernel::aggregator::KERNEL;
 
-const NATIVE_INSTRUCTIONS: [usize; 17] = [
+const NATIVE_INSTRUCTIONS: [usize; 14] = [
     COL_MAP.op.binary_op,
     COL_MAP.op.ternary_op,
     COL_MAP.op.eq_iszero,
@@ -17,13 +17,10 @@ const NATIVE_INSTRUCTIONS: [usize; 17] = [
     COL_MAP.op.shift,
     COL_MAP.op.keccak_general,
     COL_MAP.op.prover_input,
-    COL_MAP.op.pop,
     // not JUMPS (possible need to jump)
     COL_MAP.op.pc,
     COL_MAP.op.jumpdest,
-    COL_MAP.op.push0,
     // not PUSH (need to increment by more than 1)
-    COL_MAP.op.dup,
     COL_MAP.op.swap,
     COL_MAP.op.get_context,
     COL_MAP.op.set_context,
@@ -83,7 +80,7 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr.constraint_transition(is_last_noncpu_cycle * pc_diff);
     */
     yield_constr.constraint_transition(is_last_noncpu_cycle * (nv.is_kernel_mode - P::ONES));
-    yield_constr.constraint_transition(is_last_noncpu_cycle * nv.stack_len);
+    // yield_constr.constraint_transition(is_last_noncpu_cycle * nv.stack_len);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -148,7 +145,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint_transition(builder, kernel_constr);
 
         // Start with empty stack
-        let kernel_constr = builder.mul_extension(is_last_noncpu_cycle, nv.stack_len);
-        yield_constr.constraint_transition(builder, kernel_constr);
+        // let kernel_constr = builder.mul_extension(is_last_noncpu_cycle, nv.stack_len);
+        // yield_constr.constraint_transition(builder, kernel_constr);
     }
 }

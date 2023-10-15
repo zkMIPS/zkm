@@ -21,7 +21,7 @@ use crate::cpu::{
     modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
 };
 */
-use crate::cpu::{control_flow, membus, pc};
+use crate::cpu::{control_flow, decode, membus, pc};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
@@ -229,8 +229,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         contextops::eval_packed(local_values, next_values, yield_constr);
         */
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
-        /*
         decode::eval_packed_generic(local_values, yield_constr);
+        /*
         dup_swap::eval_packed(local_values, next_values, yield_constr);
         gas::eval_packed(local_values, next_values, yield_constr);
         halt::eval_packed(local_values, next_values, yield_constr);
@@ -275,8 +275,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         */
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        /*
         decode::eval_ext_circuit(builder, local_values, yield_constr);
+        /*
         dup_swap::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         gas::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         halt::eval_ext_circuit(builder, local_values, next_values, yield_constr);
