@@ -28,15 +28,14 @@ use crate::cross_table_lookup::{
     GrandProductChallengeSet,
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
-//use crate::generation::outputs::GenerationOutputs;
-//use crate::generation::{generate_traces, GenerationInputs};
+use crate::generation::outputs::GenerationOutputs;
+use crate::generation::{generate_traces, GenerationInputs};
 //use crate::get_challenges::observe_public_values;
 use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 
-/*
 /// Generate traces, then create all STARK proofs.
 pub fn prove<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
@@ -64,7 +63,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    timed!(timing, "build kernel", Lazy::force(&KERNEL));
+    //timed!(timing, "build kernel", Lazy::force(&KERNEL));
     let (traces, public_values, outputs) = timed!(
         timing,
         "generate all traces",
@@ -73,7 +72,6 @@ where
     let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
     Ok((proof, outputs))
 }
-*/
 
 /// Compute all STARK proofs.
 pub(crate) fn prove_with_traces<F, C, const D: usize>(
