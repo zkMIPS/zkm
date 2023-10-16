@@ -15,7 +15,7 @@ use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
 
-/// Inputs needed for trace generation.
+/// Inputs needed for trace generation. Wrap the trace record.
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct GenerationInputs {}
 
@@ -30,4 +30,11 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     GenerationOutputs,
 )> {
     panic!("Unimpls");
+    // Decode the trace record
+    // 1. Decode instruction and fill in cpu columns
+    // 2. Decode memory and fill in memory columns
+
+    // Execute the trace record
+
+    // Generate the public values and outputs
 }

@@ -1,2 +1,3 @@
-pub mod errors;
-pub mod memory;
+pub(crate) mod errors;
+pub(crate) mod memory;
+pub(crate) mod traces;
