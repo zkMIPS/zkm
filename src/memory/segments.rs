@@ -1,3 +1,4 @@
+/// Use segment for possible register reduce optimization
 #[allow(dead_code)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub enum Segment {
