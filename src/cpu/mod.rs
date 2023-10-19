@@ -6,3 +6,4 @@ pub mod keccak_util;
 pub(crate) mod kernel;
 pub(crate) mod membus;
 pub(crate) mod pc;
+pub(crate) mod bootstrap_kernel;

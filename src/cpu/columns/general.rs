@@ -10,7 +10,7 @@ pub(crate) union CpuGeneralColumnsView<T: Copy> {
     logic: CpuLogicView<T>,
     jumps: CpuJumpsView<T>,
     shift: CpuShiftView<T>,
-    stack: CpuStackView<T>,
+    gpr: CpuGPRView<T>,
 }
 
 impl<T: Copy> CpuGeneralColumnsView<T> {
@@ -55,13 +55,13 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn stack(&self) -> &CpuStackView<T> {
-        unsafe { &self.stack }
+    pub(crate) fn gpr(&self) -> &CpuGPRView<T> {
+        unsafe { &self.gpr }
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn stack_mut(&mut self) -> &mut CpuStackView<T> {
-        unsafe { &mut self.stack }
+    pub(crate) fn gpr_mut(&mut self) -> &mut CpuGPRView<T> {
+        unsafe { &mut self.gpr }
     }
 }
 
@@ -121,13 +121,12 @@ pub(crate) struct CpuShiftView<T: Copy> {
     pub(crate) high_limb_sum_inv: T,
 }
 
+
 #[derive(Copy, Clone)]
-pub(crate) struct CpuStackView<T: Copy> {
-    // Used for conditionally enabling and disabling channels when reading the next `stack_top`.
-    _unused: [T; 5],
-    pub(crate) stack_inv: T,
-    pub(crate) stack_inv_aux: T,
-    pub(crate) stack_inv_aux_2: T,
+pub(crate) struct CpuGPRView<T: Copy> {
+    // For a shift amount of displacement: [T], this is the inverse of
+    // sum(displacement[1..]) or zero if the sum is zero.
+    pub(crate) regs: [T; 32],
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.
