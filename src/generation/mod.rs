@@ -14,6 +14,9 @@ use std::collections::HashMap;
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
+use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
+use crate::cpu::kernel::KERNEL;
+use crate::generation::state::GenerationState;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct TraceRecord {
@@ -57,6 +60,8 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Decode the trace record
     // 1. Decode instruction and fill in cpu columns
     // 2. Decode memory and fill in memory columns
+    let mut state = GenerationState::<F>::new(&inputs.clone(), &KERNEL.code);
+    generate_bootstrap_kernel(&mut state);
 
     // Execute the trace record
 
