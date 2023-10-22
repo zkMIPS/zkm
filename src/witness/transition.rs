@@ -16,23 +16,26 @@ use crate::witness::state::RegistersState;
 use crate::witness::util::mem_read_code_with_log_and_fill;
 use crate::{arithmetic, logic};
 
-fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColumnsView<F>) -> u8 {
+fn read_code_memory<F: Field>(
+    state: &mut GenerationState<F>,
+    row: &mut CpuColumnsView<F>,
+) -> (u8, u8) {
     let code_context = state.registers.code_context();
     row.code_context = F::from_canonical_usize(code_context);
 
     let address = MemoryAddress::new(code_context, Segment::Code, state.registers.program_counter);
-    let (opcode, mem_log) = mem_read_code_with_log_and_fill(address, state, row);
+    let (opcode, func, mem_log) = mem_read_code_with_log_and_fill(address, state, row);
 
     state.traces.push_memory(mem_log);
 
-    opcode
+    (opcode, func)
 }
 
 fn decode(registers: RegistersState, opcode: u8, func: u8) -> Result<Operation, ProgramError> {
     match (opcode, func, registers.is_kernel) {
         (0x00, 0x00, _) => Ok(Operation::Syscall(opcode, 0, false)), // STOP
+        (0x01, 0x20, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add)),
         /*
-        (0x01, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add)),
         (0x02, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul)),
         (0x03, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub)),
         (0x04, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Div)),
@@ -155,27 +158,19 @@ fn decode(registers: RegistersState, opcode: u8, func: u8) -> Result<Operation, 
 }
 
 fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
-    /*
     let flags = &mut row.op;
     *match op {
-        Operation::Push(0) => &mut flags.push0,
-        Operation::Push(1..) => &mut flags.push,
-        Operation::Dup(_) => &mut flags.dup,
         Operation::Swap(_) => &mut flags.swap,
         Operation::Iszero | Operation::Eq => &mut flags.eq_iszero,
         Operation::Not => &mut flags.not,
         Operation::Syscall(_, _, _) => &mut flags.syscall,
         Operation::BinaryLogic(_) => &mut flags.logic_op,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => &mut flags.fp254_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => &mut flags.shift,
         Operation::BinaryArithmetic(_) => &mut flags.binary_op,
         Operation::TernaryArithmetic(_) => &mut flags.ternary_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
         Operation::ProverInput => &mut flags.prover_input,
-        Operation::Pop => &mut flags.pop,
         Operation::Jump | Operation::Jumpi => &mut flags.jumps,
         Operation::Pc => &mut flags.pc,
         Operation::Jumpdest => &mut flags.jumpdest,
@@ -186,12 +181,11 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;
-    */
 }
 
+/*
 // Equal to the number of pops if an operation pops without pushing, and `None` otherwise.
 fn get_op_special_length(op: Operation) -> Option<usize> {
-    /*
     let behavior_opt = match op {
         Operation::Push(0) => STACK_BEHAVIORS.push0,
         Operation::Push(1..) => STACK_BEHAVIORS.push,
@@ -229,19 +223,18 @@ fn get_op_special_length(op: Operation) -> Option<usize> {
     } else {
         None
     }
-    */
     None
 }
+*/
 
 fn perform_op<F: Field>(
     state: &mut GenerationState<F>,
     op: Operation,
     row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    /*
     match op {
-        Operation::Push(n) => generate_push(n, state, row)?,
-        Operation::Dup(n) => generate_dup(n, state, row)?,
+        // Operation::Push(n) => generate_push(n, state, row)?,
+        // Operation::Dup(n) => generate_dup(n, state, row)?,
         Operation::Swap(n) => generate_swap(n, state, row)?,
         Operation::Iszero => generate_iszero(state, row)?,
         Operation::Not => generate_not(state, row)?,
@@ -258,7 +251,7 @@ fn perform_op<F: Field>(
         Operation::TernaryArithmetic(op) => generate_ternary_arithmetic_op(op, state, row)?,
         Operation::KeccakGeneral => generate_keccak_general(state, row)?,
         Operation::ProverInput => generate_prover_input(state, row)?,
-        Operation::Pop => generate_pop(state, row)?,
+        // Operation::Pop => generate_pop(state, row)?,
         Operation::Jump => generate_jump(state, row)?,
         Operation::Jumpi => generate_jumpi(state, row)?,
         Operation::Pc => generate_pc(state, row)?,
@@ -274,11 +267,12 @@ fn perform_op<F: Field>(
 
     state.registers.program_counter += match op {
         Operation::Syscall(_, _, _) | Operation::ExitKernel => 0,
-        Operation::Push(n) => n as usize + 1,
+        //     Operation::Push(n) => n as usize + 1,
         Operation::Jump | Operation::Jumpi => 0,
         _ => 1,
     };
 
+    /*
     state.registers.gas_used += gas_to_charge(op);
     */
 
@@ -288,7 +282,7 @@ fn perform_op<F: Field>(
 /// Row that has the correct values for system registers and the code channel, but is otherwise
 /// blank. It fulfills the constraints that are common to successful operations and the exception
 /// operation. It also returns the opcode.
-fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8) {
+fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8, u8) {
     let mut row: CpuColumnsView<F> = CpuColumnsView::default();
     row.clock = F::from_canonical_usize(state.traces.clock());
     row.context = F::from_canonical_usize(state.registers.context);
@@ -303,14 +297,13 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8)
     fill_channel_with_value(&mut row, 0, state.registers.stack_top);
     */
 
-    let opcode = read_code_memory(state, &mut row);
-    (row, opcode)
+    let (opcode, func) = read_code_memory(state, &mut row);
+    (row, opcode, func)
 }
 
 fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(), ProgramError> {
-    /*
-    let (mut row, opcode) = base_row(state);
-    let op = decode(state.registers, opcode)?;
+    let (mut row, opcode, func) = base_row(state);
+    let op = decode(state.registers, opcode, func)?;
 
     if state.registers.is_kernel {
         log_kernel_instruction(state, op);
@@ -320,6 +313,7 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
 
     fill_op_flag(op, &mut row);
 
+    /*
     if state.registers.is_stack_top_read {
         let channel = &mut row.mem_channels[0];
         channel.used = F::ONE;
@@ -373,9 +367,8 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
         row.general.stack_mut().stack_inv_aux = F::ONE;
     }
 
-    perform_op(state, op, row)
     */
-    Ok(())
+    perform_op(state, op, row)
 }
 
 fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
@@ -421,7 +414,7 @@ fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> 
 
     let checkpoint = state.checkpoint();
 
-    let (row, _) = base_row(state);
+    let (row, _, _) = base_row(state);
     generate_exception(exc_code, state, row)
         .map_err(|_| anyhow::Error::msg("error handling errored..."))?;
 

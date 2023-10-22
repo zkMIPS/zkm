@@ -34,7 +34,7 @@ pub(crate) enum Operation {
     Jumpi,
     Pc,
     Jumpdest,
-    Dup(u8),
+    // Dup(u8),
     Swap(u8),
     GetContext,
     SetContext,
