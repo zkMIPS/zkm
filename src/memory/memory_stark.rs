@@ -29,7 +29,7 @@ use crate::witness::memory::{MemoryAddress, MemoryOp};
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res =
         Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL]).collect_vec();
-    res.extend(Column::singles((0..8).map(value_limb)));
+    res.extend(Column::singles((0..VALUE_LIMBS).map(value_limb)));
     res.push(Column::single(TIMESTAMP));
     res
 }
@@ -260,14 +260,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let addr_context = local_values[ADDR_CONTEXT];
         let addr_segment = local_values[ADDR_SEGMENT];
         let addr_virtual = local_values[ADDR_VIRTUAL];
-        let value_limbs: Vec<_> = (0..8).map(|i| local_values[value_limb(i)]).collect();
+        let value_limbs: Vec<_> = (0..VALUE_LIMBS).map(|i| local_values[value_limb(i)]).collect();
 
         let next_timestamp = next_values[TIMESTAMP];
         let next_is_read = next_values[IS_READ];
         let next_addr_context = next_values[ADDR_CONTEXT];
         let next_addr_segment = next_values[ADDR_SEGMENT];
         let next_addr_virtual = next_values[ADDR_VIRTUAL];
-        let next_values_limbs: Vec<_> = (0..8).map(|i| next_values[value_limb(i)]).collect();
+        let next_values_limbs: Vec<_> = (0..VALUE_LIMBS).map(|i| next_values[value_limb(i)]).collect();
 
         // The filter must be 0 or 1.
         let filter = local_values[FILTER];
@@ -317,7 +317,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         yield_constr.constraint_transition(range_check - computed_range_check);
 
         // Enumerate purportedly-ordered log.
-        for i in 0..8 {
+        for i in 0..VALUE_LIMBS {
             yield_constr.constraint_transition(
                 next_is_read * address_unchanged * (next_values_limbs[i] - value_limbs[i]),
             );
@@ -337,13 +337,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let addr_context = local_values[ADDR_CONTEXT];
         let addr_segment = local_values[ADDR_SEGMENT];
         let addr_virtual = local_values[ADDR_VIRTUAL];
-        let value_limbs: Vec<_> = (0..8).map(|i| local_values[value_limb(i)]).collect();
+        let value_limbs: Vec<_> = (0..VALUE_LIMBS).map(|i| local_values[value_limb(i)]).collect();
         let timestamp = local_values[TIMESTAMP];
 
         let next_addr_context = next_values[ADDR_CONTEXT];
         let next_addr_segment = next_values[ADDR_SEGMENT];
         let next_addr_virtual = next_values[ADDR_VIRTUAL];
-        let next_values_limbs: Vec<_> = (0..8).map(|i| next_values[value_limb(i)]).collect();
+        let next_values_limbs: Vec<_> = (0..VALUE_LIMBS).map(|i| next_values[value_limb(i)]).collect();
         let next_is_read = next_values[IS_READ];
         let next_timestamp = next_values[TIMESTAMP];
 
@@ -438,7 +438,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         yield_constr.constraint_transition(builder, range_check_diff);
 
         // Enumerate purportedly-ordered log.
-        for i in 0..8 {
+        for i in 0..VALUE_LIMBS {
             let value_diff = builder.sub_extension(next_values_limbs[i], value_limbs[i]);
             let zero_if_read = builder.mul_extension(address_unchanged, value_diff);
             let read_constraint = builder.mul_extension(next_is_read, zero_if_read);

@@ -9,9 +9,8 @@ pub struct Kernel {
     pub(crate) global_labels: HashMap<String, usize>,
 }
 
-//FIXME load ELF: https://github.com/risc0/risc0/blob/main/risc0/binfmt/src/elf.rs#L34
+// FIXME: impl the mips vm
 pub(crate) fn combined_kernel() -> Kernel {
-    // load ELF
     Kernel {
         code: vec![],
         ordered_labels: vec![],

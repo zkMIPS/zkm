@@ -45,7 +45,7 @@ pub struct MipsTrace {
 /// Inputs needed for trace generation. Wrap the trace record.
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct GenerationInputs {
-    mips_traces: Vec<TraceRecord>,
+    // Code, does not need to be trace record, can be a whole MIPS ELF?
 }
 
 pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
