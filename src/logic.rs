@@ -11,12 +11,12 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2_util::ceil_div_usize;
 
-use plonky2_evm::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use plonky2_evm::cross_table_lookup::Column;
-use plonky2_evm::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::Column;
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::logic::columns::NUM_COLUMNS;
-use plonky2_evm::stark::Stark;
-use plonky2_evm::util::{limb_from_bits_le, limb_from_bits_le_recursive, trace_rows_to_poly_values};
+use crate::stark::Stark;
+use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive, trace_rows_to_poly_values};
 
 const VAL_BITS: usize = 32;
 // Number of bits stored per field element. Ensure that this fits; it is not checked.
@@ -48,6 +48,27 @@ pub(crate) mod columns {
     }
 
     pub const NUM_COLUMNS: usize = RESULT.end;
+}
+
+pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
+    // We scale each filter flag with the associated opcode value.
+    // If a logic operation is happening on the CPU side, the CTL
+    // will enforce that the reconstructed opcode value from the
+    // opcode bits matches.
+    // FIXME: https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/cpu/kernel/opcodes.rs#L31
+    let mut res = vec![Column::linear_combination([
+        (columns::IS_AND, F::from_canonical_u8(0x16)),
+        (columns::IS_OR, F::from_canonical_u8(0x17)),
+        (columns::IS_XOR, F::from_canonical_u8(0x18)),
+    ])];
+    res.extend(columns::limb_bit_cols_for_input(columns::INPUT0).map(Column::le_bits));
+    res.extend(columns::limb_bit_cols_for_input(columns::INPUT1).map(Column::le_bits));
+    res.extend(columns::RESULT.map(Column::single));
+    res
+}
+
+pub fn ctl_filter<F: Field>() -> Column<F> {
+    Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
 }
 
 #[derive(Copy, Clone, Default)]
@@ -290,7 +311,7 @@ mod tests {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     use crate::logic::LogicStark;
-    use plonky2_evm::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
     fn test_stark_degree() -> Result<()> {
