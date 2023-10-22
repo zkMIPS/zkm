@@ -1,4 +1,3 @@
-use ethereum_types::{Address, H256, U256};
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::fri::oracle::PolynomialBatch;
@@ -42,269 +41,58 @@ pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usiz
 /// Memory values which are public.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct PublicValues {
-    pub trie_roots_before: TrieRoots,
-    pub trie_roots_after: TrieRoots,
-    pub block_metadata: BlockMetadata,
-    pub block_hashes: BlockHashes,
-    pub extra_block_data: ExtraBlockData,
+    pub roots_before: MemsRoot,
+    pub roots_after: MemsRoot,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct TrieRoots {
-    pub state_root: H256,
-    pub transactions_root: H256,
-    pub receipts_root: H256,
-}
-
-// There should be 256 previous hashes stored, so the default should also contain 256 values.
-impl Default for BlockHashes {
-    fn default() -> Self {
-        Self {
-            prev_hashes: vec![H256::default(); 256],
-            cur_hash: H256::default(),
-        }
-    }
-}
-
-/// User-provided helper values to compute the `BLOCKHASH` opcode.
-/// The proofs across consecutive blocks ensure that these values
-/// are consistent (i.e. shifted by one to the left).
-///
-/// When the block number is less than 256, dummy values, i.e. `H256::default()`,
-/// should be used for the additional block hashes.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlockHashes {
-    /// The previous 256 hashes to the current block. The leftmost hash, i.e. `prev_hashes[0]`,
-    /// is the oldest, and the rightmost, i.e. `prev_hashes[255]` is the hash of the parent block.
-    pub prev_hashes: Vec<H256>,
-    // The hash of the current block.
-    pub cur_hash: H256,
-}
-
-// TODO: Before going into production, `block_gas_used` and `block_gaslimit` here
-// as well as `gas_used_before` / `gas_used_after` in `ExtraBlockData` should be
-// updated to fit in a single 32-bit limb, as supporting 64-bit values for those
-// fields is only necessary for testing purposes.
-/// Metadata contained in a block header. Those are identical between
-/// all state transition proofs within the same block.
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub struct BlockMetadata {
-    /// The address of this block's producer.
-    pub block_beneficiary: Address,
-    /// The timestamp of this block. It must fit in a `u32`.
-    pub block_timestamp: U256,
-    /// The index of this block. It must fit in a `u32`.
-    pub block_number: U256,
-    /// The difficulty (before PoS transition) of this block.
-    pub block_difficulty: U256,
-    /// The `mix_hash` value of this block.
-    pub block_random: H256,
-    /// The gas limit of this block. It must fit in a `u64`.
-    pub block_gaslimit: U256,
-    /// The chain id of this block. It must fit in a `u32`.
-    pub block_chain_id: U256,
-    /// The base fee of this block. It must fit in a `u64`.
-    pub block_base_fee: U256,
-    /// The total gas used in this block. It must fit in a `u64`.
-    pub block_gas_used: U256,
-    /// The block bloom of this block, represented as the consecutive
-    /// 32-byte chunks of a block's final bloom filter string.
-    pub block_bloom: [U256; 8],
-}
-
-/// Additional block data that are specific to the local transaction being proven,
-/// unlike `BlockMetadata`.
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub struct ExtraBlockData {
-    /// The state trie digest of the genesis block.
-    pub genesis_state_trie_root: H256,
-    /// The transaction count prior execution of the local state transition, starting
-    /// at 0 for the initial transaction of a block.
-    pub txn_number_before: U256,
-    /// The transaction count after execution of the local state transition.
-    pub txn_number_after: U256,
-    /// The accumulated gas used prior execution of the local state transition, starting
-    /// at 0 for the initial transaction of a block.
-    pub gas_used_before: U256,
-    /// The accumulated gas used after execution of the local state transition. It should
-    /// match the `block_gas_used` value after execution of the last transaction in a block.
-    pub gas_used_after: U256,
-    /// The accumulated bloom filter of this block prior execution of the local state transition,
-    /// starting with all zeros for the initial transaction of a block.
-    pub block_bloom_before: [U256; 8],
-    /// The accumulated bloom filter after execution of the local state transition. It should
-    /// match the `block_bloom` value after execution of the last transaction in a block.
-    pub block_bloom_after: [U256; 8],
+pub struct MemsRoot {
+    pub root: u32,
 }
 
 /// Memory values which are public.
 /// Note: All the larger integers are encoded with 32-bit limbs in little-endian order.
 #[derive(Eq, PartialEq, Debug)]
 pub struct PublicValuesTarget {
-    pub trie_roots_before: TrieRootsTarget,
-    pub trie_roots_after: TrieRootsTarget,
-    pub block_metadata: BlockMetadataTarget,
-    pub block_hashes: BlockHashesTarget,
-    pub extra_block_data: ExtraBlockDataTarget,
+    pub roots_before: MemRootsTarget,
+    pub roots_after: MemRootsTarget,
 }
 
 impl PublicValuesTarget {
     pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
-        let TrieRootsTarget {
-            state_root: state_root_before,
-            transactions_root: transactions_root_before,
-            receipts_root: receipts_root_before,
-        } = self.trie_roots_before;
+        let MemRootsTarget {
+            root: state_root_before,
+        } = self.roots_before;
 
-        buffer.write_target_array(&state_root_before)?;
-        buffer.write_target_array(&transactions_root_before)?;
-        buffer.write_target_array(&receipts_root_before)?;
+        buffer.write_target_array(&[state_root_before])?;
 
-        let TrieRootsTarget {
-            state_root: state_root_after,
-            transactions_root: transactions_root_after,
-            receipts_root: receipts_root_after,
-        } = self.trie_roots_after;
+        let MemRootsTarget {
+            root: state_root_after,
+        } = self.roots_after;
 
-        buffer.write_target_array(&state_root_after)?;
-        buffer.write_target_array(&transactions_root_after)?;
-        buffer.write_target_array(&receipts_root_after)?;
-
-        let BlockMetadataTarget {
-            block_beneficiary,
-            block_timestamp,
-            block_number,
-            block_difficulty,
-            block_random,
-            block_gaslimit,
-            block_chain_id,
-            block_base_fee,
-            block_gas_used,
-            block_bloom,
-        } = self.block_metadata;
-
-        buffer.write_target_array(&block_beneficiary)?;
-        buffer.write_target(block_timestamp)?;
-        buffer.write_target(block_number)?;
-        buffer.write_target(block_difficulty)?;
-        buffer.write_target_array(&block_random)?;
-        buffer.write_target_array(&block_gaslimit)?;
-        buffer.write_target(block_chain_id)?;
-        buffer.write_target_array(&block_base_fee)?;
-        buffer.write_target_array(&block_gas_used)?;
-        buffer.write_target_array(&block_bloom)?;
-
-        let BlockHashesTarget {
-            prev_hashes,
-            cur_hash,
-        } = self.block_hashes;
-        buffer.write_target_array(&prev_hashes)?;
-        buffer.write_target_array(&cur_hash)?;
-
-        let ExtraBlockDataTarget {
-            genesis_state_trie_root: genesis_state_root,
-            txn_number_before,
-            txn_number_after,
-            gas_used_before,
-            gas_used_after,
-            block_bloom_before,
-            block_bloom_after,
-        } = self.extra_block_data;
-        buffer.write_target_array(&genesis_state_root)?;
-        buffer.write_target(txn_number_before)?;
-        buffer.write_target(txn_number_after)?;
-        buffer.write_target_array(&gas_used_before)?;
-        buffer.write_target_array(&gas_used_after)?;
-        buffer.write_target_array(&block_bloom_before)?;
-        buffer.write_target_array(&block_bloom_after)?;
-
+        buffer.write_target_array(&[state_root_after])?;
         Ok(())
     }
 
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let trie_roots_before = TrieRootsTarget {
-            state_root: buffer.read_target_array()?,
-            transactions_root: buffer.read_target_array()?,
-            receipts_root: buffer.read_target_array()?,
+        let trie_roots_before = MemRootsTarget {
+            root: buffer.read_target_array::<1>()?[0],
         };
 
-        let trie_roots_after = TrieRootsTarget {
-            state_root: buffer.read_target_array()?,
-            transactions_root: buffer.read_target_array()?,
-            receipts_root: buffer.read_target_array()?,
-        };
-
-        let block_metadata = BlockMetadataTarget {
-            block_beneficiary: buffer.read_target_array()?,
-            block_timestamp: buffer.read_target()?,
-            block_number: buffer.read_target()?,
-            block_difficulty: buffer.read_target()?,
-            block_random: buffer.read_target_array()?,
-            block_gaslimit: buffer.read_target_array()?,
-            block_chain_id: buffer.read_target()?,
-            block_base_fee: buffer.read_target_array()?,
-            block_gas_used: buffer.read_target_array()?,
-            block_bloom: buffer.read_target_array()?,
-        };
-
-        let block_hashes = BlockHashesTarget {
-            prev_hashes: buffer.read_target_array()?,
-            cur_hash: buffer.read_target_array()?,
-        };
-
-        let extra_block_data = ExtraBlockDataTarget {
-            genesis_state_trie_root: buffer.read_target_array()?,
-            txn_number_before: buffer.read_target()?,
-            txn_number_after: buffer.read_target()?,
-            gas_used_before: buffer.read_target_array()?,
-            gas_used_after: buffer.read_target_array()?,
-            block_bloom_before: buffer.read_target_array()?,
-            block_bloom_after: buffer.read_target_array()?,
+        let trie_roots_after = MemRootsTarget {
+            root: buffer.read_target_array::<1>()?[0],
         };
 
         Ok(Self {
-            trie_roots_before,
-            trie_roots_after,
-            block_metadata,
-            block_hashes,
-            extra_block_data,
+            roots_before: trie_roots_before,
+            roots_after: trie_roots_after,
         })
     }
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
-        assert!(
-            pis.len()
-                > TrieRootsTarget::SIZE * 2
-                    + BlockMetadataTarget::SIZE
-                    + BlockHashesTarget::BLOCK_HASHES_SIZE
-                    + ExtraBlockDataTarget::SIZE
-                    - 1
-        );
-
         Self {
-            trie_roots_before: TrieRootsTarget::from_public_inputs(&pis[0..TrieRootsTarget::SIZE]),
-            trie_roots_after: TrieRootsTarget::from_public_inputs(
-                &pis[TrieRootsTarget::SIZE..TrieRootsTarget::SIZE * 2],
-            ),
-            block_metadata: BlockMetadataTarget::from_public_inputs(
-                &pis[TrieRootsTarget::SIZE * 2
-                    ..TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE],
-            ),
-            block_hashes: BlockHashesTarget::from_public_inputs(
-                &pis[TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE
-                    ..TrieRootsTarget::SIZE * 2
-                        + BlockMetadataTarget::SIZE
-                        + BlockHashesTarget::BLOCK_HASHES_SIZE],
-            ),
-            extra_block_data: ExtraBlockDataTarget::from_public_inputs(
-                &pis[TrieRootsTarget::SIZE * 2
-                    + BlockMetadataTarget::SIZE
-                    + BlockHashesTarget::BLOCK_HASHES_SIZE
-                    ..TrieRootsTarget::SIZE * 2
-                        + BlockMetadataTarget::SIZE
-                        + BlockHashesTarget::BLOCK_HASHES_SIZE
-                        + ExtraBlockDataTarget::SIZE],
-            ),
+            roots_before: MemRootsTarget::from_public_inputs(&pis[0]),
+            roots_after: MemRootsTarget::from_public_inputs(&pis[1]),
         }
     }
 
@@ -315,60 +103,32 @@ impl PublicValuesTarget {
         pv1: Self,
     ) -> Self {
         Self {
-            trie_roots_before: TrieRootsTarget::select(
+            roots_before: MemRootsTarget::select(
                 builder,
                 condition,
-                pv0.trie_roots_before,
-                pv1.trie_roots_before,
+                pv0.roots_before,
+                pv1.roots_before,
             ),
-            trie_roots_after: TrieRootsTarget::select(
+            roots_after: MemRootsTarget::select(
                 builder,
                 condition,
-                pv0.trie_roots_after,
-                pv1.trie_roots_after,
-            ),
-            block_metadata: BlockMetadataTarget::select(
-                builder,
-                condition,
-                pv0.block_metadata,
-                pv1.block_metadata,
-            ),
-            block_hashes: BlockHashesTarget::select(
-                builder,
-                condition,
-                pv0.block_hashes,
-                pv1.block_hashes,
-            ),
-            extra_block_data: ExtraBlockDataTarget::select(
-                builder,
-                condition,
-                pv0.extra_block_data,
-                pv1.extra_block_data,
+                pv0.roots_after,
+                pv1.roots_after,
             ),
         }
     }
 }
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
-pub struct TrieRootsTarget {
-    pub state_root: [Target; 8],
-    pub transactions_root: [Target; 8],
-    pub receipts_root: [Target; 8],
+pub struct MemRootsTarget {
+    pub root: Target,
 }
 
-impl TrieRootsTarget {
+impl MemRootsTarget {
     pub const SIZE: usize = 24;
 
-    pub fn from_public_inputs(pis: &[Target]) -> Self {
-        let state_root = pis[0..8].try_into().unwrap();
-        let transactions_root = pis[8..16].try_into().unwrap();
-        let receipts_root = pis[16..24].try_into().unwrap();
-
-        Self {
-            state_root,
-            transactions_root,
-            receipts_root,
-        }
+    pub fn from_public_inputs(mr: &Target) -> Self {
+        Self { root: mr.clone() }
     }
 
     pub fn select<F: RichField + Extendable<D>, const D: usize>(
@@ -378,19 +138,7 @@ impl TrieRootsTarget {
         tr1: Self,
     ) -> Self {
         Self {
-            state_root: core::array::from_fn(|i| {
-                builder.select(condition, tr0.state_root[i], tr1.state_root[i])
-            }),
-            transactions_root: core::array::from_fn(|i| {
-                builder.select(
-                    condition,
-                    tr0.transactions_root[i],
-                    tr1.transactions_root[i],
-                )
-            }),
-            receipts_root: core::array::from_fn(|i| {
-                builder.select(condition, tr0.receipts_root[i], tr1.receipts_root[i])
-            }),
+            root: builder.select(condition, tr0.root, tr1.root),
         }
     }
 
@@ -399,270 +147,7 @@ impl TrieRootsTarget {
         tr0: Self,
         tr1: Self,
     ) {
-        for i in 0..8 {
-            builder.connect(tr0.state_root[i], tr1.state_root[i]);
-            builder.connect(tr0.transactions_root[i], tr1.transactions_root[i]);
-            builder.connect(tr0.receipts_root[i], tr1.receipts_root[i]);
-        }
-    }
-}
-
-#[derive(Eq, PartialEq, Debug, Copy, Clone)]
-pub struct BlockMetadataTarget {
-    pub block_beneficiary: [Target; 5],
-    pub block_timestamp: Target,
-    pub block_number: Target,
-    pub block_difficulty: Target,
-    pub block_random: [Target; 8],
-    pub block_gaslimit: [Target; 2],
-    pub block_chain_id: Target,
-    pub block_base_fee: [Target; 2],
-    pub block_gas_used: [Target; 2],
-    pub block_bloom: [Target; 64],
-}
-
-impl BlockMetadataTarget {
-    pub const SIZE: usize = 87;
-
-    pub fn from_public_inputs(pis: &[Target]) -> Self {
-        let block_beneficiary = pis[0..5].try_into().unwrap();
-        let block_timestamp = pis[5];
-        let block_number = pis[6];
-        let block_difficulty = pis[7];
-        let block_random = pis[8..16].try_into().unwrap();
-        let block_gaslimit = pis[16..18].try_into().unwrap();
-        let block_chain_id = pis[18];
-        let block_base_fee = pis[19..21].try_into().unwrap();
-        let block_gas_used = pis[21..23].try_into().unwrap();
-        let block_bloom = pis[23..87].try_into().unwrap();
-
-        Self {
-            block_beneficiary,
-            block_timestamp,
-            block_number,
-            block_difficulty,
-            block_random,
-            block_gaslimit,
-            block_chain_id,
-            block_base_fee,
-            block_gas_used,
-            block_bloom,
-        }
-    }
-
-    pub fn select<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        condition: BoolTarget,
-        bm0: Self,
-        bm1: Self,
-    ) -> Self {
-        Self {
-            block_beneficiary: core::array::from_fn(|i| {
-                builder.select(
-                    condition,
-                    bm0.block_beneficiary[i],
-                    bm1.block_beneficiary[i],
-                )
-            }),
-            block_timestamp: builder.select(condition, bm0.block_timestamp, bm1.block_timestamp),
-            block_number: builder.select(condition, bm0.block_number, bm1.block_number),
-            block_difficulty: builder.select(condition, bm0.block_difficulty, bm1.block_difficulty),
-            block_random: core::array::from_fn(|i| {
-                builder.select(condition, bm0.block_random[i], bm1.block_random[i])
-            }),
-            block_gaslimit: core::array::from_fn(|i| {
-                builder.select(condition, bm0.block_gaslimit[i], bm1.block_gaslimit[i])
-            }),
-            block_chain_id: builder.select(condition, bm0.block_chain_id, bm1.block_chain_id),
-            block_base_fee: core::array::from_fn(|i| {
-                builder.select(condition, bm0.block_base_fee[i], bm1.block_base_fee[i])
-            }),
-            block_gas_used: core::array::from_fn(|i| {
-                builder.select(condition, bm0.block_gas_used[i], bm1.block_gas_used[i])
-            }),
-            block_bloom: core::array::from_fn(|i| {
-                builder.select(condition, bm0.block_bloom[i], bm1.block_bloom[i])
-            }),
-        }
-    }
-
-    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        bm0: Self,
-        bm1: Self,
-    ) {
-        for i in 0..5 {
-            builder.connect(bm0.block_beneficiary[i], bm1.block_beneficiary[i]);
-        }
-        builder.connect(bm0.block_timestamp, bm1.block_timestamp);
-        builder.connect(bm0.block_number, bm1.block_number);
-        builder.connect(bm0.block_difficulty, bm1.block_difficulty);
-        for i in 0..8 {
-            builder.connect(bm0.block_random[i], bm1.block_random[i]);
-        }
-        for i in 0..2 {
-            builder.connect(bm0.block_gaslimit[i], bm1.block_gaslimit[i])
-        }
-        builder.connect(bm0.block_chain_id, bm1.block_chain_id);
-        for i in 0..2 {
-            builder.connect(bm0.block_base_fee[i], bm1.block_base_fee[i])
-        }
-        for i in 0..2 {
-            builder.connect(bm0.block_gas_used[i], bm1.block_gas_used[i])
-        }
-        for i in 0..64 {
-            builder.connect(bm0.block_bloom[i], bm1.block_bloom[i])
-        }
-    }
-}
-
-#[derive(Eq, PartialEq, Debug, Copy, Clone)]
-pub struct BlockHashesTarget {
-    pub prev_hashes: [Target; 2048],
-    pub cur_hash: [Target; 8],
-}
-
-impl BlockHashesTarget {
-    pub const BLOCK_HASHES_SIZE: usize = 2056;
-    pub fn from_public_inputs(pis: &[Target]) -> Self {
-        Self {
-            prev_hashes: pis[0..2048].try_into().unwrap(),
-            cur_hash: pis[2048..2056].try_into().unwrap(),
-        }
-    }
-
-    pub fn select<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        condition: BoolTarget,
-        bm0: Self,
-        bm1: Self,
-    ) -> Self {
-        Self {
-            prev_hashes: core::array::from_fn(|i| {
-                builder.select(condition, bm0.prev_hashes[i], bm1.prev_hashes[i])
-            }),
-            cur_hash: core::array::from_fn(|i| {
-                builder.select(condition, bm0.cur_hash[i], bm1.cur_hash[i])
-            }),
-        }
-    }
-
-    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        bm0: Self,
-        bm1: Self,
-    ) {
-        for i in 0..2048 {
-            builder.connect(bm0.prev_hashes[i], bm1.prev_hashes[i]);
-        }
-        for i in 0..8 {
-            builder.connect(bm0.cur_hash[i], bm1.cur_hash[i]);
-        }
-    }
-}
-
-#[derive(Eq, PartialEq, Debug, Copy, Clone)]
-pub struct ExtraBlockDataTarget {
-    pub genesis_state_trie_root: [Target; 8],
-    pub txn_number_before: Target,
-    pub txn_number_after: Target,
-    pub gas_used_before: [Target; 2],
-    pub gas_used_after: [Target; 2],
-    pub block_bloom_before: [Target; 64],
-    pub block_bloom_after: [Target; 64],
-}
-
-impl ExtraBlockDataTarget {
-    const SIZE: usize = 142;
-
-    pub fn from_public_inputs(pis: &[Target]) -> Self {
-        let genesis_state_trie_root = pis[0..8].try_into().unwrap();
-        let txn_number_before = pis[8];
-        let txn_number_after = pis[9];
-        let gas_used_before = pis[10..12].try_into().unwrap();
-        let gas_used_after = pis[12..14].try_into().unwrap();
-        let block_bloom_before = pis[14..78].try_into().unwrap();
-        let block_bloom_after = pis[78..142].try_into().unwrap();
-
-        Self {
-            genesis_state_trie_root,
-            txn_number_before,
-            txn_number_after,
-            gas_used_before,
-            gas_used_after,
-            block_bloom_before,
-            block_bloom_after,
-        }
-    }
-
-    pub fn select<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        condition: BoolTarget,
-        ed0: Self,
-        ed1: Self,
-    ) -> Self {
-        Self {
-            genesis_state_trie_root: core::array::from_fn(|i| {
-                builder.select(
-                    condition,
-                    ed0.genesis_state_trie_root[i],
-                    ed1.genesis_state_trie_root[i],
-                )
-            }),
-            txn_number_before: builder.select(
-                condition,
-                ed0.txn_number_before,
-                ed1.txn_number_before,
-            ),
-            txn_number_after: builder.select(condition, ed0.txn_number_after, ed1.txn_number_after),
-            gas_used_before: core::array::from_fn(|i| {
-                builder.select(condition, ed0.gas_used_before[i], ed1.gas_used_before[i])
-            }),
-            gas_used_after: core::array::from_fn(|i| {
-                builder.select(condition, ed0.gas_used_after[i], ed1.gas_used_after[i])
-            }),
-            block_bloom_before: core::array::from_fn(|i| {
-                builder.select(
-                    condition,
-                    ed0.block_bloom_before[i],
-                    ed1.block_bloom_before[i],
-                )
-            }),
-            block_bloom_after: core::array::from_fn(|i| {
-                builder.select(
-                    condition,
-                    ed0.block_bloom_after[i],
-                    ed1.block_bloom_after[i],
-                )
-            }),
-        }
-    }
-
-    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        ed0: Self,
-        ed1: Self,
-    ) {
-        for i in 0..8 {
-            builder.connect(
-                ed0.genesis_state_trie_root[i],
-                ed1.genesis_state_trie_root[i],
-            );
-        }
-        builder.connect(ed0.txn_number_before, ed1.txn_number_before);
-        builder.connect(ed0.txn_number_after, ed1.txn_number_after);
-        for i in 0..2 {
-            builder.connect(ed0.gas_used_before[i], ed1.gas_used_before[i]);
-        }
-        for i in 0..2 {
-            builder.connect(ed1.gas_used_after[i], ed1.gas_used_after[i]);
-        }
-        for i in 0..64 {
-            builder.connect(ed0.block_bloom_before[i], ed1.block_bloom_before[i]);
-        }
-        for i in 0..64 {
-            builder.connect(ed0.block_bloom_after[i], ed1.block_bloom_after[i]);
-        }
+        builder.connect(tr0.root, tr1.root);
     }
 }
 

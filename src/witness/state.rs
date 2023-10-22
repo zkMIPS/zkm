@@ -1,4 +1,4 @@
-use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::KERNEL;
 
 const KERNEL_CONTEXT: usize = 0;
 

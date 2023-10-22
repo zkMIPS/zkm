@@ -121,7 +121,6 @@ pub(crate) struct CpuShiftView<T: Copy> {
     pub(crate) high_limb_sum_inv: T,
 }
 
-
 #[derive(Copy, Clone)]
 pub(crate) struct CpuGPRView<T: Copy> {
     // For a shift amount of displacement: [T], this is the inverse of

@@ -1,3 +1,4 @@
+pub(crate) mod bootstrap_kernel;
 pub mod columns;
 pub(crate) mod control_flow;
 pub mod cpu_stark;
@@ -6,4 +7,4 @@ pub mod keccak_util;
 pub(crate) mod kernel;
 pub(crate) mod membus;
 pub(crate) mod pc;
-pub(crate) mod bootstrap_kernel;
+pub(crate) mod simple_logic;
