@@ -22,12 +22,6 @@ use crate::generation::state::GenerationState;
 use crate::witness::transition::transition;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
-pub struct TraceRecord {
-    curr: MipsTrace,
-    next: MipsTrace,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct MipsTrace {
     pub cycle: u32,
     pub pc: u32,
@@ -46,6 +40,10 @@ pub struct MipsTrace {
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct GenerationInputs {
     // Code, does not need to be trace record, can be a whole MIPS ELF?
+    // Memory image
+    // pre_image: HashMap<>,
+    // memory: Vec<u8>,
+    // mem_root: [u32; 8],
 }
 
 pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
