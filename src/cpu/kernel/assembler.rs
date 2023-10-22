@@ -9,10 +9,9 @@ pub struct Kernel {
     pub(crate) global_labels: HashMap<String, usize>,
 }
 
-pub static KERNEL: Lazy<Kernel> = Lazy::new(combined_kernel);
-
-//FIXME load code
+//FIXME load ELF: https://github.com/risc0/risc0/blob/main/risc0/binfmt/src/elf.rs#L34
 pub(crate) fn combined_kernel() -> Kernel {
+    // load ELF
     Kernel {
         code: vec![],
         ordered_labels: vec![],
@@ -44,3 +43,5 @@ impl Kernel {
 /// Ideally we would automatically use the minimal number of bytes required, but that would be
 /// nontrivial given the circular dependency between an offset and its size.
 pub(crate) const BYTES_PER_OFFSET: u8 = 3;
+
+pub static KERNEL: Lazy<Kernel> = Lazy::new(combined_kernel);
