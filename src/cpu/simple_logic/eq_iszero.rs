@@ -53,7 +53,6 @@ pub fn eval_packed<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    /*
     let logic = lv.general.logic();
     let input0 = lv.mem_channels[0].value;
     let input1 = lv.mem_channels[1].value;
@@ -94,6 +93,7 @@ pub fn eval_packed<P: PackedField>(
         .sum();
     yield_constr.constraint(eq_or_iszero_filter * (dot - unequal));
 
+    /*
     // Stack constraints.
     stack::eval_packed_one(lv, nv, eq_filter, EQ_STACK_BEHAVIOR.unwrap(), yield_constr);
     stack::eval_packed_one(
