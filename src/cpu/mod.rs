@@ -7,5 +7,5 @@ pub mod keccak_util;
 pub(crate) mod kernel;
 pub(crate) mod membus;
 pub(crate) mod pc;
-pub(crate) mod simple_logic;
 pub(crate) mod shift;
+pub(crate) mod simple_logic;

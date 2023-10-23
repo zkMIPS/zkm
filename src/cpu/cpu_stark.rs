@@ -21,7 +21,7 @@ use crate::cpu::{
     modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
 };
 */
-use crate::cpu::{control_flow, decode, membus, pc, shift, simple_logic};
+use crate::cpu::{bootstrap_kernel, control_flow, decode, membus, pc, shift, simple_logic};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
@@ -224,8 +224,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         let next_values: &[P; NUM_CPU_COLUMNS] = vars.get_next_values().try_into().unwrap();
         let next_values: &CpuColumnsView<P> = next_values.borrow();
 
-        /*
         bootstrap_kernel::eval_bootstrap_kernel_packed(local_values, next_values, yield_constr);
+        /*
         contextops::eval_packed(local_values, next_values, yield_constr);
         */
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
@@ -267,13 +267,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
             vars.get_next_values().try_into().unwrap();
         let next_values: &CpuColumnsView<ExtensionTarget<D>> = next_values.borrow();
 
-        /*
         bootstrap_kernel::eval_bootstrap_kernel_ext_circuit(
             builder,
             local_values,
             next_values,
             yield_constr,
         );
+        /*
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         */
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
