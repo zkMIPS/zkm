@@ -11,9 +11,11 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::KERNEL;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
+use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
+use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
 use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
-use crate::witness::util::mem_write_gp_log_and_fill;
+use crate::witness::util::{keccak_sponge_log, mem_write_gp_log_and_fill};
 
 pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>) {
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
@@ -43,15 +45,13 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     final_cpu_row.mem_channels[2].value[0] = F::ZERO; // virt
     final_cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(KERNEL.code.len()); // len
 
-    // final_cpu_row.mem_channels[4].value = KERNEL.code_hash.map(F::from_canonical_u32);
-    // final_cpu_row.mem_channels[4].value.reverse();
-    /*
+    final_cpu_row.mem_channels[4].value = KERNEL.code_hash.map(F::from_canonical_u32);
+    final_cpu_row.mem_channels[4].value.reverse();
     keccak_sponge_log(
         state,
         MemoryAddress::new(0, Segment::Code, 0),
         KERNEL.code.clone(),
     );
-    */
     state.traces.push_cpu(final_cpu_row);
     state.traces.push_cpu(final_cpu_row);
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
@@ -88,7 +88,6 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
     for channel in local_values.mem_channels.iter() {
         yield_constr.constraint_transition(delta_is_bootstrap * channel.used);
     }
-    /*
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
@@ -99,7 +98,6 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
         let diff = expected - actual;
         yield_constr.constraint_transition(delta_is_bootstrap * diff);
     }
-    */
 }
 
 pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -150,7 +148,6 @@ pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, co
         let constraint = builder.mul_extension(delta_is_bootstrap, channel.used);
         yield_constr.constraint_transition(builder, constraint);
     }
-    /*
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
@@ -162,5 +159,4 @@ pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, co
         let constraint = builder.mul_extension(delta_is_bootstrap, diff);
         yield_constr.constraint_transition(builder, constraint);
     }
-    */
 }

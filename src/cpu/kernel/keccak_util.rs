@@ -32,7 +32,7 @@ pub(crate) fn keccakf_u8s(state_u8s: &mut [u8; KECCAK_WIDTH_BYTES]) {
 mod tests {
     use tiny_keccak::keccakf;
 
-    use crate::cpu::keccak_util::{keccakf_u32s, keccakf_u8s};
+    use crate::cpu::kernel::keccak_util::{keccakf_u32s, keccakf_u8s};
 
     #[test]
     #[rustfmt::skip]
