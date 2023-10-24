@@ -260,14 +260,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let addr_context = local_values[ADDR_CONTEXT];
         let addr_segment = local_values[ADDR_SEGMENT];
         let addr_virtual = local_values[ADDR_VIRTUAL];
-        let value_limbs: Vec<_> = (0..VALUE_LIMBS).map(|i| local_values[value_limb(i)]).collect();
+        let value_limbs: Vec<_> = (0..VALUE_LIMBS)
+            .map(|i| local_values[value_limb(i)])
+            .collect();
 
         let next_timestamp = next_values[TIMESTAMP];
         let next_is_read = next_values[IS_READ];
         let next_addr_context = next_values[ADDR_CONTEXT];
         let next_addr_segment = next_values[ADDR_SEGMENT];
         let next_addr_virtual = next_values[ADDR_VIRTUAL];
-        let next_values_limbs: Vec<_> = (0..VALUE_LIMBS).map(|i| next_values[value_limb(i)]).collect();
+        let next_values_limbs: Vec<_> = (0..VALUE_LIMBS)
+            .map(|i| next_values[value_limb(i)])
+            .collect();
 
         // The filter must be 0 or 1.
         let filter = local_values[FILTER];
@@ -337,13 +341,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let addr_context = local_values[ADDR_CONTEXT];
         let addr_segment = local_values[ADDR_SEGMENT];
         let addr_virtual = local_values[ADDR_VIRTUAL];
-        let value_limbs: Vec<_> = (0..VALUE_LIMBS).map(|i| local_values[value_limb(i)]).collect();
+        let value_limbs: Vec<_> = (0..VALUE_LIMBS)
+            .map(|i| local_values[value_limb(i)])
+            .collect();
         let timestamp = local_values[TIMESTAMP];
 
         let next_addr_context = next_values[ADDR_CONTEXT];
         let next_addr_segment = next_values[ADDR_SEGMENT];
         let next_addr_virtual = next_values[ADDR_VIRTUAL];
-        let next_values_limbs: Vec<_> = (0..VALUE_LIMBS).map(|i| next_values[value_limb(i)]).collect();
+        let next_values_limbs: Vec<_> = (0..VALUE_LIMBS)
+            .map(|i| next_values[value_limb(i)])
+            .collect();
         let next_is_read = next_values[IS_READ];
         let next_timestamp = next_values[TIMESTAMP];
 

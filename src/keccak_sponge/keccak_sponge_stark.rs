@@ -15,7 +15,7 @@ use plonky2::util::timing::TimingTree;
 use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::keccak_util::keccakf_u32s;
+use crate::cpu::kernel::keccak_util::keccakf_u32s;
 use crate::cross_table_lookup::Column;
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak_sponge::columns::*;
@@ -754,7 +754,7 @@ mod tests {
         let op = KeccakSpongeOp {
             base_address: MemoryAddress {
                 context: 0,
-                segment: Segment::MainMemory as usize,
+                segment: Segment::Code as usize,
                 virt: 0,
             },
             timestamp: 0,

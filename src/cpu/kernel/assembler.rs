@@ -1,3 +1,4 @@
+use keccak_hash::keccak;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -5,14 +6,23 @@ use std::collections::HashMap;
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Kernel {
     pub(crate) code: Vec<u8>,
+    pub(crate) code_hash: [u32; 8],
     pub(crate) ordered_labels: Vec<String>,
     pub(crate) global_labels: HashMap<String, usize>,
 }
 
 // FIXME: impl the mips vm
 pub(crate) fn combined_kernel() -> Kernel {
+    let code: Vec<u8> = vec![];
+    let code_hash_bytes = keccak(&code).0;
+    let code_hash_be = core::array::from_fn(|i| {
+        u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
+    });
+    let code_hash = code_hash_be.map(u32::from_be);
+
     Kernel {
-        code: vec![],
+        code,
+        code_hash,
         ordered_labels: vec![],
         global_labels: HashMap::new(),
     }
