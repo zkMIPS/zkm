@@ -51,9 +51,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
-    pub(crate) fn num_lookups_helper_columns(&self, config: &StarkConfig) -> [usize; 5] {
+    pub(crate) fn num_lookups_helper_columns(&self, config: &StarkConfig) -> [usize; 6] {
         [
-            //            self.arithmetic_stark.num_lookup_helper_columns(config),
+            self.arithmetic_stark.num_lookup_helper_columns(config),
             //            self.byte_packing_stark.num_lookup_helper_columns(config),
             self.cpu_stark.num_lookup_helper_columns(config),
             self.keccak_stark.num_lookup_helper_columns(config),

@@ -32,6 +32,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
     });
     let code_hash = code_hash_be.map(u32::from_be);
+    log::debug!("code_hash: {:?}", code_hash);
 
     Kernel {
         code,

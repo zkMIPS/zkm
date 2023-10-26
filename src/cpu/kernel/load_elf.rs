@@ -107,10 +107,12 @@ mod test {
         let mut buffer = Vec::new();
         reader.read_to_end(&mut buffer).unwrap();
         let max_mem = 0x40000000;
-        let p = Program::load_elf(&buffer, max_mem).unwrap();
-        println!("entry: {}", p.entry);
+        let _p = Program::load_elf(&buffer, max_mem).unwrap();
+        /*
+        log::debug!("entry: {}", p.entry);
         p.image.iter().for_each(|(k, v)| {
-            println!("{}: {}", k, v);
+            log::debug!("{}: {}", k, v);
         })
+        */
     }
 }
