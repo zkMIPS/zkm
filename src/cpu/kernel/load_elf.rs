@@ -103,7 +103,7 @@ mod test {
 
     #[test]
     fn load_and_check_mips_elf() {
-        let mut reader = BufReader::new(File::open("test-vectors/minigeth").unwrap());
+        let mut reader = BufReader::new(File::open("test-vectors/hello").unwrap());
         let mut buffer = Vec::new();
         reader.read_to_end(&mut buffer).unwrap();
         let max_mem = 0x40000000;

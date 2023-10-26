@@ -5,9 +5,13 @@ use std::collections::HashMap;
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Kernel {
+    // MIPS ELF
     pub(crate) code: Vec<u8>,
     pub(crate) code_hash: [u32; 8],
+    // For debugging purposes
     pub(crate) ordered_labels: Vec<String>,
+    // FIXME: precompiled function and global variable, like HALT PC or ecrecover
+    //  should be preprocessed after loading code
     pub(crate) global_labels: HashMap<String, usize>,
 }
 

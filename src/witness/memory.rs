@@ -125,6 +125,7 @@ impl MemoryOp {
     }
 }
 
+/// FIXME: all GPRs, HI, LO, EPC and page are also located in memory
 #[derive(Clone, Debug)]
 pub struct MemoryState {
     pub(crate) contexts: Vec<MemoryContextState>,
@@ -132,9 +133,9 @@ pub struct MemoryState {
 
 impl MemoryState {
     pub fn new(kernel_code: &[u8]) -> Self {
-        let code_u256s = kernel_code.iter().map(|&x| x.into()).collect();
+        let code_u32s = kernel_code.iter().map(|&x| x.into()).collect();
         let mut result = Self::default();
-        result.contexts[0].segments[Segment::MainMemory as usize].content = code_u256s;
+        result.contexts[0].segments[Segment::MainMemory as usize].content = code_u32s;
         result
     }
 
