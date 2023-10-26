@@ -313,6 +313,8 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
 
     fill_op_flag(op, &mut row);
 
+    // FIXME: decode instruction data, and load IMM and input data into registers
+
     /*
     if state.registers.is_stack_top_read {
         let channel = &mut row.mem_channels[0];
