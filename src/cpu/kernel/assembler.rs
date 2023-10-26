@@ -2,6 +2,9 @@ use keccak_hash::keccak;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::BufReader;
+use std::io::Read;
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Kernel {
@@ -15,14 +18,21 @@ pub struct Kernel {
     pub(crate) global_labels: HashMap<String, usize>,
 }
 
+// FIXME
+pub const KERNLE_FILE: &str = "test-vectors/hello";
+
 // FIXME: impl the mips vm
 pub(crate) fn combined_kernel() -> Kernel {
-    let code: Vec<u8> = vec![];
+    let mut reader = BufReader::new(File::open("test-vectors/hello").unwrap());
+    let mut code = Vec::new();
+    reader.read_to_end(&mut code).unwrap();
+
     let code_hash_bytes = keccak(&code).0;
     let code_hash_be = core::array::from_fn(|i| {
         u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
     });
     let code_hash = code_hash_be.map(u32::from_be);
+    log::debug!("code_hash: {:?}", code_hash);
 
     Kernel {
         code,
