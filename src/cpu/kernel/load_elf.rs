@@ -5,6 +5,8 @@ use alloc::collections::BTreeMap;
 use anyhow::{anyhow, bail, Context, Result};
 use elf::{endian::BigEndian, file::Class, ElfBytes};
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
+pub const INIT_SP: u32 = 0x7fffd000;
+pub const PAGE_SIZE: u32 = 4096;
 
 /// A MIPS program
 pub struct Program {
@@ -89,6 +91,52 @@ impl Program {
                 }
             }
         }
+
+        let (symtab, strtab) = elf
+            .symbol_table()
+            .expect("Failed to read symbol table")
+            .expect("Failed to find symbol table");
+
+        // PatchGO
+        for symbol in symtab.iter() {
+            let name = strtab
+                .get(symbol.st_name as usize)
+                .expect("Failed to get name from strtab");
+
+            let addr: u32 = symbol
+                .st_value
+                .try_into()
+                .map_err(|err| anyhow!("offset is larger than 32 bits. {err}"))?;
+
+            match name {
+            "runtime.gcenable" |
+			"runtime.init.5" |         // patch out: init() { go forcegchelper() }
+			"runtime.main.func1" |        // patch out: main.func() { newm(sysmon, ....) }
+			"runtime.deductSweepCredit" | // uses floating point nums and interacts with gc we disabled
+			"runtime.(*gcControllerState).commit" |
+			// these prometheus packages rely on concurrent background things. We cannot run those.
+			"github.com/prometheus/client_golang/prometheus.init" |
+			"github.com/prometheus/client_golang/prometheus.init.0" |
+			"github.com/prometheus/procfs.init" |
+			"github.com/prometheus/common/model.init" |
+			"github.com/prometheus/client_model/go.init" |
+			"github.com/prometheus/client_model/go.init.0" |
+			"github.com/prometheus/client_model/go.init.1" |
+			// skip flag pkg init, we need to debug arg-processing more to see why this fails
+			"flag.init" |
+			// We need to patch this out, we don't pass float64nan because we don't support floats
+			"runtime.check" => {
+			// MIPS32 patch: ret (pseudo instruction)
+			// 03e00008 = jr $ra = ret (pseudo instruction)
+			// 00000000 = nop (executes with delay-slot, but does nothing)
+                image.insert(addr, 0x0800e003);
+                image.insert(addr + 4, 0);
+            },
+            "runtime.MemProfileRate" => { image.insert(addr, 0) ; },
+            &_ => (),
+            }
+        }
+
         Ok(Program { entry, image })
     }
 }
@@ -111,7 +159,9 @@ mod test {
         /*
         log::debug!("entry: {}", p.entry);
         p.image.iter().for_each(|(k, v)| {
-            log::debug!("{}: {}", k, v);
+            if *k > INIT_SP && *k < INIT_SP + 50 {
+                println!("{}: {}", k, v.to_be());
+            }
         })
         */
     }
