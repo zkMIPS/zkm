@@ -2,8 +2,12 @@ extern crate alloc;
 use alloc::collections::BTreeMap;
 
 use anyhow::{anyhow, bail, Context, Result};
+use std::env;
+use std::fs;
 use elf::{endian::BigEndian, file::Class, ElfBytes};
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
+pub const INIT_SP: u32 = 0x7fffd000;
+pub const PAGE_SIZE: u32 = 4096;
 
 /// A MIPS program
 pub struct Program {
@@ -15,6 +19,41 @@ pub struct Program {
 }
 
 impl Program {
+    pub fn load_block(p: &mut Program , block: &str) -> Result<bool> {
+        let mut blockpath = match env::var("BASEDIR") {
+            Ok(val) => {
+                val
+            },
+            Err(e) => {
+                String::from("/tmp/cannon")
+            },
+        };
+
+        blockpath.push_str("/0_");
+        blockpath.push_str(block);
+        blockpath.push_str("/input");
+
+        let content = fs::read(blockpath.as_str())
+            .expect("Read file failed");
+
+        let mut mapAddr = 0x30000000;
+        for i in (0..content.len()).step_by(WORD_SIZE) {
+            let mut word = 0;
+            // Don't read past the end of the file.
+            let len = core::cmp::min(content.len() - i, WORD_SIZE);
+            for j in 0..len {
+                let offset = i + j;
+                let byte = content.get(offset)
+                    .context("Invalid block offset")?;
+                word |= (*byte as u32) << (j * 8);
+            }
+            p.image.insert(mapAddr, word);
+            mapAddr += 4;
+        }
+
+        Ok(true)
+    }
+
     /// Initialize a MIPS Program from an appropriate ELF file
     pub fn load_elf(input: &[u8], max_mem: u32) -> Result<Program> {
         let mut image: BTreeMap<u32, u32> = BTreeMap::new();
@@ -88,6 +127,75 @@ impl Program {
                 }
             }
         }
+
+        let (symtab, strtab) = elf
+            .symbol_table()
+            .expect("Failed to read symbol table")
+            .expect("Failed to find symbol table");
+
+        // PatchGO
+        for symbol in symtab.iter() {
+            let name = strtab
+                .get(symbol.st_name as usize)
+                .expect("Failed to get name from strtab");
+
+            let addr: u32 = symbol
+                .st_value
+                .try_into()
+                .map_err(|err| anyhow!("offset is larger than 32 bits. {err}"))?;
+
+            match name {
+            "runtime.gcenable" |
+			"runtime.init.5" |         // patch out: init() { go forcegchelper() }
+			"runtime.main.func1" |        // patch out: main.func() { newm(sysmon, ....) }
+			"runtime.deductSweepCredit" | // uses floating point nums and interacts with gc we disabled
+			"runtime.(*gcControllerState).commit" |
+			// these prometheus packages rely on concurrent background things. We cannot run those.
+			"github.com/prometheus/client_golang/prometheus.init" |
+			"github.com/prometheus/client_golang/prometheus.init.0" |
+			"github.com/prometheus/procfs.init" |
+			"github.com/prometheus/common/model.init" |
+			"github.com/prometheus/client_model/go.init" |
+			"github.com/prometheus/client_model/go.init.0" |
+			"github.com/prometheus/client_model/go.init.1" |
+			// skip flag pkg init, we need to debug arg-processing more to see why this fails
+			"flag.init" |
+			// We need to patch this out, we don't pass float64nan because we don't support floats
+			"runtime.check" => {
+			// MIPS32 patch: ret (pseudo instruction)
+			// 03e00008 = jr $ra = ret (pseudo instruction)
+			// 00000000 = nop (executes with delay-slot, but does nothing)
+                image.insert(addr, 0x0800e003);
+                image.insert(addr + 4, 0);
+            },
+            "runtime.MemProfileRate" => { image.insert(addr, 0) ; },
+            &_ => (),
+            }
+        }
+
+        // PatchStack
+        let mut sp = INIT_SP - 4 * PAGE_SIZE;
+        // allocate 1 page for the initial stack data, and 16KB = 4 pages for the stack to grow
+        for i in (0..5 * PAGE_SIZE).step_by(WORD_SIZE) {
+            image.insert(sp + i, 0);
+        }
+
+        sp = INIT_SP;
+        // init argc, argv, aux on stack
+        image.insert(sp + 4 * 1, 0x42u32.to_be());      // argc = 0 (argument count)
+        image.insert(sp + 4 * 2, 0x35u32.to_be());      // argv[n] = 0 (terminating argv)
+        image.insert(sp + 4 * 3, 0);                    // envp[term] = 0 (no env vars)
+        image.insert(sp + 4 * 4, 6u32.to_be());         // auxv[0] = _AT_PAGESZ = 6 (key)
+        image.insert(sp + 4 * 5, 4096u32.to_be());      // auxv[1] = page size of 4 KiB (value) - (== minPhysPageSize)
+        image.insert(sp + 4 * 6, 25u32.to_be());        // auxv[2] = AT_RANDOM
+        image.insert(sp + 4 * 7, (sp + 4 * 9).to_be()); // auxv[3] = address of 16 bytes containing random value
+        image.insert(sp + 4 * 8, 0);                    // auxv[term] = 0
+
+        image.insert(sp + 4 * 9, 0x34322343);
+        image.insert(sp + 4 * 10, 0x54323423);
+        image.insert(sp + 4 * 11, 0x44572234);
+        image.insert(sp + 4 * 12, 0x90032dd2);
+
         Ok(Program { entry, image })
     }
 }
@@ -105,19 +213,19 @@ mod test {
         let mut reader = BufReader::new(File::open("test-vectors/hello").unwrap());
         let mut buffer = Vec::new();
         reader.read_to_end(&mut buffer).unwrap();
-        let max_mem = 0x40000000;
-        let p = Program::load_elf(&buffer, max_mem).unwrap();
+        let max_mem = 0x80000000;
+        let mut p: Program = Program::load_elf(&buffer, max_mem).unwrap();
         println!("entry: {}", p.entry);
-        let mut entry = p.entry;
-        let mut step = 0;
-        loop {
-            println!("{}: {}", step, entry);
-            if ! p.image.contains_key(&entry) {
-                break;
+        pub const block: &str = "13284491";
+        Program::load_block(&mut p, block);
+        p.image.iter().for_each(|(k, v)| {
+            if *k > INIT_SP && *k < INIT_SP + 50 {
+                println!("{:X}: {:X}", k, v.to_be());
             }
-            entry = p.image[&entry];
-            step += 1;
-        }
-        println!("Done");
+
+            if *k > 0x30000000 && *k < 0x30000020 {
+                println!("{:X}: {:X}", k, v.to_be());
+            }
+        })
     }
 }
