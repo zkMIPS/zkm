@@ -1,5 +1,4 @@
 extern crate alloc;
-
 use alloc::collections::BTreeMap;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -8,7 +7,7 @@ pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
 
 /// A MIPS program
 pub struct Program {
-    /// The entrypoint of the program
+    /// The entrypoint of the program, PC
     pub entry: u32,
 
     /// The initial memory image
@@ -107,12 +106,18 @@ mod test {
         let mut buffer = Vec::new();
         reader.read_to_end(&mut buffer).unwrap();
         let max_mem = 0x40000000;
-        let _p = Program::load_elf(&buffer, max_mem).unwrap();
-        /*
-        log::debug!("entry: {}", p.entry);
-        p.image.iter().for_each(|(k, v)| {
-            log::debug!("{}: {}", k, v);
-        })
-        */
+        let p = Program::load_elf(&buffer, max_mem).unwrap();
+        println!("entry: {}", p.entry);
+        let mut entry = p.entry;
+        let mut step = 0;
+        loop {
+            println!("{}: {}", step, entry);
+            if ! p.image.contains_key(&entry) {
+                break;
+            }
+            entry = p.image[&entry];
+            step += 1;
+        }
+        println!("Done");
     }
 }

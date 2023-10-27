@@ -18,3 +18,6 @@ pub(crate) mod stark_testing;
 pub(crate) mod util;
 pub(crate) mod vanishing_poly;
 pub(crate) mod witness;
+
+
+#[macro_use] extern crate prettytable;
