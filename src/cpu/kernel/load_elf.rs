@@ -137,6 +137,29 @@ impl Program {
             }
         }
 
+        // PatchStack
+        let mut sp = INIT_SP - 4 * PAGE_SIZE;
+        // allocate 1 page for the initial stack data, and 16KB = 4 pages for the stack to grow
+        for i in (0..5 * PAGE_SIZE).step_by(WORD_SIZE) {
+            image.insert(sp + i, 0);
+        }
+
+        sp = INIT_SP;
+        // init argc, argv, aux on stack
+        image.insert(sp + 4 * 1, 0x42u32.to_be());      // argc = 0 (argument count)
+        image.insert(sp + 4 * 2, 0x35u32.to_be());      // argv[n] = 0 (terminating argv)
+        image.insert(sp + 4 * 3, 0);                    // envp[term] = 0 (no env vars)
+        image.insert(sp + 4 * 4, 6u32.to_be());         // auxv[0] = _AT_PAGESZ = 6 (key)
+        image.insert(sp + 4 * 5, 4096u32.to_be());      // auxv[1] = page size of 4 KiB (value) - (== minPhysPageSize)
+        image.insert(sp + 4 * 6, 25u32.to_be());        // auxv[2] = AT_RANDOM
+        image.insert(sp + 4 * 7, (sp + 4 * 9).to_be()); // auxv[3] = address of 16 bytes containing random value
+        image.insert(sp + 4 * 8, 0);                    // auxv[term] = 0
+
+        image.insert(sp + 4 * 9, 0x34322343);
+        image.insert(sp + 4 * 10, 0x54323423);
+        image.insert(sp + 4 * 11, 0x44572234);
+        image.insert(sp + 4 * 12, 0x90032dd2);
+
         Ok(Program { entry, image })
     }
 }
