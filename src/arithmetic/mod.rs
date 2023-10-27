@@ -13,23 +13,37 @@ use plonky2::field::types::PrimeField64;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum BinaryOperator {
-    Add,
-    Mul,
-    Sub,
-    Div,
-    Mod,
-    Lt,
-    Gt,
-    //Byte,
-    Shl, // simulated with MUL
-    Shr, // simulated with DIV
+    ADD,
+    ADDU,
+    ADDI,
+    ADDIU,
+    SUB,
+    SUBU,
+    MULT,
+    MULTU,
+    DIV,
+    DIVU,
+    BEQ,
+    BNE,
+
+    SLLV, // simulated with MUL
+    SRLV, // simulated with DIV
+    SRAV, // simulated with DIV
+
+    SLL, // simulated with MUL
+    SRL, // simulated with DIV
+    SRA, // simulated with DIV
 }
 
 impl BinaryOperator {
     pub(crate) fn result(&self, input0: u32, input1: u32) -> u32 {
         match self {
-            BinaryOperator::Add => input0.overflowing_add(input1).0,
-            BinaryOperator::Mul => input0.overflowing_mul(input1).0,
+            BinaryOperator::ADD => input0.overflowing_add(input1).0, // FIXME
+            BinaryOperator::ADDU => input0.overflowing_add(input1).0,
+            BinaryOperator::MULT => input0.overflowing_mul(input1).0, //FIXME
+            BinaryOperator::MULTU => input0.overflowing_mul(input1).0,
+            _ => panic!("Unimplemented"),
+            /*
             BinaryOperator::Shl => {
                 if input0 < 32 {
                     input1 << input0
@@ -61,7 +75,6 @@ impl BinaryOperator {
             }
             BinaryOperator::Lt => u32::from((input0 < input1) as u8),
             BinaryOperator::Gt => u32::from((input0 > input1) as u8),
-            /*
             BinaryOperator::Byte => {
                 if input0 >= 32.into() {
                     u32::zero()
