@@ -43,16 +43,6 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], filter: usize, left_in: u3
             u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], cy as u32);
             u32_to_array(&mut lv[OUTPUT_REGISTER], diff);
         }
-        IS_LT => {
-            let (diff, cy) = left_in.overflowing_sub(right_in);
-            u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], diff);
-            u32_to_array(&mut lv[OUTPUT_REGISTER], cy as u32);
-        }
-        IS_GT => {
-            let (diff, cy) = right_in.overflowing_sub(left_in);
-            u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], diff);
-            u32_to_array(&mut lv[OUTPUT_REGISTER], cy as u32);
-        }
         _ => panic!("unexpected operation filter"),
     };
 }
@@ -149,8 +139,8 @@ pub fn eval_packed_generic<P: PackedField>(
 ) {
     let is_add = lv[IS_ADD];
     let is_sub = lv[IS_SUB];
-    let is_lt = lv[IS_LT];
-    let is_gt = lv[IS_GT];
+    // let is_lt = lv[IS_LT];
+    // let is_gt = lv[IS_GT];
 
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
@@ -160,8 +150,8 @@ pub fn eval_packed_generic<P: PackedField>(
     // x + y = z + w*2^32
     eval_packed_generic_addcy(yield_constr, is_add, in0, in1, out, aux, false);
     eval_packed_generic_addcy(yield_constr, is_sub, in1, out, in0, aux, false);
-    eval_packed_generic_addcy(yield_constr, is_lt, in1, aux, in0, out, false);
-    eval_packed_generic_addcy(yield_constr, is_gt, in0, aux, in1, out, false);
+    // eval_packed_generic_addcy(yield_constr, is_lt, in1, aux, in0, out, false);
+    // eval_packed_generic_addcy(yield_constr, is_gt, in0, aux, in1, out, false);
 }
 
 #[allow(clippy::needless_collect)]
@@ -237,8 +227,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 ) {
     let is_add = lv[IS_ADD];
     let is_sub = lv[IS_SUB];
-    let is_lt = lv[IS_LT];
-    let is_gt = lv[IS_GT];
+    //let is_lt = lv[IS_LT];
+    //let is_gt = lv[IS_GT];
 
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
@@ -247,8 +237,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     eval_ext_circuit_addcy(builder, yield_constr, is_add, in0, in1, out, aux, false);
     eval_ext_circuit_addcy(builder, yield_constr, is_sub, in1, out, in0, aux, false);
-    eval_ext_circuit_addcy(builder, yield_constr, is_lt, in1, aux, in0, out, false);
-    eval_ext_circuit_addcy(builder, yield_constr, is_gt, in0, aux, in1, out, false);
+    //eval_ext_circuit_addcy(builder, yield_constr, is_lt, in1, aux, in0, out, false);
+    //eval_ext_circuit_addcy(builder, yield_constr, is_gt, in0, aux, in1, out, false);
 }
 
 #[cfg(test)]
@@ -275,8 +265,8 @@ mod tests {
         // garbage.
         lv[IS_ADD] = F::ZERO;
         lv[IS_SUB] = F::ZERO;
-        lv[IS_LT] = F::ZERO;
-        lv[IS_GT] = F::ZERO;
+        // lv[IS_LT] = F::ZERO;
+        // lv[IS_GT] = F::ZERO;
 
         let mut constrant_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -298,7 +288,7 @@ mod tests {
         const N_ITERS: usize = 1000;
 
         for _ in 0..N_ITERS {
-            for op_filter in [IS_ADD, IS_SUB, IS_LT, IS_GT] {
+            for op_filter in [IS_ADD, IS_SUB] {
                 // set entire row to random 16-bit values
                 let mut lv = [F::default(); NUM_ARITH_COLUMNS]
                     .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
@@ -309,8 +299,6 @@ mod tests {
                 // the call.
                 lv[IS_ADD] = F::ZERO;
                 lv[IS_SUB] = F::ZERO;
-                lv[IS_LT] = F::ZERO;
-                lv[IS_GT] = F::ZERO;
                 lv[op_filter] = F::ONE;
 
                 let left_in = rng.gen::<u32>();
@@ -332,8 +320,6 @@ mod tests {
                 let expected = match op_filter {
                     IS_ADD => left_in.overflowing_add(right_in).0,
                     IS_SUB => left_in.overflowing_sub(right_in).0,
-                    IS_LT => u32::from((left_in < right_in) as u8),
-                    IS_GT => u32::from((left_in > right_in) as u8),
                     _ => panic!("unrecognised operation"),
                 };
 

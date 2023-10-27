@@ -23,19 +23,25 @@ const fn n_limbs() -> usize {
 pub const N_LIMBS: usize = n_limbs();
 
 pub(crate) const IS_ADD: usize = 0;
-pub(crate) const IS_MUL: usize = IS_ADD + 1;
-pub(crate) const IS_SUB: usize = IS_MUL + 1;
-pub(crate) const IS_DIV: usize = IS_SUB + 1;
-pub(crate) const IS_MOD: usize = IS_DIV + 1;
-pub(crate) const IS_ADDMOD: usize = IS_MOD + 1;
-pub(crate) const IS_MULMOD: usize = IS_ADDMOD + 1;
-pub(crate) const IS_SUBMOD: usize = IS_MULMOD + 1;
-pub(crate) const IS_LT: usize = IS_SUBMOD + 1;
-pub(crate) const IS_GT: usize = IS_LT + 1;
-pub(crate) const IS_SHL: usize = IS_GT + 1;
-pub(crate) const IS_SHR: usize = IS_SHL + 1;
+pub(crate) const IS_ADDU: usize = IS_ADD + 1;
+pub(crate) const IS_ADDI: usize = IS_ADDU + 1;
+pub(crate) const IS_ADDIU: usize = IS_ADDI + 1;
+pub(crate) const IS_SUB: usize = IS_ADDIU + 1;
+pub(crate) const IS_SUBU: usize = IS_SUB + 1;
+pub(crate) const IS_MULT: usize = IS_SUBU + 1;
+pub(crate) const IS_MULTU: usize = IS_MULT + 1;
+pub(crate) const IS_DIV: usize = IS_MULTU + 1;
+pub(crate) const IS_DIVU: usize = IS_DIV + 1;
+pub(crate) const IS_BEQ: usize = IS_DIVU + 1;
+pub(crate) const IS_BNE: usize = IS_BEQ + 1;
+pub(crate) const IS_SLLV: usize = IS_BNE + 1;
+pub(crate) const IS_SRLV: usize = IS_SLLV + 1;
+pub(crate) const IS_SRAV: usize = IS_SRLV + 1;
+pub(crate) const IS_SLL: usize = IS_SRAV + 1;
+pub(crate) const IS_SRL: usize = IS_SLL + 1;
+pub(crate) const IS_SRA: usize = IS_SRL + 1;
 
-pub(crate) const START_SHARED_COLS: usize = IS_SHR + 1;
+pub(crate) const START_SHARED_COLS: usize = IS_SRA + 1;
 
 /// Within the Arithmetic Unit, there are shared columns which can be
 /// used by any arithmetic circuit, depending on which one is active

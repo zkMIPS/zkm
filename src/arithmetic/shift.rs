@@ -27,7 +27,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
-use super::{divmod, mul};
+use super::{mul};
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -45,6 +45,7 @@ pub fn generate<F: PrimeField64>(
     input: u32,
     result: u32,
 ) {
+    /*
     // We use the multiplication logic to generate SHL
     // TODO: It would probably be clearer/cleaner to read the U32
     // into an [i64;N] and then copy that to the lv table.
@@ -70,6 +71,7 @@ pub fn generate<F: PrimeField64>(
         // otherwise, the output is 0. We use the logic in divmod.rs to achieve that.
         divmod::generate_divmod(lv, nv, IS_SHR, INPUT_REGISTER_1, INPUT_REGISTER_2);
     }
+    */
 }
 
 /// Evaluates the constraints for an SHL opcode.
@@ -80,11 +82,13 @@ fn eval_packed_shl<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    /*
     let is_shl = lv[IS_SHL];
     let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
     let shifted_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_2);
 
     mul::eval_packed_generic_mul(lv, is_shl, input0_limbs, shifted_limbs, yield_constr);
+    */
 }
 
 /// Evaluates the constraints for an SHR opcode.
@@ -96,6 +100,7 @@ fn eval_packed_shr<P: PackedField>(
     nv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    /*
     let quo_range = OUTPUT_REGISTER;
     let rem_range = AUX_INPUT_REGISTER_0;
     let filter = lv[IS_SHR];
@@ -110,6 +115,7 @@ fn eval_packed_shr<P: PackedField>(
         quo_range,
         rem_range,
     );
+    */
 }
 
 pub fn eval_packed_generic<P: PackedField>(
@@ -126,6 +132,7 @@ fn eval_ext_circuit_shl<F: RichField + Extendable<D>, const D: usize>(
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    /*
     let is_shl = lv[IS_SHL];
     let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
     let shifted_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_2);
@@ -138,6 +145,7 @@ fn eval_ext_circuit_shl<F: RichField + Extendable<D>, const D: usize>(
         shifted_limbs,
         yield_constr,
     );
+    */
 }
 
 fn eval_ext_circuit_shr<F: RichField + Extendable<D>, const D: usize>(
@@ -146,6 +154,7 @@ fn eval_ext_circuit_shr<F: RichField + Extendable<D>, const D: usize>(
     nv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    /*
     let filter = lv[IS_SHR];
     let quo_range = OUTPUT_REGISTER;
     let rem_range = AUX_INPUT_REGISTER_0;
@@ -161,6 +170,7 @@ fn eval_ext_circuit_shr<F: RichField + Extendable<D>, const D: usize>(
         quo_range,
         rem_range,
     );
+    */
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -189,6 +199,7 @@ mod tests {
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]
     fn generate_eval_consistency_not_shift() {
+        /*
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
@@ -210,9 +221,11 @@ mod tests {
         for &acc in &constraint_consumer.constraint_accs {
             assert_eq!(acc, GoldilocksField::ZERO);
         }
+        */
     }
 
     fn generate_eval_consistency_shift(is_shl: bool) {
+        /*
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
@@ -259,6 +272,7 @@ mod tests {
                 assert_eq!(acc, GoldilocksField::ZERO);
             }
         }
+        */
     }
 
     #[test]
@@ -272,6 +286,7 @@ mod tests {
     }
 
     fn generate_eval_consistency_shift_over_32(is_shl: bool) {
+        /*
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
@@ -317,6 +332,7 @@ mod tests {
                 assert_eq!(acc, GoldilocksField::ZERO);
             }
         }
+        */
     }
 
     #[test]

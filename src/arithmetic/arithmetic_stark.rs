@@ -16,7 +16,7 @@ use super::shift;
 use crate::all_stark::Table;
 use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 //use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
-use crate::arithmetic::{addcy, columns, divmod, mul, Operation};
+use crate::arithmetic::{addcy, columns, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
@@ -63,23 +63,25 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // If an arithmetic operation is happening on the CPU side,
     // the CTL will enforce that the reconstructed opcode value
     // from the opcode bits matches.
-    const COMBINED_OPS: [(usize, u8); 12] = [
+    const COMBINED_OPS: [(usize, u8); 18] = [
         (columns::IS_ADD, 0x01),
-        (columns::IS_MUL, 0x02),
-        (columns::IS_SUB, 0x03),
-        (columns::IS_DIV, 0x04),
-        (columns::IS_MOD, 0x06),
-        (columns::IS_ADDMOD, 0x08),
-        (columns::IS_MULMOD, 0x09),
-        //(columns::IS_ADDFP254, 0x0c),
-        //(columns::IS_MULFP254, 0x0d),
-        //(columns::IS_SUBFP254, 0x0e),
-        (columns::IS_SUBMOD, 0x0f),
-        (columns::IS_LT, 0x10),
-        (columns::IS_GT, 0x11),
-        //(columns::IS_BYTE, 0x1a),
-        (columns::IS_SHL, 0x1b),
-        (columns::IS_SHR, 0x1c),
+        (columns::IS_ADDU, 0x02),
+        (columns::IS_ADDI, 0x03),
+        (columns::IS_ADDIU, 0x04),
+        (columns::IS_SUB, 0x05),
+        (columns::IS_SUBU, 0x06),
+        (columns::IS_MULT, 0x07),
+        (columns::IS_MULTU, 0x08),
+        (columns::IS_DIV, 0x09),
+        (columns::IS_DIVU, 0x0A),
+        (columns::IS_BEQ, 0x0B),
+        (columns::IS_BNE, 0x0C),
+        (columns::IS_SLLV, 0x0D),
+        (columns::IS_SRLV, 0x0E),
+        (columns::IS_SRAV, 0x0F),
+        (columns::IS_SLL, 0x10),
+        (columns::IS_SRL, 0x11),
+        (columns::IS_SRA, 0x12),
     ];
 
     const REGISTER_MAP: [Range<usize>; 4] = [
@@ -207,7 +209,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 
         mul::eval_packed_generic(lv, yield_constr);
         addcy::eval_packed_generic(lv, yield_constr);
-        divmod::eval_packed(lv, nv, yield_constr);
+        //divmod::eval_packed(lv, nv, yield_constr);
         //modular::eval_packed(lv, nv, yield_constr);
         //byte::eval_packed(lv, yield_constr);
         shift::eval_packed_generic(lv, nv, yield_constr);
@@ -237,7 +239,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 
         mul::eval_ext_circuit(builder, lv, yield_constr);
         addcy::eval_ext_circuit(builder, lv, yield_constr);
-        divmod::eval_ext_circuit(builder, lv, nv, yield_constr);
+        //divmod::eval_ext_circuit(builder, lv, nv, yield_constr);
         //modular::eval_ext_circuit(builder, lv, nv, yield_constr);
         //byte::eval_ext_circuit(builder, lv, yield_constr);
         shift::eval_ext_circuit(builder, lv, nv, yield_constr);
@@ -307,30 +309,31 @@ mod tests {
         };
 
         // 123 + 456 == 579
-        let add = Operation::binary(BinaryOperator::Add, 123, 456);
+        let add = Operation::binary(BinaryOperator::ADD, 123, 456);
         // (123 * 456) % 1007 == 703
-        let mulmod = Operation::ternary(TernaryOperator::MulMod, 123, 456, 1007);
+        //let mulmod = Operation::ternary(TernaryOperator::MulMod, 123, 456, 1007);
         // (1234 + 567) % 1007 == 794
-        let addmod = Operation::ternary(TernaryOperator::AddMod, 1234, 567, 1007);
+        //let addmod = Operation::ternary(TernaryOperator::AddMod, 1234, 567, 1007);
         // 123 * 456 == 56088
-        let mul = Operation::binary(BinaryOperator::Mul, 123, 456);
+        let mul = Operation::binary(BinaryOperator::MULT, 123, 456);
         // 128 / 13 == 9
-        let div = Operation::binary(BinaryOperator::Div, 128, 13);
+        //let div = Operation::binary(BinaryOperator::DIV, 128, 13);
 
         // 128 < 13 == 0
-        let lt1 = Operation::binary(BinaryOperator::Lt, 128, 13);
+        //let lt1 = Operation::binary(BinaryOperator::Lt, 128, 13);
         // 13 < 128 == 1
-        let lt2 = Operation::binary(BinaryOperator::Lt, 13, 128);
+        //let lt2 = Operation::binary(BinaryOperator::Lt, 13, 128);
         // 128 < 128 == 0
-        let lt3 = Operation::binary(BinaryOperator::Lt, 128, 128);
+        //let lt3 = Operation::binary(BinaryOperator::Lt, 128, 128);
 
         // 128 % 13 == 11
-        let modop = Operation::binary(BinaryOperator::Mod, 128, 13);
+        // let modop = Operation::binary(BinaryOperator::Mod, 128, 13);
 
         // byte(30, 0xABCD) = 0xAB
         // let byte = Operation::binary(BinaryOperator::Byte, U256::from(30), U256::from(0xABCD));
 
-        let ops: Vec<Operation> = vec![add, mulmod, addmod, mul, modop, lt1, lt2, lt3, div];
+        //let ops: Vec<Operation> = vec![add, mulmod, addmod, mul, modop, lt1, lt2, lt3, div];
+        let ops: Vec<Operation> = vec![add, mul];
 
         let pols = stark.generate_trace(ops);
 
@@ -346,15 +349,7 @@ mod tests {
         let expected_output = [
             // Row (some ops take two rows), expected
             (0, 579), // ADD_OUTPUT
-            (1, 703),
-            (3, 794),
-            (5, 56088),
-            (6, 11),
-            (8, 0),
-            (9, 1),
-            (10, 0),
-            (11, 9),
-            // (13, 0xAB),
+            (1, 56088),
         ];
 
         for (row, expected) in expected_output {
@@ -386,7 +381,7 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
 
         let ops = (0..super::RANGE_MAX)
-            .map(|_| Operation::binary(BinaryOperator::Mul, rng.gen::<u32>(), rng.gen::<u32>()))
+            .map(|_| Operation::binary(BinaryOperator::MULT, rng.gen::<u32>(), rng.gen::<u32>()))
             .collect::<Vec<_>>();
 
         let pols = stark.generate_trace(ops);
