@@ -1,5 +1,4 @@
 extern crate alloc;
-
 use alloc::collections::BTreeMap;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -12,7 +11,7 @@ pub const PAGE_SIZE: u32 = 4096;
 
 /// A MIPS program
 pub struct Program {
-    /// The entrypoint of the program
+    /// The entrypoint of the program, PC
     pub entry: u32,
 
     /// The initial memory image

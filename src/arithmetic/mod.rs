@@ -1,8 +1,6 @@
 pub mod addcy;
 pub mod arithmetic_stark;
 pub mod columns;
-pub mod divmod;
-pub mod modular;
 pub mod mul;
 pub mod shift;
 pub mod utils;
@@ -13,23 +11,37 @@ use plonky2::field::types::PrimeField64;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum BinaryOperator {
-    Add,
-    Mul,
-    Sub,
-    Div,
-    Mod,
-    Lt,
-    Gt,
-    //Byte,
-    Shl, // simulated with MUL
-    Shr, // simulated with DIV
+    ADD,
+    ADDU,
+    ADDI,
+    ADDIU,
+    SUB,
+    SUBU,
+    MULT,
+    MULTU,
+    DIV,
+    DIVU,
+    BEQ,
+    BNE,
+
+    SLLV, // simulated with MUL
+    SRLV, // simulated with DIV
+    SRAV, // simulated with DIV
+
+    SLL, // simulated with MUL
+    SRL, // simulated with DIV
+    SRA, // simulated with DIV
 }
 
 impl BinaryOperator {
     pub(crate) fn result(&self, input0: u32, input1: u32) -> u32 {
         match self {
-            BinaryOperator::Add => input0.overflowing_add(input1).0,
-            BinaryOperator::Mul => input0.overflowing_mul(input1).0,
+            BinaryOperator::ADD => input0.overflowing_add(input1).0, // FIXME
+            BinaryOperator::ADDU => input0.overflowing_add(input1).0,
+            BinaryOperator::MULT => input0.overflowing_mul(input1).0, //FIXME
+            BinaryOperator::MULTU => input0.overflowing_mul(input1).0,
+            _ => panic!("Unimplemented"),
+            /*
             BinaryOperator::Shl => {
                 if input0 < 32 {
                     input1 << input0
@@ -61,7 +73,6 @@ impl BinaryOperator {
             }
             BinaryOperator::Lt => u32::from((input0 < input1) as u8),
             BinaryOperator::Gt => u32::from((input0 > input1) as u8),
-            /*
             BinaryOperator::Byte => {
                 if input0 >= 32.into() {
                     u32::zero()
@@ -75,16 +86,15 @@ impl BinaryOperator {
 
     pub(crate) fn row_filter(&self) -> usize {
         match self {
-            BinaryOperator::Add => columns::IS_ADD,
-            BinaryOperator::Mul => columns::IS_MUL,
-            BinaryOperator::Sub => columns::IS_SUB,
-            BinaryOperator::Div => columns::IS_DIV,
-            BinaryOperator::Mod => columns::IS_MOD,
-            BinaryOperator::Lt => columns::IS_LT,
-            BinaryOperator::Gt => columns::IS_GT,
-            //BinaryOperator::Byte => columns::IS_BYTE,
-            BinaryOperator::Shl => columns::IS_SHL,
-            BinaryOperator::Shr => columns::IS_SHR,
+            BinaryOperator::ADD => columns::IS_ADD,
+            BinaryOperator::ADDU => columns::IS_ADDU,
+            BinaryOperator::MULT => columns::IS_MULT,
+            BinaryOperator::MULTU => columns::IS_MULTU,
+            BinaryOperator::SUB => columns::IS_SUB,
+            BinaryOperator::SUBU => columns::IS_SUBU,
+            BinaryOperator::DIV => columns::IS_DIV,
+            BinaryOperator::DIVU => columns::IS_DIVU,
+            _ => panic!("Unimplemented"),
         }
     }
 }
@@ -106,11 +116,12 @@ impl TernaryOperator {
         }
     }
 
+    /// FIXME, there is no mod
     pub(crate) fn row_filter(&self) -> usize {
         match self {
-            TernaryOperator::AddMod => columns::IS_ADDMOD,
-            TernaryOperator::MulMod => columns::IS_MULMOD,
-            TernaryOperator::SubMod => columns::IS_SUBMOD,
+            TernaryOperator::AddMod => columns::IS_ADD,
+            TernaryOperator::MulMod => columns::IS_MULT,
+            TernaryOperator::SubMod => columns::IS_SUB,
         }
     }
 }
@@ -223,7 +234,7 @@ fn ternary_op_to_rows<F: PrimeField64>(
 
     row1[row_filter] = F::ONE;
 
-    modular::generate(&mut row1, &mut row2, row_filter, input0, input1, input2);
+    // modular::generate(&mut row1, &mut row2, row_filter, input0, input1, input2);
 
     (row1, Some(row2))
 }
@@ -238,33 +249,21 @@ fn binary_op_to_rows<F: PrimeField64>(
     row[op.row_filter()] = F::ONE;
 
     match op {
-        BinaryOperator::Add | BinaryOperator::Sub | BinaryOperator::Lt | BinaryOperator::Gt => {
+        BinaryOperator::ADD | BinaryOperator::SUB => {
             addcy::generate(&mut row, op.row_filter(), input0, input1);
             (row, None)
         }
-        BinaryOperator::Mul => {
+        BinaryOperator::MULT => {
             mul::generate(&mut row, input0, input1);
             (row, None)
         }
-        BinaryOperator::Shl => {
-            let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
-            shift::generate(&mut row, &mut nv, true, input0, input1, result);
-            (row, None)
-        }
-        BinaryOperator::Div | BinaryOperator::Mod => {
+        /*
+        BinaryOperator::DIV => {
             let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
             divmod::generate(&mut row, &mut nv, op.row_filter(), input0, input1, result);
             (row, Some(nv))
         }
-        BinaryOperator::Shr => {
-            let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
-            shift::generate(&mut row, &mut nv, false, input0, input1, result);
-            (row, Some(nv))
-        } /*
-          BinaryOperator::Byte => {
-              byte::generate(&mut row, input0, input1);
-              (row, None)
-          }
-          */
+        */
+        _ => panic!("Unimplemented")
     }
 }

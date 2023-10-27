@@ -34,7 +34,7 @@ fn read_code_memory<F: Field>(
 fn decode(registers: RegistersState, opcode: u8, func: u8) -> Result<Operation, ProgramError> {
     match (opcode, func, registers.is_kernel) {
         (0x00, 0x00, _) => Ok(Operation::Syscall(opcode, 0, false)), // STOP
-        (0x01, 0x20, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add)),
+        (0x01, 0x20, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::ADD)),
         /*
         (0x02, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul)),
         (0x03, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub)),
@@ -165,8 +165,8 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Not => &mut flags.not,
         Operation::Syscall(_, _, _) => &mut flags.syscall,
         Operation::BinaryLogic(_) => &mut flags.logic_op,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => &mut flags.shift,
+     //   Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)
+     //   | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => &mut flags.shift,
         Operation::BinaryArithmetic(_) => &mut flags.binary_op,
         Operation::TernaryArithmetic(_) => &mut flags.ternary_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
@@ -238,8 +238,8 @@ fn perform_op<F: Field>(
         Operation::Swap(n) => generate_swap(n, state, row)?,
         Operation::Iszero => generate_iszero(state, row)?,
         Operation::Not => generate_not(state, row)?,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl) => generate_shl(state, row)?,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => generate_shr(state, row)?,
+        // Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl) => generate_shl(state, row)?,
+        // Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => generate_shr(state, row)?,
         Operation::Syscall(opcode, stack_values_read, stack_len_increased) => {
             generate_syscall(opcode, stack_values_read, stack_len_increased, state, row)?
         }

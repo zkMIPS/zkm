@@ -586,7 +586,6 @@ fn append_shift<F: Field>(
         let high_limb_sum = row.mem_channels[0].value[1..].iter().copied().sum::<F>();
         row.general.shift_mut().high_limb_sum_inv = high_limb_sum.inverse();
     }
-    */
 
     let operator = if is_shl {
         BinaryOperator::Shl
@@ -599,6 +598,7 @@ fn append_shift<F: Field>(
     push_no_write(state, &mut row, result, Some(NUM_GP_CHANNELS - 1));
     state.traces.push_memory(log_in1);
     state.traces.push_cpu(row);
+    */
     Ok(())
 }
 

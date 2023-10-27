@@ -176,7 +176,7 @@ pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let is_mul = lv[IS_MUL];
+    let is_mul = lv[IS_MULT];
     let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
     let input1_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
 
@@ -225,7 +225,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let is_mul = lv[IS_MUL];
+    let is_mul = lv[IS_MULT];
     let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
     let input1_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
 
@@ -262,7 +262,7 @@ mod tests {
 
         // if `IS_MUL == 0`, then the constraints should be met even
         // if all values are garbage.
-        lv[IS_MUL] = F::ZERO;
+        lv[IS_MULT] = F::ZERO;
 
         let mut constraint_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -284,7 +284,7 @@ mod tests {
         let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
 
         // set `IS_MUL == 1` and ensure all constraints are satisfied.
-        lv[IS_MUL] = F::ONE;
+        lv[IS_MULT] = F::ONE;
 
         for _i in 0..N_RND_TESTS {
             // set inputs to random values
