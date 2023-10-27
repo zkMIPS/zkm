@@ -3,10 +3,13 @@ extern crate alloc;
 use alloc::collections::BTreeMap;
 
 use anyhow::{anyhow, bail, Context, Result};
+use std::env;
+use std::fs;
 use elf::{endian::BigEndian, file::Class, ElfBytes};
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
 pub const INIT_SP: u32 = 0x7fffd000;
 pub const PAGE_SIZE: u32 = 4096;
+pub const block: &str = "13284491";
 
 /// A MIPS program
 pub struct Program {
@@ -18,6 +21,7 @@ pub struct Program {
 }
 
 impl Program {
+
     /// Initialize a MIPS Program from an appropriate ELF file
     pub fn load_elf(input: &[u8], max_mem: u32) -> Result<Program> {
         let mut image: BTreeMap<u32, u32> = BTreeMap::new();
@@ -160,6 +164,36 @@ impl Program {
         image.insert(sp + 4 * 11, 0x44572234);
         image.insert(sp + 4 * 12, 0x90032dd2);
 
+        let mut blockpath = match env::var("BASEDIR") {
+            Ok(val) => {
+                val
+            },
+            Err(e) => {
+                String::from("/tmp/cannon")
+            },
+        };
+
+        blockpath.push_str("/0_");
+        blockpath.push_str(block);
+        blockpath.push_str("/input");
+
+        let content = fs::read(blockpath.as_str())
+            .expect("Read file failed");
+
+        let mut mapAddr = 0x30000000;
+        for i in (0..content.len()).step_by(WORD_SIZE) {
+            let mut word = 0;
+            // Don't read past the end of the file.
+            let len = core::cmp::min(content.len() - i, WORD_SIZE);
+            for j in 0..len {
+                let offset = i + j;
+                let byte = content.get(offset).context("Invalid segment offset")?;
+                word |= (*byte as u32) << (j * 8);
+            }
+            image.insert(mapAddr, word);
+            mapAddr += 4;
+        }
+
         Ok(Program { entry, image })
     }
 }
@@ -177,15 +211,17 @@ mod test {
         let mut reader = BufReader::new(File::open("test-vectors/hello").unwrap());
         let mut buffer = Vec::new();
         reader.read_to_end(&mut buffer).unwrap();
-        let max_mem = 0x40000000;
-        let _p = Program::load_elf(&buffer, max_mem).unwrap();
-        /*
-        log::debug!("entry: {}", p.entry);
+        let max_mem = 0x80000000;
+        let p = Program::load_elf(&buffer, max_mem).unwrap();
+        println!("entry: {}", p.entry);
         p.image.iter().for_each(|(k, v)| {
             if *k > INIT_SP && *k < INIT_SP + 50 {
-                println!("{}: {}", k, v.to_be());
+                println!("{:X}: {:X}", k, v.to_be());
+            }
+
+            if *k > 0x30000000 && *k < 0x30000020 {
+                println!("{:X}: {:X}", k, v.to_be());
             }
         })
-        */
     }
 }
