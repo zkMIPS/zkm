@@ -34,7 +34,6 @@ pub(crate) fn combined_kernel() -> Kernel {
     let code_hash = code_hash_be.map(u32::from_be);
     log::debug!("code_hash: {:?}", code_hash);
 
-
     Kernel {
         code,
         code_hash,

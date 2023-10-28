@@ -19,5 +19,5 @@ pub(crate) mod util;
 pub(crate) mod vanishing_poly;
 pub(crate) mod witness;
 
-
-#[macro_use] extern crate prettytable;
+#[macro_use]
+extern crate prettytable;
