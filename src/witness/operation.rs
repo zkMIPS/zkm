@@ -27,7 +27,7 @@ pub(crate) enum Operation {
     Eq,
     BinaryLogic(logic::Op),
     BinaryArithmetic(arithmetic::BinaryOperator),
-    TernaryArithmetic(arithmetic::TernaryOperator),
+    TernaryArithmetic(arithmetic::TernaryOperator), // Unused
     KeccakGeneral,
     ProverInput,
     Jump,
