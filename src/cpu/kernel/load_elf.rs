@@ -2,9 +2,9 @@ extern crate alloc;
 use alloc::collections::BTreeMap;
 
 use anyhow::{anyhow, bail, Context, Result};
+use elf::{endian::BigEndian, file::Class, ElfBytes};
 use std::env;
 use std::fs;
-use elf::{endian::BigEndian, file::Class, ElfBytes};
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
 pub const INIT_SP: u32 = 0x7fffd000;
 pub const PAGE_SIZE: u32 = 4096;
@@ -19,22 +19,21 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn load_block(p: &mut Program , block: &str) -> Result<bool> {
+    pub fn get_block_path(block: &str, file: &str) -> String {
         let mut blockpath = match env::var("BASEDIR") {
-            Ok(val) => {
-                val
-            },
-            Err(e) => {
-                String::from("/tmp/cannon")
-            },
+            Ok(val) => val,
+            Err(e) => String::from("/tmp/cannon"),
         };
 
         blockpath.push_str("/0_");
         blockpath.push_str(block);
-        blockpath.push_str("/input");
+        blockpath.push_str("/");
+        blockpath.push_str(file);
+        blockpath
+    }
 
-        let content = fs::read(blockpath.as_str())
-            .expect("Read file failed");
+    pub fn load_block(p: &mut Program, blockpath: &str) -> Result<bool> {
+        let content = fs::read(blockpath).expect("Read file failed");
 
         let mut mapAddr = 0x30000000;
         for i in (0..content.len()).step_by(WORD_SIZE) {
@@ -43,8 +42,7 @@ impl Program {
             let len = core::cmp::min(content.len() - i, WORD_SIZE);
             for j in 0..len {
                 let offset = i + j;
-                let byte = content.get(offset)
-                    .context("Invalid block offset")?;
+                let byte = content.get(offset).context("Invalid block offset")?;
                 word |= (*byte as u32) << (j * 8);
             }
             p.image.insert(mapAddr, word);
@@ -182,14 +180,14 @@ impl Program {
 
         sp = INIT_SP;
         // init argc, argv, aux on stack
-        image.insert(sp + 4 * 1, 0x42u32.to_be());      // argc = 0 (argument count)
-        image.insert(sp + 4 * 2, 0x35u32.to_be());      // argv[n] = 0 (terminating argv)
-        image.insert(sp + 4 * 3, 0);                    // envp[term] = 0 (no env vars)
-        image.insert(sp + 4 * 4, 6u32.to_be());         // auxv[0] = _AT_PAGESZ = 6 (key)
-        image.insert(sp + 4 * 5, 4096u32.to_be());      // auxv[1] = page size of 4 KiB (value) - (== minPhysPageSize)
-        image.insert(sp + 4 * 6, 25u32.to_be());        // auxv[2] = AT_RANDOM
+        image.insert(sp + 4 * 1, 0x42u32.to_be()); // argc = 0 (argument count)
+        image.insert(sp + 4 * 2, 0x35u32.to_be()); // argv[n] = 0 (terminating argv)
+        image.insert(sp + 4 * 3, 0); // envp[term] = 0 (no env vars)
+        image.insert(sp + 4 * 4, 6u32.to_be()); // auxv[0] = _AT_PAGESZ = 6 (key)
+        image.insert(sp + 4 * 5, 4096u32.to_be()); // auxv[1] = page size of 4 KiB (value) - (== minPhysPageSize)
+        image.insert(sp + 4 * 6, 25u32.to_be()); // auxv[2] = AT_RANDOM
         image.insert(sp + 4 * 7, (sp + 4 * 9).to_be()); // auxv[3] = address of 16 bytes containing random value
-        image.insert(sp + 4 * 8, 0);                    // auxv[term] = 0
+        image.insert(sp + 4 * 8, 0); // auxv[term] = 0
 
         image.insert(sp + 4 * 9, 0x34322343);
         image.insert(sp + 4 * 10, 0x54323423);
@@ -216,8 +214,12 @@ mod test {
         let max_mem = 0x80000000;
         let mut p: Program = Program::load_elf(&buffer, max_mem).unwrap();
         println!("entry: {}", p.entry);
-        pub const block: &str = "13284491";
-        Program::load_block(&mut p, block);
+
+        let real_blockpath = Program::get_block_path("13284491", "input");
+        println!("real block path: {}", real_blockpath);
+        pub const test_blockpath: &str = "test-vectors/0_13284491/input";
+        Program::load_block(&mut p, test_blockpath);
+
         p.image.iter().for_each(|(k, v)| {
             if *k > INIT_SP && *k < INIT_SP + 50 {
                 println!("{:X}: {:X}", k, v.to_be());
