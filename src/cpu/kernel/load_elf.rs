@@ -19,7 +19,7 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn load_block(p: &mut Program , block: &str) -> Result<bool> {
+    pub fn get_block_path(block: &str, file: &str) -> String {
         let mut blockpath = match env::var("BASEDIR") {
             Ok(val) => {
                 val
@@ -31,9 +31,13 @@ impl Program {
 
         blockpath.push_str("/0_");
         blockpath.push_str(block);
-        blockpath.push_str("/input");
+        blockpath.push_str("/");
+        blockpath.push_str(file);
+        blockpath
+    }
 
-        let content = fs::read(blockpath.as_str())
+    pub fn load_block(p: &mut Program , blockpath: &str) -> Result<bool> {
+        let content = fs::read(blockpath)
             .expect("Read file failed");
 
         let mut mapAddr = 0x30000000;
@@ -216,8 +220,12 @@ mod test {
         let max_mem = 0x80000000;
         let mut p: Program = Program::load_elf(&buffer, max_mem).unwrap();
         println!("entry: {}", p.entry);
-        pub const block: &str = "13284491";
-        Program::load_block(&mut p, block);
+
+        let real_blockpath = Program::get_block_path("13284491", "input");
+        println!("real block path: {}", real_blockpath);
+        pub const test_blockpath: &str = "test-vectors/0_13284491/input";
+        Program::load_block(&mut p, test_blockpath);
+
         p.image.iter().for_each(|(k, v)| {
             if *k > INIT_SP && *k < INIT_SP + 50 {
                 println!("{:X}: {:X}", k, v.to_be());
