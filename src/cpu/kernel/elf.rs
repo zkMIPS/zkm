@@ -1,5 +1,6 @@
 extern crate alloc;
 use alloc::collections::BTreeMap;
+use serde::{Deserialize, Serialize};
 
 use anyhow::{anyhow, bail, Context, Result};
 use elf::{endian::BigEndian, file::Class, ElfBytes};
@@ -10,6 +11,7 @@ pub const INIT_SP: u32 = 0x7fffd000;
 pub const PAGE_SIZE: u32 = 4096;
 
 /// A MIPS program
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Program {
     /// The entrypoint of the program, PC
     pub entry: u32,
@@ -32,7 +34,7 @@ impl Program {
         blockpath
     }
 
-    pub fn load_block(p: &mut Program, blockpath: &str) -> Result<bool> {
+    pub fn load_block(&mut self, blockpath: &str) -> Result<bool> {
         let content = fs::read(blockpath).expect("Read file failed");
 
         let mut mapAddr = 0x30000000;
@@ -45,7 +47,7 @@ impl Program {
                 let byte = content.get(offset).context("Invalid block offset")?;
                 word |= (*byte as u32) << (j * 8);
             }
-            p.image.insert(mapAddr, word);
+            self.image.insert(mapAddr, word);
             mapAddr += 4;
         }
 
@@ -204,7 +206,7 @@ mod test {
     use std::io::BufReader;
     use std::io::Read;
 
-    use crate::cpu::kernel::load_elf::*;
+    use crate::cpu::kernel::elf::*;
 
     #[test]
     fn load_and_check_mips_elf() {
@@ -218,7 +220,7 @@ mod test {
         let real_blockpath = Program::get_block_path("13284491", "input");
         println!("real block path: {}", real_blockpath);
         pub const test_blockpath: &str = "test-vectors/0_13284491/input";
-        Program::load_block(&mut p, test_blockpath);
+        p.load_block(test_blockpath).unwrap();
 
         p.image.iter().for_each(|(k, v)| {
             if *k > INIT_SP && *k < INIT_SP + 50 {

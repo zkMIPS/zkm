@@ -135,7 +135,7 @@ impl MemoryState {
     pub fn new(kernel_code: &[u8]) -> Self {
         let code_u32s = kernel_code.iter().map(|&x| x.into()).collect();
         let mut result = Self::default();
-        result.contexts[0].segments[Segment::MainMemory as usize].content = code_u32s;
+        result.contexts[0].segments[Segment::Code as usize].content = code_u32s;
         result
     }
 

@@ -13,6 +13,8 @@ pub(crate) mod lookup;
 pub(crate) mod memory;
 pub(crate) mod proof;
 pub(crate) mod prover;
+pub(crate) mod verifier;
+pub(crate) mod get_challenges;
 pub(crate) mod stark;
 pub(crate) mod stark_testing;
 pub(crate) mod util;

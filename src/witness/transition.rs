@@ -400,7 +400,7 @@ fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
         0,
     );
 
-    assert!(pc < KERNEL.code.len(), "Kernel PC is out of range: {}", pc);
+    assert!(pc < KERNEL.program.image.len(), "Kernel PC is out of range: {}", pc);
 }
 
 fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> anyhow::Result<()> {
