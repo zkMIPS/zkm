@@ -468,6 +468,14 @@ mod tests {
     use plonky2::field::types::Sample;
 
     use crate::verifier::eval_l_0_and_l_last;
+    use crate::prover::prove;
+    use crate::all_stark::AllStark;
+    use crate::config::StarkConfig;
+    use crate::generation::GenerationInputs;
+    use super::verify_proof;
+    use plonky2::util::timing::TimingTree;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::proof;
 
     #[test]
     fn test_eval_l_0_and_l_last() {
@@ -482,5 +490,20 @@ mod tests {
         let (l_first_x, l_last_x) = eval_l_0_and_l_last(log_n, x);
         assert_eq!(l_first_x, expected_l_first_x);
         assert_eq!(l_last_x, expected_l_last_x);
+    }
+
+    #[test]
+    fn test_prove_and_verify() {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let allstark: AllStark<F, D> = AllStark::default();
+        let config = StarkConfig::standard_fast_config();
+        let input = GenerationInputs{};
+        let mut timing = TimingTree::default();
+
+        let allproof: proof::AllProof<GoldilocksField, C, 2> = prove(&allstark, &config, input, &mut timing).unwrap();
+        verify_proof(&allstark, allproof, &config).unwrap();
     }
 }
