@@ -16,6 +16,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub keccak_general: T,
     pub prover_input: T,
     pub jumps: T, // Combines JUMP and JUMPI flags.
+    pub branch: T,
     pub pc: T,
     pub jumpdest: T,
     pub swap: T,

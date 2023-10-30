@@ -43,15 +43,16 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
     address: MemoryAddress,
     state: &GenerationState<F>,
     row: &mut CpuColumnsView<F>,
-) -> (u8, u8, MemoryOp) {
+) -> (u8, u8, u32, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::Code, address, state);
 
-    let val_u8 = to_byte_checked(val);
-    row.opcode_bits = to_bits_le(val_u8);
+    let opcode = to_byte_checked(val >> 26);
+    let func: u8 = to_byte_checked(val & 0x3f);
+    row.opcode_bits = to_bits_le(opcode);
     // FIXME: decode func
-    row.func_bits = to_bits_le(val_u8);
+    row.func_bits = to_bits_le(func);
 
-    (val_u8, val_u8, op)
+    (opcode, func, val, op)
 }
 
 pub(crate) fn mem_read_with_log<F: Field>(

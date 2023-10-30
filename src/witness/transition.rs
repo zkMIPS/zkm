@@ -19,22 +19,44 @@ use crate::{arithmetic, logic};
 fn read_code_memory<F: Field>(
     state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
-) -> (u8, u8) {
+) -> (u8, u8, u32) {
     let code_context = state.registers.code_context();
     row.code_context = F::from_canonical_usize(code_context);
 
     let address = MemoryAddress::new(code_context, Segment::Code, state.registers.program_counter);
-    let (opcode, func, mem_log) = mem_read_code_with_log_and_fill(address, state, row);
+    let (opcode, func, insn, mem_log) = mem_read_code_with_log_and_fill(address, state, row);
 
     state.traces.push_memory(mem_log);
 
-    (opcode, func)
+    (opcode, func, insn)
 }
 
-fn decode(registers: RegistersState, opcode: u8, func: u8) -> Result<Operation, ProgramError> {
+fn decode(registers: RegistersState, opcode: u8, func: u8, insn: u32) -> Result<Operation, ProgramError> {
+    let rt = ((insn >> 16) & 0x1F).to_le_bytes()[0];
+    let rs = ((insn >> 21) & 0x1F).to_le_bytes()[0];
+    let rd = ((insn >> 11) & 0x1F).to_le_bytes()[0];
+    let offset = insn & 0xffff;
+    let target = insn & 0x3ffffff;
+
     match (opcode, func, registers.is_kernel) {
-        (0x00, 0x00, _) => Ok(Operation::Syscall(opcode, 0, false)), // STOP
-        (0x01, 0x20, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::ADD)),
+        (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)), // JR
+        (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)), // JALR
+        (0x01, _, _) => {
+            if rt == 1 {
+                Ok(Operation::Branch(Cond::GE, rs, 0u8, offset)) // BGEZ
+            } else if rt == 0 {
+                Ok(Operation::Branch(Cond::LT, rs, 0u8, offset)) // BLTZ
+            } else {
+                Err(ProgramError::InvalidOpcode)
+            }
+        },
+        (0x02, _, _) => Ok(Operation::Jumpi(0u8, target)), // J
+        (0x03, _, _) => Ok(Operation::Jumpi(31u8, target)), // JAL
+        (0x04, _, _) => Ok(Operation::Branch(Cond::EQ, rs, rt, offset)), // BEQ
+        (0x05, _, _) => Ok(Operation::Branch(Cond::NE, rs, rt, offset)), // BNE
+        (0x06, _, _) => Ok(Operation::Branch(Cond::LE, rs, 0u8, offset)), // BLEZ
+        (0x07, _, _) => Ok(Operation::Branch(Cond::GT, rs, 0u8, offset)), // BGTZ
+
         /*
         (0x02, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul)),
         (0x03, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub)),
@@ -171,9 +193,9 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::TernaryArithmetic(_) => &mut flags.ternary_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
         Operation::ProverInput => &mut flags.prover_input,
-        Operation::Jump | Operation::Jumpi => &mut flags.jumps,
+        Operation::Jump(_, _) | Operation::Jumpi(_, _)  => &mut flags.jumps,
+        Operation::Branch(_, _, _, _) => &mut flags.branch,
         Operation::Pc => &mut flags.pc,
-        Operation::Jumpdest => &mut flags.jumpdest,
         Operation::GetContext => &mut flags.get_context,
         Operation::SetContext => &mut flags.set_context,
         Operation::Mload32Bytes => &mut flags.mload_32bytes,
@@ -252,10 +274,10 @@ fn perform_op<F: Field>(
         Operation::KeccakGeneral => generate_keccak_general(state, row)?,
         Operation::ProverInput => generate_prover_input(state, row)?,
         // Operation::Pop => generate_pop(state, row)?,
-        Operation::Jump => generate_jump(state, row)?,
-        Operation::Jumpi => generate_jumpi(state, row)?,
+        Operation::Jump(link, target) => generate_jump(link, target, state, row)?,
+        Operation::Jumpi(link, target) => generate_jumpi(link, target, state, row)?,
+        Operation::Branch(cond, input1, input2, target) => generate_branch(cond, input1, input2, target, state, row)?,
         Operation::Pc => generate_pc(state, row)?,
-        Operation::Jumpdest => generate_jumpdest(state, row)?,
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
         Operation::Mload32Bytes => generate_mload_32bytes(state, row)?,
@@ -268,7 +290,8 @@ fn perform_op<F: Field>(
     state.registers.program_counter += match op {
         Operation::Syscall(_, _, _) | Operation::ExitKernel => 0,
         //     Operation::Push(n) => n as usize + 1,
-        Operation::Jump | Operation::Jumpi => 0,
+        Operation::Jump(_, _) | Operation::Jumpi(_, _) => 0,
+        Operation::Branch(_, _, _, _) => 0,
         _ => 1,
     };
 
@@ -282,7 +305,7 @@ fn perform_op<F: Field>(
 /// Row that has the correct values for system registers and the code channel, but is otherwise
 /// blank. It fulfills the constraints that are common to successful operations and the exception
 /// operation. It also returns the opcode.
-fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8, u8) {
+fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8, u8, u32) {
     let mut row: CpuColumnsView<F> = CpuColumnsView::default();
     row.clock = F::from_canonical_usize(state.traces.clock());
     row.context = F::from_canonical_usize(state.registers.context);
@@ -297,13 +320,13 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8,
     fill_channel_with_value(&mut row, 0, state.registers.stack_top);
     */
 
-    let (opcode, func) = read_code_memory(state, &mut row);
-    (row, opcode, func)
+    let (opcode, func, insn) = read_code_memory(state, &mut row);
+    (row, opcode, func, insn)
 }
 
 fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(), ProgramError> {
-    let (mut row, opcode, func) = base_row(state);
-    let op = decode(state.registers, opcode, func)?;
+    let (mut row, opcode, func, insn) = base_row(state);
+    let op = decode(state.registers, opcode, func, insn)?;
 
     if state.registers.is_kernel {
         log_kernel_instruction(state, op);
@@ -416,7 +439,7 @@ fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> 
 
     let checkpoint = state.checkpoint();
 
-    let (row, _, _) = base_row(state);
+    let (row, _, _, _) = base_row(state);
     generate_exception(exc_code, state, row)
         .map_err(|_| anyhow::Error::msg("error handling errored..."))?;
 
