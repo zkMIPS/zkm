@@ -46,4 +46,10 @@ impl<F: Field> GenerationState<F> {
         self.registers = checkpoint.registers;
         self.traces.rollback(checkpoint.traces);
     }
+
+    /// Updates `program_counter`, and potentially adds some extra handling if we're jumping to a
+    /// special location.
+    pub fn jump_to(&mut self, dst: usize) {
+        self.registers.program_counter = dst;
+    }
 }

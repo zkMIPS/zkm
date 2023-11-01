@@ -31,7 +31,12 @@ fn read_code_memory<F: Field>(
     (opcode, func, insn)
 }
 
-fn decode(registers: RegistersState, opcode: u8, func: u8, insn: u32) -> Result<Operation, ProgramError> {
+fn decode(
+    registers: RegistersState,
+    opcode: u8,
+    func: u8,
+    insn: u32,
+) -> Result<Operation, ProgramError> {
     let rt = ((insn >> 16) & 0x1F).to_le_bytes()[0];
     let rs = ((insn >> 21) & 0x1F).to_le_bytes()[0];
     let rd = ((insn >> 11) & 0x1F).to_le_bytes()[0];
@@ -40,7 +45,7 @@ fn decode(registers: RegistersState, opcode: u8, func: u8, insn: u32) -> Result<
 
     match (opcode, func, registers.is_kernel) {
         (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)), // JR
-        (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)), // JALR
+        (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),  // JALR
         (0x01, _, _) => {
             if rt == 1 {
                 Ok(Operation::Branch(Cond::GE, rs, 0u8, offset)) // BGEZ
@@ -49,7 +54,7 @@ fn decode(registers: RegistersState, opcode: u8, func: u8, insn: u32) -> Result<
             } else {
                 Err(ProgramError::InvalidOpcode)
             }
-        },
+        }
         (0x02, _, _) => Ok(Operation::Jumpi(0u8, target)), // J
         (0x03, _, _) => Ok(Operation::Jumpi(31u8, target)), // JAL
         (0x04, _, _) => Ok(Operation::Branch(Cond::EQ, rs, rt, offset)), // BEQ
@@ -193,7 +198,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::TernaryArithmetic(_) => &mut flags.ternary_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
         Operation::ProverInput => &mut flags.prover_input,
-        Operation::Jump(_, _) | Operation::Jumpi(_, _)  => &mut flags.jumps,
+        Operation::Jump(_, _) | Operation::Jumpi(_, _) => &mut flags.jumps,
         Operation::Branch(_, _, _, _) => &mut flags.branch,
         Operation::Pc => &mut flags.pc,
         Operation::GetContext => &mut flags.get_context,
@@ -276,7 +281,9 @@ fn perform_op<F: Field>(
         // Operation::Pop => generate_pop(state, row)?,
         Operation::Jump(link, target) => generate_jump(link, target, state, row)?,
         Operation::Jumpi(link, target) => generate_jumpi(link, target, state, row)?,
-        Operation::Branch(cond, input1, input2, target) => generate_branch(cond, input1, input2, target, state, row)?,
+        Operation::Branch(cond, input1, input2, target) => {
+            generate_branch(cond, input1, input2, target, state, row)?
+        }
         Operation::Pc => generate_pc(state, row)?,
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
