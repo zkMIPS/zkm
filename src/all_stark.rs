@@ -104,6 +104,7 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
 }
 
 fn ctl_arithmetic<F: Field>() -> CrossTableLookup<F> {
+    println!("ctl_arith");
     CrossTableLookup::new(
         vec![cpu_stark::ctl_arithmetic_base_rows()],
         arithmetic_stark::ctl_arithmetic_rows(),
@@ -138,6 +139,7 @@ fn ctl_byte_packing<F: Field>() -> CrossTableLookup<F> {
 // one for the inputs and one for the outputs.
 // They are linked with the timestamp.
 fn ctl_keccak_inputs<F: Field>() -> CrossTableLookup<F> {
+    println!("ctl_keccak_inputs");
     let keccak_sponge_looking = TableWithColumns::new(
         Table::KeccakSponge,
         keccak_sponge_stark::ctl_looking_keccak_inputs(),
@@ -152,6 +154,7 @@ fn ctl_keccak_inputs<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_keccak_outputs<F: Field>() -> CrossTableLookup<F> {
+    println!("ctl_keccak_outputs");
     let keccak_sponge_looking = TableWithColumns::new(
         Table::KeccakSponge,
         keccak_sponge_stark::ctl_looking_keccak_outputs(),
@@ -166,6 +169,7 @@ fn ctl_keccak_outputs<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
+    println!("ctl_keccak_sponge");
     let cpu_looking = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_keccak_sponge(),
@@ -180,6 +184,7 @@ fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
+    println!("ctl_logic");
     let cpu_looking = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_logic(),
@@ -200,13 +205,11 @@ fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
-    /*
     let cpu_memory_code_read = TableWithColumns::new(
         Table::Cpu,
-        cpu_stark::ctl_data_code_memory(),
+        cpu_stark::ctl_data_code_memory::<F>(),
         Some(cpu_stark::ctl_filter_code_memory()),
     );
-    */
     let cpu_memory_gp_ops = (0..NUM_GP_CHANNELS).map(|channel| {
         TableWithColumns::new(
             Table::Cpu,
@@ -240,5 +243,6 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         memory_stark::ctl_data(),
         Some(memory_stark::ctl_filter()),
     );
+    println!("ctl_memory");
     CrossTableLookup::new(all_lookers, memory_looked)
 }

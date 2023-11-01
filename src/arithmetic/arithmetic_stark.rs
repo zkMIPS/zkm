@@ -31,7 +31,7 @@ use crate::stark::Stark;
 /// table and combining them as x + y*2^16 to ensure they equal the
 /// corresponding 32-bit number in the CPU table.
 fn cpu_arith_data_link<F: Field>(
-    combined_ops: &[(usize, u8)],
+    combined_ops: &[(usize, u16)],
     regs: &[Range<usize>],
 ) -> Vec<Column<F>> {
     let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
@@ -39,7 +39,7 @@ fn cpu_arith_data_link<F: Field>(
     let mut res = vec![Column::linear_combination(
         combined_ops
             .iter()
-            .map(|&(col, code)| (col, F::from_canonical_u8(code))),
+            .map(|&(col, code)| (col, F::from_canonical_u16(code))),
     )];
 
     // The inner for loop below assumes N_LIMBS is even.
@@ -63,25 +63,25 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // If an arithmetic operation is happening on the CPU side,
     // the CTL will enforce that the reconstructed opcode value
     // from the opcode bits matches.
-    const COMBINED_OPS: [(usize, u8); 18] = [
-        (columns::IS_ADD, 0x01),
-        (columns::IS_ADDU, 0x02),
-        (columns::IS_ADDI, 0x03),
-        (columns::IS_ADDIU, 0x04),
-        (columns::IS_SUB, 0x05),
-        (columns::IS_SUBU, 0x06),
-        (columns::IS_MULT, 0x07),
-        (columns::IS_MULTU, 0x08),
-        (columns::IS_DIV, 0x09),
-        (columns::IS_DIVU, 0x0A),
-        (columns::IS_BEQ, 0x0B),
-        (columns::IS_BNE, 0x0C),
-        (columns::IS_SLLV, 0x0D),
-        (columns::IS_SRLV, 0x0E),
-        (columns::IS_SRAV, 0x0F),
-        (columns::IS_SLL, 0x10),
-        (columns::IS_SRL, 0x11),
-        (columns::IS_SRA, 0x12),
+    const COMBINED_OPS: [(usize, u16); 18] = [
+        (columns::IS_ADD,   0b000000100000),
+        (columns::IS_ADDU,  0b000000100001),
+        (columns::IS_ADDI,  0b001000000000),
+        (columns::IS_ADDIU, 0b001001000000),
+        (columns::IS_SUB,   0b000000100010),
+        (columns::IS_SUBU,  0b000000100011),
+        (columns::IS_MULT,  0b000000011000),
+        (columns::IS_MULTU, 0b000000011001),
+        (columns::IS_DIV,   0b000000011010),
+        (columns::IS_DIVU,  0b000000011011),
+        (columns::IS_BEQ,   0b000100000000),
+        (columns::IS_BNE,   0b000101000000),
+        (columns::IS_SLLV,  0b000000000100),
+        (columns::IS_SRLV,  0b000000000110),
+        (columns::IS_SRAV,  0b000000000111),
+        (columns::IS_SLL,   0b000000000000),
+        (columns::IS_SRL,   0b000000000010),
+        (columns::IS_SRA,   0b000000000011),
     ];
 
     const REGISTER_MAP: [Range<usize>; 4] = [

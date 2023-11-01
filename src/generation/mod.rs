@@ -21,22 +21,6 @@ use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
 use crate::witness::transition::transition;
 
-/// FIXME: useful?
-#[derive(Clone, Debug, Deserialize, Serialize, Default)]
-pub(crate) struct MipsTrace {
-    pub cycle: u32,
-    pub pc: u32,
-    pub next_pc: u32,
-    pub lo: u32,
-    pub hi: u32,
-    pub regs: [u32; 32],
-    pub heap: u32,
-    pub exit_code: u8,
-    pub exited: bool,
-    pub mem_addr: u32,
-    pub insn_addr: u32,
-}
-
 /// Inputs needed for trace generation. Wrap the trace record.
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct GenerationInputs {

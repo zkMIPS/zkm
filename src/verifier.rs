@@ -503,7 +503,7 @@ mod tests {
         let input = GenerationInputs{};
         let mut timing = TimingTree::default();
 
-        let allproof: proof::AllProof<GoldilocksField, C, 2> = prove(&allstark, &config, input, &mut timing).unwrap();
+        let allproof: proof::AllProof<GoldilocksField, C, D> = prove(&allstark, &config, input, &mut timing).unwrap();
         verify_proof(&allstark, allproof, &config).unwrap();
     }
 }

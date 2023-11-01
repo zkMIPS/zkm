@@ -152,7 +152,6 @@ fn mem_time_and_channel<F: Field>(channel: usize) -> Column<F> {
     Column::linear_combination_with_constant([(COL_MAP.clock, scalar)], addend)
 }
 
-/*
 pub fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
     let mut cols = vec![
         Column::constant(F::ONE),                                      // is_read
@@ -171,7 +170,6 @@ pub fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
 
     cols
 }
-*/
 
 pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     let channel_map = COL_MAP.mem_channels[channel];
