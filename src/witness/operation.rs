@@ -177,50 +177,13 @@ pub(crate) fn generate_jump<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    /*
-    let [(dst, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
-
-    let dst: u32 = dst
-        .try_into()
-        .map_err(|_| ProgramError::InvalidJumpDestination)?;
-
-    let (jumpdest_bit, jumpdest_bit_log) = mem_read_gp_with_log_and_fill(
-        NUM_GP_CHANNELS - 1,
-        MemoryAddress::new(state.registers.context, Segment::JumpdestBits, dst as usize),
-        state,
-        &mut row,
-    );
-
-    row.mem_channels[1].value[0] = F::ONE;
-
-    if state.registers.is_kernel {
-        // Don't actually do the read, just set the address, etc.
-        let channel = &mut row.mem_channels[NUM_GP_CHANNELS - 1];
-        channel.used = F::ZERO;
-        channel.value[0] = F::ONE;
-    } else {
-        if jumpdest_bit != U256::one() {
-            return Err(ProgramError::InvalidJumpDestination);
-        }
-        state.traces.push_memory(jumpdest_bit_log);
-    }
-
-    // Extra fields required by the constraints.
+    let target_pc = reg_read_with_log(target, state)?;
     row.general.jumps_mut().should_jump = F::ONE;
     row.general.jumps_mut().cond_sum_pinv = F::ONE;
-
-    let diff = row.stack_len - F::ONE;
-    if let Some(inv) = diff.try_inverse() {
-        row.general.stack_mut().stack_inv = inv;
-        row.general.stack_mut().stack_inv_aux = F::ONE;
-    } else {
-        row.general.stack_mut().stack_inv = F::ZERO;
-        row.general.stack_mut().stack_inv_aux = F::ZERO;
-    }
-
+    let next_pc = reg_read_with_log(35, state)?.wrapping_add(8);
+    let _ = reg_write_with_log(link, next_pc, state);
     state.traces.push_cpu(row);
-    state.jump_to(dst as usize)?;
-    */
+    state.jump_to(target_pc);
     Ok(())
 }
 
@@ -289,6 +252,7 @@ pub(crate) fn generate_branch<F: Field>(
 
     state.traces.push_memory(log_cond);
     state.traces.push_cpu(row);
+    state.jump_to(target_pc);
     */
     Ok(())
 }

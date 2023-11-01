@@ -55,6 +55,51 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
     (val, op)
 }
 
+pub(crate) fn reg_read_with_log<F: Field>(
+    index: u8,
+    state: &GenerationState<F>,
+) -> Result<usize, ProgramError> {
+    let mut result = 0;
+    if index < 32 {
+        result = state.registers.gprs[index as usize];
+    } else if index == 32 {
+        result = state.registers.lo;
+    } else if index == 33 {
+        result = state.registers.hi;
+    } else if index == 34 {
+        result = state.registers.heap;
+    } else if index == 35 {
+        result = state.registers.program_counter;
+    } else {
+        return Err(ProgramError::InvalidRegister);
+    }
+    Ok(result)
+}
+
+pub(crate)  fn reg_write_with_log<F: Field>(
+    index: u8,
+    value: usize,
+    state: &mut GenerationState<F>,
+) -> Result<(), ProgramError> {
+    if index == 0 {
+        // Ignore write to r0
+    } else if index < 32 {
+        state.registers.gprs[index as usize] = value;
+    } else if index == 32 {
+        state.registers.lo = value;
+    } else if index == 33 {
+        state.registers.hi = value;
+    } else if index == 34 {
+        state.registers.heap = value;
+    } else if index == 35 {
+        state.registers.program_counter = value;
+    } else {
+        return Err(ProgramError::InvalidRegister);
+    }
+
+    Ok(())
+}
+
 pub(crate) fn mem_read_with_log<F: Field>(
     channel: MemoryChannel,
     address: MemoryAddress,
@@ -295,49 +340,4 @@ pub(crate) fn sign_extend<const N: usize>(value: u32) -> u32 {
     } else {
         value & mask
     };
-}
-
-pub(crate) fn reg_read_with_log<F: Field>(
-    index: u8,
-    state: &GenerationState<F>,
-) -> Result<usize, ProgramError> {
-    let mut result = 0;
-    if index < 32 {
-        result = state.registers.gprs[index as usize];
-    } else if index == 32 {
-        result = state.registers.lo;
-    } else if index == 33 {
-        result = state.registers.hi;
-    } else if index == 34 {
-        result = state.registers.heap;
-    } else if index == 35 {
-        result = state.registers.program_counter;
-    } else {
-        return Err(ProgramError::InvalidRegister);
-    }
-    Ok(result)
-}
-
-pub(crate) fn reg_write_with_log<F: Field>(
-    index: u8,
-    value: usize,
-    state: &mut GenerationState<F>,
-) -> Result<(), ProgramError> {
-    if index == 0 {
-        // Ignore write to r0
-    } else if index < 32 {
-        state.registers.gprs[index as usize] = value;
-    } else if index == 32 {
-        state.registers.lo = value;
-    } else if index == 33 {
-        state.registers.hi = value;
-    } else if index == 34 {
-        state.registers.heap = value;
-    } else if index == 35 {
-        state.registers.program_counter = value;
-    } else {
-        return Err(ProgramError::InvalidRegister);
-    }
-
-    Ok(())
 }
