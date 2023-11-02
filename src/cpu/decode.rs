@@ -23,7 +23,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 13] = [
+const OPCODES: [(u32, usize, bool, usize); 13] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
     // ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags are handled partly manually here, and partly through the Arithmetic table CTL.
     // ADDMOD, MULMOD and SUBMOD flags are handled partly manually here, and partly through the Arithmetic table CTL.
@@ -56,18 +56,13 @@ const COMBINED_OPCODES: [usize; 5] = [
     COL_MAP.op.m_op_general,
 ];
 
-/// Break up an opcode (which is 8 bits long) into its eight bits.
-const fn bits_from_opcode(opcode: u8) -> [bool; 8] {
-    [
-        opcode & (1 << 0) != 0,
-        opcode & (1 << 1) != 0,
-        opcode & (1 << 2) != 0,
-        opcode & (1 << 3) != 0,
-        opcode & (1 << 4) != 0,
-        opcode & (1 << 5) != 0,
-        opcode & (1 << 6) != 0,
-        opcode & (1 << 7) != 0,
-    ]
+/// Break up an opcode (which is 32 bits long) into its 32 bits.
+fn bits_from_opcode(opcode: u32) -> [bool; 32] {
+    let mut insn = [false; 32];
+    for i in 0..32 {
+        insn[i] = opcode & (1 << i) != 0;
+    }
+    insn
 }
 
 pub fn eval_packed_generic<P: PackedField>(

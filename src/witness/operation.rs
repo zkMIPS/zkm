@@ -23,7 +23,7 @@ use crate::{arithmetic, logic};
 pub(crate) enum Operation {
     Iszero,
     Not,
-    Syscall(u8, usize, bool), // (syscall number, minimum stack length, increases stack length)
+    Syscall(u32, usize, bool), // (syscall number, minimum stack length, increases stack length)
     Eq,
     BinaryLogic(logic::Op),
     BinaryArithmetic(arithmetic::BinaryOperator),
@@ -637,7 +637,7 @@ pub(crate) fn generate_shr<F: Field>(
 }
 
 pub(crate) fn generate_syscall<F: Field>(
-    opcode: u8,
+    opcode: u32,
     stack_values_read: usize,
     stack_len_increased: bool,
     state: &mut GenerationState<F>,

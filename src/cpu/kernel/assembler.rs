@@ -33,7 +33,7 @@ pub(crate) fn combined_kernel() -> Kernel {
     let mut p: Program = Program::load_elf(&code, max_mem).unwrap();
     let real_blockpath = Program::get_block_path("13284491", "input");
     println!("real block path: {}", real_blockpath);
-    pub const test_blockpath: &str = "test-vectors/0_13284491/input";
+    let test_blockpath: &str = "test-vectors/0_13284491/input";
     p.load_block(test_blockpath).unwrap();
 
     let code_hash_bytes = keccak(&code).0;

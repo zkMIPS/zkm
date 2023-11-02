@@ -31,7 +31,7 @@ use crate::stark::Stark;
 /// table and combining them as x + y*2^16 to ensure they equal the
 /// corresponding 32-bit number in the CPU table.
 fn cpu_arith_data_link<F: Field>(
-    combined_ops: &[(usize, u16)],
+    combined_ops: &[(usize, u32)],
     regs: &[Range<usize>],
 ) -> Vec<Column<F>> {
     let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
@@ -39,7 +39,7 @@ fn cpu_arith_data_link<F: Field>(
     let mut res = vec![Column::linear_combination(
         combined_ops
             .iter()
-            .map(|&(col, code)| (col, F::from_canonical_u16(code))),
+            .map(|&(col, code)| (col, F::from_canonical_u32(code))),
     )];
 
     // The inner for loop below assumes N_LIMBS is even.
@@ -63,7 +63,8 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // If an arithmetic operation is happening on the CPU side,
     // the CTL will enforce that the reconstructed opcode value
     // from the opcode bits matches.
-    const COMBINED_OPS: [(usize, u16); 18] = [
+    // opcode = op + 2^5 * rt + 2^11 * func
+    const COMBINED_OPS: [(usize, u32); 18] = [
         (columns::IS_ADD,   0b000000100000),
         (columns::IS_ADDU,  0b000000100001),
         (columns::IS_ADDI,  0b001000000000),

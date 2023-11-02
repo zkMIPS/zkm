@@ -37,7 +37,7 @@ impl Program {
     pub fn load_block(&mut self, blockpath: &str) -> Result<bool> {
         let content = fs::read(blockpath).expect("Read file failed");
 
-        let mut mapAddr = 0x30000000;
+        let mut map_addr = 0x30000000;
         for i in (0..content.len()).step_by(WORD_SIZE) {
             let mut word = 0;
             // Don't read past the end of the file.
@@ -47,8 +47,8 @@ impl Program {
                 let byte = content.get(offset).context("Invalid block offset")?;
                 word |= (*byte as u32) << (j * 8);
             }
-            self.image.insert(mapAddr, word);
-            mapAddr += 4;
+            self.image.insert(map_addr, word);
+            map_addr += 4;
         }
 
         Ok(true)
@@ -219,7 +219,7 @@ mod test {
 
         let real_blockpath = Program::get_block_path("13284491", "input");
         println!("real block path: {}", real_blockpath);
-        pub const test_blockpath: &str = "test-vectors/0_13284491/input";
+        let test_blockpath: &str = "test-vectors/0_13284491/input";
         p.load_block(test_blockpath).unwrap();
 
         p.image.iter().for_each(|(k, v)| {

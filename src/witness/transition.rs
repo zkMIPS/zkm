@@ -19,22 +19,22 @@ use crate::{arithmetic, logic};
 fn read_code_memory<F: Field>(
     state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
-) -> (u8, u8) {
+) -> u32 {
     let code_context = state.registers.code_context();
     row.code_context = F::from_canonical_usize(code_context);
 
     let address = MemoryAddress::new(code_context, Segment::Code, state.registers.program_counter);
-    let (opcode, func, mem_log) = mem_read_code_with_log_and_fill(address, state, row);
+    let (opcode, mem_log) = mem_read_code_with_log_and_fill(address, state, row);
 
     state.traces.push_memory(mem_log);
 
-    (opcode, func)
+    opcode
 }
 
-fn decode(registers: RegistersState, opcode: u8, func: u8) -> Result<Operation, ProgramError> {
-    match (opcode, func, registers.is_kernel) {
-        (0x00, 0x00, _) => Ok(Operation::Syscall(opcode, 0, false)), // STOP
-        (0x01, 0x20, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::ADD)),
+fn decode(registers: RegistersState, opcode: u32) -> Result<Operation, ProgramError> {
+    match (opcode, registers.is_kernel) {
+        (0b000000001100, _) => Ok(Operation::Syscall(opcode, 0, false)), // STOP
+        (0b000000100000, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::ADD)),
         /*
         (0x02, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul)),
         (0x03, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub)),
@@ -282,7 +282,7 @@ fn perform_op<F: Field>(
 /// Row that has the correct values for system registers and the code channel, but is otherwise
 /// blank. It fulfills the constraints that are common to successful operations and the exception
 /// operation. It also returns the opcode.
-fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8, u8) {
+fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u32) {
     let mut row: CpuColumnsView<F> = CpuColumnsView::default();
     row.clock = F::from_canonical_usize(state.traces.clock());
     row.context = F::from_canonical_usize(state.registers.context);
@@ -297,13 +297,13 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8,
     fill_channel_with_value(&mut row, 0, state.registers.stack_top);
     */
 
-    let (opcode, func) = read_code_memory(state, &mut row);
-    (row, opcode, func)
+    let opcode = read_code_memory(state, &mut row);
+    (row, opcode)
 }
 
 fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(), ProgramError> {
-    let (mut row, opcode, func) = base_row(state);
-    let op = decode(state.registers, opcode, func)?;
+    let (mut row, opcode) = base_row(state);
+    let op = decode(state.registers, opcode)?;
 
     if state.registers.is_kernel {
         log_kernel_instruction(state, op);
@@ -416,7 +416,7 @@ fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> 
 
     let checkpoint = state.checkpoint();
 
-    let (row, _, _) = base_row(state);
+    let (row, _) = base_row(state);
     generate_exception(exc_code, state, row)
         .map_err(|_| anyhow::Error::msg("error handling errored..."))?;
 

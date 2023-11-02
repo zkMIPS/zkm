@@ -13,14 +13,14 @@ use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
 use byteorder::{ByteOrder, LittleEndian};
 
-fn to_byte_checked(n: u32) -> u8 {
+fn _to_byte_checked(n: u32) -> u8 {
     let res: u8 = n.to_be_bytes()[0];
     assert_eq!(n as u8, res);
     res
 }
 
-fn to_bits_le<F: Field>(n: u8) -> [F; 6] {
-    let mut res = [F::ZERO; 6];
+fn to_bits_le<F: Field>(n: u32) -> [F; 32] {
+    let mut res = [F::ZERO; 32];
     for (i, bit) in res.iter_mut().enumerate() {
         *bit = F::from_bool(n & (1 << i) != 0);
     }
@@ -43,15 +43,13 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
     address: MemoryAddress,
     state: &GenerationState<F>,
     row: &mut CpuColumnsView<F>,
-) -> (u8, u8, MemoryOp) {
+) -> (u32, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::Code, address, state);
 
-    let val_u8 = to_byte_checked(val);
-    row.opcode_bits = to_bits_le(val_u8);
-    // FIXME: decode func
-    row.func_bits = to_bits_le(val_u8);
+    //let val_u8 = to_byte_checked(val);
+    row.opcode_bits = to_bits_le(val);
 
-    (val_u8, val_u8, op)
+    (val, op)
 }
 
 pub(crate) fn mem_read_with_log<F: Field>(
