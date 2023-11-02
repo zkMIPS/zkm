@@ -55,6 +55,17 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
     (opcode, func, val, op)
 }
 
+pub(crate) fn sign_extend<const N: usize>(value: u32) -> u32 {
+    let isSigned = (value >> (N - 1)) != 0;
+    let signed = ((1 << (32 - N)) - 1) << N;
+    let mask = (1 << N) - 1;
+    return if isSigned {
+        value & mask | signed
+    } else {
+        value & mask
+    };
+}
+
 pub(crate) fn reg_read_with_log<F: Field>(
     index: u8,
     state: &GenerationState<F>,
@@ -76,7 +87,7 @@ pub(crate) fn reg_read_with_log<F: Field>(
     Ok(result)
 }
 
-pub(crate)  fn reg_write_with_log<F: Field>(
+pub(crate) fn reg_write_with_log<F: Field>(
     index: u8,
     value: usize,
     state: &mut GenerationState<F>,

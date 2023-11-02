@@ -14,6 +14,7 @@ use super::columns::CpuColumnsView;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
+use crate::cpu::jumps;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 /*
 use crate::cpu::{
@@ -234,8 +235,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         dup_swap::eval_packed(local_values, next_values, yield_constr);
         gas::eval_packed(local_values, next_values, yield_constr);
         halt::eval_packed(local_values, next_values, yield_constr);
-        jumps::eval_packed(local_values, next_values, yield_constr);
         */
+        jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
         /*
         memio::eval_packed(local_values, next_values, yield_constr);

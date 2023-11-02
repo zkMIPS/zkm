@@ -204,7 +204,6 @@ pub(crate) fn generate_jump<F: Field>(
 ) -> Result<(), ProgramError> {
     let target_pc = reg_read_with_log(target, state)?;
     row.general.jumps_mut().should_jump = F::ONE;
-    row.general.jumps_mut().cond_sum_pinv = F::ONE;
     let next_pc = reg_read_with_log(35, state)?.wrapping_add(8);
     let _ = reg_write_with_log(link, next_pc, state);
     state.traces.push_cpu(row);
@@ -232,16 +231,14 @@ pub(crate) fn generate_branch<F: Field>(
     };
     let pc = reg_read_with_log(35, state)?;
     if should_jump {
-        let (mut target_pc, _) = (target as usize).overflowing_shl(2);
-        target_pc = target_pc.wrapping_add(pc);
-        row.general.jumps_mut().should_jump = F::ONE;
-        row.general.jumps_mut().cond_sum_pinv = F::ONE; //TOFIX
+        let mut target_pc = sign_extend::<18>(target << 2);
+        target_pc = target_pc.wrapping_add(pc as u32);
+        row.general.jumps_mut().should_jump = F::ONE; //TOFIX
         state.traces.push_cpu(row);
-        state.jump_to(target_pc);
+        state.jump_to(target_pc as usize);
     } else {
         let next_pc = pc.wrapping_add(8);
         row.general.jumps_mut().should_jump = F::ZERO;
-        row.general.jumps_mut().cond_sum_pinv = F::ZERO;
         state.jump_to(next_pc);
     }
     Ok(())
@@ -257,7 +254,6 @@ pub(crate) fn generate_jumpi<F: Field>(
     let pc = reg_read_with_log(35, state)?;
     target_pc = target_pc.wrapping_add(pc & 0xf0000000);
     row.general.jumps_mut().should_jump = F::ONE;
-    row.general.jumps_mut().cond_sum_pinv = F::ONE;
     let next_pc = pc.wrapping_add(8);
     let _ = reg_write_with_log(link, next_pc, state);
     state.traces.push_cpu(row);
