@@ -179,7 +179,6 @@ pub(crate) fn generate_jump<F: Field>(
 ) -> Result<(), ProgramError> {
     let target_pc = reg_read_with_log(target, state)?;
     row.general.jumps_mut().should_jump = F::ONE;
-    row.general.jumps_mut().cond_sum_pinv = F::ONE;
     let next_pc = reg_read_with_log(35, state)?.wrapping_add(8);
     let _ = reg_write_with_log(link, next_pc, state);
     state.traces.push_cpu(row);

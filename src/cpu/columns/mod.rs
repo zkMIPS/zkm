@@ -54,6 +54,10 @@ pub struct CpuColumnsView<T: Copy> {
 
     /// If CPU cycle: the opcode, broken up into bits in little-endian order.
     pub opcode_bits: [T; 6],
+
+    pub insn_bits: [T; 32],
+
+    /// If CPU cycle: the func, broken up into bits in little-endian order
     pub func_bits: [T; 6],
 
     /// Filter. 1 iff a Keccak sponge lookup is performed on this row.
