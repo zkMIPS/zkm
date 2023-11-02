@@ -31,10 +31,35 @@ fn read_code_memory<F: Field>(
     opcode
 }
 
-fn decode(registers: RegistersState, opcode: u32) -> Result<Operation, ProgramError> {
-    match (opcode, registers.is_kernel) {
-        (0b000000001100, _) => Ok(Operation::Syscall(opcode, 0, false)), // STOP
-        (0b000000100000, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::ADD)),
+fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramError> {
+    let opcode = ((insn >> 26) & 0x2F).to_be_bytes()[0];
+    let func = (insn & 0x3F).to_be_bytes()[0];
+    let rt = ((insn >> 16) & 0x1F).to_le_bytes()[0];
+    let rs = ((insn >> 21) & 0x1F).to_le_bytes()[0];
+    let rd = ((insn >> 11) & 0x1F).to_le_bytes()[0];
+    let offset = insn & 0xffff;
+    let target = insn & 0x3ffffff;
+
+    match (opcode, func, registers.is_kernel) {
+        (0b000000, 0b100000, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::ADD)), // ADD
+        (0b000000, 0b100000, _) => Ok(Operation::Jump(0u8, rs)), // JR
+        (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)), // JR
+        (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),  // JALR
+        (0x01, _, _) => {
+            if rt == 1 {
+                Ok(Operation::Branch(Cond::GE, rs, 0u8, offset)) // BGEZ
+            } else if rt == 0 {
+                Ok(Operation::Branch(Cond::LT, rs, 0u8, offset)) // BLTZ
+            } else {
+                Err(ProgramError::InvalidOpcode)
+            }
+        }
+        (0x02, _, _) => Ok(Operation::Jumpi(0u8, target)), // J
+        (0x03, _, _) => Ok(Operation::Jumpi(31u8, target)), // JAL
+        (0x04, _, _) => Ok(Operation::Branch(Cond::EQ, rs, rt, offset)), // BEQ
+        (0x05, _, _) => Ok(Operation::Branch(Cond::NE, rs, rt, offset)), // BNE
+        (0x06, _, _) => Ok(Operation::Branch(Cond::LE, rs, 0u8, offset)), // BLEZ
+        (0x07, _, _) => Ok(Operation::Branch(Cond::GT, rs, 0u8, offset)), // BGTZ
         /*
         (0x02, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul)),
         (0x03, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub)),
@@ -168,12 +193,11 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         //   Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)
         //   | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => &mut flags.shift,
         Operation::BinaryArithmetic(_) => &mut flags.binary_op,
-        Operation::TernaryArithmetic(_) => &mut flags.ternary_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
         Operation::ProverInput => &mut flags.prover_input,
-        Operation::Jump | Operation::Jumpi => &mut flags.jumps,
+        Operation::Jump(_, _) | Operation::Jumpi(_, _) => &mut flags.jumps,
+        Operation::Branch(_, _, _, _) => &mut flags.branch,
         Operation::Pc => &mut flags.pc,
-        Operation::Jumpdest => &mut flags.jumpdest,
         Operation::GetContext => &mut flags.get_context,
         Operation::SetContext => &mut flags.set_context,
         Operation::Mload32Bytes => &mut flags.mload_32bytes,
@@ -248,14 +272,15 @@ fn perform_op<F: Field>(
             generate_binary_logic_op(binary_logic_op, state, row)?
         }
         Operation::BinaryArithmetic(op) => generate_binary_arithmetic_op(op, state, row)?,
-        Operation::TernaryArithmetic(op) => generate_ternary_arithmetic_op(op, state, row)?,
         Operation::KeccakGeneral => generate_keccak_general(state, row)?,
         Operation::ProverInput => generate_prover_input(state, row)?,
         // Operation::Pop => generate_pop(state, row)?,
-        Operation::Jump => generate_jump(state, row)?,
-        Operation::Jumpi => generate_jumpi(state, row)?,
+        Operation::Jump(link, target) => generate_jump(link, target, state, row)?,
+        Operation::Jumpi(link, target) => generate_jumpi(link, target, state, row)?,
+        Operation::Branch(cond, input1, input2, target) => {
+            generate_branch(cond, input1, input2, target, state, row)?
+        },
         Operation::Pc => generate_pc(state, row)?,
-        Operation::Jumpdest => generate_jumpdest(state, row)?,
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
         Operation::Mload32Bytes => generate_mload_32bytes(state, row)?,
@@ -268,7 +293,8 @@ fn perform_op<F: Field>(
     state.registers.program_counter += match op {
         Operation::Syscall(_, _, _) | Operation::ExitKernel => 0,
         //     Operation::Push(n) => n as usize + 1,
-        Operation::Jump | Operation::Jumpi => 0,
+        Operation::Jump(_, _) | Operation::Jumpi(_, _) => 0,
+        Operation::Branch(_, _, _, _) => 0,
         _ => 1,
     };
 

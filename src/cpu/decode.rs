@@ -27,31 +27,30 @@ const OPCODES: [(u32, usize, bool, usize); 13] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
     // ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags are handled partly manually here, and partly through the Arithmetic table CTL.
     // ADDMOD, MULMOD and SUBMOD flags are handled partly manually here, and partly through the Arithmetic table CTL.
-    (0x14, 1, false, COL_MAP.op.eq_iszero),
+    (0x7, 1, false, COL_MAP.op.eq_iszero),
     // AND, OR and XOR flags are handled partly manually here, and partly through the Logic table CTL.
-    (0x19, 0, false, COL_MAP.op.not),
+    (0x9, 0, false, COL_MAP.op.not),
     // SHL and SHR flags are handled partly manually here, and partly through the Logic table CTL.
-    (0x21, 0, true, COL_MAP.op.keccak_general),
-    (0x49, 0, true, COL_MAP.op.prover_input),
-    (0x56, 1, false, COL_MAP.op.jumps), // 0x56-0x57
-    (0x58, 0, false, COL_MAP.op.pc),
-    (0x5b, 0, false, COL_MAP.op.jumpdest),
-    (0x90, 4, false, COL_MAP.op.swap), // 0x90-0x9f
-    (0xee, 0, true, COL_MAP.op.mstore_32bytes),
-    (0xf6, 0, true, COL_MAP.op.get_context),
-    (0xf7, 0, true, COL_MAP.op.set_context),
-    (0xf8, 0, true, COL_MAP.op.mload_32bytes),
-    (0xf9, 0, true, COL_MAP.op.exit_kernel),
+    (0x0B, 0, true, COL_MAP.op.keccak_general),
+    (0x0C, 0, true, COL_MAP.op.prover_input),
+    (0x0D, 1, false, COL_MAP.op.jumps), // 0x56-0x57
+    (0x0E, 0, false, COL_MAP.op.branch),
+    (0x0F, 0, false, COL_MAP.op.pc),
+    (0x10, 4, false, COL_MAP.op.swap), // 0x90-0x9f
+    (0x12, 0, true, COL_MAP.op.get_context),
+    (0x13, 0, true, COL_MAP.op.set_context),
+    (0x14, 0, true, COL_MAP.op.mstore_32bytes),
+    (0x15, 0, true, COL_MAP.op.mload_32bytes),
+    (0x16, 0, true, COL_MAP.op.exit_kernel),
     // MLOAD_GENERAL and MSTORE_GENERAL flags are handled manually here.
 ];
 
 /// List of combined opcodes requiring a special handling.
 /// Each index in the list corresponds to an arbitrary combination
 /// of opcodes defined in evm/src/cpu/columns/ops.rs.
-const COMBINED_OPCODES: [usize; 5] = [
+const COMBINED_OPCODES: [usize; 4] = [
     COL_MAP.op.logic_op,
     COL_MAP.op.binary_op,
-    COL_MAP.op.ternary_op,
     COL_MAP.op.shift,
     COL_MAP.op.m_op_general,
 ];

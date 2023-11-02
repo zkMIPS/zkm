@@ -20,6 +20,29 @@ use crate::witness::operation::MemoryChannel::GeneralPurpose;
 use crate::{arithmetic, logic};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum Cond {
+    EQ,
+    NE,
+    GE,
+    LE,
+    GT,
+    LT,
+}
+
+impl Cond {
+    pub(crate) fn result(&self, input0: u32, input1: u32) -> bool {
+        match self {
+            Cond::EQ => input0 == input1,
+            Cond::NE => input0 != input1,
+            Cond::GE => input0 >= input1,
+            Cond::LE => input0 <= input1,
+            Cond::GT => input0 > input1,
+            Cond::LT => input0 < input1,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Operation {
     Iszero,
     Not,
@@ -27,14 +50,12 @@ pub(crate) enum Operation {
     Eq,
     BinaryLogic(logic::Op),
     BinaryArithmetic(arithmetic::BinaryOperator),
-    TernaryArithmetic(arithmetic::TernaryOperator), // Unused
     KeccakGeneral,
     ProverInput,
-    Jump,
-    Jumpi,
+    Jump(u8, u8),
+    Jumpi(u8, u32),
+    Branch(Cond, u8, u8, u32),
     Pc,
-    Jumpdest,
-    // Dup(u8),
     Swap(u8),
     GetContext,
     SetContext,
@@ -174,6 +195,8 @@ pub(crate) fn generate_pop<F: Field>(
 }
 
 pub(crate) fn generate_jump<F: Field>(
+    link: u8,
+    target: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -224,7 +247,11 @@ pub(crate) fn generate_jump<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_jumpi<F: Field>(
+pub(crate) fn generate_branch<F: Field>(
+    cond: Cond,
+    src1: u8,
+    src2: u8,
+    target: u32,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -289,10 +316,13 @@ pub(crate) fn generate_jumpi<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_pc<F: Field>(
+pub(crate) fn generate_jumpi<F: Field>(
+    link: u8,
+    target: u32,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
+
     /*
     push_with_write(state, &mut row, state.registers.program_counter.into())?;
     state.traces.push_cpu(row);
@@ -300,7 +330,7 @@ pub(crate) fn generate_pc<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_jumpdest<F: Field>(
+pub(crate) fn generate_pc<F: Field>(
     state: &mut GenerationState<F>,
     row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {

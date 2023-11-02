@@ -90,19 +90,22 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
 
 pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
-    let mut columns = vec![Column::le_bits(COL_MAP.opcode_bits)];
-    columns.extend(ctl_data_ternops());
+    let mut base = [0usize; COL_MAP.opcode_bits.len() + COL_MAP.func_bits.len()];
+    base[0..COL_MAP.opcode_bits.len()].copy_from_slice(&COL_MAP.opcode_bits[..]);
+    base[COL_MAP.opcode_bits.len()..].copy_from_slice(&COL_MAP.func_bits[..]);
+    let mut columns = vec![Column::le_bits(base)];
+    // columns.extend(ctl_data_ternops());
     // Create the CPU Table whose columns are those with the three
     // inputs and one output of the ternary operations listed in `ops`
     // (also `ops` is used as the operation filter). The list of
     // operations includes binary operations which will simply ignore
     // the third input.
+    println!("base row cols: {:?}", columns);
     TableWithColumns::new(
         Table::Cpu,
         columns,
         Some(Column::sum([
             COL_MAP.op.binary_op,
-            COL_MAP.op.ternary_op,
             COL_MAP.op.shift,
         ])),
     )
