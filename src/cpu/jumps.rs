@@ -225,6 +225,136 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     }
 }
 
+pub fn eval_packed_branch<P: PackedField>(
+    lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    let jumps_lv = lv.general.jumps();
+
+    let filter = lv.op.branch; // `BRANCH`
+    let norm_filter = lv.insn_bits[28];
+    let special_filter = (P::ONES - lv.insn_bits[28]);
+    let is_eq = lv.insn_bits[28] * (P::ONES - lv.insn_bits[27]) * (P::ONES - lv.insn_bits[26]);
+    let is_ne = lv.insn_bits[28] * (P::ONES - lv.insn_bits[27]) * lv.insn_bits[26];
+    let is_le = lv.insn_bits[28] * (P::ONES - lv.insn_bits[27]) * (P::ONES - lv.insn_bits[26]);
+    let is_gt = lv.insn_bits[28] * (P::ONES - lv.insn_bits[27]) * lv.insn_bits[26];
+    let is_ge = (P::ONES - lv.insn_bits[28]) * lv.insn_bits[16];
+    let is_lt = (P::ONES - lv.insn_bits[28]) *  (P::ONES - lv.insn_bits[16]);
+
+    // Check `should_jump`:
+    yield_constr.constraint(filter * jumps_lv.should_jump * (jumps_lv.should_jump - P::ONES));
+
+    // Check `branch target value`:
+    {
+        let mut branch_offset = [P::ZEROS; 32];
+        branch_offset[2..18].copy_from_slice(lv.insn_bits[0..15].as_ref());
+        branch_offset[18..32].copy_from_slice([lv.insn_bits[15]; 14].as_ref());
+        let offset_dst = limb_from_bits_le(branch_offset.into_iter());
+        let branch_dst = lv.program_counter + offset_dst;
+        let next_inst = lv.program_counter + P::Scalar::from_canonical_u64(8);
+        let branch_dst =
+            jumps_lv.should_jump * branch_dst + next_inst * (P::ONES - jumps_lv.should_jump);
+        yield_constr.constraint_transition(filter * (nv.program_counter - branch_dst));
+    }
+
+    // Check Aux Reg
+    {
+        let aux1 = lv.mem_channels[2].addr_virtual;
+        let aux2 = lv.mem_channels[3].addr_virtual;
+        yield_constr.constraint_transition(filter * (aux1 + aux2));
+    }
+
+    // Check rs Reg
+    {
+        let rs_reg = lv.mem_channels[0].addr_virtual;
+        let mut rs_reg_index = [P::ZEROS; 5];
+        rs_reg_index.copy_from_slice(lv.insn_bits[21..26].as_ref());
+        let rs_src = limb_from_bits_le(rs_reg_index.into_iter());
+        let src1 = lv.mem_channels[0].addr_virtual;
+        yield_constr.constraint_transition(filter * (src1 - rs_src));
+    }
+    
+    // Check rt Reg
+    {
+        let rt_reg = lv.mem_channels[1].addr_virtual;
+        let mut rt_reg_index = [P::ZEROS; 5];
+        rt_reg_index.copy_from_slice(lv.insn_bits[16..21].as_ref());
+        let rt_src = limb_from_bits_le(rt_reg_index.into_iter());
+        let src2 = lv.mem_channels[0].addr_virtual;
+        yield_constr.constraint_transition(norm_filter * (src2 - rt_src));
+    }
+
+    {
+        let src2 = lv.mem_channels[1].addr_virtual;
+        yield_constr.constraint_transition(special_filter * (src2));
+    }
+
+    {
+        let src1 = lv.mem_channels[0].value[0];
+        let src2 = lv.mem_channels[1].value[0];
+        let aux1 = lv.mem_channels[2].value[0];
+        let aux2 = lv.mem_channels[3].value[0];
+        let overflow = P::Scalar::from_canonical_u64(1 << 32);
+        let overflow_div = P::Scalar::from_canonical_u64(1) / overflow;
+
+        let constr_a = src2 + aux1 - src1;
+        yield_constr.constraint_transition(filter * constr_a * (overflow - constr_a));
+        let constr_b = src1 + aux1 - src2;
+        yield_constr.constraint_transition(filter * constr_b * (overflow - constr_b));
+
+        let lt =  constr_a * overflow_div;
+        let gt = constr_b * overflow_div;
+        let ne = lt + gt;
+        let constr_eq = (P::ONES - ne) * is_eq;
+        let constr_ne = ne * is_ne;
+        let constr_le = (P::ONES - gt) * is_le;
+        let constr_ge = (P::ONES - lt) * is_ge;
+        let constr_gt = gt * is_gt;
+        let constr_lt = lt * is_lt;
+        let constr = constr_eq + constr_ne + constr_le + constr_ge + constr_lt + constr_gt;
+        yield_constr.constraint_transition(filter * (jumps_lv.should_jump - constr));
+    }
+}
+
+pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    let jumps_lv = lv.general.jumps();
+    let filter = lv.op.branch; // `BRANCH`
+    let one_extension = builder.one_extension();
+    let zero_extension = builder.zero_extension();
+
+    // Check `should_jump`:
+    {
+        let constr = builder.sub_extension(one_extension, jumps_lv.should_jump);
+        let constr = builder.mul_extension(filter, constr);
+        let constr = builder.mul_extension(jumps_lv.should_jump, constr);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Check `jumpi target value`:
+    {
+        let mut branch_offset = [zero_extension; 32];
+        branch_offset[2..18].copy_from_slice(lv.insn_bits[0..15].as_ref());
+        branch_offset[18..32].copy_from_slice([lv.insn_bits[15]; 14].as_ref());
+        let offset_dst = limb_from_bits_le_recursive(builder, branch_offset.into_iter());
+
+        let branch_dst = builder.add_extension(lv.program_counter, offset_dst);
+        let next_insn = builder.add_const_extension(lv.program_counter, F::from_canonical_u64(8));
+        let constr_a = builder.mul_extension(branch_dst, jumps_lv.should_jump);
+        let constr_b = builder.sub_extension(one_extension, jumps_lv.should_jump);
+        let constr_b = builder.mul_extension(constr_b, next_insn);
+        let constr = builder.add_extension(constr_a, constr_b);
+        let constr = builder.sub_extension(constr, nv.program_counter);
+        let constr = builder.mul_extension(constr, filter);
+        yield_constr.constraint_transition(builder, constr);
+    }
+}
+
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -232,6 +362,7 @@ pub fn eval_packed<P: PackedField>(
 ) {
     eval_packed_exit_kernel(lv, nv, yield_constr);
     eval_packed_jump_jumpi(lv, nv, yield_constr);
+    eval_packed_branch(lv, nv, yield_constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -242,4 +373,5 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 ) {
     eval_ext_circuit_exit_kernel(builder, lv, nv, yield_constr);
     eval_ext_circuit_jump_jumpi(builder, lv, nv, yield_constr);
+    eval_ext_circuit_branch(builder, lv, nv, yield_constr);
 }
