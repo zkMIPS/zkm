@@ -56,10 +56,10 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
 /// Create the vector of Columns corresponding to the two inputs and
 /// one output of a binary operation.
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
-    let mut res = Column::singles(COL_MAP.mem_channels[0].value).collect_vec();
-    res.extend(Column::singles(COL_MAP.mem_channels[1].value));
+    let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value[0]]).collect_vec();
+    res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value[0]]));
     res.extend(Column::singles(
-        COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value,
+        vec![COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value[0]],
     ));
     res
 }
@@ -83,7 +83,8 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     let mut base = [0usize; COL_MAP.opcode_bits.len() + COL_MAP.func_bits.len()];
     base[0..COL_MAP.opcode_bits.len()].copy_from_slice(&COL_MAP.opcode_bits[..]);
     base[COL_MAP.opcode_bits.len()..].copy_from_slice(&COL_MAP.func_bits[..]);
-    let columns = vec![Column::le_bits(base)];
+    let mut columns = vec![Column::le_bits(base)];
+    columns.extend(ctl_data_binops());
 
     // Create the CPU Table whose columns are those with the two
     // inputs and one output of the ternary operations listed in `ops`
