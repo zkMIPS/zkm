@@ -16,16 +16,18 @@ use crate::witness::state::RegistersState;
 use crate::witness::util::mem_read_code_with_log_and_fill;
 use crate::{arithmetic, logic};
 
-fn read_code_memory<F: Field>(
-    state: &mut GenerationState<F>,
-    row: &mut CpuColumnsView<F>,
-) -> u32 {
+fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColumnsView<F>) -> u32 {
     let code_context = state.registers.code_context();
     row.code_context = F::from_canonical_usize(code_context);
 
     let address = MemoryAddress::new(code_context, Segment::Code, state.registers.program_counter);
     let (opcode, mem_log) = mem_read_code_with_log_and_fill(address, state, row);
-    log::debug!("read_code_memory: PC {} op: {:?}, {:?}", state.registers.program_counter, opcode, mem_log);
+    log::debug!(
+        "read_code_memory: PC {} op: {:?}, {:?}",
+        state.registers.program_counter,
+        opcode,
+        mem_log
+    );
 
     state.traces.push_memory(mem_log);
 
@@ -43,14 +45,27 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
     let sa = ((insn >> 6) & 0x1F).to_le_bytes()[0];
     let offset = insn & 0xffff;
     let target = insn & 0x3ffffff;
-    println!("decode: insn {:X}, opcode {:X}, func {:X}", insn, opcode, func);
+    println!(
+        "decode: insn {:X}, opcode {:X}, func {:X}",
+        insn, opcode, func
+    );
 
     match (opcode, func, registers.is_kernel) {
-        (0b000000, 0b100000, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::ADD, rs, rt, rd)), // ADD: rd = rs+rt
-        (0b000000, 0b000000, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLL, rt, sa, rd)), // SLL: rd = rt << sa
+        (0b000000, 0b100000, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::ADD,
+            rs,
+            rt,
+            rd,
+        )), // ADD: rd = rs+rt
+        (0b000000, 0b000000, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SLL,
+            rt,
+            sa,
+            rd,
+        )), // SLL: rd = rt << sa
         (0b000000, 0b100000, _) => Ok(Operation::Jump(0u8, rs)), // JR
-        (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)), // JR
-        (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),  // JALR
+        (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)),         // JR
+        (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),          // JALR
         (0x01, _, _) => {
             if rt == 1 {
                 Ok(Operation::Branch(Cond::GE, rs, 0u8, offset)) // BGEZ
@@ -114,24 +129,27 @@ fn perform_op<F: Field>(
         Operation::BinaryLogic(binary_logic_op) => {
             generate_binary_logic_op(binary_logic_op, state, row)?
         }
-        Operation::BinaryArithmetic(op, rs, rt, rd) => generate_binary_arithmetic_op(rs, rt, rd, op, state, row)?,
+        Operation::BinaryArithmetic(op, rs, rt, rd) => {
+            generate_binary_arithmetic_op(rs, rt, rd, op, state, row)?
+        }
         Operation::KeccakGeneral => generate_keccak_general(state, row)?,
         Operation::ProverInput => generate_prover_input(state, row)?,
         Operation::Jump(link, target) => generate_jump(link, target, state, row)?,
         Operation::Jumpi(link, target) => generate_jumpi(link, target, state, row)?,
         Operation::Branch(cond, input1, input2, target) => {
             generate_branch(cond, input1, input2, target, state, row)?
-        },
+        }
         Operation::Pc => generate_pc(state, row)?,
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
-        Operation::Mload32Bytes(base, rt, offset) => generate_mload_32bytes(base, rt, offset, state, row)?,
+        Operation::Mload32Bytes(base, rt, offset) => {
+            generate_mload_32bytes(base, rt, offset, state, row)?
+        }
         Operation::Mstore32Bytes => generate_mstore_32bytes(state, row)?,
         Operation::ExitKernel => generate_exit_kernel(state, row)?,
         Operation::MloadGeneral => generate_mload_general(state, row)?,
         Operation::MstoreGeneral => generate_mstore_general(state, row)?,
     };
-
 
     state.registers.program_counter += match op {
         Operation::Syscall(_, _, _) | Operation::ExitKernel => 0,

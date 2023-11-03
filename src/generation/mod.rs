@@ -77,7 +77,6 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
     state: &mut GenerationState<F>,
 ) -> anyhow::Result<()> {
-
     let mut step = 0;
     loop {
         // If we've reached the kernel's halt routine, and our trace length is a power of 2, stop.

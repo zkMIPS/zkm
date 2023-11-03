@@ -36,11 +36,14 @@ fn cpu_arith_data_link<F: Field>(
 ) -> Vec<Column<F>> {
     let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
 
-    let mut res = vec![Column::linear_combination(
-        combined_ops
-            .iter()
-            .map(|&(col, code)| (col, F::from_canonical_u32(code.0 as u32 + (code.1 as u32) * (1 << 6)))),
-    )];
+    let mut res = vec![Column::linear_combination(combined_ops.iter().map(
+        |&(col, code)| {
+            (
+                col,
+                F::from_canonical_u32(code.0 as u32 + (code.1 as u32) * (1 << 6)),
+            )
+        },
+    ))];
 
     // The inner for loop below assumes N_LIMBS is even.
     const_assert!(columns::N_LIMBS % 2 == 0);
@@ -68,24 +71,24 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // _opcode = op + 2^5 * rt + 2^11 * func
     // opcode = op + 2^6 * func
     const COMBINED_OPS: [(usize, (u8, u8)); 18] = [
-        (columns::IS_ADD,   (0b000000, 0b100000)),
-        (columns::IS_ADDU,  (0b000000, 0b100001)),
-        (columns::IS_ADDI,  (0b001000, 0b000000)),
+        (columns::IS_ADD, (0b000000, 0b100000)),
+        (columns::IS_ADDU, (0b000000, 0b100001)),
+        (columns::IS_ADDI, (0b001000, 0b000000)),
         (columns::IS_ADDIU, (0b001001, 0b000000)),
-        (columns::IS_SUB,   (0b000000, 0b100010)),
-        (columns::IS_SUBU,  (0b000000, 0b100011)),
-        (columns::IS_MULT,  (0b000000, 0b011000)),
+        (columns::IS_SUB, (0b000000, 0b100010)),
+        (columns::IS_SUBU, (0b000000, 0b100011)),
+        (columns::IS_MULT, (0b000000, 0b011000)),
         (columns::IS_MULTU, (0b000000, 0b011001)),
-        (columns::IS_DIV,   (0b000000, 0b011010)),
-        (columns::IS_DIVU,  (0b000000, 0b011011)),
-        (columns::IS_BEQ,   (0b000100, 0b000000)),
-        (columns::IS_BNE,   (0b000101, 0b000000)),
-        (columns::IS_SLLV,  (0b000000, 0b000100)),
-        (columns::IS_SRLV,  (0b000000, 0b000110)),
-        (columns::IS_SRAV,  (0b000000, 0b000111)),
-        (columns::IS_SLL,   (0b000000, 0b000000)),
-        (columns::IS_SRL,   (0b000000, 0b000010)),
-        (columns::IS_SRA,   (0b000000, 0b000011)),
+        (columns::IS_DIV, (0b000000, 0b011010)),
+        (columns::IS_DIVU, (0b000000, 0b011011)),
+        (columns::IS_BEQ, (0b000100, 0b000000)),
+        (columns::IS_BNE, (0b000101, 0b000000)),
+        (columns::IS_SLLV, (0b000000, 0b000100)),
+        (columns::IS_SRLV, (0b000000, 0b000110)),
+        (columns::IS_SRAV, (0b000000, 0b000111)),
+        (columns::IS_SLL, (0b000000, 0b000000)),
+        (columns::IS_SRL, (0b000000, 0b000010)),
+        (columns::IS_SRA, (0b000000, 0b000011)),
     ];
 
     const REGISTER_MAP: [Range<usize>; 3] = [

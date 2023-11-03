@@ -240,7 +240,7 @@ pub fn eval_packed_branch<P: PackedField>(
     let is_le = lv.insn_bits[28] * (P::ONES - lv.insn_bits[27]) * (P::ONES - lv.insn_bits[26]);
     let is_gt = lv.insn_bits[28] * (P::ONES - lv.insn_bits[27]) * lv.insn_bits[26];
     let is_ge = (P::ONES - lv.insn_bits[28]) * lv.insn_bits[16];
-    let is_lt = (P::ONES - lv.insn_bits[28]) *  (P::ONES - lv.insn_bits[16]);
+    let is_lt = (P::ONES - lv.insn_bits[28]) * (P::ONES - lv.insn_bits[16]);
 
     // Check `should_jump`:
     yield_constr.constraint(filter * jumps_lv.should_jump * (jumps_lv.should_jump - P::ONES));
@@ -274,7 +274,7 @@ pub fn eval_packed_branch<P: PackedField>(
         let src1 = lv.mem_channels[0].addr_virtual;
         yield_constr.constraint_transition(filter * (src1 - rs_src));
     }
-    
+
     // Check rt Reg
     {
         let rt_reg = lv.mem_channels[1].addr_virtual;
@@ -299,7 +299,7 @@ pub fn eval_packed_branch<P: PackedField>(
         let constr_b = src1 + aux2 - src2;
         yield_constr.constraint_transition(filter * constr_b * (overflow - constr_b));
 
-        let lt =  constr_a * overflow_div;
+        let lt = constr_a * overflow_div;
         let gt = constr_b * overflow_div;
         let ne = lt + gt;
         let constr_eq = (P::ONES - ne) * is_eq;
@@ -423,8 +423,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
         let constr_b = builder.mul_extension(constr_b, filter);
         yield_constr.constraint_transition(builder, constr_b);
 
-
-        let lt =  builder.mul_extension(overflow_div, diff_a);
+        let lt = builder.mul_extension(overflow_div, diff_a);
         let gt = builder.mul_extension(overflow_div, diff_b);
         let ne = builder.add_extension(lt, gt);
         let constr_eq = builder.sub_extension(one_extension, ne);
@@ -442,7 +441,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.add_extension(constr, constr_ge);
         let constr = builder.add_extension(constr, constr_lt);
         let constr = builder.add_extension(constr, constr_gt);
-        let constr = builder.sub_extension(constr, jumps_lv.should_jump );
+        let constr = builder.sub_extension(constr, jumps_lv.should_jump);
         let constr = builder.mul_extension(constr, filter);
         yield_constr.constraint_transition(builder, constr);
     }

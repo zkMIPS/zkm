@@ -27,7 +27,11 @@ pub(crate) struct GenerationState<F: Field> {
 }
 
 impl<F: Field> GenerationState<F> {
-    pub(crate) fn new(inputs: GenerationInputs, kernel_code: &[u8], step: usize) -> Result<Self, ProgramError> {
+    pub(crate) fn new(
+        inputs: GenerationInputs,
+        kernel_code: &[u8],
+        step: usize,
+    ) -> Result<Self, ProgramError> {
         Ok(GenerationState {
             inputs,
             registers: Default::default(),

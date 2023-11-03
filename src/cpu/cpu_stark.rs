@@ -58,9 +58,9 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
     let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value[0]]).collect_vec();
     res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value[0]]));
-    res.extend(Column::singles(
-        vec![COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value[0]],
-    ));
+    res.extend(Column::singles(vec![
+        COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value[0],
+    ]));
     res
 }
 
@@ -93,10 +93,7 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Cpu,
         columns,
-        Some(Column::sum([
-            COL_MAP.op.binary_op,
-            COL_MAP.op.shift,
-        ])),
+        Some(Column::sum([COL_MAP.op.binary_op, COL_MAP.op.shift])),
     )
 }
 

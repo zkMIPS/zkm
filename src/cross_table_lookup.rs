@@ -276,7 +276,9 @@ impl<F: Field> CrossTableLookup<F> {
         looking_tables: Vec<TableWithColumns<F>>,
         looked_table: TableWithColumns<F>,
     ) -> Self {
-        looking_tables.iter().for_each(|e| println!("len: {}\n", e.columns.len()));
+        looking_tables
+            .iter()
+            .for_each(|e| println!("len: {}\n", e.columns.len()));
         log::debug!("looked {:?}", looked_table.columns.len());
         // FIXME: P0 should check table size
         assert!(looking_tables

@@ -95,7 +95,7 @@ pub(crate) fn reg_read_with_log<F: Field>(
     } else {
         return Err(ProgramError::InvalidRegister);
     }
-    
+
     let address = MemoryAddress::new(0, Segment::RegisterFile, index as usize);
     let op = MemoryOp::new(
         MemoryChannel::GeneralPurpose(channel),

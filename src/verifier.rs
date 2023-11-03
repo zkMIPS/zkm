@@ -17,7 +17,6 @@ use crate::constraint_consumer::ConstraintConsumer;
 use crate::cross_table_lookup::{
     verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge, GrandProductChallengeSet,
 };
-use crate::stark::Stark;
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVars;
 use crate::memory::segments::Segment;
@@ -25,6 +24,7 @@ use crate::memory::VALUE_LIMBS;
 use crate::proof::{
     AllProof, AllProofChallenges, PublicValues, StarkOpeningSet, StarkProof, StarkProofChallenges,
 };
+use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 
 pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
@@ -467,15 +467,15 @@ mod tests {
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Sample;
 
-    use crate::verifier::eval_l_0_and_l_last;
-    use crate::prover::prove;
+    use super::verify_proof;
     use crate::all_stark::AllStark;
     use crate::config::StarkConfig;
     use crate::generation::GenerationInputs;
-    use super::verify_proof;
-    use plonky2::util::timing::TimingTree;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::proof;
+    use crate::prover::prove;
+    use crate::verifier::eval_l_0_and_l_last;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::util::timing::TimingTree;
 
     #[test]
     fn test_eval_l_0_and_l_last() {
@@ -501,10 +501,11 @@ mod tests {
 
         let allstark: AllStark<F, D> = AllStark::default();
         let config = StarkConfig::standard_fast_config();
-        let input = GenerationInputs{};
+        let input = GenerationInputs {};
         let mut timing = TimingTree::default();
 
-        let allproof: proof::AllProof<GoldilocksField, C, D> = prove(&allstark, &config, input, &mut timing).unwrap();
+        let allproof: proof::AllProof<GoldilocksField, C, D> =
+            prove(&allstark, &config, input, &mut timing).unwrap();
         verify_proof(&allstark, allproof, &config).unwrap();
     }
 }
