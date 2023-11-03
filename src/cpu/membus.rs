@@ -8,6 +8,7 @@ use crate::cpu::columns::CpuColumnsView;
 
 /// General-purpose memory channels; they can read and write to all contexts/segments/addresses.
 pub const NUM_GP_CHANNELS: usize = 5;
+pub const NUM_REG_CHANNELS: usize = 7;
 
 pub mod channel_indices {
     use std::ops::Range;

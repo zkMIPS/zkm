@@ -11,6 +11,7 @@ use crate::logic;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
+use crate::witness::register::{RegChannel, RegOp, RegOpKind};
 use byteorder::{ByteOrder, LittleEndian};
 
 fn to_byte_checked(n: u32) -> u8 {
@@ -22,6 +23,14 @@ fn to_byte_checked(n: u32) -> u8 {
 
 fn to_bits_le<F: Field>(n: u8) -> [F; 6] {
     let mut res = [F::ZERO; 6];
+    for (i, bit) in res.iter_mut().enumerate() {
+        *bit = F::from_bool(n & (1 << i) != 0);
+    }
+    res
+}
+
+fn to_bits32_le<F: Field>(n: u32) -> [F; 32] {
+    let mut res = [F::ZERO; 32];
     for (i, bit) in res.iter_mut().enumerate() {
         *bit = F::from_bool(n & (1 << i) != 0);
     }
@@ -51,6 +60,7 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
     let val_func = to_byte_checked(val & 0x3F);
     row.opcode_bits = to_bits_le(val_op);
     row.func_bits = to_bits_le(val_func);
+    row.insn_bits = to_bits32_le(val);
 
     (val, op)
 }
@@ -68,8 +78,9 @@ pub(crate) fn sign_extend<const N: usize>(value: u32) -> u32 {
 
 pub(crate) fn reg_read_with_log<F: Field>(
     index: u8,
+    channel: usize,
     state: &GenerationState<F>,
-) -> Result<usize, ProgramError> {
+) -> Result<(usize, RegOp), ProgramError> {
     let mut result = 0;
     if index < 32 {
         result = state.registers.gprs[index as usize];
@@ -84,14 +95,22 @@ pub(crate) fn reg_read_with_log<F: Field>(
     } else {
         return Err(ProgramError::InvalidRegister);
     }
-    Ok(result)
+    let op = RegOp::new(
+        RegChannel::GeneralPurpose(channel),
+        state.traces.clock(),
+        index,
+        RegOpKind::Read,
+        result as u32,
+    );
+    Ok((result, op))
 }
 
 pub(crate) fn reg_write_with_log<F: Field>(
     index: u8,
+    channel: usize,
     value: usize,
     state: &mut GenerationState<F>,
-) -> Result<(), ProgramError> {
+) -> Result<RegOp, ProgramError> {
     if index == 0 {
         // Ignore write to r0
     } else if index < 32 {
@@ -107,8 +126,14 @@ pub(crate) fn reg_write_with_log<F: Field>(
     } else {
         return Err(ProgramError::InvalidRegister);
     }
-
-    Ok(())
+    let op = RegOp::new(
+        RegChannel::GeneralPurpose(channel),
+        state.traces.clock(),
+        index,
+        RegOpKind::Write,
+        value as u32,
+    );
+    Ok(op)
 }
 
 pub(crate) fn mem_read_with_log<F: Field>(

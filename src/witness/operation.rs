@@ -177,11 +177,13 @@ pub(crate) fn generate_jump<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let target_pc = reg_read_with_log(target, state)?;
+    let (target_pc, target_op) = reg_read_with_log(target, 0,  state)?;
     row.general.jumps_mut().should_jump = F::ONE;
-    let next_pc = reg_read_with_log(35, state)?.wrapping_add(8);
-    let _ = reg_write_with_log(link, next_pc, state);
+    let next_pc = state.registers.program_counter.wrapping_add(8);
+    let link_op = reg_write_with_log(link,  1, next_pc, state)?;
     state.traces.push_cpu(row);
+    state.traces.push_reg(target_op);
+    state.traces.push_reg(link_op);
     state.jump_to(target_pc);
     Ok(())
 }
@@ -263,13 +265,14 @@ pub(crate) fn generate_jumpi<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (mut target_pc, _) = (target as usize).overflowing_shl(2);
-    let pc = reg_read_with_log(35, state)?;
+    let pc = state.registers.program_counter;
     target_pc = target_pc.wrapping_add(pc & 0xf0000000);
     row.general.jumps_mut().should_jump = F::ONE;
     let next_pc = pc.wrapping_add(8);
-    let _ = reg_write_with_log(link, next_pc, state);
+    let link_op = reg_write_with_log(link, 1, next_pc, state)?;
     state.traces.push_cpu(row);
     state.jump_to(target_pc);
+    state.traces.push_reg(link_op);
     Ok(())
 }
 
