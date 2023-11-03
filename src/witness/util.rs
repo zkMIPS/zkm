@@ -79,6 +79,7 @@ pub(crate) fn reg_read_with_log<F: Field>(
     index: u8,
     channel: usize,
     state: &GenerationState<F>,
+    row: &mut CpuColumnsView<F>,
 ) -> Result<(usize, MemoryOp), ProgramError> {
     let mut result = 0;
     if index < 32 {
@@ -94,13 +95,26 @@ pub(crate) fn reg_read_with_log<F: Field>(
     } else {
         return Err(ProgramError::InvalidRegister);
     }
+    
+    let address = MemoryAddress::new(0, Segment::RegisterFile, index as usize);
     let op = MemoryOp::new(
         MemoryChannel::GeneralPurpose(channel),
         state.traces.clock(),
-        MemoryAddress::new(0, Segment::RegisterFile, index as usize),
+        address,
         MemoryOpKind::Read,
         result as u32,
     );
+
+    let channel = &mut row.mem_channels[channel];
+    assert_eq!(channel.used, F::ZERO);
+    channel.used = F::ONE;
+    channel.is_read = F::ONE;
+    channel.addr_context = F::from_canonical_usize(address.context);
+    channel.addr_segment = F::from_canonical_usize(address.segment);
+    channel.addr_virtual = F::from_canonical_usize(address.virt);
+    channel.value[0] = F::from_canonical_u32(result as u32);
+    channel.value[1..].copy_from_slice([F::from_canonical_u32(0 as u32); 7].as_ref());
+
     Ok((result, op))
 }
 
@@ -109,6 +123,7 @@ pub(crate) fn reg_write_with_log<F: Field>(
     channel: usize,
     value: usize,
     state: &mut GenerationState<F>,
+    row: &mut CpuColumnsView<F>,
 ) -> Result<MemoryOp, ProgramError> {
     if index == 0 {
         // Ignore write to r0
@@ -125,13 +140,25 @@ pub(crate) fn reg_write_with_log<F: Field>(
     } else {
         return Err(ProgramError::InvalidRegister);
     }
+
+    let address = MemoryAddress::new(0, Segment::RegisterFile, index as usize);
     let op = MemoryOp::new(
         MemoryChannel::GeneralPurpose(channel),
         state.traces.clock(),
-        MemoryAddress::new(0, Segment::RegisterFile, index as usize),
+        address,
         MemoryOpKind::Write,
         value as u32,
     );
+
+    let channel = &mut row.mem_channels[channel];
+    assert_eq!(channel.used, F::ZERO);
+    channel.used = F::ONE;
+    channel.is_read = F::ONE;
+    channel.addr_context = F::from_canonical_usize(address.context);
+    channel.addr_segment = F::from_canonical_usize(address.segment);
+    channel.addr_virtual = F::from_canonical_usize(address.virt);
+    channel.value[0] = F::from_canonical_u32(value as u32);
+    channel.value[1..].copy_from_slice([F::from_canonical_u32(0 as u32); 7].as_ref());
     Ok(op)
 }
 

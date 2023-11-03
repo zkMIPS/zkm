@@ -4,14 +4,14 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
-use plonky2_evm::util::limb_from_bits_le_recursive;
+
 //use plonky2_evm::util::limb_from_bits_le;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
-use crate::util::limb_from_bits_le;
+use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
 
 pub fn eval_packed_exit_kernel<P: PackedField>(
     lv: &CpuColumnsView<P>,
