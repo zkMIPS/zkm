@@ -29,8 +29,10 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
             // FIXME: should all be in the MainMemory. Both instruction and memory data are located in
             // memory section for MIPS
             let address = MemoryAddress::new(0, Segment::Code, *byte.0 as usize);
+
             let write =
                 mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, *byte.1);
+            // println!("init memory: v: {}, addr: {:?}, val : {}", *byte.0, address, *byte.1);
             state.traces.push_memory(write);
         }
 
@@ -56,6 +58,8 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     );
     state.traces.push_cpu(final_cpu_row);
     state.traces.push_cpu(final_cpu_row);
+
+    state.memory.apply_ops(&state.traces.memory_ops);
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
 

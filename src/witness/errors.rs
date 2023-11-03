@@ -2,6 +2,7 @@
 #[derive(Debug)]
 pub enum ProgramError {
     OutOfGas,
+    InvalidRegister,
     InvalidOpcode,
     StackUnderflow,
     InvalidRlp,

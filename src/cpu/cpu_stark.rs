@@ -63,20 +63,6 @@ fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
     res
 }
 
-/// Create the vector of Columns corresponding to the three inputs and
-/// one output of a ternary operation. By default, ternary operations use
-/// the first three memory channels, and the last one for the result (binary
-/// operations do not use the third inputs).
-fn ctl_data_ternops<F: Field>() -> Vec<Column<F>> {
-    let mut res = Column::singles(COL_MAP.mem_channels[0].value).collect_vec();
-    res.extend(Column::singles(COL_MAP.mem_channels[1].value));
-    res.extend(Column::singles(COL_MAP.mem_channels[2].value));
-    res.extend(Column::singles(
-        COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value,
-    ));
-    res
-}
-
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
     let mut res = vec![Column::le_bits(COL_MAP.opcode_bits)];
@@ -88,19 +74,20 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
     Column::single(COL_MAP.op.logic_op)
 }
 
+// If an arithmetic operation is happening on the CPU side, the CTL
+// will enforce that the reconstructed opcode value from the
+// opcode bits matches.
 pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
     let mut base = [0usize; COL_MAP.opcode_bits.len() + COL_MAP.func_bits.len()];
     base[0..COL_MAP.opcode_bits.len()].copy_from_slice(&COL_MAP.opcode_bits[..]);
     base[COL_MAP.opcode_bits.len()..].copy_from_slice(&COL_MAP.func_bits[..]);
-    let mut columns = vec![Column::le_bits(base)];
-    // columns.extend(ctl_data_ternops());
-    // Create the CPU Table whose columns are those with the three
+    let columns = vec![Column::le_bits(base)];
+
+    // Create the CPU Table whose columns are those with the two
     // inputs and one output of the ternary operations listed in `ops`
-    // (also `ops` is used as the operation filter). The list of
-    // operations includes binary operations which will simply ignore
-    // the third input.
-    println!("base row cols: {:?}", columns);
+    // (also `ops` is used as the operation filter).
+    log::debug!("base row cols: {:?}", columns);
     TableWithColumns::new(
         Table::Cpu,
         columns,

@@ -40,6 +40,8 @@ impl BinaryOperator {
             BinaryOperator::ADDU => input0.overflowing_add(input1).0,
             BinaryOperator::MULT => input0.overflowing_mul(input1).0, //FIXME
             BinaryOperator::MULTU => input0.overflowing_mul(input1).0,
+            BinaryOperator::SLL => input0.overflowing_shl(input1).0,
+            BinaryOperator::SRL => input0.overflowing_shr(input1).0,
             _ => panic!("Unimplemented"),
             /*
             BinaryOperator::Shl => {
@@ -94,52 +96,19 @@ impl BinaryOperator {
             BinaryOperator::SUBU => columns::IS_SUBU,
             BinaryOperator::DIV => columns::IS_DIV,
             BinaryOperator::DIVU => columns::IS_DIVU,
-            _ => panic!("Unimplemented"),
+            BinaryOperator::SLL => columns::IS_SLL,
+            _ => panic!("Unimplemented {:?}", self),
         }
     }
 }
 
-#[allow(clippy::enum_variant_names)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum TernaryOperator {
-    AddMod,
-    MulMod,
-    SubMod,
-}
-
-impl TernaryOperator {
-    pub(crate) fn result(&self, input0: u32, input1: u32, input2: u32) -> u32 {
-        match self {
-            TernaryOperator::AddMod => (input0 + input1) % input2,
-            TernaryOperator::MulMod => (input0 * input1) % input2,
-            TernaryOperator::SubMod => (input0 - input1) % input2,
-        }
-    }
-
-    /// FIXME, there is no mod
-    pub(crate) fn row_filter(&self) -> usize {
-        match self {
-            TernaryOperator::AddMod => columns::IS_ADD,
-            TernaryOperator::MulMod => columns::IS_MULT,
-            TernaryOperator::SubMod => columns::IS_SUB,
-        }
-    }
-}
-
-/// An enum representing arithmetic operations that can be either binary or ternary.
+/// An enum representing arithmetic operations that can be either binary.
 #[derive(Debug)]
 pub(crate) enum Operation {
     BinaryOperation {
         operator: BinaryOperator,
         input0: u32,
         input1: u32,
-        result: u32,
-    },
-    TernaryOperation {
-        operator: TernaryOperator,
-        input0: u32,
-        input1: u32,
-        input2: u32,
         result: u32,
     },
 }
@@ -170,26 +139,9 @@ impl Operation {
         }
     }
 
-    pub(crate) fn ternary(
-        operator: TernaryOperator,
-        input0: u32,
-        input1: u32,
-        input2: u32,
-    ) -> Self {
-        let result = operator.result(input0, input1, input2);
-        Self::TernaryOperation {
-            operator,
-            input0,
-            input1,
-            input2,
-            result,
-        }
-    }
-
     pub(crate) fn result(&self) -> u32 {
         match self {
             Operation::BinaryOperation { result, .. } => *result,
-            Operation::TernaryOperation { result, .. } => *result,
         }
     }
 
@@ -211,13 +163,6 @@ impl Operation {
                 input1,
                 result,
             } => binary_op_to_rows(operator, input0, input1, result),
-            Operation::TernaryOperation {
-                operator,
-                input0,
-                input1,
-                input2,
-                result,
-            } => ternary_op_to_rows(operator.row_filter(), input0, input1, input2, result),
         }
     }
 }

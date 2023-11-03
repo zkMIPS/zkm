@@ -65,7 +65,8 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // If an arithmetic operation is happening on the CPU side,
     // the CTL will enforce that the reconstructed opcode value
     // from the opcode bits matches.
-    // opcode = op + 2^5 * rt + 2^11 * func
+    // _opcode = op + 2^5 * rt + 2^11 * func
+    // opcode = op + 2^6 * func
     const COMBINED_OPS: [(usize, (u8, u8)); 18] = [
         (columns::IS_ADD,   (0b000000, 0b100000)),
         (columns::IS_ADDU,  (0b000000, 0b100001)),
@@ -396,6 +397,7 @@ mod tests {
                 && pols.iter().all(|v| v.len() == super::RANGE_MAX)
         );
 
+        /*
         let ops = (0..super::RANGE_MAX)
             .map(|_| {
                 Operation::ternary(
@@ -416,5 +418,6 @@ mod tests {
             pols.len() == columns::NUM_ARITH_COLUMNS
                 && pols.iter().all(|v| v.len() == 2 * super::RANGE_MAX)
         );
+        */
     }
 }

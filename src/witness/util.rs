@@ -14,7 +14,8 @@ use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKin
 use byteorder::{ByteOrder, LittleEndian};
 
 fn to_byte_checked(n: u32) -> u8 {
-    let res: u8 = n.to_be_bytes()[0];
+    println!("n {n}, {:?}", n.to_le_bytes());
+    let res: u8 = n.to_le_bytes()[0];
     assert_eq!(n as u8, res);
     res
 }
@@ -282,4 +283,61 @@ fn xor_into_sponge<F: Field>(
     for i in 0..KECCAK_RATE_BYTES {
         sponge_state[i] ^= block[i];
     }
+}
+
+
+pub(crate) fn sign_extend<const N: usize>(value: u32) -> u32 {
+    let isSigned = (value >> (N - 1)) != 0;
+    let signed = ((1 << (32 - N)) - 1) << N;
+    let mask = (1 << N) - 1;
+    return if isSigned {
+        value & mask | signed
+    } else {
+        value & mask
+    };
+}
+
+pub(crate) fn reg_read_with_log<F: Field>(
+    index: u8,
+    state: &GenerationState<F>,
+) -> Result<usize, ProgramError> {
+    let mut result = 0;
+    if index < 32 {
+        result = state.registers.gprs[index as usize];
+    } else if index == 32 {
+        result = state.registers.lo;
+    } else if index == 33 {
+        result = state.registers.hi;
+    } else if index == 34 {
+        result = state.registers.heap;
+    } else if index == 35 {
+        result = state.registers.program_counter;
+    } else {
+        return Err(ProgramError::InvalidRegister);
+    }
+    Ok(result)
+}
+
+pub(crate) fn reg_write_with_log<F: Field>(
+    index: u8,
+    value: usize,
+    state: &mut GenerationState<F>,
+) -> Result<(), ProgramError> {
+    if index == 0 {
+        // Ignore write to r0
+    } else if index < 32 {
+        state.registers.gprs[index as usize] = value;
+    } else if index == 32 {
+        state.registers.lo = value;
+    } else if index == 33 {
+        state.registers.hi = value;
+    } else if index == 34 {
+        state.registers.heap = value;
+    } else if index == 35 {
+        state.registers.program_counter = value;
+    } else {
+        return Err(ProgramError::InvalidRegister);
+    }
+
+    Ok(())
 }

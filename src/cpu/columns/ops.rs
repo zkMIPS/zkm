@@ -26,7 +26,6 @@ pub struct OpsColumnsView<T: Copy> {
     pub m_op_general: T,
 
     pub syscall: T,
-    pub exception: T,
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.

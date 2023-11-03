@@ -49,7 +49,7 @@ pub(crate) enum Operation {
     Syscall(u32, usize, bool), // (syscall number, minimum stack length, increases stack length)
     Eq,
     BinaryLogic(logic::Op),
-    BinaryArithmetic(arithmetic::BinaryOperator),
+    BinaryArithmetic(arithmetic::BinaryOperator, u8, u8, u8),
     KeccakGeneral,
     ProverInput,
     Jump(u8, u8),
@@ -59,7 +59,7 @@ pub(crate) enum Operation {
     Swap(u8),
     GetContext,
     SetContext,
-    Mload32Bytes,
+    Mload32Bytes(u8, u8, u32),
     Mstore32Bytes,
     ExitKernel,
     MloadGeneral,
@@ -85,12 +85,15 @@ pub(crate) fn generate_binary_logic_op<F: Field>(
 }
 
 pub(crate) fn generate_binary_arithmetic_op<F: Field>(
+    rs: u8,
+    rt: u8,
+    rd: u8,
     operator: arithmetic::BinaryOperator,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    /*
-    let [(input0, _), (input1, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
+    let input0 = rs as u32;
+    let input1 = rt as u32;
     let operation = arithmetic::Operation::binary(operator, input0, input1);
 
     push_no_write(
@@ -101,34 +104,8 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
     );
 
     state.traces.push_arithmetic(operation);
-    state.traces.push_memory(log_in1);
+    //state.traces.push_memory(log_in1);
     state.traces.push_cpu(row);
-    */
-    Ok(())
-}
-
-pub(crate) fn generate_ternary_arithmetic_op<F: Field>(
-    operator: arithmetic::TernaryOperator,
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    let [(input0, _), (input1, log_in1), (input2, log_in2)] =
-        stack_pop_with_log_and_fill::<3, _>(state, &mut row)?;
-    let operation = arithmetic::Operation::ternary(operator, input0, input1, input2);
-
-    push_no_write(
-        state,
-        &mut row,
-        operation.result(),
-        Some(NUM_GP_CHANNELS - 1),
-    );
-
-    state.traces.push_arithmetic(operation);
-    state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
-    state.traces.push_cpu(row);
-    */
     Ok(())
 }
 
@@ -322,11 +299,14 @@ pub(crate) fn generate_jumpi<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-
-    /*
-    push_with_write(state, &mut row, state.registers.program_counter.into())?;
+    let (mut target_pc, _) = (target as usize).overflowing_shl(2);
+    let pc = reg_read_with_log(35, state)?;
+    target_pc = target_pc.wrapping_add(pc & 0xf0000000);
+    row.general.jumps_mut().should_jump = F::ONE;
+    let next_pc = pc.wrapping_add(8);
+    let _ = reg_write_with_log(link, next_pc, state);
     state.traces.push_cpu(row);
-    */
+    state.jump_to(target_pc);
     Ok(())
 }
 
@@ -822,6 +802,9 @@ pub(crate) fn generate_mload_general<F: Field>(
 }
 
 pub(crate) fn generate_mload_32bytes<F: Field>(
+    base: u8,
+    rt: u8,
+    offset: u32,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -935,11 +918,9 @@ pub(crate) fn generate_exception<F: Field>(
     if TryInto::<u64>::try_into(state.registers.gas_used).is_err() {
         return Err(ProgramError::GasLimitError);
     }
-    */
 
     row.op.exception = F::ONE;
 
-    /*
     let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
     let diff = row.stack_len - disallowed_len;
     if let Some(inv) = diff.try_inverse() {

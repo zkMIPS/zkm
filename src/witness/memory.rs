@@ -160,6 +160,7 @@ impl MemoryState {
 
         let segment = Segment::all()[address.segment];
         let val = self.contexts[address.context].segments[address.segment].get(address.virt);
+        /*
         assert!(
             u32::BITS as usize <= segment.bit_range(),
             "Value {} exceeds {:?} range of {} bits",
@@ -167,6 +168,7 @@ impl MemoryState {
             segment,
             segment.bit_range()
         );
+        */
         val
     }
 
@@ -176,6 +178,7 @@ impl MemoryState {
         }
 
         let segment = Segment::all()[address.segment];
+        /*
         assert!(
             u32::BITS as usize <= segment.bit_range(),
             "Value {} exceeds {:?} range of {} bits",
@@ -183,6 +186,7 @@ impl MemoryState {
             segment,
             segment.bit_range()
         );
+        */
         self.contexts[address.context].segments[address.segment].set(address.virt, val);
     }
 

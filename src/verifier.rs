@@ -494,6 +494,7 @@ mod tests {
 
     #[test]
     fn test_prove_and_verify() {
+        env_logger::init();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

@@ -104,7 +104,6 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
 }
 
 fn ctl_arithmetic<F: Field>() -> CrossTableLookup<F> {
-    println!("ctl_arith");
     CrossTableLookup::new(
         vec![cpu_stark::ctl_arithmetic_base_rows()],
         arithmetic_stark::ctl_arithmetic_rows(),
@@ -184,7 +183,6 @@ fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
-    println!("ctl_logic");
     let cpu_looking = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_logic(),

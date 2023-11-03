@@ -44,7 +44,8 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Decode the trace record
     // 1. Decode instruction and fill in cpu columns
     // 2. Decode memory and fill in memory columns
-    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code).unwrap();
+    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code, 2).unwrap();
+    // TODO: apply op
     generate_bootstrap_kernel::<F>(&mut state);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
@@ -77,12 +78,13 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
     state: &mut GenerationState<F>,
 ) -> anyhow::Result<()> {
-    let halt_pc = KERNEL.global_labels["halt"];
 
+    let mut step = 0;
     loop {
         // If we've reached the kernel's halt routine, and our trace length is a power of 2, stop.
         let pc = state.registers.program_counter;
-        let halt = state.registers.is_kernel && pc == halt_pc;
+        let halt = state.registers.is_kernel && step == state.step;
+        println!("PC: {pc}");
         if halt {
             log::info!("CPU halted after {} cycles", state.traces.clock());
 
@@ -106,5 +108,6 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
         }
 
         transition(state)?;
+        step += 1;
     }
 }

@@ -31,7 +31,7 @@ impl Default for RegistersState {
             lo: 0,
             hi: 0,
             heap: 0,
-            program_counter: KERNEL.global_labels["entry"],
+            program_counter: KERNEL.program.entry as usize,
             is_kernel: true,
             context: 0,
         }
