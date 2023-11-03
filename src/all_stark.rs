@@ -138,7 +138,6 @@ fn ctl_byte_packing<F: Field>() -> CrossTableLookup<F> {
 // one for the inputs and one for the outputs.
 // They are linked with the timestamp.
 fn ctl_keccak_inputs<F: Field>() -> CrossTableLookup<F> {
-    println!("ctl_keccak_inputs");
     let keccak_sponge_looking = TableWithColumns::new(
         Table::KeccakSponge,
         keccak_sponge_stark::ctl_looking_keccak_inputs(),
@@ -153,7 +152,6 @@ fn ctl_keccak_inputs<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_keccak_outputs<F: Field>() -> CrossTableLookup<F> {
-    println!("ctl_keccak_outputs");
     let keccak_sponge_looking = TableWithColumns::new(
         Table::KeccakSponge,
         keccak_sponge_stark::ctl_looking_keccak_outputs(),
@@ -168,7 +166,6 @@ fn ctl_keccak_outputs<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
-    println!("ctl_keccak_sponge");
     let cpu_looking = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_keccak_sponge(),
@@ -183,7 +180,6 @@ fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
-    println!("ctl logic");
     let cpu_looking = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_logic(),
@@ -206,7 +202,6 @@ fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
-    println!("ctl memory");
     let cpu_memory_code_read = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_code_memory::<F>(),
@@ -245,6 +240,5 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         memory_stark::ctl_data(),
         Some(memory_stark::ctl_filter()),
     );
-    println!("ctl_memory");
     CrossTableLookup::new(all_lookers, memory_looked)
 }
