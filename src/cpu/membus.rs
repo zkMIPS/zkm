@@ -7,15 +7,13 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::CpuColumnsView;
 
 /// General-purpose memory channels; they can read and write to all contexts/segments/addresses.
-pub const NUM_GP_CHANNELS: usize = 5;
-pub const NUM_REG_CHANNELS: usize = 7;
+pub const NUM_GP_CHANNELS: usize = 8;
 
 pub mod channel_indices {
     use std::ops::Range;
 
     pub const CODE: usize = 0;
     pub const GP: Range<usize> = CODE + 1..(CODE + 1) + super::NUM_GP_CHANNELS;
-    pub const REG: Range<usize> = CODE + 2 + super::NUM_GP_CHANNELS..(CODE + 2 +super::NUM_GP_CHANNELS) + super::NUM_REG_CHANNELS;
 }
 
 /// Total memory channels used by the CPU table. This includes all the `GP_MEM_CHANNELS` as well as
@@ -31,7 +29,7 @@ pub mod channel_indices {
 ///  - the value must fit in one byte (in the least-significant position) and its eight bits are
 ///    found in `opcode_bits`.
 /// These limitations save us numerous columns in the CPU table.
-pub const NUM_CHANNELS: usize = channel_indices::REG.end;
+pub const NUM_CHANNELS: usize = channel_indices::GP.end;
 
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
@@ -47,10 +45,6 @@ pub fn eval_packed<P: PackedField>(
     for channel in lv.mem_channels {
         yield_constr.constraint(channel.used * (channel.used - P::ONES));
     }
-
-    for channel in lv.reg_channels {
-        yield_constr.constraint(channel.used * (channel.used - P::ONES));
-    }    
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -68,11 +62,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     // Validate `channel.used`. It should be binary.
     for channel in lv.mem_channels {
-        let constr = builder.mul_sub_extension(channel.used, channel.used, channel.used);
-        yield_constr.constraint(builder, constr);
-    }
-
-    for channel in lv.reg_channels {
         let constr = builder.mul_sub_extension(channel.used, channel.used, channel.used);
         yield_constr.constraint(builder, constr);
     }

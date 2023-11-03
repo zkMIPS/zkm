@@ -182,8 +182,8 @@ pub(crate) fn generate_jump<F: Field>(
     let next_pc = state.registers.program_counter.wrapping_add(8);
     let link_op = reg_write_with_log(link,  1, next_pc, state)?;
     state.traces.push_cpu(row);
-    state.traces.push_reg(target_op);
-    state.traces.push_reg(link_op);
+    state.traces.push_memory(target_op);
+    state.traces.push_memory(link_op);
     state.jump_to(target_pc);
     Ok(())
 }
@@ -272,7 +272,7 @@ pub(crate) fn generate_jumpi<F: Field>(
     let link_op = reg_write_with_log(link, 1, next_pc, state)?;
     state.traces.push_cpu(row);
     state.jump_to(target_pc);
-    state.traces.push_reg(link_op);
+    state.traces.push_memory(link_op);
     Ok(())
 }
 

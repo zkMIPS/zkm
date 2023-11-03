@@ -13,10 +13,12 @@ pub enum Segment {
     KernelGeneral2 = 3,
     /// instructions; initialised by `kernel/asm/shift.asm::init_shift_table()`.
     ShiftTable = 4,
+    // Register file
+    RegisterFile = 5,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 5;
+    pub(crate) const COUNT: usize = 6;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -25,6 +27,7 @@ impl Segment {
             Self::KernelGeneral,
             Self::KernelGeneral2,
             Self::ShiftTable,
+            Self::RegisterFile,
         ]
     }
 
@@ -36,17 +39,19 @@ impl Segment {
             Segment::KernelGeneral => "SEGMENT_KERNEL_GENERAL",
             Segment::KernelGeneral2 => "SEGMENT_KERNEL_GENERAL_2",
             Segment::ShiftTable => "SEGMENT_SHIFT_TABLE",
+            Segment::RegisterFile => "SEGMENT_REGISTERFILE_TABLE",
         }
     }
 
     #[allow(dead_code)]
     pub(crate) fn bit_range(&self) -> usize {
         match self {
-            Segment::Code => 8,
-            Segment::MainMemory => 8,
+            Segment::Code => 32,
+            Segment::MainMemory => 32,
             Segment::KernelGeneral => 256,
             Segment::KernelGeneral2 => 256,
-            Segment::ShiftTable => 256,
+            Segment::ShiftTable => 32,
+            Segment::RegisterFile => 32,
         }
     }
 }

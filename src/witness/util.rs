@@ -11,7 +11,6 @@ use crate::logic;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
-use crate::witness::register::{RegChannel, RegOp, RegOpKind};
 use byteorder::{ByteOrder, LittleEndian};
 
 fn to_byte_checked(n: u32) -> u8 {
@@ -80,7 +79,7 @@ pub(crate) fn reg_read_with_log<F: Field>(
     index: u8,
     channel: usize,
     state: &GenerationState<F>,
-) -> Result<(usize, RegOp), ProgramError> {
+) -> Result<(usize, MemoryOp), ProgramError> {
     let mut result = 0;
     if index < 32 {
         result = state.registers.gprs[index as usize];
@@ -95,11 +94,11 @@ pub(crate) fn reg_read_with_log<F: Field>(
     } else {
         return Err(ProgramError::InvalidRegister);
     }
-    let op = RegOp::new(
-        RegChannel::GeneralPurpose(channel),
+    let op = MemoryOp::new(
+        MemoryChannel::GeneralPurpose(channel),
         state.traces.clock(),
-        index,
-        RegOpKind::Read,
+        MemoryAddress::new(0, Segment::RegisterFile, index as usize),
+        MemoryOpKind::Read,
         result as u32,
     );
     Ok((result, op))
@@ -110,7 +109,7 @@ pub(crate) fn reg_write_with_log<F: Field>(
     channel: usize,
     value: usize,
     state: &mut GenerationState<F>,
-) -> Result<RegOp, ProgramError> {
+) -> Result<MemoryOp, ProgramError> {
     if index == 0 {
         // Ignore write to r0
     } else if index < 32 {
@@ -126,11 +125,11 @@ pub(crate) fn reg_write_with_log<F: Field>(
     } else {
         return Err(ProgramError::InvalidRegister);
     }
-    let op = RegOp::new(
-        RegChannel::GeneralPurpose(channel),
+    let op = MemoryOp::new(
+        MemoryChannel::GeneralPurpose(channel),
         state.traces.clock(),
-        index,
-        RegOpKind::Write,
+        MemoryAddress::new(0, Segment::RegisterFile, index as usize),
+        MemoryOpKind::Write,
         value as u32,
     );
     Ok(op)

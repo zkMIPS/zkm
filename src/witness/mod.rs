@@ -1,6 +1,5 @@
 pub(crate) mod errors;
 pub(crate) mod memory;
-pub(crate) mod register;
 pub(crate) mod operation;
 pub(crate) mod state;
 pub(crate) mod traces;

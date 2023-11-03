@@ -7,7 +7,7 @@ use plonky2::field::types::Field;
 
 use crate::cpu::columns::general::CpuGeneralColumnsView;
 use crate::cpu::columns::ops::OpsColumnsView;
-use crate::cpu::membus::{NUM_GP_CHANNELS, NUM_REG_CHANNELS};
+use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory;
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
@@ -27,17 +27,6 @@ pub struct MemoryChannelView<T: Copy> {
     pub addr_segment: T,
     pub addr_virtual: T,
     pub value: MemValue<T>,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct RegChannelView<T: Copy> {
-    /// 1 if this row includes a register operation in the `i`th channel of the register bus, otherwise
-    /// 0.
-    pub used: T,
-    pub is_read: T,
-    pub index: T,
-    pub value: T,
 }
 
 #[repr(C)]
@@ -78,7 +67,6 @@ pub struct CpuColumnsView<T: Copy> {
 
     pub(crate) clock: T,
     pub mem_channels: [MemoryChannelView<T>; NUM_GP_CHANNELS],
-    pub reg_channels: [RegChannelView<T>; NUM_REG_CHANNELS],
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.

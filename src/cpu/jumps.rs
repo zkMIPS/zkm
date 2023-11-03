@@ -85,14 +85,14 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
 
     // Check `jump target value`:
     {
-        let reg_dst = lv.reg_channels[0].value;
+        let reg_dst = lv.mem_channels[0].value[0];
         let jump_dest = reg_dst;
         yield_constr.constraint_transition(is_jump * (nv.program_counter - jump_dest));
     }
 
     // Check `jump target register`:
     {
-        let jump_reg = lv.reg_channels[0].index;
+        let jump_reg = lv.mem_channels[0].addr_virtual;
         let mut jump_reg_index = [P::ONES; 5];
         jump_reg_index.copy_from_slice(lv.insn_bits[21..26].as_ref());
         let jump_dst = limb_from_bits_le(jump_reg_index.into_iter());
@@ -112,7 +112,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
 
     // Check `link/linki target value`:
     {
-        let link_val = lv.reg_channels[1].value;
+        let link_val = lv.mem_channels[1].value[0];
         let link_dest = link_val;
         yield_constr.constraint_transition(
             (is_link + is_linki)
@@ -121,7 +121,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     }
 
     // Check `link target regiseter`:
-    let link_reg = lv.reg_channels[1].index;
+    let link_reg = lv.mem_channels[1].addr_virtual;
     {
         let mut link_reg_index = [P::ONES; 5];
         link_reg_index.copy_from_slice(lv.insn_bits[11..16].as_ref());
@@ -161,7 +161,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
 
     // Check `jump target value`:
     {
-        let reg_dst = lv.reg_channels[0].value;
+        let reg_dst = lv.mem_channels[0].value[0];
         let jump_dest = builder.mul_extension(reg_dst, is_jump);
         let constr = builder.sub_extension(nv.program_counter, jump_dest);
         let constr = builder.mul_extension(is_jump, constr);
@@ -170,7 +170,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
 
     // Check `jump target register`:
     {
-        let jump_reg = lv.reg_channels[0].index;
+        let jump_reg = lv.mem_channels[0].addr_virtual;
         let mut jump_reg_index = [one_extension; 5];
         jump_reg_index.copy_from_slice(lv.insn_bits[21..26].as_ref());
         let jump_dst = limb_from_bits_le_recursive(builder, jump_reg_index.into_iter());
@@ -197,7 +197,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
 
     // Check `link/linki target value`:
     {
-        let link_dst = lv.reg_channels[1].value;
+        let link_dst = lv.mem_channels[1].value[0];
         let link_dest = builder.add_const_extension(lv.program_counter, F::from_canonical_u64(8));
         let constr = builder.sub_extension(link_dst, link_dest);
         let is_link = builder.add_extension(is_link, is_linki);
@@ -206,7 +206,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     }
 
     // Check `link target register`:
-    let link_reg = lv.reg_channels[1].index;
+    let link_reg = lv.mem_channels[1].addr_virtual;
     {
         let mut link_reg_index = [one_extension; 5];
         link_reg_index.copy_from_slice(lv.insn_bits[11..16].as_ref());

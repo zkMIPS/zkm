@@ -16,7 +16,6 @@ use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryOp;
-use crate::witness::register::RegOp;
 use crate::{arithmetic, keccak, keccak_sponge, logic};
 
 #[derive(Clone, Copy, Debug)]
@@ -37,7 +36,6 @@ pub(crate) struct Traces<T: Copy> {
     pub(crate) cpu: Vec<CpuColumnsView<T>>,
     pub(crate) logic_ops: Vec<logic::Operation>,
     pub(crate) memory_ops: Vec<MemoryOp>,
-    pub(crate) reg_ops: Vec<RegOp>,
     pub(crate) keccak_inputs: Vec<([u64; keccak::keccak_stark::NUM_INPUTS], usize)>,
     pub(crate) keccak_sponge_ops: Vec<KeccakSpongeOp>,
 }
@@ -50,7 +48,6 @@ impl<T: Copy> Traces<T> {
             cpu: vec![],
             logic_ops: vec![],
             memory_ops: vec![],
-            reg_ops: vec![],
             keccak_inputs: vec![],
             keccak_sponge_ops: vec![],
         }
@@ -129,10 +126,6 @@ impl<T: Copy> Traces<T> {
         self.memory_ops.push(op);
     }
 
-    pub fn push_reg(&mut self, op: RegOp) {
-        self.reg_ops.push(op);
-    }
-
     /*
     pub fn push_byte_packing(&mut self, op: BytePackingOp) {
         self.byte_packing_ops.push(op);
@@ -177,7 +170,6 @@ impl<T: Copy> Traces<T> {
             cpu,
             logic_ops,
             memory_ops,
-            reg_ops,
             keccak_inputs,
             keccak_sponge_ops,
         } = self;
