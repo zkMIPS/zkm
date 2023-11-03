@@ -281,15 +281,11 @@ pub fn eval_packed_branch<P: PackedField>(
         let mut rt_reg_index = [P::ZEROS; 5];
         rt_reg_index.copy_from_slice(lv.insn_bits[16..21].as_ref());
         let rt_src = limb_from_bits_le(rt_reg_index.into_iter());
-        let src2 = lv.mem_channels[0].addr_virtual;
-        yield_constr.constraint_transition(norm_filter * (src2 - rt_src));
+        yield_constr.constraint_transition(filter * norm_filter * (rt_reg - rt_src));
+        yield_constr.constraint_transition(filter * special_filter * rt_reg);
     }
 
-    {
-        let src2 = lv.mem_channels[1].addr_virtual;
-        yield_constr.constraint_transition(special_filter * (src2));
-    }
-
+    // Check Condition
     {
         let src1 = lv.mem_channels[0].value[0];
         let src2 = lv.mem_channels[1].value[0];
@@ -300,7 +296,7 @@ pub fn eval_packed_branch<P: PackedField>(
 
         let constr_a = src2 + aux1 - src1;
         yield_constr.constraint_transition(filter * constr_a * (overflow - constr_a));
-        let constr_b = src1 + aux1 - src2;
+        let constr_b = src1 + aux2 - src2;
         yield_constr.constraint_transition(filter * constr_b * (overflow - constr_b));
 
         let lt =  constr_a * overflow_div;
@@ -327,6 +323,19 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
     let filter = lv.op.branch; // `BRANCH`
     let one_extension = builder.one_extension();
     let zero_extension = builder.zero_extension();
+    let norm_filter = lv.insn_bits[28];
+    let spec_filter = builder.sub_extension(one_extension, lv.insn_bits[28]);
+    let bit27_not = builder.sub_extension(one_extension, lv.insn_bits[27]);
+    let bit26_not = builder.sub_extension(one_extension, lv.insn_bits[26]);
+    let bit16_not = builder.sub_extension(one_extension, lv.insn_bits[16]);
+    let is_eq = builder.mul_extension(norm_filter, bit27_not);
+    let is_ne = builder.mul_extension(is_eq, lv.insn_bits[26]);
+    let is_eq = builder.mul_extension(is_eq, bit26_not);
+    let is_le = builder.mul_extension(norm_filter, lv.insn_bits[27]);
+    let is_gt = builder.mul_extension(is_le, lv.insn_bits[26]);
+    let is_le = builder.mul_extension(is_le, bit26_not);
+    let is_ge = builder.mul_extension(spec_filter, lv.insn_bits[16]);
+    let is_lt = builder.mul_extension(spec_filter, bit16_not);
 
     // Check `should_jump`:
     {
@@ -336,7 +345,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 
-    // Check `jumpi target value`:
+    // Check `branch target value`:
     {
         let mut branch_offset = [zero_extension; 32];
         branch_offset[2..18].copy_from_slice(lv.insn_bits[0..15].as_ref());
@@ -350,6 +359,90 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
         let constr_b = builder.mul_extension(constr_b, next_insn);
         let constr = builder.add_extension(constr_a, constr_b);
         let constr = builder.sub_extension(constr, nv.program_counter);
+        let constr = builder.mul_extension(constr, filter);
+        yield_constr.constraint_transition(builder, constr);
+    }
+
+    // Check Aux Reg
+    {
+        let aux1 = lv.mem_channels[2].addr_virtual;
+        let aux2 = lv.mem_channels[3].addr_virtual;
+        let constr = builder.add_extension(aux1, aux2);
+        let constr = builder.mul_extension(constr, filter);
+        yield_constr.constraint_transition(builder, constr);
+    }
+
+    // Check rs Reg
+    {
+        let rs_reg = lv.mem_channels[0].addr_virtual;
+        let mut rs_reg_index = [one_extension; 5];
+        rs_reg_index.copy_from_slice(lv.insn_bits[21..26].as_ref());
+        let rs_src = limb_from_bits_le_recursive(builder, rs_reg_index.into_iter());
+        let constr = builder.sub_extension(rs_reg, rs_src);
+        let constr = builder.mul_extension(constr, filter);
+        yield_constr.constraint_transition(builder, constr);
+    }
+
+    // Check rt Reg
+    {
+        let rt_reg = lv.mem_channels[1].addr_virtual;
+        let mut rt_reg_index = [one_extension; 5];
+        rt_reg_index.copy_from_slice(lv.insn_bits[16..21].as_ref());
+        let rt_src = limb_from_bits_le_recursive(builder, rt_reg_index.into_iter());
+        let constr = builder.sub_extension(rt_reg, rt_src);
+        let constr = builder.mul_extension(constr, norm_filter);
+        let constr = builder.mul_extension(constr, filter);
+        yield_constr.constraint_transition(builder, constr);
+
+        let constr = builder.mul_extension(rt_reg, spec_filter);
+        let constr = builder.mul_extension(constr, filter);
+        yield_constr.constraint_transition(builder, constr);
+    }
+
+    // Check Condition
+    {
+        let src1 = lv.mem_channels[0].value[0];
+        let src2 = lv.mem_channels[1].value[0];
+        let aux1 = lv.mem_channels[2].value[0];
+        let aux2 = lv.mem_channels[3].value[0];
+        let overflow = builder.constant_extension(F::Extension::from_canonical_u64(1 << 32));
+        let overflow_div = builder.div_extension(one_extension, overflow);
+
+        let diff_a = builder.add_extension(src2, aux1);
+        let diff_a = builder.sub_extension(diff_a, src1);
+        let diff_b = builder.add_extension(src1, aux2);
+        let diff_b = builder.sub_extension(diff_b, src2);
+
+        let constr_a = builder.sub_extension(overflow, diff_a);
+        let constr_a = builder.mul_extension(constr_a, diff_a);
+        let constr_a = builder.mul_extension(constr_a, filter);
+        yield_constr.constraint_transition(builder, constr_a);
+
+        let constr_b = builder.sub_extension(overflow, diff_b);
+        let constr_b = builder.mul_extension(constr_b, diff_b);
+        let constr_b = builder.mul_extension(constr_b, filter);
+        yield_constr.constraint_transition(builder, constr_b);
+
+
+        let lt =  builder.mul_extension(overflow_div, diff_a);
+        let gt = builder.mul_extension(overflow_div, diff_b);
+        let ne = builder.add_extension(lt, gt);
+        let constr_eq = builder.sub_extension(one_extension, ne);
+        let constr_eq = builder.mul_extension(constr_eq, is_eq);
+        let constr_ne = builder.mul_extension(ne, is_ne);
+        let constr_le = builder.sub_extension(one_extension, gt);
+        let constr_le = builder.mul_extension(constr_le, is_le);
+        let constr_ge = builder.sub_extension(one_extension, lt);
+        let constr_ge = builder.mul_extension(constr_ge, is_ge);
+        let constr_gt = builder.mul_extension(gt, is_gt);
+        let constr_lt = builder.mul_extension(lt, is_lt);
+
+        let constr = builder.add_extension(constr_eq, constr_ne);
+        let constr = builder.add_extension(constr, constr_le);
+        let constr = builder.add_extension(constr, constr_ge);
+        let constr = builder.add_extension(constr, constr_lt);
+        let constr = builder.add_extension(constr, constr_gt);
+        let constr = builder.sub_extension(constr, jumps_lv.should_jump );
         let constr = builder.mul_extension(constr, filter);
         yield_constr.constraint_transition(builder, constr);
     }
