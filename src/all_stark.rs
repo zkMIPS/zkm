@@ -110,30 +110,6 @@ fn ctl_arithmetic<F: Field>() -> CrossTableLookup<F> {
     )
 }
 
-/*
-fn ctl_byte_packing<F: Field>() -> CrossTableLookup<F> {
-    let cpu_packing_looking = TableWithColumns::new(
-        Table::Cpu,
-        cpu_stark::ctl_data_byte_packing(),
-        Some(cpu_stark::ctl_filter_byte_packing()),
-    );
-    let cpu_unpacking_looking = TableWithColumns::new(
-        Table::Cpu,
-        cpu_stark::ctl_data_byte_unpacking(),
-        Some(cpu_stark::ctl_filter_byte_unpacking()),
-    );
-    let byte_packing_looked = TableWithColumns::new(
-        Table::BytePacking,
-        byte_packing_stark::ctl_looked_data(),
-        Some(byte_packing_stark::ctl_looked_filter()),
-    );
-    CrossTableLookup::new(
-        vec![cpu_packing_looking, cpu_unpacking_looking],
-        byte_packing_looked,
-    )
-}
-*/
-
 // We now need two different looked tables for `KeccakStark`:
 // one for the inputs and one for the outputs.
 // They are linked with the timestamp.

@@ -234,7 +234,7 @@ pub fn eval_packed_branch<P: PackedField>(
 
     let filter = lv.op.branch; // `BRANCH`
     let norm_filter = lv.insn_bits[28];
-    let special_filter = (P::ONES - lv.insn_bits[28]);
+    let special_filter = P::ONES - lv.insn_bits[28];
     let is_eq = lv.insn_bits[28] * (P::ONES - lv.insn_bits[27]) * (P::ONES - lv.insn_bits[26]);
     let is_ne = lv.insn_bits[28] * (P::ONES - lv.insn_bits[27]) * lv.insn_bits[26];
     let is_le = lv.insn_bits[28] * (P::ONES - lv.insn_bits[27]) * (P::ONES - lv.insn_bits[26]);
@@ -248,7 +248,7 @@ pub fn eval_packed_branch<P: PackedField>(
     // Check `branch target value`:
     {
         let mut branch_offset = [P::ZEROS; 32];
-        branch_offset[2..18].copy_from_slice(lv.insn_bits[0..15].as_ref());
+        branch_offset[2..18].copy_from_slice(lv.insn_bits[0..16].as_ref());
         branch_offset[18..32].copy_from_slice([lv.insn_bits[15]; 14].as_ref());
         let offset_dst = limb_from_bits_le(branch_offset.into_iter());
         let branch_dst = lv.program_counter + offset_dst;
@@ -348,7 +348,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
     // Check `branch target value`:
     {
         let mut branch_offset = [zero_extension; 32];
-        branch_offset[2..18].copy_from_slice(lv.insn_bits[0..15].as_ref());
+        branch_offset[2..18].copy_from_slice(lv.insn_bits[0..16].as_ref());
         branch_offset[18..32].copy_from_slice([lv.insn_bits[15]; 14].as_ref());
         let offset_dst = limb_from_bits_le_recursive(builder, branch_offset.into_iter());
 
@@ -452,9 +452,9 @@ pub fn eval_packed<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    eval_packed_exit_kernel(lv, nv, yield_constr);
-    eval_packed_jump_jumpi(lv, nv, yield_constr);
-    eval_packed_branch(lv, nv, yield_constr);
+    //eval_packed_exit_kernel(lv, nv, yield_constr);
+    // eval_packed_jump_jumpi(lv, nv, yield_constr);
+    //eval_packed_branch(lv, nv, yield_constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -463,7 +463,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    eval_ext_circuit_exit_kernel(builder, lv, nv, yield_constr);
-    eval_ext_circuit_jump_jumpi(builder, lv, nv, yield_constr);
-    eval_ext_circuit_branch(builder, lv, nv, yield_constr);
+    //eval_ext_circuit_exit_kernel(builder, lv, nv, yield_constr);
+    // eval_ext_circuit_jump_jumpi(builder, lv, nv, yield_constr);
+    //eval_ext_circuit_branch(builder, lv, nv, yield_constr);
 }

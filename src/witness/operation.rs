@@ -92,19 +92,17 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let input0 = rs as u32;
-    let input1 = rt as u32;
-    let operation = arithmetic::Operation::binary(operator, input0, input1);
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let operation = arithmetic::Operation::binary(operator, in0 as u32, in1 as u32);
+    let out = operation.result();
 
-    push_no_write(
-        state,
-        &mut row,
-        operation.result(),
-        Some(NUM_GP_CHANNELS - 1),
-    );
+    let log_out0 = reg_write_with_log(rd, 2, out as usize, state, &mut row)?;
 
     state.traces.push_arithmetic(operation);
-    //state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_out0);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -736,41 +734,18 @@ pub(crate) fn generate_mload_32bytes<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    /*
-    let [(context, _), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
-        stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
-    if len > 32 {
-        // The call to `U256::from_big_endian()` would panic.
-        return Err(ProgramError::IntegerTooLarge);
-    }
+    let (src1, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
+    let offset = sign_extend::<16>(offset);
+    let virt = src1 + offset as usize;
+    let address = MemoryAddress::new(0, Segment::Code, virt);
 
-    let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
-    if usize::MAX - base_address.virt < len {
-        return Err(ProgramError::MemoryError(VirtTooLarge {
-            virt: base_address.virt.into(),
-        }));
-    }
-    let bytes = (0..len)
-        .map(|i| {
-            let address = MemoryAddress {
-                virt: base_address.virt + i,
-                ..base_address
-            };
-            let val = state.memory.get(address);
-            val.low_u32() as u8
-        })
-        .collect_vec();
+    let (val, log_in2) = mem_read_gp_with_log_and_fill(1, address, state, &mut row);
 
-    let packed_int = U256::from_big_endian(&bytes);
-    push_no_write(state, &mut row, packed_int, Some(4));
-
-    // byte_packing_log(state, base_address, bytes);
-
+    let log_out0 = reg_write_with_log(rt, 2, val as usize, state, &mut row)?;
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
-    state.traces.push_memory(log_in3);
+    state.traces.push_memory(log_out0);
     state.traces.push_cpu(row);
-    */
     Ok(())
 }
 

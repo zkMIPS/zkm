@@ -66,7 +66,10 @@ fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
 
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
-    let mut res = vec![Column::le_bits(COL_MAP.opcode_bits)];
+    let mut base = [0usize; COL_MAP.opcode_bits.len() + COL_MAP.func_bits.len()];
+    base[0..COL_MAP.opcode_bits.len()].copy_from_slice(&COL_MAP.opcode_bits[..]);
+    base[COL_MAP.opcode_bits.len()..].copy_from_slice(&COL_MAP.func_bits[..]);
+    let mut res = vec![Column::le_bits(base)];
     res.extend(ctl_data_binops());
     res
 }
@@ -89,7 +92,6 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     // Create the CPU Table whose columns are those with the two
     // inputs and one output of the ternary operations listed in `ops`
     // (also `ops` is used as the operation filter).
-    log::debug!("base row cols: {:?}", columns);
     TableWithColumns::new(
         Table::Cpu,
         columns,
@@ -127,11 +129,11 @@ pub fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
 
     res
 }
-*/
 
 pub fn ctl_filter_byte_unpacking<F: Field>() -> Column<F> {
     Column::single(COL_MAP.op.mstore_32bytes)
 }
+*/
 
 pub const MEM_CODE_CHANNEL_IDX: usize = 0;
 pub const MEM_GP_CHANNELS_IDX_START: usize = MEM_CODE_CHANNEL_IDX + 1;
@@ -152,7 +154,10 @@ pub fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
     ];
 
     // Low limb of the value matches the opcode bits
-    cols.push(Column::le_bits(COL_MAP.opcode_bits));
+    let mut base = [0usize; COL_MAP.opcode_bits.len() + COL_MAP.func_bits.len()];
+    base[0..COL_MAP.opcode_bits.len()].copy_from_slice(&COL_MAP.opcode_bits[..]);
+    base[COL_MAP.opcode_bits.len()..].copy_from_slice(&COL_MAP.func_bits[..]);
+    cols.push(Column::le_bits(base));
 
     // High limbs of the value are all zero.
     cols.extend(repeat(Column::constant(F::ZERO)).take(VALUE_LIMBS - 1));
@@ -293,7 +298,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
     }
 
     fn constraint_degree(&self) -> usize {
-        3
+        5
     }
 }
 
@@ -320,6 +325,7 @@ mod tests {
 
     #[test]
     fn test_stark_circuit() -> Result<()> {
+        env_logger::init();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

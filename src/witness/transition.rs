@@ -45,9 +45,11 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
     let sa = ((insn >> 6) & 0x1F).to_le_bytes()[0];
     let offset = insn & 0xffff;
     let target = insn & 0x3ffffff;
-    println!(
+    log::debug!(
         "decode: insn {:X}, opcode {:X}, func {:X}",
-        insn, opcode, func
+        insn,
+        opcode,
+        func
     );
 
     match (opcode, func, registers.is_kernel) {
