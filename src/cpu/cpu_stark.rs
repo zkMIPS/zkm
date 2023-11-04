@@ -276,14 +276,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         dup_swap::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         gas::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         halt::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         */
+        jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
         /*
         memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         modfp254::eval_ext_circuit(builder, local_values, yield_constr);
         */
-        jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         /*
         push0::eval_ext_circuit(builder, local_values, next_values, yield_constr);
