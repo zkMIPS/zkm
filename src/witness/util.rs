@@ -14,13 +14,22 @@ use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKin
 use byteorder::{ByteOrder, LittleEndian};
 
 fn to_byte_checked(n: u32) -> u8 {
-    let res: u8 = n.to_be_bytes()[0];
+    println!("n {n}, {:?}", n.to_le_bytes());
+    let res: u8 = n.to_le_bytes()[0];
     assert_eq!(n as u8, res);
     res
 }
 
 fn to_bits_le<F: Field>(n: u8) -> [F; 6] {
     let mut res = [F::ZERO; 6];
+    for (i, bit) in res.iter_mut().enumerate() {
+        *bit = F::from_bool(n & (1 << i) != 0);
+    }
+    res
+}
+
+fn to_bits32_le<F: Field>(n: u32) -> [F; 32] {
+    let mut res = [F::ZERO; 32];
     for (i, bit) in res.iter_mut().enumerate() {
         *bit = F::from_bool(n & (1 << i) != 0);
     }
@@ -43,15 +52,114 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
     address: MemoryAddress,
     state: &GenerationState<F>,
     row: &mut CpuColumnsView<F>,
-) -> (u8, u8, MemoryOp) {
+) -> (u32, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::Code, address, state);
 
-    let val_u8 = to_byte_checked(val);
-    row.opcode_bits = to_bits_le(val_u8);
-    // FIXME: decode func
-    row.func_bits = to_bits_le(val_u8);
+    let val_op = to_byte_checked(val >> 26);
+    let val_func = to_byte_checked(val & 0x3F);
+    row.opcode_bits = to_bits_le(val_op);
+    row.func_bits = to_bits_le(val_func);
+    row.insn_bits = to_bits32_le(val);
 
-    (val_u8, val_u8, op)
+    (val, op)
+}
+
+pub(crate) fn sign_extend<const N: usize>(value: u32) -> u32 {
+    let isSigned = (value >> (N - 1)) != 0;
+    let signed = ((1 << (32 - N)) - 1) << N;
+    let mask = (1 << N) - 1;
+    return if isSigned {
+        value & mask | signed
+    } else {
+        value & mask
+    };
+}
+
+pub(crate) fn reg_read_with_log<F: Field>(
+    index: u8,
+    channel: usize,
+    state: &GenerationState<F>,
+    row: &mut CpuColumnsView<F>,
+) -> Result<(usize, MemoryOp), ProgramError> {
+    let mut result = 0;
+    if index < 32 {
+        result = state.registers.gprs[index as usize];
+    } else if index == 32 {
+        result = state.registers.lo;
+    } else if index == 33 {
+        result = state.registers.hi;
+    } else if index == 34 {
+        result = state.registers.heap;
+    } else if index == 35 {
+        result = state.registers.program_counter;
+    } else {
+        return Err(ProgramError::InvalidRegister);
+    }
+
+    let address = MemoryAddress::new(0, Segment::RegisterFile, index as usize);
+    let op = MemoryOp::new(
+        MemoryChannel::GeneralPurpose(channel),
+        state.traces.clock(),
+        address,
+        MemoryOpKind::Read,
+        result as u32,
+    );
+
+    let channel = &mut row.mem_channels[channel];
+    assert_eq!(channel.used, F::ZERO);
+    channel.used = F::ONE;
+    channel.is_read = F::ONE;
+    channel.addr_context = F::from_canonical_usize(address.context);
+    channel.addr_segment = F::from_canonical_usize(address.segment);
+    channel.addr_virtual = F::from_canonical_usize(address.virt);
+    channel.value[0] = F::from_canonical_u32(result as u32);
+    channel.value[1..].copy_from_slice([F::from_canonical_u32(0 as u32); 7].as_ref());
+
+    Ok((result, op))
+}
+
+pub(crate) fn reg_write_with_log<F: Field>(
+    index: u8,
+    channel: usize,
+    value: usize,
+    state: &mut GenerationState<F>,
+    row: &mut CpuColumnsView<F>,
+) -> Result<MemoryOp, ProgramError> {
+    if index == 0 {
+        // Ignore write to r0
+    } else if index < 32 {
+        state.registers.gprs[index as usize] = value;
+    } else if index == 32 {
+        state.registers.lo = value;
+    } else if index == 33 {
+        state.registers.hi = value;
+    } else if index == 34 {
+        state.registers.heap = value;
+    } else if index == 35 {
+        state.registers.program_counter = value;
+    } else {
+        return Err(ProgramError::InvalidRegister);
+    }
+
+    let address = MemoryAddress::new(0, Segment::RegisterFile, index as usize);
+    let op = MemoryOp::new(
+        MemoryChannel::GeneralPurpose(channel),
+        state.traces.clock(),
+        address,
+        MemoryOpKind::Write,
+        value as u32,
+    );
+
+    let channel = &mut row.mem_channels[channel];
+    assert_eq!(channel.used, F::ZERO);
+    channel.used = F::ONE;
+    channel.is_read = F::ONE;
+    channel.addr_context = F::from_canonical_usize(address.context);
+    channel.addr_segment = F::from_canonical_usize(address.segment);
+    channel.addr_virtual = F::from_canonical_usize(address.virt);
+    channel.value[0] = F::from_canonical_u32(value as u32);
+    channel.value[1..].copy_from_slice([F::from_canonical_u32(0 as u32); 7].as_ref());
+    Ok(op)
 }
 
 pub(crate) fn mem_read_with_log<F: Field>(

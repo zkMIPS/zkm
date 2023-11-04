@@ -19,18 +19,28 @@ use crate::witness::util::{keccak_sponge_log, mem_write_gp_log_and_fill};
 
 pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>) {
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
-    for chunk in &KERNEL.code.iter().enumerate().chunks(NUM_GP_CHANNELS) {
+    for chunk in &KERNEL
+        .program
+        .image
+        .iter()
+        .enumerate()
+        .chunks(NUM_GP_CHANNELS)
+    {
         let mut cpu_row = CpuColumnsView::default();
         cpu_row.clock = F::from_canonical_usize(state.traces.clock());
         cpu_row.is_bootstrap_kernel = F::ONE;
 
         // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
-        for (channel, (addr, &byte)) in chunk.enumerate() {
+        for (channel, (addr, byte)) in chunk.enumerate() {
             // FIXME: should all be in the MainMemory. Both instruction and memory data are located in
             // memory section for MIPS
-            let address = MemoryAddress::new(0, Segment::Code, addr);
-            let write =
-                mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, byte.into());
+            let address = MemoryAddress::new(0, Segment::Code, *byte.0 as usize);
+
+            let write = mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, *byte.1);
+            println!(
+                "init memory: v: {}, addr: {:?}, val : {}",
+                *byte.0, address, *byte.1
+            );
             state.traces.push_memory(write);
         }
 
@@ -56,6 +66,8 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     );
     state.traces.push_cpu(final_cpu_row);
     state.traces.push_cpu(final_cpu_row);
+
+    state.memory.apply_ops(&state.traces.memory_ops);
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
 

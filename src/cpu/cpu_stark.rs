@@ -14,6 +14,7 @@ use super::columns::CpuColumnsView;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
+use crate::cpu::jumps;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 /*
 use crate::cpu::{
@@ -55,31 +56,20 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
 /// Create the vector of Columns corresponding to the two inputs and
 /// one output of a binary operation.
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
-    let mut res = Column::singles(COL_MAP.mem_channels[0].value).collect_vec();
-    res.extend(Column::singles(COL_MAP.mem_channels[1].value));
-    res.extend(Column::singles(
-        COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value,
-    ));
-    res
-}
-
-/// Create the vector of Columns corresponding to the three inputs and
-/// one output of a ternary operation. By default, ternary operations use
-/// the first three memory channels, and the last one for the result (binary
-/// operations do not use the third inputs).
-fn ctl_data_ternops<F: Field>() -> Vec<Column<F>> {
-    let mut res = Column::singles(COL_MAP.mem_channels[0].value).collect_vec();
-    res.extend(Column::singles(COL_MAP.mem_channels[1].value));
-    res.extend(Column::singles(COL_MAP.mem_channels[2].value));
-    res.extend(Column::singles(
-        COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value,
-    ));
+    let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value[0]]).collect_vec();
+    res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value[0]]));
+    res.extend(Column::singles(vec![
+        COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value[0],
+    ]));
     res
 }
 
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
-    let mut res = vec![Column::le_bits(COL_MAP.opcode_bits)];
+    let mut base = [0usize; COL_MAP.opcode_bits.len() + COL_MAP.func_bits.len()];
+    base[0..COL_MAP.opcode_bits.len()].copy_from_slice(&COL_MAP.opcode_bits[..]);
+    base[COL_MAP.opcode_bits.len()..].copy_from_slice(&COL_MAP.func_bits[..]);
+    let mut res = vec![Column::le_bits(base)];
     res.extend(ctl_data_binops());
     res
 }
@@ -88,23 +78,24 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
     Column::single(COL_MAP.op.logic_op)
 }
 
+// If an arithmetic operation is happening on the CPU side, the CTL
+// will enforce that the reconstructed opcode value from the
+// opcode bits matches.
 pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
-    let mut columns = vec![Column::le_bits(COL_MAP.opcode_bits)];
-    columns.extend(ctl_data_ternops());
-    // Create the CPU Table whose columns are those with the three
+    let mut base = [0usize; COL_MAP.opcode_bits.len() + COL_MAP.func_bits.len()];
+    base[0..COL_MAP.opcode_bits.len()].copy_from_slice(&COL_MAP.opcode_bits[..]);
+    base[COL_MAP.opcode_bits.len()..].copy_from_slice(&COL_MAP.func_bits[..]);
+    let mut columns = vec![Column::le_bits(base)];
+    columns.extend(ctl_data_binops());
+
+    // Create the CPU Table whose columns are those with the two
     // inputs and one output of the ternary operations listed in `ops`
-    // (also `ops` is used as the operation filter). The list of
-    // operations includes binary operations which will simply ignore
-    // the third input.
+    // (also `ops` is used as the operation filter).
     TableWithColumns::new(
         Table::Cpu,
         columns,
-        Some(Column::sum([
-            COL_MAP.op.binary_op,
-            COL_MAP.op.ternary_op,
-            COL_MAP.op.shift,
-        ])),
+        Some(Column::sum([COL_MAP.op.binary_op, COL_MAP.op.shift])),
     )
 }
 
@@ -116,6 +107,7 @@ pub fn ctl_filter_byte_packing<F: Field>() -> Column<F> {
     Column::single(COL_MAP.op.mload_32bytes)
 }
 
+/*
 pub fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
     // When executing MSTORE_32BYTES, the GP memory channels are used as follows:
     // GP channel 0: stack[-1] = context
@@ -141,6 +133,7 @@ pub fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
 pub fn ctl_filter_byte_unpacking<F: Field>() -> Column<F> {
     Column::single(COL_MAP.op.mstore_32bytes)
 }
+*/
 
 pub const MEM_CODE_CHANNEL_IDX: usize = 0;
 pub const MEM_GP_CHANNELS_IDX_START: usize = MEM_CODE_CHANNEL_IDX + 1;
@@ -152,7 +145,6 @@ fn mem_time_and_channel<F: Field>(channel: usize) -> Column<F> {
     Column::linear_combination_with_constant([(COL_MAP.clock, scalar)], addend)
 }
 
-/*
 pub fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
     let mut cols = vec![
         Column::constant(F::ONE),                                      // is_read
@@ -162,7 +154,10 @@ pub fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
     ];
 
     // Low limb of the value matches the opcode bits
-    cols.push(Column::le_bits(COL_MAP.opcode_bits));
+    let mut base = [0usize; COL_MAP.opcode_bits.len() + COL_MAP.func_bits.len()];
+    base[0..COL_MAP.opcode_bits.len()].copy_from_slice(&COL_MAP.opcode_bits[..]);
+    base[COL_MAP.opcode_bits.len()..].copy_from_slice(&COL_MAP.func_bits[..]);
+    cols.push(Column::le_bits(base));
 
     // High limbs of the value are all zero.
     cols.extend(repeat(Column::constant(F::ZERO)).take(VALUE_LIMBS - 1));
@@ -171,7 +166,6 @@ pub fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
 
     cols
 }
-*/
 
 pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     let channel_map = COL_MAP.mem_channels[channel];
@@ -234,8 +228,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         dup_swap::eval_packed(local_values, next_values, yield_constr);
         gas::eval_packed(local_values, next_values, yield_constr);
         halt::eval_packed(local_values, next_values, yield_constr);
-        jumps::eval_packed(local_values, next_values, yield_constr);
         */
+        jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
         /*
         memio::eval_packed(local_values, next_values, yield_constr);
@@ -289,6 +283,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         modfp254::eval_ext_circuit(builder, local_values, yield_constr);
         */
+        jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         /*
         push0::eval_ext_circuit(builder, local_values, next_values, yield_constr);
@@ -303,7 +298,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
     }
 
     fn constraint_degree(&self) -> usize {
-        3
+        5
     }
 }
 
@@ -330,6 +325,7 @@ mod tests {
 
     #[test]
     fn test_stark_circuit() -> Result<()> {
+        env_logger::init();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

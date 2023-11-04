@@ -7,17 +7,16 @@ use crate::util::transmute_no_compile_time_size_checks;
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct OpsColumnsView<T: Copy> {
-    pub binary_op: T,  // Combines ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags.
-    pub ternary_op: T, // Combines ADDMOD, MULMOD and SUBMOD flags.
-    pub eq_iszero: T,  // Combines EQ and ISZERO flags.
-    pub logic_op: T,   // Combines AND, OR and XOR flags.
+    pub binary_op: T, // Combines ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags.
+    pub eq_iszero: T, // Combines EQ and ISZERO flags.
+    pub logic_op: T,  // Combines AND, OR and XOR flags.
     pub not: T,
     pub shift: T, // Combines SHL and SHR flags.
     pub keccak_general: T,
     pub prover_input: T,
     pub jumps: T, // Combines JUMP and JUMPI flags.
+    pub branch: T,
     pub pc: T,
-    pub jumpdest: T,
     pub swap: T,
     pub get_context: T,
     pub set_context: T,
@@ -27,7 +26,6 @@ pub struct OpsColumnsView<T: Copy> {
     pub m_op_general: T,
 
     pub syscall: T,
-    pub exception: T,
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.

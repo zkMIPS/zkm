@@ -1,3 +1,4 @@
+use super::elf::Program;
 use keccak_hash::keccak;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -10,6 +11,7 @@ use std::io::Read;
 pub struct Kernel {
     // MIPS ELF
     pub(crate) code: Vec<u8>,
+    pub(crate) program: Program,
     pub(crate) code_hash: [u32; 8],
     // For debugging purposes
     pub(crate) ordered_labels: Vec<String>,
@@ -26,6 +28,13 @@ pub(crate) fn combined_kernel() -> Kernel {
     let mut reader = BufReader::new(File::open("test-vectors/hello").unwrap());
     let mut code = Vec::new();
     reader.read_to_end(&mut code).unwrap();
+    //FIXME: define it as global constant
+    let max_mem = 0x80000000;
+    let mut p: Program = Program::load_elf(&code, max_mem).unwrap();
+    let real_blockpath = Program::get_block_path("13284491", "input");
+    println!("real block path: {}", real_blockpath);
+    let test_blockpath: &str = "test-vectors/0_13284491/input";
+    p.load_block(test_blockpath).unwrap();
 
     let code_hash_bytes = keccak(&code).0;
     let code_hash_be = core::array::from_fn(|i| {
@@ -35,6 +44,7 @@ pub(crate) fn combined_kernel() -> Kernel {
     log::debug!("code_hash: {:?}", code_hash);
 
     Kernel {
+        program: p,
         code,
         code_hash,
         ordered_labels: vec![],

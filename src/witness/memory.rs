@@ -135,7 +135,7 @@ impl MemoryState {
     pub fn new(kernel_code: &[u8]) -> Self {
         let code_u32s = kernel_code.iter().map(|&x| x.into()).collect();
         let mut result = Self::default();
-        result.contexts[0].segments[Segment::MainMemory as usize].content = code_u32s;
+        result.contexts[0].segments[Segment::Code as usize].content = code_u32s;
         result
     }
 
@@ -160,6 +160,7 @@ impl MemoryState {
 
         let segment = Segment::all()[address.segment];
         let val = self.contexts[address.context].segments[address.segment].get(address.virt);
+        /*
         assert!(
             u32::BITS as usize <= segment.bit_range(),
             "Value {} exceeds {:?} range of {} bits",
@@ -167,6 +168,7 @@ impl MemoryState {
             segment,
             segment.bit_range()
         );
+        */
         val
     }
 
@@ -176,6 +178,7 @@ impl MemoryState {
         }
 
         let segment = Segment::all()[address.segment];
+        /*
         assert!(
             u32::BITS as usize <= segment.bit_range(),
             "Value {} exceeds {:?} range of {} bits",
@@ -183,6 +186,7 @@ impl MemoryState {
             segment,
             segment.bit_range()
         );
+        */
         self.contexts[address.context].segments[address.segment].set(address.virt, val);
     }
 

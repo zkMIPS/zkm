@@ -16,142 +16,76 @@ use crate::witness::state::RegistersState;
 use crate::witness::util::mem_read_code_with_log_and_fill;
 use crate::{arithmetic, logic};
 
-fn read_code_memory<F: Field>(
-    state: &mut GenerationState<F>,
-    row: &mut CpuColumnsView<F>,
-) -> (u8, u8) {
+fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColumnsView<F>) -> u32 {
     let code_context = state.registers.code_context();
     row.code_context = F::from_canonical_usize(code_context);
 
     let address = MemoryAddress::new(code_context, Segment::Code, state.registers.program_counter);
-    let (opcode, func, mem_log) = mem_read_code_with_log_and_fill(address, state, row);
+    let (opcode, mem_log) = mem_read_code_with_log_and_fill(address, state, row);
+    log::debug!(
+        "read_code_memory: PC {} op: {:?}, {:?}",
+        state.registers.program_counter,
+        opcode,
+        mem_log
+    );
 
     state.traces.push_memory(mem_log);
 
-    (opcode, func)
+    opcode
 }
 
-fn decode(registers: RegistersState, opcode: u8, func: u8) -> Result<Operation, ProgramError> {
+fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramError> {
+    // FIXME: use big endian
+    let insn = insn.to_be();
+    let opcode = ((insn >> 26) & 0x3F).to_le_bytes()[0];
+    let func = (insn & 0x3F).to_le_bytes()[0];
+    let rt = ((insn >> 16) & 0x1F).to_le_bytes()[0];
+    let rs = ((insn >> 21) & 0x1F).to_le_bytes()[0];
+    let rd = ((insn >> 11) & 0x1F).to_le_bytes()[0];
+    let sa = ((insn >> 6) & 0x1F).to_le_bytes()[0];
+    let offset = insn & 0xffff;
+    let target = insn & 0x3ffffff;
+    log::debug!(
+        "decode: insn {:X}, opcode {:X}, func {:X}",
+        insn,
+        opcode,
+        func
+    );
+
     match (opcode, func, registers.is_kernel) {
-        (0x00, 0x00, _) => Ok(Operation::Syscall(opcode, 0, false)), // STOP
-        (0x01, 0x20, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::ADD)),
-        /*
-        (0x02, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul)),
-        (0x03, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub)),
-        (0x04, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Div)),
-        (0x05, _) => Ok(Operation::Syscall(opcode, 2, false)), // SDIV
-        (0x06, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mod)),
-        (0x07, _) => Ok(Operation::Syscall(opcode, 2, false)), // SMOD
-        (0x08, _) => Ok(Operation::TernaryArithmetic(
-            arithmetic::TernaryOperator::AddMod,
-        )),
-        (0x09, _) => Ok(Operation::TernaryArithmetic(
-            arithmetic::TernaryOperator::MulMod,
-        )),
-        (0x0a, _) => Ok(Operation::Syscall(opcode, 2, false)), // EXP
-        (0x0b, _) => Ok(Operation::Syscall(opcode, 2, false)), // SIGNEXTEND
-        (0x0c, true) => Ok(Operation::BinaryArithmetic(
-            arithmetic::BinaryOperator::AddFp254,
-        )),
-        (0x0d, true) => Ok(Operation::BinaryArithmetic(
-            arithmetic::BinaryOperator::MulFp254,
-        )),
-        (0x0e, true) => Ok(Operation::BinaryArithmetic(
-            arithmetic::BinaryOperator::SubFp254,
-        )),
-        (0x0f, true) => Ok(Operation::TernaryArithmetic(
-            arithmetic::TernaryOperator::SubMod,
-        )),
-        (0x10, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Lt)),
-        (0x11, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Gt)),
-        (0x12, _) => Ok(Operation::Syscall(opcode, 2, false)), // SLT
-        (0x13, _) => Ok(Operation::Syscall(opcode, 2, false)), // SGT
-        (0x14, _) => Ok(Operation::Eq),
-        (0x15, _) => Ok(Operation::Iszero),
-        (0x16, _) => Ok(Operation::BinaryLogic(logic::Op::And)),
-        (0x17, _) => Ok(Operation::BinaryLogic(logic::Op::Or)),
-        (0x18, _) => Ok(Operation::BinaryLogic(logic::Op::Xor)),
-        (0x19, _) => Ok(Operation::Not),
-        (0x1a, _) => Ok(Operation::BinaryArithmetic(
-            arithmetic::BinaryOperator::Byte,
-        )),
-        (0x1b, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)),
-        (0x1c, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr)),
-        (0x1d, _) => Ok(Operation::Syscall(opcode, 2, false)), // SAR
-        (0x20, _) => Ok(Operation::Syscall(opcode, 2, false)), // KECCAK256
-        (0x21, true) => Ok(Operation::KeccakGeneral),
-        (0x30, _) => Ok(Operation::Syscall(opcode, 0, true)), // ADDRESS
-        (0x31, _) => Ok(Operation::Syscall(opcode, 1, false)), // BALANCE
-        (0x32, _) => Ok(Operation::Syscall(opcode, 0, true)), // ORIGIN
-        (0x33, _) => Ok(Operation::Syscall(opcode, 0, true)), // CALLER
-        (0x34, _) => Ok(Operation::Syscall(opcode, 0, true)), // CALLVALUE
-        (0x35, _) => Ok(Operation::Syscall(opcode, 1, false)), // CALLDATALOAD
-        (0x36, _) => Ok(Operation::Syscall(opcode, 0, true)), // CALLDATASIZE
-        (0x37, _) => Ok(Operation::Syscall(opcode, 3, false)), // CALLDATACOPY
-        (0x38, _) => Ok(Operation::Syscall(opcode, 0, true)), // CODESIZE
-        (0x39, _) => Ok(Operation::Syscall(opcode, 3, false)), // CODECOPY
-        (0x3a, _) => Ok(Operation::Syscall(opcode, 0, true)), // GASPRICE
-        (0x3b, _) => Ok(Operation::Syscall(opcode, 1, false)), // EXTCODESIZE
-        (0x3c, _) => Ok(Operation::Syscall(opcode, 4, false)), // EXTCODECOPY
-        (0x3d, _) => Ok(Operation::Syscall(opcode, 0, true)), // RETURNDATASIZE
-        (0x3e, _) => Ok(Operation::Syscall(opcode, 3, false)), // RETURNDATACOPY
-        (0x3f, _) => Ok(Operation::Syscall(opcode, 1, false)), // EXTCODEHASH
-        (0x40, _) => Ok(Operation::Syscall(opcode, 1, false)), // BLOCKHASH
-        (0x41, _) => Ok(Operation::Syscall(opcode, 0, true)), // COINBASE
-        (0x42, _) => Ok(Operation::Syscall(opcode, 0, true)), // TIMESTAMP
-        (0x43, _) => Ok(Operation::Syscall(opcode, 0, true)), // NUMBER
-        (0x44, _) => Ok(Operation::Syscall(opcode, 0, true)), // DIFFICULTY
-        (0x45, _) => Ok(Operation::Syscall(opcode, 0, true)), // GASLIMIT
-        (0x46, _) => Ok(Operation::Syscall(opcode, 0, true)), // CHAINID
-        (0x47, _) => Ok(Operation::Syscall(opcode, 0, true)), // SELFBALANCE
-        (0x48, _) => Ok(Operation::Syscall(opcode, 0, true)), // BASEFEE
-        (0x49, true) => Ok(Operation::ProverInput),
-        (0x50, _) => Ok(Operation::Pop),
-        (0x51, _) => Ok(Operation::Syscall(opcode, 1, false)), // MLOAD
-        (0x52, _) => Ok(Operation::Syscall(opcode, 2, false)), // MSTORE
-        (0x53, _) => Ok(Operation::Syscall(opcode, 2, false)), // MSTORE8
-        (0x54, _) => Ok(Operation::Syscall(opcode, 1, false)), // SLOAD
-        (0x55, _) => Ok(Operation::Syscall(opcode, 2, false)), // SSTORE
-        (0x56, _) => Ok(Operation::Jump),
-        (0x57, _) => Ok(Operation::Jumpi),
-        (0x58, _) => Ok(Operation::Pc),
-        (0x59, _) => Ok(Operation::Syscall(opcode, 0, true)), // MSIZE
-        (0x5a, _) => Ok(Operation::Syscall(opcode, 0, true)), // GAS
-        (0x5b, _) => Ok(Operation::Jumpdest),
-        (0x5f..=0x7f, _) => Ok(Operation::Push(opcode - 0x5f)),
-        (0x80..=0x8f, _) => Ok(Operation::Dup(opcode & 0xf)),
-        (0x90..=0x9f, _) => Ok(Operation::Swap(opcode & 0xf)),
-        (0xa0, _) => Ok(Operation::Syscall(opcode, 2, false)), // LOG0
-        (0xa1, _) => Ok(Operation::Syscall(opcode, 3, false)), // LOG1
-        (0xa2, _) => Ok(Operation::Syscall(opcode, 4, false)), // LOG2
-        (0xa3, _) => Ok(Operation::Syscall(opcode, 5, false)), // LOG3
-        (0xa4, _) => Ok(Operation::Syscall(opcode, 6, false)), // LOG4
-        (0xa5, true) => {
-            log::warn!(
-                "Kernel panic at {}",
-                KERNEL.offset_name(registers.program_counter),
-            );
-            Err(ProgramError::KernelPanic)
+        (0b000000, 0b100000, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::ADD,
+            rs,
+            rt,
+            rd,
+        )), // ADD: rd = rs+rt
+        (0b000000, 0b000000, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SLL,
+            rt,
+            sa,
+            rd,
+        )), // SLL: rd = rt << sa
+        (0b000000, 0b100000, _) => Ok(Operation::Jump(0u8, rs)), // JR
+        (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)),         // JR
+        (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),          // JALR
+        (0x01, _, _) => {
+            if rt == 1 {
+                Ok(Operation::Branch(Cond::GE, rs, 0u8, offset)) // BGEZ
+            } else if rt == 0 {
+                Ok(Operation::Branch(Cond::LT, rs, 0u8, offset)) // BLTZ
+            } else {
+                Err(ProgramError::InvalidOpcode)
+            }
         }
-        (0xee, true) => Ok(Operation::Mstore32Bytes),
-        (0xf0, _) => Ok(Operation::Syscall(opcode, 3, false)), // CREATE
-        (0xf1, _) => Ok(Operation::Syscall(opcode, 7, false)), // CALL
-        (0xf2, _) => Ok(Operation::Syscall(opcode, 7, false)), // CALLCODE
-        (0xf3, _) => Ok(Operation::Syscall(opcode, 2, false)), // RETURN
-        (0xf4, _) => Ok(Operation::Syscall(opcode, 6, false)), // DELEGATECALL
-        (0xf5, _) => Ok(Operation::Syscall(opcode, 4, false)), // CREATE2
-        (0xf6, true) => Ok(Operation::GetContext),
-        (0xf7, true) => Ok(Operation::SetContext),
-        (0xf8, true) => Ok(Operation::Mload32Bytes),
-        (0xf9, true) => Ok(Operation::ExitKernel),
-        (0xfa, _) => Ok(Operation::Syscall(opcode, 6, false)), // STATICCALL
-        (0xfb, true) => Ok(Operation::MloadGeneral),
-        (0xfc, true) => Ok(Operation::MstoreGeneral),
-        (0xfd, _) => Ok(Operation::Syscall(opcode, 2, false)), // REVERT
-        (0xff, _) => Ok(Operation::Syscall(opcode, 1, false)), // SELFDESTRUCT
-        */
+        (0x02, _, _) => Ok(Operation::Jumpi(0u8, target)), // J
+        (0x03, _, _) => Ok(Operation::Jumpi(31u8, target)), // JAL
+        (0x04, _, _) => Ok(Operation::Branch(Cond::EQ, rs, rt, offset)), // BEQ
+        (0x05, _, _) => Ok(Operation::Branch(Cond::NE, rs, rt, offset)), // BNE
+        (0x06, _, _) => Ok(Operation::Branch(Cond::LE, rs, 0u8, offset)), // BLEZ
+        (0x07, _, _) => Ok(Operation::Branch(Cond::GT, rs, 0u8, offset)), // BGTZ
+        (0b100011, _, _) => Ok(Operation::Mload32Bytes(rs, rt, offset)), // LW
         _ => {
-            log::warn!("Invalid opcode: {}", opcode);
+            log::warn!("Decode: invalid opcode: {} {}", opcode, func);
             Err(ProgramError::InvalidOpcode)
         }
     }
@@ -165,81 +99,31 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Not => &mut flags.not,
         Operation::Syscall(_, _, _) => &mut flags.syscall,
         Operation::BinaryLogic(_) => &mut flags.logic_op,
-        //   Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)
-        //   | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => &mut flags.shift,
-        Operation::BinaryArithmetic(_) => &mut flags.binary_op,
-        Operation::TernaryArithmetic(_) => &mut flags.ternary_op,
+        Operation::BinaryArithmetic(..) => &mut flags.binary_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
         Operation::ProverInput => &mut flags.prover_input,
-        Operation::Jump | Operation::Jumpi => &mut flags.jumps,
+        Operation::Jump(_, _) | Operation::Jumpi(_, _) => &mut flags.jumps,
+        Operation::Branch(_, _, _, _) => &mut flags.branch,
         Operation::Pc => &mut flags.pc,
-        Operation::Jumpdest => &mut flags.jumpdest,
         Operation::GetContext => &mut flags.get_context,
         Operation::SetContext => &mut flags.set_context,
-        Operation::Mload32Bytes => &mut flags.mload_32bytes,
+        Operation::Mload32Bytes(_, _, _) => &mut flags.mload_32bytes,
         Operation::Mstore32Bytes => &mut flags.mstore_32bytes,
         Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;
 }
 
-/*
-// Equal to the number of pops if an operation pops without pushing, and `None` otherwise.
-fn get_op_special_length(op: Operation) -> Option<usize> {
-    let behavior_opt = match op {
-        Operation::Push(0) => STACK_BEHAVIORS.push0,
-        Operation::Push(1..) => STACK_BEHAVIORS.push,
-        Operation::Dup(_) => STACK_BEHAVIORS.dup,
-        Operation::Swap(_) => STACK_BEHAVIORS.swap,
-        Operation::Iszero => IS_ZERO_STACK_BEHAVIOR,
-        Operation::Not => STACK_BEHAVIORS.not,
-        Operation::Syscall(_, _, _) => STACK_BEHAVIORS.syscall,
-        Operation::Eq => EQ_STACK_BEHAVIOR,
-        Operation::BinaryLogic(_) => STACK_BEHAVIORS.logic_op,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => STACK_BEHAVIORS.shift,
-        Operation::BinaryArithmetic(_) => STACK_BEHAVIORS.binary_op,
-        Operation::TernaryArithmetic(_) => STACK_BEHAVIORS.ternary_op,
-        Operation::KeccakGeneral => STACK_BEHAVIORS.keccak_general,
-        Operation::ProverInput => STACK_BEHAVIORS.prover_input,
-        Operation::Pop => STACK_BEHAVIORS.pop,
-        Operation::Jump => JUMP_OP,
-        Operation::Jumpi => JUMPI_OP,
-        Operation::Pc => STACK_BEHAVIORS.pc,
-        Operation::Jumpdest => STACK_BEHAVIORS.jumpdest,
-        Operation::GetContext => STACK_BEHAVIORS.get_context,
-        Operation::SetContext => None,
-        Operation::Mload32Bytes => STACK_BEHAVIORS.mload_32bytes,
-        Operation::Mstore32Bytes => STACK_BEHAVIORS.mstore_32bytes,
-        Operation::ExitKernel => STACK_BEHAVIORS.exit_kernel,
-        Operation::MloadGeneral | Operation::MstoreGeneral => STACK_BEHAVIORS.m_op_general,
-    };
-    if let Some(behavior) = behavior_opt {
-        if behavior.num_pops > 0 && !behavior.pushes {
-            Some(behavior.num_pops)
-        } else {
-            None
-        }
-    } else {
-        None
-    }
-    None
-}
-*/
-
 fn perform_op<F: Field>(
     state: &mut GenerationState<F>,
     op: Operation,
     row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
+    log::debug!("perform_op {:?}", op);
     match op {
-        // Operation::Push(n) => generate_push(n, state, row)?,
-        // Operation::Dup(n) => generate_dup(n, state, row)?,
         Operation::Swap(n) => generate_swap(n, state, row)?,
         Operation::Iszero => generate_iszero(state, row)?,
         Operation::Not => generate_not(state, row)?,
-        // Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl) => generate_shl(state, row)?,
-        // Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => generate_shr(state, row)?,
         Operation::Syscall(opcode, stack_values_read, stack_len_increased) => {
             generate_syscall(opcode, stack_values_read, stack_len_increased, state, row)?
         }
@@ -247,18 +131,22 @@ fn perform_op<F: Field>(
         Operation::BinaryLogic(binary_logic_op) => {
             generate_binary_logic_op(binary_logic_op, state, row)?
         }
-        Operation::BinaryArithmetic(op) => generate_binary_arithmetic_op(op, state, row)?,
-        Operation::TernaryArithmetic(op) => generate_ternary_arithmetic_op(op, state, row)?,
+        Operation::BinaryArithmetic(op, rs, rt, rd) => {
+            generate_binary_arithmetic_op(rs, rt, rd, op, state, row)?
+        }
         Operation::KeccakGeneral => generate_keccak_general(state, row)?,
         Operation::ProverInput => generate_prover_input(state, row)?,
-        // Operation::Pop => generate_pop(state, row)?,
-        Operation::Jump => generate_jump(state, row)?,
-        Operation::Jumpi => generate_jumpi(state, row)?,
+        Operation::Jump(link, target) => generate_jump(link, target, state, row)?,
+        Operation::Jumpi(link, target) => generate_jumpi(link, target, state, row)?,
+        Operation::Branch(cond, input1, input2, target) => {
+            generate_branch(cond, input1, input2, target, state, row)?
+        }
         Operation::Pc => generate_pc(state, row)?,
-        Operation::Jumpdest => generate_jumpdest(state, row)?,
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
-        Operation::Mload32Bytes => generate_mload_32bytes(state, row)?,
+        Operation::Mload32Bytes(base, rt, offset) => {
+            generate_mload_32bytes(base, rt, offset, state, row)?
+        }
         Operation::Mstore32Bytes => generate_mstore_32bytes(state, row)?,
         Operation::ExitKernel => generate_exit_kernel(state, row)?,
         Operation::MloadGeneral => generate_mload_general(state, row)?,
@@ -267,9 +155,10 @@ fn perform_op<F: Field>(
 
     state.registers.program_counter += match op {
         Operation::Syscall(_, _, _) | Operation::ExitKernel => 0,
-        //     Operation::Push(n) => n as usize + 1,
-        Operation::Jump | Operation::Jumpi => 0,
-        _ => 1,
+        Operation::Jump(_, _) => 0,
+        Operation::Jumpi(_, _) => 0,
+        Operation::Branch(_, _, _, _) => 0,
+        _ => 4,
     };
 
     /*
@@ -282,7 +171,7 @@ fn perform_op<F: Field>(
 /// Row that has the correct values for system registers and the code channel, but is otherwise
 /// blank. It fulfills the constraints that are common to successful operations and the exception
 /// operation. It also returns the opcode.
-fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8, u8) {
+fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u32) {
     let mut row: CpuColumnsView<F> = CpuColumnsView::default();
     row.clock = F::from_canonical_usize(state.traces.clock());
     row.context = F::from_canonical_usize(state.registers.context);
@@ -297,13 +186,13 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8,
     fill_channel_with_value(&mut row, 0, state.registers.stack_top);
     */
 
-    let (opcode, func) = read_code_memory(state, &mut row);
-    (row, opcode, func)
+    let opcode = read_code_memory(state, &mut row);
+    (row, opcode)
 }
 
 fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(), ProgramError> {
-    let (mut row, opcode, func) = base_row(state);
-    let op = decode(state.registers, opcode, func)?;
+    let (mut row, opcode) = base_row(state);
+    let op = decode(state.registers, opcode)?;
 
     if state.registers.is_kernel {
         log_kernel_instruction(state, op);
@@ -400,7 +289,7 @@ fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
         0,
     );
 
-    assert!(pc < KERNEL.code.len(), "Kernel PC is out of range: {}", pc);
+    //assert!(pc < KERNEL.program.image.len(), "Kernel PC is out of range: {}", pc);
 }
 
 fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> anyhow::Result<()> {
@@ -416,7 +305,7 @@ fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> 
 
     let checkpoint = state.checkpoint();
 
-    let (row, _, _) = base_row(state);
+    let (row, _) = base_row(state);
     generate_exception(exc_code, state, row)
         .map_err(|_| anyhow::Error::msg("error handling errored..."))?;
 

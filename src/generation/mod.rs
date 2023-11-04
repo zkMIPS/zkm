@@ -21,22 +21,6 @@ use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
 use crate::witness::transition::transition;
 
-/// FIXME: useful?
-#[derive(Clone, Debug, Deserialize, Serialize, Default)]
-pub(crate) struct MipsTrace {
-    pub cycle: u32,
-    pub pc: u32,
-    pub next_pc: u32,
-    pub lo: u32,
-    pub hi: u32,
-    pub regs: [u32; 32],
-    pub heap: u32,
-    pub exit_code: u8,
-    pub exited: bool,
-    pub mem_addr: u32,
-    pub insn_addr: u32,
-}
-
 /// Inputs needed for trace generation. Wrap the trace record.
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct GenerationInputs {
@@ -60,7 +44,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Decode the trace record
     // 1. Decode instruction and fill in cpu columns
     // 2. Decode memory and fill in memory columns
-    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code).unwrap();
+    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code, 2).unwrap();
     generate_bootstrap_kernel::<F>(&mut state);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
@@ -93,12 +77,12 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
     state: &mut GenerationState<F>,
 ) -> anyhow::Result<()> {
-    let halt_pc = KERNEL.global_labels["halt"];
-
+    let mut step = 0;
     loop {
         // If we've reached the kernel's halt routine, and our trace length is a power of 2, stop.
         let pc = state.registers.program_counter;
-        let halt = state.registers.is_kernel && pc == halt_pc;
+        let halt = state.registers.is_kernel && step == state.step;
+        println!("PC: {pc}");
         if halt {
             log::info!("CPU halted after {} cycles", state.traces.clock());
 
@@ -122,5 +106,6 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
         }
 
         transition(state)?;
+        step += 1;
     }
 }

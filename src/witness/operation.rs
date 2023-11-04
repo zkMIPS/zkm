@@ -20,25 +20,46 @@ use crate::witness::operation::MemoryChannel::GeneralPurpose;
 use crate::{arithmetic, logic};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum Cond {
+    EQ,
+    NE,
+    GE,
+    LE,
+    GT,
+    LT,
+}
+
+impl Cond {
+    pub(crate) fn result(&self, input0: usize, input1: usize) -> bool {
+        match self {
+            Cond::EQ => input0 == input1,
+            Cond::NE => input0 != input1,
+            Cond::GE => input0 >= input1,
+            Cond::LE => input0 <= input1,
+            Cond::GT => input0 > input1,
+            Cond::LT => input0 < input1,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Operation {
     Iszero,
     Not,
-    Syscall(u8, usize, bool), // (syscall number, minimum stack length, increases stack length)
+    Syscall(u32, usize, bool), // (syscall number, minimum stack length, increases stack length)
     Eq,
     BinaryLogic(logic::Op),
-    BinaryArithmetic(arithmetic::BinaryOperator),
-    TernaryArithmetic(arithmetic::TernaryOperator), // Unused
+    BinaryArithmetic(arithmetic::BinaryOperator, u8, u8, u8),
     KeccakGeneral,
     ProverInput,
-    Jump,
-    Jumpi,
+    Jump(u8, u8),
+    Jumpi(u8, u32),
+    Branch(Cond, u8, u8, u32),
     Pc,
-    Jumpdest,
-    // Dup(u8),
     Swap(u8),
     GetContext,
     SetContext,
-    Mload32Bytes,
+    Mload32Bytes(u8, u8, u32),
     Mstore32Bytes,
     ExitKernel,
     MloadGeneral,
@@ -64,50 +85,25 @@ pub(crate) fn generate_binary_logic_op<F: Field>(
 }
 
 pub(crate) fn generate_binary_arithmetic_op<F: Field>(
+    rs: u8,
+    rt: u8,
+    rd: u8,
     operator: arithmetic::BinaryOperator,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    /*
-    let [(input0, _), (input1, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
-    let operation = arithmetic::Operation::binary(operator, input0, input1);
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let operation = arithmetic::Operation::binary(operator, in0 as u32, in1 as u32);
+    let out = operation.result();
 
-    push_no_write(
-        state,
-        &mut row,
-        operation.result(),
-        Some(NUM_GP_CHANNELS - 1),
-    );
+    let log_out0 = reg_write_with_log(rd, 2, out as usize, state, &mut row)?;
 
     state.traces.push_arithmetic(operation);
+    state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_out0);
     state.traces.push_cpu(row);
-    */
-    Ok(())
-}
-
-pub(crate) fn generate_ternary_arithmetic_op<F: Field>(
-    operator: arithmetic::TernaryOperator,
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    let [(input0, _), (input1, log_in1), (input2, log_in2)] =
-        stack_pop_with_log_and_fill::<3, _>(state, &mut row)?;
-    let operation = arithmetic::Operation::ternary(operator, input0, input1, input2);
-
-    push_no_write(
-        state,
-        &mut row,
-        operation.result(),
-        Some(NUM_GP_CHANNELS - 1),
-    );
-
-    state.traces.push_arithmetic(operation);
-    state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
-    state.traces.push_cpu(row);
-    */
     Ok(())
 }
 
@@ -174,133 +170,73 @@ pub(crate) fn generate_pop<F: Field>(
 }
 
 pub(crate) fn generate_jump<F: Field>(
+    link: u8,
+    target: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    /*
-    let [(dst, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
-
-    let dst: u32 = dst
-        .try_into()
-        .map_err(|_| ProgramError::InvalidJumpDestination)?;
-
-    let (jumpdest_bit, jumpdest_bit_log) = mem_read_gp_with_log_and_fill(
-        NUM_GP_CHANNELS - 1,
-        MemoryAddress::new(state.registers.context, Segment::JumpdestBits, dst as usize),
-        state,
-        &mut row,
-    );
-
-    row.mem_channels[1].value[0] = F::ONE;
-
-    if state.registers.is_kernel {
-        // Don't actually do the read, just set the address, etc.
-        let channel = &mut row.mem_channels[NUM_GP_CHANNELS - 1];
-        channel.used = F::ZERO;
-        channel.value[0] = F::ONE;
-    } else {
-        if jumpdest_bit != U256::one() {
-            return Err(ProgramError::InvalidJumpDestination);
-        }
-        state.traces.push_memory(jumpdest_bit_log);
-    }
-
-    // Extra fields required by the constraints.
+    let (target_pc, target_op) = reg_read_with_log(target, 0, state, &mut row)?;
     row.general.jumps_mut().should_jump = F::ONE;
-    row.general.jumps_mut().cond_sum_pinv = F::ONE;
-
-    let diff = row.stack_len - F::ONE;
-    if let Some(inv) = diff.try_inverse() {
-        row.general.stack_mut().stack_inv = inv;
-        row.general.stack_mut().stack_inv_aux = F::ONE;
-    } else {
-        row.general.stack_mut().stack_inv = F::ZERO;
-        row.general.stack_mut().stack_inv_aux = F::ZERO;
-    }
-
+    let next_pc = state.registers.program_counter.wrapping_add(8);
+    let link_op = reg_write_with_log(link, 1, next_pc, state, &mut row)?;
     state.traces.push_cpu(row);
-    state.jump_to(dst as usize)?;
-    */
+    state.traces.push_memory(target_op);
+    state.traces.push_memory(link_op);
+    state.jump_to(target_pc);
+    Ok(())
+}
+
+pub(crate) fn generate_branch<F: Field>(
+    cond: Cond,
+    src1: u8,
+    src2: u8,
+    target: u32,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (src1, src1_op) = reg_read_with_log(src1, 0, state, &mut row)?;
+    let (src2, src2_op) = reg_read_with_log(src2, 1, state, &mut row)?;
+    let should_jump = cond.result(src1, src2);
+    reg_write_with_log(0, 2, src1 - src2, state, &mut row)?;
+    reg_write_with_log(0, 3, src2 - src1, state, &mut row)?;
+    let pc = state.registers.program_counter;
+    if should_jump {
+        let (mut target_pc, _) = (target as usize).overflowing_shl(2);
+        target_pc = target_pc.wrapping_add(pc);
+        row.general.jumps_mut().should_jump = F::ONE;
+        state.traces.push_cpu(row);
+        state.jump_to(target_pc);
+    } else {
+        let next_pc = pc.wrapping_add(8);
+        row.general.jumps_mut().should_jump = F::ZERO;
+        state.traces.push_cpu(row);
+        state.jump_to(next_pc);
+    }
+    state.traces.push_cpu(row);
+    state.traces.push_memory(src1_op);
+    state.traces.push_memory(src2_op);
     Ok(())
 }
 
 pub(crate) fn generate_jumpi<F: Field>(
+    link: u8,
+    target: u32,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    /*
-    let [(dst, _), (cond, log_cond)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
-
-    let should_jump = !cond.is_zero();
-    if should_jump {
-        row.general.jumps_mut().should_jump = F::ONE;
-        let cond_sum_u64 = cond
-            .0
-            .into_iter()
-            .map(|limb| ((limb as u32) as u64) + (limb >> 32))
-            .sum();
-        let cond_sum = F::from_canonical_u64(cond_sum_u64);
-        row.general.jumps_mut().cond_sum_pinv = cond_sum.inverse();
-
-        let dst: u32 = dst
-            .try_into()
-            .map_err(|_| ProgramError::InvalidJumpiDestination)?;
-        state.jump_to(dst as usize)?;
-    } else {
-        row.general.jumps_mut().should_jump = F::ZERO;
-        row.general.jumps_mut().cond_sum_pinv = F::ZERO;
-        state.registers.program_counter += 1;
-    }
-
-    let (jumpdest_bit, jumpdest_bit_log) = mem_read_gp_with_log_and_fill(
-        NUM_GP_CHANNELS - 1,
-        MemoryAddress::new(
-            state.registers.context,
-            Segment::JumpdestBits,
-            dst.low_u32() as usize,
-        ),
-        state,
-        &mut row,
-    );
-    if !should_jump || state.registers.is_kernel {
-        // Don't actually do the read, just set the address, etc.
-        let channel = &mut row.mem_channels[NUM_GP_CHANNELS - 1];
-        channel.used = F::ZERO;
-        channel.value[0] = F::ONE;
-    } else {
-        if jumpdest_bit != U256::one() {
-            return Err(ProgramError::InvalidJumpiDestination);
-        }
-        state.traces.push_memory(jumpdest_bit_log);
-    }
-
-    let diff = row.stack_len - F::TWO;
-    if let Some(inv) = diff.try_inverse() {
-        row.general.stack_mut().stack_inv = inv;
-        row.general.stack_mut().stack_inv_aux = F::ONE;
-    } else {
-        row.general.stack_mut().stack_inv = F::ZERO;
-        row.general.stack_mut().stack_inv_aux = F::ZERO;
-    }
-
-    state.traces.push_memory(log_cond);
+    let (mut target_pc, _) = (target as usize).overflowing_shl(2);
+    let pc = state.registers.program_counter;
+    target_pc = target_pc.wrapping_add(pc & 0xf0000000);
+    row.general.jumps_mut().should_jump = F::ONE;
+    let next_pc = pc.wrapping_add(8);
+    let link_op = reg_write_with_log(link, 1, next_pc, state, &mut row)?;
     state.traces.push_cpu(row);
-    */
+    state.jump_to(target_pc);
+    state.traces.push_memory(link_op);
     Ok(())
 }
 
 pub(crate) fn generate_pc<F: Field>(
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    push_with_write(state, &mut row, state.registers.program_counter.into())?;
-    state.traces.push_cpu(row);
-    */
-    Ok(())
-}
-
-pub(crate) fn generate_jumpdest<F: Field>(
     state: &mut GenerationState<F>,
     row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -637,7 +573,7 @@ pub(crate) fn generate_shr<F: Field>(
 }
 
 pub(crate) fn generate_syscall<F: Field>(
-    opcode: u8,
+    opcode: u32,
     stack_values_read: usize,
     stack_len_increased: bool,
     state: &mut GenerationState<F>,
@@ -792,44 +728,24 @@ pub(crate) fn generate_mload_general<F: Field>(
 }
 
 pub(crate) fn generate_mload_32bytes<F: Field>(
+    base: u8,
+    rt: u8,
+    offset: u32,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    /*
-    let [(context, _), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
-        stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
-    if len > 32 {
-        // The call to `U256::from_big_endian()` would panic.
-        return Err(ProgramError::IntegerTooLarge);
-    }
+    let (src1, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
+    let offset = sign_extend::<16>(offset);
+    let virt = src1 + offset as usize;
+    let address = MemoryAddress::new(0, Segment::Code, virt);
 
-    let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
-    if usize::MAX - base_address.virt < len {
-        return Err(ProgramError::MemoryError(VirtTooLarge {
-            virt: base_address.virt.into(),
-        }));
-    }
-    let bytes = (0..len)
-        .map(|i| {
-            let address = MemoryAddress {
-                virt: base_address.virt + i,
-                ..base_address
-            };
-            let val = state.memory.get(address);
-            val.low_u32() as u8
-        })
-        .collect_vec();
+    let (val, log_in2) = mem_read_gp_with_log_and_fill(1, address, state, &mut row);
 
-    let packed_int = U256::from_big_endian(&bytes);
-    push_no_write(state, &mut row, packed_int, Some(4));
-
-    // byte_packing_log(state, base_address, bytes);
-
+    let log_out0 = reg_write_with_log(rt, 2, val as usize, state, &mut row)?;
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
-    state.traces.push_memory(log_in3);
+    state.traces.push_memory(log_out0);
     state.traces.push_cpu(row);
-    */
     Ok(())
 }
 
@@ -905,11 +821,9 @@ pub(crate) fn generate_exception<F: Field>(
     if TryInto::<u64>::try_into(state.registers.gas_used).is_err() {
         return Err(ProgramError::GasLimitError);
     }
-    */
 
     row.op.exception = F::ONE;
 
-    /*
     let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
     let diff = row.stack_len - disallowed_len;
     if let Some(inv) = diff.try_inverse() {

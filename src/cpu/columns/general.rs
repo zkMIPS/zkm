@@ -110,8 +110,6 @@ pub(crate) struct CpuLogicView<T: Copy> {
 pub(crate) struct CpuJumpsView<T: Copy> {
     // A flag.
     pub(crate) should_jump: T,
-    // Pseudoinverse of `cond.iter().sum()`. Used to check `should_jump`.
-    pub(crate) cond_sum_pinv: T,
 }
 
 #[derive(Copy, Clone)]
