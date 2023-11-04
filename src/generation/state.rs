@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 // use keccak_hash::keccak;
 use plonky2::field::types::Field;
 

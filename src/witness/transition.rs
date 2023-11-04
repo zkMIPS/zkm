@@ -43,7 +43,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
     let rs = ((insn >> 21) & 0x1F).to_le_bytes()[0];
     let rd = ((insn >> 11) & 0x1F).to_le_bytes()[0];
     let sa = ((insn >> 6) & 0x1F).to_le_bytes()[0];
-    let offset = insn & 0xffff;
+    let offset = insn & 0xffff; // as known as imm
     let target = insn & 0x3ffffff;
     log::debug!(
         "decode: insn {:X}, opcode {:X}, func {:X}",
@@ -83,8 +83,42 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         (0x06, _, _) => Ok(Operation::Branch(Cond::LE, rs, 0u8, offset)), // BLEZ
         (0x07, _, _) => Ok(Operation::Branch(Cond::GT, rs, 0u8, offset)), // BGTZ
         (0b100011, _, _) => Ok(Operation::Mload32Bytes(rs, rt, offset)), // LW
+        (0b001000, _, _) => Ok(Operation::BinaryArithmeticImm(
+            arithmetic::BinaryOperator::ADDI,
+            rs,
+            rt,
+            offset,
+        )), // ADDI: rt = rs + sext(imm)
+
+        (0b001001, _, _) => Ok(Operation::BinaryArithmeticImm(
+            arithmetic::BinaryOperator::ADDIU,
+            rs,
+            rt,
+            offset,
+        )), // ADDIU: rt = rs + sext(imm)
+
+        (0b001010, _, _) => Ok(Operation::BinaryArithmeticImm(
+            arithmetic::BinaryOperator::SLTI,
+            rs,
+            rt,
+            offset,
+        )), // LSTI: rt = rs << sext(imm)
+
+        (0b001011, _, _) => Ok(Operation::BinaryArithmeticImm(
+            arithmetic::BinaryOperator::SLTIU,
+            rs,
+            rt,
+            offset,
+        )), // SLTIU: rt = rs << sext(imm)
+
+        (0b001111, _, _) => Ok(Operation::BinaryArithmeticImm(
+            arithmetic::BinaryOperator::LUI,
+            rs,
+            rt,
+            offset,
+        )), // LUI: rt = imm << 16
         _ => {
-            log::warn!("Decode: invalid opcode: {} {}", opcode, func);
+            log::warn!("decode: invalid opcode {:#08b} {:#08b}", opcode, func);
             Err(ProgramError::InvalidOpcode)
         }
     }
@@ -99,6 +133,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Syscall(_, _, _) => &mut flags.syscall,
         Operation::BinaryLogic(_) => &mut flags.logic_op,
         Operation::BinaryArithmetic(..) => &mut flags.binary_op,
+        Operation::BinaryArithmeticImm(..) => &mut flags.binary_imm_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
         Operation::ProverInput => &mut flags.prover_input,
         Operation::Jump(_, _) | Operation::Jumpi(_, _) => &mut flags.jumps,
@@ -132,6 +167,9 @@ fn perform_op<F: Field>(
         }
         Operation::BinaryArithmetic(op, rs, rt, rd) => {
             generate_binary_arithmetic_op(rs, rt, rd, op, state, row)?
+        }
+        Operation::BinaryArithmeticImm(op, rs, rt, imm) => {
+            generate_binary_arithmetic_imm_op(rs, rt, imm, op, state, row)?
         }
         Operation::KeccakGeneral => generate_keccak_general(state, row)?,
         Operation::ProverInput => generate_prover_input(state, row)?,

@@ -45,7 +45,6 @@ fn cpu_arith_data_link<F: Field>(
     // The inner for loop below assumes N_LIMBS is even.
     const_assert!(columns::N_LIMBS % 2 == 0);
 
-    println!("arith cols 111 {:?}", res);
     for reg_cols in regs {
         // Loop below assumes we're operating on a "register" of N_LIMBS columns.
         debug_assert_eq!(reg_cols.len(), columns::N_LIMBS);
@@ -56,7 +55,6 @@ fn cpu_arith_data_link<F: Field>(
             res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
         }
     }
-    println!("arith cols {:?}", res);
     res
 }
 
@@ -65,9 +63,8 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // If an arithmetic operation is happening on the CPU side,
     // the CTL will enforce that the reconstructed opcode value
     // from the opcode bits matches.
-    // _opcode = op + 2^5 * rt + 2^11 * func
-    // opcode = op + 2^6 * func
-    const COMBINED_OPS: [(usize, u32); 18] = [
+    // FIXME: opcode = op + 2^6 * func
+    const COMBINED_OPS: [(usize, u32); 21] = [
         (columns::IS_ADD, 0b000000 + 0b100000 * (1 << 6)),
         (columns::IS_ADDU, 0b000000 + 0b100001 * (1 << 6)),
         (columns::IS_ADDI, 0b001000 + 0b000000 * (1 << 6)),
@@ -86,6 +83,9 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         (columns::IS_SLL, 0b000000 + 0b000000 * (1 << 6)),
         (columns::IS_SRL, 0b000000 + 0b000010 * (1 << 6)),
         (columns::IS_SRA, 0b000000 + 0b000011 * (1 << 6)),
+        (columns::IS_SLTI, 0b001010 + 0b000000 * (1 << 6)),
+        (columns::IS_SLTIU, 0b001011 + 0b000000 * (1 << 6)),
+        (columns::IS_LUI, 0b001111 + 0b000000 * (1 << 6)),
     ];
 
     const REGISTER_MAP: [Range<usize>; 3] = [

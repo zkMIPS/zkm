@@ -50,6 +50,7 @@ pub(crate) enum Operation {
     Eq,
     BinaryLogic(logic::Op),
     BinaryArithmetic(arithmetic::BinaryOperator, u8, u8, u8),
+    BinaryArithmeticImm(arithmetic::BinaryOperator, u8, u8, u32),
     KeccakGeneral,
     ProverInput,
     Jump(u8, u8),
@@ -102,6 +103,27 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
     state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_binary_arithmetic_imm_op<F: Field>(
+    rs: u8,
+    rt: u8,
+    imm: u32,
+    operator: arithmetic::BinaryOperator,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let operation = arithmetic::Operation::binary(operator, in0 as u32, imm);
+    let out = operation.result();
+
+    let log_out0 = reg_write_with_log(rt, 2, out as usize, state, &mut row)?;
+
+    state.traces.push_arithmetic(operation);
+    state.traces.push_memory(log_in0);
     state.traces.push_memory(log_out0);
     state.traces.push_cpu(row);
     Ok(())

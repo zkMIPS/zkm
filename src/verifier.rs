@@ -1,7 +1,6 @@
 use std::any::type_name;
 
 use anyhow::{ensure, Result};
-use ethereum_types::{BigEndianHash, U256};
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
@@ -270,7 +269,6 @@ where
 
     prod
 }
-*/
 
 fn add_data_write<F, const D: usize>(
     challenge: GrandProductChallenge<F>,
@@ -294,6 +292,7 @@ where
     row[12] = F::ONE; // timestamp
     running_product * challenge.combine(row.iter())
 }
+*/
 
 pub(crate) fn verify_stark_proof_with_challenges<
     F: RichField + Extendable<D>,
@@ -494,8 +493,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // raise OOM in CI
+    #[ignore]
     fn test_mips_prove_and_verify() {
+        env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
