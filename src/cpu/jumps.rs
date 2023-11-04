@@ -1,16 +1,14 @@
-use elf::abi::R_ARM_JUMP24;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
-//use plonky2_evm::util::limb_from_bits_le;
-
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::memory::segments::Segment;
+
+//use plonky2_evm::util::limb_from_bits_le;
+
 use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
 
 pub fn eval_packed_exit_kernel<P: PackedField>(
@@ -80,13 +78,13 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     let is_linki = is_jumpi * lv.insn_bits[26];
 
     // Check `should_jump`:
-    yield_constr.constraint(filter * (jumps_lv.should_jump - P::ONES));
+    yield_constr.constraint(filter * (P::ONES - jumps_lv.should_jump));
 
     // Check `jump target value`:
     {
         let reg_dst = lv.mem_channels[0].value[0];
         let jump_dest = reg_dst;
-        yield_constr.constraint_transition(is_jump * (nv.program_counter - jump_dest));
+        yield_constr.constraint(is_jump * (nv.program_counter - jump_dest));
     }
 
     // Check `jump target register`:
@@ -95,7 +93,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
         let mut jump_reg_index = [P::ONES; 5];
         jump_reg_index.copy_from_slice(lv.insn_bits[21..26].as_ref());
         let jump_dst = limb_from_bits_le(jump_reg_index.into_iter());
-        yield_constr.constraint_transition(is_jump * (jump_dst - jump_reg));
+        yield_constr.constraint(is_jump * (jump_dst - jump_reg));
     }
 
     // Check `jumpi target value`:
@@ -106,14 +104,13 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
         let remain = lv.program_counter / P::Scalar::from_canonical_u64(1 << 28);
         let remain = remain * P::Scalar::from_canonical_u64(1 << 28);
         let jump_dest = remain + imm_dst * P::Scalar::from_canonical_u8(4);
-        yield_constr.constraint_transition(is_jumpi * (nv.program_counter - jump_dest));
+        yield_constr.constraint(is_jumpi * (nv.program_counter - jump_dest));
     }
 
     // Check `link/linki target value`:
     {
-        let link_val = lv.mem_channels[1].value[0];
-        let link_dest = link_val;
-        yield_constr.constraint_transition(
+        let link_dest = lv.mem_channels[1].value[0];
+        yield_constr.constraint(
             (is_link + is_linki)
                 * (lv.program_counter + P::Scalar::from_canonical_u64(8) - link_dest),
         );
@@ -125,13 +122,13 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
         let mut link_reg_index = [P::ONES; 5];
         link_reg_index.copy_from_slice(lv.insn_bits[11..16].as_ref());
         let link_dst = limb_from_bits_le(link_reg_index.into_iter());
-        yield_constr.constraint_transition(is_link * (link_dst - link_reg));
+        yield_constr.constraint(is_link * (link_reg - link_dst));
     }
 
     // Check `linki target regiseter`:
     {
         yield_constr
-            .constraint_transition(is_linki * (P::Scalar::from_canonical_u64(31) - link_reg));
+            .constraint(is_linki * (P::Scalar::from_canonical_u64(31) - link_reg));
     }
 }
 
@@ -158,13 +155,13 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
         yield_constr.constraint(builder, constr);
     }
 
+
     // Check `jump target value`:
     {
         let reg_dst = lv.mem_channels[0].value[0];
-        let jump_dest = builder.mul_extension(reg_dst, is_jump);
-        let constr = builder.sub_extension(nv.program_counter, jump_dest);
+        let constr = builder.sub_extension(nv.program_counter, reg_dst);
         let constr = builder.mul_extension(is_jump, constr);
-        yield_constr.constraint_transition(builder, constr);
+        yield_constr.constraint(builder, constr);
     }
 
     // Check `jump target register`:
@@ -173,9 +170,9 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
         let mut jump_reg_index = [one_extension; 5];
         jump_reg_index.copy_from_slice(lv.insn_bits[21..26].as_ref());
         let jump_dst = limb_from_bits_le_recursive(builder, jump_reg_index.into_iter());
-        let constr = builder.sub_extension(jump_reg, jump_dst);
+        let constr = builder.sub_extension( jump_dst, jump_reg);
         let constr = builder.mul_extension(constr, is_jump);
-        yield_constr.constraint_transition(builder, constr);
+        yield_constr.constraint(builder, constr);
     }
 
     // Check `jumpi target value`:
@@ -191,17 +188,17 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
         let constr = builder.add_extension(constr, jump_dest);
         let constr = builder.sub_extension(nv.program_counter, constr);
         let constr = builder.mul_extension(is_jumpi, constr);
-        yield_constr.constraint_transition(builder, constr);
+        yield_constr.constraint(builder, constr);
     }
 
     // Check `link/linki target value`:
     {
         let link_dst = lv.mem_channels[1].value[0];
         let link_dest = builder.add_const_extension(lv.program_counter, F::from_canonical_u64(8));
-        let constr = builder.sub_extension(link_dst, link_dest);
+        let constr = builder.sub_extension(link_dest, link_dst);
         let is_link = builder.add_extension(is_link, is_linki);
         let constr = builder.mul_extension(is_link, constr);
-        yield_constr.constraint_transition(builder, constr);
+        yield_constr.constraint(builder, constr);
     }
 
     // Check `link target register`:
@@ -212,7 +209,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
         let link_dst = limb_from_bits_le_recursive(builder, link_reg_index.into_iter());
         let constr = builder.sub_extension(link_reg, link_dst);
         let constr = builder.mul_extension(constr, is_link);
-        yield_constr.constraint_transition(builder, constr);
+        yield_constr.constraint(builder, constr);
     }
 
     // Check `linki target register`
@@ -220,7 +217,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
         let constr_a = builder.mul_const_extension(F::from_canonical_u64(31), is_linki);
         let constr_b = builder.mul_extension(link_reg, is_linki);
         let constr = builder.sub_extension(constr_a, constr_b);
-        yield_constr.constraint_transition(builder, constr);
+        yield_constr.constraint(builder, constr);
     }
 }
 
@@ -452,7 +449,7 @@ pub fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     eval_packed_exit_kernel(lv, nv, yield_constr);
-    // eval_packed_jump_jumpi(lv, nv, yield_constr);
+    eval_packed_jump_jumpi(lv, nv, yield_constr);
     //eval_packed_branch(lv, nv, yield_constr);
 }
 
@@ -463,6 +460,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     eval_ext_circuit_exit_kernel(builder, lv, nv, yield_constr);
-    // eval_ext_circuit_jump_jumpi(builder, lv, nv, yield_constr);
+    eval_ext_circuit_jump_jumpi(builder, lv, nv, yield_constr);
     //eval_ext_circuit_branch(builder, lv, nv, yield_constr);
 }
