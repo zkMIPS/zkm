@@ -21,7 +21,7 @@ use crate::cpu::{
     modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
 };
 */
-use crate::cpu::{bootstrap_kernel, control_flow, decode, membus, pc, jumps, shift, simple_logic};
+use crate::cpu::{bootstrap_kernel, control_flow, decode, jumps, membus, pc, shift, simple_logic};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;

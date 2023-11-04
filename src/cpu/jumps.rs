@@ -127,8 +127,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
 
     // Check `linki target regiseter`:
     {
-        yield_constr
-            .constraint(is_linki * (P::Scalar::from_canonical_u64(31) - link_reg));
+        yield_constr.constraint(is_linki * (P::Scalar::from_canonical_u64(31) - link_reg));
     }
 }
 
@@ -169,7 +168,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
         let mut jump_reg_index = [one_extension; 5];
         jump_reg_index.copy_from_slice(lv.insn_bits[21..26].as_ref());
         let jump_dst = limb_from_bits_le_recursive(builder, jump_reg_index.into_iter());
-        let constr = builder.sub_extension( jump_dst, jump_reg);
+        let constr = builder.sub_extension(jump_dst, jump_reg);
         let constr = builder.mul_extension(constr, is_jump);
         yield_constr.constraint(builder, constr);
     }
@@ -269,7 +268,6 @@ pub fn eval_packed_branch<P: PackedField>(
         yield_constr.constraint(filter * (rs_reg - rs_src));
     }
 
-
     // Check rt Reg
     {
         let rt_reg = lv.mem_channels[1].addr_virtual;
@@ -353,7 +351,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
         let constr_b = builder.sub_extension(one_extension, jumps_lv.should_jump);
         let constr_b = builder.mul_extension(constr_b, next_insn);
         let constr = builder.add_extension(constr_a, constr_b);
-        let constr = builder.sub_extension(nv.program_counter,constr);
+        let constr = builder.sub_extension(nv.program_counter, constr);
         let constr = builder.mul_extension(constr, filter);
         yield_constr.constraint(builder, constr);
     }
