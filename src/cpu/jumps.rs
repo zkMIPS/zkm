@@ -20,15 +20,14 @@ pub fn eval_packed_exit_kernel<P: PackedField>(
 ) {
     let input = lv.mem_channels[0].value;
     let filter = lv.op.exit_kernel;
-
     // If we are executing `EXIT_KERNEL` then we simply restore the program counter, kernel mode
     // flag, and gas counter. The middle 4 (32-bit) limbs are ignored (this is not part of the spec,
     // but we trust the kernel to set them to zero).
     yield_constr.constraint_transition(filter * (input[0] - nv.program_counter));
     yield_constr.constraint_transition(filter * (input[1] - nv.is_kernel_mode));
-    // yield_constr.constraint_transition(filter * (input[6] - nv.gas));
+    //yield_constr.constraint_transition(filter * (input[6] - nv.gas));
     // High limb of gas must be 0 for convenient detection of overflow.
-    yield_constr.constraint(filter * input[7]);
+    //yield_constr.constraint(filter * input[7]);
 }
 
 pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize>(
@@ -58,12 +57,12 @@ pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint_transition(builder, constr);
     }
-    */
     {
         // High limb of gas must be 0 for convenient detection of overflow.
         let constr = builder.mul_extension(filter, input[7]);
         yield_constr.constraint(builder, constr);
     }
+    */
 }
 
 pub fn eval_packed_jump_jumpi<P: PackedField>(
@@ -452,7 +451,7 @@ pub fn eval_packed<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    //eval_packed_exit_kernel(lv, nv, yield_constr);
+    eval_packed_exit_kernel(lv, nv, yield_constr);
     // eval_packed_jump_jumpi(lv, nv, yield_constr);
     //eval_packed_branch(lv, nv, yield_constr);
 }
@@ -463,7 +462,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    //eval_ext_circuit_exit_kernel(builder, lv, nv, yield_constr);
+    eval_ext_circuit_exit_kernel(builder, lv, nv, yield_constr);
     // eval_ext_circuit_jump_jumpi(builder, lv, nv, yield_constr);
     //eval_ext_circuit_branch(builder, lv, nv, yield_constr);
 }
