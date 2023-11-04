@@ -11,6 +11,7 @@ pub struct RegistersState {
     pub program_counter: usize,
     pub is_kernel: bool,
     pub context: usize,
+    pub exited: bool,
 }
 
 impl RegistersState {
@@ -26,7 +27,6 @@ impl RegistersState {
 impl Default for RegistersState {
     fn default() -> Self {
         Self {
-            // FIXME: fill in pc
             gprs: Default::default(),
             lo: 0,
             hi: 0,
@@ -34,6 +34,7 @@ impl Default for RegistersState {
             program_counter: KERNEL.program.entry as usize,
             is_kernel: true,
             context: 0,
+            exited: false,
         }
     }
 }

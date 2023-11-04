@@ -40,7 +40,9 @@ pub(crate) const IS_SRAV: usize = IS_SRLV + 1;
 pub(crate) const IS_SLL: usize = IS_SRAV + 1;
 pub(crate) const IS_SRL: usize = IS_SLL + 1;
 pub(crate) const IS_SRA: usize = IS_SRL + 1;
-pub(crate) const IS_SLTI: usize = IS_SRA + 1;
+pub(crate) const IS_SLT: usize = IS_SRA + 1;
+pub(crate) const IS_SLTU: usize = IS_SLT + 1;
+pub(crate) const IS_SLTI: usize = IS_SLTU + 1;
 pub(crate) const IS_SLTIU: usize = IS_SLTI + 1;
 pub(crate) const IS_LUI: usize = IS_SLTIU + 1;
 

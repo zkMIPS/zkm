@@ -83,6 +83,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         (0x06, _, _) => Ok(Operation::Branch(Cond::LE, rs, 0u8, offset)), // BLEZ
         (0x07, _, _) => Ok(Operation::Branch(Cond::GT, rs, 0u8, offset)), // BGTZ
         (0b100011, _, _) => Ok(Operation::Mload32Bytes(rs, rt, offset)), // LW
+        (0b101011, _, _) => Ok(Operation::Mstore32Bytes(rs, rt, offset)), // SW
         (0b001000, _, _) => Ok(Operation::BinaryArithmeticImm(
             arithmetic::BinaryOperator::ADDI,
             rs,
@@ -102,14 +103,29 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             rs,
             rt,
             offset,
-        )), // LSTI: rt = rs << sext(imm)
+        )), // SLTI: rt = rs < sext(imm)
 
         (0b001011, _, _) => Ok(Operation::BinaryArithmeticImm(
             arithmetic::BinaryOperator::SLTIU,
             rs,
             rt,
             offset,
-        )), // SLTIU: rt = rs << sext(imm)
+        )), // SLTIU: rt = rs < sext(imm)
+
+        (0b000000, 0b101010, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SLT,
+            rs,
+            rt,
+            rd,
+        )), // SLT: rd = rs < rt
+
+        (0b000000, 0b101011, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SLTU,
+            rs,
+            rt,
+            rd,
+        )), // SLTU: rd = rs < rt
+
 
         (0b001111, _, _) => Ok(Operation::BinaryArithmeticImm(
             arithmetic::BinaryOperator::LUI,
@@ -142,7 +158,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::GetContext => &mut flags.get_context,
         Operation::SetContext => &mut flags.set_context,
         Operation::Mload32Bytes(_, _, _) => &mut flags.mload_32bytes,
-        Operation::Mstore32Bytes => &mut flags.mstore_32bytes,
+        Operation::Mstore32Bytes(_, _, _) => &mut flags.mstore_32bytes,
         Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;
@@ -184,7 +200,9 @@ fn perform_op<F: Field>(
         Operation::Mload32Bytes(base, rt, offset) => {
             generate_mload_32bytes(base, rt, offset, state, row)?
         }
-        Operation::Mstore32Bytes => generate_mstore_32bytes(state, row)?,
+        Operation::Mstore32Bytes(base, rt, offset) => {
+            generate_mstore_32bytes(base, rt, offset, state, row)?
+        }
         Operation::ExitKernel => generate_exit_kernel(state, row)?,
         Operation::MloadGeneral => generate_mload_general(state, row)?,
         Operation::MstoreGeneral => generate_mstore_general(state, row)?,
@@ -234,7 +252,7 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
     if state.registers.is_kernel {
         log_kernel_instruction(state, op);
     } else {
-        log::debug!("User instruction: {:?}", op);
+        log::debug!("user instruction: {:?}", op);
     }
 
     fill_op_flag(op, &mut row);

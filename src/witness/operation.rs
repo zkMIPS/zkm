@@ -61,7 +61,7 @@ pub(crate) enum Operation {
     GetContext,
     SetContext,
     Mload32Bytes(u8, u8, u32),
-    Mstore32Bytes,
+    Mstore32Bytes(u8, u8, u32),
     ExitKernel,
     MloadGeneral,
     MstoreGeneral,
@@ -814,23 +814,24 @@ pub(crate) fn generate_mstore_general<F: Field>(
 }
 
 pub(crate) fn generate_mstore_32bytes<F: Field>(
+    base: u8,
+    rt: u8,
+    offset: u32,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    /*
-    let [(context, _), (segment, log_in1), (base_virt, log_in2), (val, log_in3), (len, log_in4)] =
-        stack_pop_with_log_and_fill::<5, _>(state, &mut row)?;
+    let (in1, log_in1) = reg_read_with_log(rt, 0, state, &mut row)?;
 
-    let base_address = MemoryAddress::new(context, segment, base_virt);
+    let (src1, log_in2) = reg_read_with_log(base, 1, state, &mut row)?;
+    let offset = sign_extend::<16>(offset);
+    let virt = src1 + offset as usize;
+    let address = MemoryAddress::new(0, Segment::Code, virt);
 
-    // byte_unpacking_log(state, base_address, val, len);
-
+    let log_out0 = mem_write_gp_log_and_fill(2, address, state, &mut row, in1 as u32);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
-    state.traces.push_memory(log_in3);
-    state.traces.push_memory(log_in4);
+    state.traces.push_memory(log_out0);
     state.traces.push_cpu(row);
-    */
     Ok(())
 }
 

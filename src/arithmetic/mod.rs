@@ -28,6 +28,8 @@ pub(crate) enum BinaryOperator {
     SLL,
     SRL,
     SRA,
+    SLT,
+    SLTU,
     SLTI,
     SLTIU,
     LUI,
@@ -80,13 +82,35 @@ impl BinaryOperator {
                 let low_4bits = input1 & 0xF;
                 input0.overflowing_shr(low_4bits).0
             }
+            BinaryOperator::SLTU => {
+                if input0 < input1 {
+                    1
+                } else {
+                    0
+                }
+            }
+            BinaryOperator::SLT => {
+                if input0 < input1 {
+                    1
+                } else {
+                    0
+                }
+            }
             BinaryOperator::SLTIU => {
                 let out = sign_extend::<16>(input1);
-                input0.overflowing_shl(out).0
+                if input0 < out {
+                    1
+                } else {
+                    0
+                }
             }
             BinaryOperator::SLTI => {
                 let out = sign_extend::<16>(input1);
-                input0.overflowing_shl(out).0
+                if input0 < out {
+                    1
+                } else {
+                    0
+                }
             }
             BinaryOperator::LUI => {
                 let out = sign_extend::<16>(input1);
@@ -115,6 +139,8 @@ impl BinaryOperator {
             BinaryOperator::SRAV => columns::IS_SRAV,
             BinaryOperator::SLTIU => columns::IS_SLTIU,
             BinaryOperator::SLTI => columns::IS_SLTI,
+            BinaryOperator::SLTU => columns::IS_SLTU,
+            BinaryOperator::SLT => columns::IS_SLT,
             BinaryOperator::LUI => columns::IS_LUI,
         }
     }
