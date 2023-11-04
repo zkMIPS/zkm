@@ -126,7 +126,6 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             rd,
         )), // SLTU: rd = rs < rt
 
-
         (0b001111, _, _) => Ok(Operation::BinaryArithmeticImm(
             arithmetic::BinaryOperator::LUI,
             rs,
