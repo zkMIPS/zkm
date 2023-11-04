@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 pub(crate) mod all_stark;
 pub(crate) mod arithmetic;
 pub(crate) mod config;

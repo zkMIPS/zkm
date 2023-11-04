@@ -471,6 +471,7 @@ mod tests {
     use crate::all_stark::AllStark;
     use crate::config::StarkConfig;
     use crate::generation::GenerationInputs;
+    use crate::logic::LogicStark;
     use crate::proof;
     use crate::prover::prove;
     use crate::verifier::eval_l_0_and_l_last;
@@ -494,7 +495,7 @@ mod tests {
 
     #[test]
     #[ignore] // raise OOM in CI
-    fn test_prove_and_verify() {
+    fn test_mips_prove_and_verify() {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -502,9 +503,10 @@ mod tests {
         let allstark: AllStark<F, D> = AllStark::default();
         let mut config = StarkConfig::standard_fast_config();
         config.fri_config.rate_bits = 2;
-        let input = GenerationInputs {};
-        let mut timing = TimingTree::default();
 
+        let input = GenerationInputs {};
+
+        let mut timing = TimingTree::new("prove", log::Level::Debug);
         let allproof: proof::AllProof<GoldilocksField, C, D> =
             prove(&allstark, &config, input, &mut timing).unwrap();
         verify_proof(&allstark, allproof, &config).unwrap();

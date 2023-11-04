@@ -1,22 +1,22 @@
 use itertools::Itertools;
-use keccak_hash::keccak;
+// use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
 use super::util::*;
-use crate::arithmetic::BinaryOperator;
+// use crate::arithmetic::BinaryOperator;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
-use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
+// use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::KERNEL;
-use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
+// use crate::cpu::membus::NUM_GP_CHANNELS;
+// use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
+// use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
 use crate::witness::errors::ProgramError;
-use crate::witness::errors::ProgramError::MemoryError;
-use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
-use crate::witness::operation::MemoryChannel::GeneralPurpose;
+// use crate::witness::errors::ProgramError::MemoryError;
+use crate::witness::memory::{MemoryAddress, MemoryOp};
+// use crate::witness::operation::MemoryChannel::GeneralPurpose;
 use crate::{arithmetic, logic};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

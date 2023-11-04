@@ -65,9 +65,8 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             sa,
             rd,
         )), // SLL: rd = rt << sa
-        (0b000000, 0b100000, _) => Ok(Operation::Jump(0u8, rs)), // JR
-        (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)),         // JR
-        (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),          // JALR
+        (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)), // JR
+        (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),  // JALR
         (0x01, _, _) => {
             if rt == 1 {
                 Ok(Operation::Branch(Cond::GE, rs, 0u8, offset)) // BGEZ

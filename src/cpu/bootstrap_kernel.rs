@@ -32,8 +32,8 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
 
         // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
         for (channel, (addr, byte)) in chunk.enumerate() {
-            // FIXME: should all be in the MainMemory. Both instruction and memory data are located in
-            // memory section for MIPS
+            // FIXMEBoth instruction and memory data are located in
+            // code section for MIPS
             let address = MemoryAddress::new(0, Segment::Code, *byte.0 as usize);
 
             let write = mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, *byte.1);
