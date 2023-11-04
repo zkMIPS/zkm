@@ -69,21 +69,35 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),  // JALR
         (0x01, _, _) => {
             if rt == 1 {
-                Ok(Operation::Branch(Cond::GE, rs, 0u8, offset)) // BGEZ
+                Ok(Operation::Branch(BranchCond::GE, rs, 0u8, offset)) // BGEZ
             } else if rt == 0 {
-                Ok(Operation::Branch(Cond::LT, rs, 0u8, offset)) // BLTZ
+                Ok(Operation::Branch(BranchCond::LT, rs, 0u8, offset)) // BLTZ
             } else {
                 Err(ProgramError::InvalidOpcode)
             }
         }
         (0x02, _, _) => Ok(Operation::Jumpi(0u8, target)), // J
         (0x03, _, _) => Ok(Operation::Jumpi(31u8, target)), // JAL
-        (0x04, _, _) => Ok(Operation::Branch(Cond::EQ, rs, rt, offset)), // BEQ
-        (0x05, _, _) => Ok(Operation::Branch(Cond::NE, rs, rt, offset)), // BNE
-        (0x06, _, _) => Ok(Operation::Branch(Cond::LE, rs, 0u8, offset)), // BLEZ
-        (0x07, _, _) => Ok(Operation::Branch(Cond::GT, rs, 0u8, offset)), // BGTZ
-        (0b100011, _, _) => Ok(Operation::Mload32Bytes(rs, rt, offset)), // LW
-        (0b101011, _, _) => Ok(Operation::Mstore32Bytes(rs, rt, offset)), // SW
+        (0x04, _, _) => Ok(Operation::Branch(BranchCond::EQ, rs, rt, offset)), // BEQ
+        (0x05, _, _) => Ok(Operation::Branch(BranchCond::NE, rs, rt, offset)), // BNE
+        (0x06, _, _) => Ok(Operation::Branch(BranchCond::LE, rs, 0u8, offset)), // BLEZ
+        (0x07, _, _) => Ok(Operation::Branch(BranchCond::GT, rs, 0u8, offset)), // BGTZ
+
+        (0b100001, _, _) => Ok(Operation::MloadGeneral(MemOp::LH, rs, rt, offset)),
+        (0b100010, _, _) => Ok(Operation::MloadGeneral(MemOp::LWL, rs, rt, offset)),
+        (0b100011, _, _) => Ok(Operation::MloadGeneral(MemOp::LW, rs, rt, offset)),
+        (0b100100, _, _) => Ok(Operation::MloadGeneral(MemOp::LBU, rs, rt, offset)),
+        (0b100101, _, _) => Ok(Operation::MloadGeneral(MemOp::LHU, rs, rt, offset)),
+        (0b100110, _, _) => Ok(Operation::MloadGeneral(MemOp::LWR, rs, rt, offset)),
+        (0b101000, _, _) => Ok(Operation::MstoreGeneral(MemOp::SB, rs, rt, offset)),
+        (0b101001, _, _) => Ok(Operation::MstoreGeneral(MemOp::SH, rs, rt, offset)),
+        (0b101010, _, _) => Ok(Operation::MstoreGeneral(MemOp::SWL, rs, rt, offset)),
+        (0b101011, _, _) => Ok(Operation::MstoreGeneral(MemOp::SW, rs, rt, offset)),
+        (0b101110, _, _) => Ok(Operation::MstoreGeneral(MemOp::SWR, rs, rt, offset)),
+        (0b110000, _, _) => Ok(Operation::MloadGeneral(MemOp::LL, rs, rt, offset)),
+        (0b111000, _, _) => Ok(Operation::MstoreGeneral(MemOp::SC, rs, rt, offset)),
+        (0b100001, _, _) => Ok(Operation::MloadGeneral(MemOp::LB, rs, rt, offset)),
+
         (0b001000, _, _) => Ok(Operation::BinaryArithmeticImm(
             arithmetic::BinaryOperator::ADDI,
             rs,
@@ -132,6 +146,14 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             rt,
             offset,
         )), // LUI: rt = imm << 16
+        (0b000000, 0b100100, _) => Ok(Operation::BinaryLogic(logic::Op::And, rs, rt, rd)), // AND: rd = rs & rt
+        (0b000000, 0b100101, _) => Ok(Operation::BinaryLogic(logic::Op::Or, rs, rt, rd)), // OR: rd = rs | rt
+        (0b000000, 0b100110, _) => Ok(Operation::BinaryLogic(logic::Op::Xor, rs, rt, rd)), // XOR: rd = rs ^ rt
+
+        (0b001100, 0b000000, _) => Ok(Operation::BinaryLogicImm(logic::Op::And, rs, rt, offset)), // AND: rt = rs + zext(imm)
+        (0b001101, 0b000000, _) => Ok(Operation::BinaryLogicImm(logic::Op::Or, rs, rt, offset)), // OR: rt = rs + zext(imm)
+        (0b001110, 0b000000, _) => Ok(Operation::BinaryLogicImm(logic::Op::Xor, rs, rt, offset)), // XOR: rt = rs + zext(imm)
+        (0b000000, 0b001100, _) => Ok(Operation::Syscall), // Syscall
         _ => {
             log::warn!("decode: invalid opcode {:#08b} {:#08b}", opcode, func);
             Err(ProgramError::InvalidOpcode)
@@ -142,11 +164,11 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
 fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
     let flags = &mut row.op;
     *match op {
-        Operation::Swap(_) => &mut flags.swap,
         Operation::Iszero | Operation::Eq => &mut flags.eq_iszero,
         Operation::Not => &mut flags.not,
-        Operation::Syscall(_, _, _) => &mut flags.syscall,
-        Operation::BinaryLogic(_) => &mut flags.logic_op,
+        Operation::Syscall => &mut flags.syscall,
+        Operation::BinaryLogic(_, _, _, _) => &mut flags.logic_op,
+        Operation::BinaryLogicImm(_, _, _, _) => &mut flags.logic_op,
         Operation::BinaryArithmetic(..) => &mut flags.binary_op,
         Operation::BinaryArithmeticImm(..) => &mut flags.binary_imm_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
@@ -156,10 +178,8 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Pc => &mut flags.pc,
         Operation::GetContext => &mut flags.get_context,
         Operation::SetContext => &mut flags.set_context,
-        Operation::Mload32Bytes(_, _, _) => &mut flags.mload_32bytes,
-        Operation::Mstore32Bytes(_, _, _) => &mut flags.mstore_32bytes,
         Operation::ExitKernel => &mut flags.exit_kernel,
-        Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
+        Operation::MloadGeneral(..) | Operation::MstoreGeneral(..) => &mut flags.m_op_general,
     } = F::ONE;
 }
 
@@ -170,15 +190,21 @@ fn perform_op<F: Field>(
 ) -> Result<(), ProgramError> {
     log::debug!("perform_op {:?}", op);
     match op {
-        Operation::Swap(n) => generate_swap(n, state, row)?,
         Operation::Iszero => generate_iszero(state, row)?,
         Operation::Not => generate_not(state, row)?,
-        Operation::Syscall(opcode, stack_values_read, stack_len_increased) => {
-            generate_syscall(opcode, stack_values_read, stack_len_increased, state, row)?
-        }
+        Operation::Syscall => generate_syscall(state, row)?,
         Operation::Eq => generate_eq(state, row)?,
-        Operation::BinaryLogic(binary_logic_op) => {
-            generate_binary_logic_op(binary_logic_op, state, row)?
+        Operation::BinaryLogic(binary_logic_op, rs, rt, rd) => {
+            generate_binary_logic_op(binary_logic_op, rs, rt, rd, state, row)?
+        }
+        Operation::BinaryLogicImm(binary_logic_op, rs, rd, imm) => {
+            generate_binary_logic_imm_op(binary_logic_op, rs, rd, imm, state, row)?
+        }
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLL, rs, rt, rd) => {
+            generate_shl(rs, rt, rd, state, row)?
+        } //FIXME
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRL, rs, rt, rd) => {
+            generate_shr(rs, rt, rd, state, row)?
         }
         Operation::BinaryArithmetic(op, rs, rt, rd) => {
             generate_binary_arithmetic_op(rs, rt, rd, op, state, row)?
@@ -196,28 +222,26 @@ fn perform_op<F: Field>(
         Operation::Pc => generate_pc(state, row)?,
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
-        Operation::Mload32Bytes(base, rt, offset) => {
+        /*
+        Operation::(op, base, rt, offset) => {
             generate_mload_32bytes(base, rt, offset, state, row)?
         }
-        Operation::Mstore32Bytes(base, rt, offset) => {
+        Operation::SW(base, rt, offset) => {
             generate_mstore_32bytes(base, rt, offset, state, row)?
         }
+        */
         Operation::ExitKernel => generate_exit_kernel(state, row)?,
-        Operation::MloadGeneral => generate_mload_general(state, row)?,
-        Operation::MstoreGeneral => generate_mstore_general(state, row)?,
+        Operation::MloadGeneral(op, base, rt, offset) => generate_mload_general(op, base, rt, offset, state, row)?,
+        Operation::MstoreGeneral(op, base, rt, offset) => generate_mstore_general(op, base, rt, offset, state, row)?,
     };
 
     state.registers.program_counter += match op {
-        Operation::Syscall(_, _, _) | Operation::ExitKernel => 0,
+        Operation::Syscall | Operation::ExitKernel => 0,
         Operation::Jump(_, _) => 0,
         Operation::Jumpi(_, _) => 0,
         Operation::Branch(_, _, _, _) => 0,
         _ => 4,
     };
-
-    /*
-    state.registers.gas_used += gas_to_charge(op);
-    */
 
     Ok(())
 }

@@ -104,10 +104,6 @@ pub fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
     ctl_data_keccak_sponge()
 }
 
-pub fn ctl_filter_byte_packing<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.op.mload_32bytes)
-}
-
 /*
 pub fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
     // When executing MSTORE_32BYTES, the GP memory channels are used as follows:

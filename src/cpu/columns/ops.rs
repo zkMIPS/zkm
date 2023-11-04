@@ -18,11 +18,8 @@ pub struct OpsColumnsView<T: Copy> {
     pub jumps: T, // Combines JUMP and JUMPI flags.
     pub branch: T,
     pub pc: T,
-    pub swap: T,
     pub get_context: T,
     pub set_context: T,
-    pub mstore_32bytes: T,
-    pub mload_32bytes: T,
     pub exit_kernel: T,
     pub m_op_general: T,
 

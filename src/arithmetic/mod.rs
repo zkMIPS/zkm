@@ -38,7 +38,7 @@ pub(crate) enum BinaryOperator {
 impl BinaryOperator {
     pub(crate) fn result(&self, input0: u32, input1: u32) -> u32 {
         match self {
-            BinaryOperator::ADD => input0.overflowing_add(input1).0, // FIXME
+            BinaryOperator::ADD => input0.overflowing_add(input1).0,
             BinaryOperator::ADDU => input0.overflowing_add(input1).0,
             BinaryOperator::ADDI => {
                 let sein = sign_extend::<16>(input1);
@@ -50,16 +50,16 @@ impl BinaryOperator {
             }
             BinaryOperator::SUB => input0.overflowing_sub(input1).0,
             BinaryOperator::SUBU => input0.overflowing_sub(input1).0,
-            BinaryOperator::MULT => input0.overflowing_mul(input1).0, //FIXME
-            BinaryOperator::MULTU => input0.overflowing_mul(input1).0,
-            BinaryOperator::DIV => {
+            BinaryOperator::MULT => input0.overflowing_mul(input1).0, //FIXME: hi, lo
+            BinaryOperator::MULTU => input0.overflowing_mul(input1).0, //FIXME: hi, lo
+            BinaryOperator::DIV => { // FIXME: hi, lo
                 if input1.is_zero() {
                     0
                 } else {
                     input0 / input1
                 }
             }
-            BinaryOperator::DIVU => {
+            BinaryOperator::DIVU => { // FIXME: hi, lo
                 if input1.is_zero() {
                     0
                 } else {
@@ -71,16 +71,16 @@ impl BinaryOperator {
             BinaryOperator::SRL => input0.overflowing_shr(input1).0,
             BinaryOperator::SRA => input0.overflowing_shr(input1).0,
             BinaryOperator::SLLV => {
-                let low_4bits = input1 & 0xF;
-                input0.overflowing_shl(low_4bits).0
+                let low_5bits = input1 & 0x1F;
+                input0.overflowing_shl(low_5bits).0
             }
             BinaryOperator::SRLV => {
-                let low_4bits = input1 & 0xF;
-                input0.overflowing_shr(low_4bits).0
+                let low_5bits = input1 & 0x1F;
+                input0.overflowing_shr(low_5bits).0
             }
             BinaryOperator::SRAV => {
-                let low_4bits = input1 & 0xF;
-                input0.overflowing_shr(low_4bits).0
+                let low_5bits = input1 & 0x1F;
+                input0.overflowing_shr(low_5bits).0
             }
             BinaryOperator::SLTU => {
                 if input0 < input1 {
