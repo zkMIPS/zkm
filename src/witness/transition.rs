@@ -202,7 +202,7 @@ fn perform_op<F: Field>(
         }
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLL, rs, rt, rd) => {
             generate_shl(rs, rt, rd, state, row)?
-        } //FIXME
+        }
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRL, rs, rt, rd) => {
             generate_shr(rs, rt, rd, state, row)?
         }
@@ -222,14 +222,6 @@ fn perform_op<F: Field>(
         Operation::Pc => generate_pc(state, row)?,
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
-        /*
-        Operation::(op, base, rt, offset) => {
-            generate_mload_32bytes(base, rt, offset, state, row)?
-        }
-        Operation::SW(base, rt, offset) => {
-            generate_mstore_32bytes(base, rt, offset, state, row)?
-        }
-        */
         Operation::ExitKernel => generate_exit_kernel(state, row)?,
         Operation::MloadGeneral(op, base, rt, offset) => {
             generate_mload_general(op, base, rt, offset, state, row)?

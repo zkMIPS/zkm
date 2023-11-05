@@ -545,15 +545,21 @@ pub(crate) fn generate_mload_general<F: Field>(
 ) -> Result<(), ProgramError> {
     let (src1, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
     let offset = sign_extend::<16>(offset);
-    let virt = (src1 as u32 + offset) as usize;
+    let virt = src1 as u32 + offset;
 
-    /*
     let virt = match op {
-        MemOp::LH =>
-    }
-    */
+        MemOp::LH => sign_extend::<16>(virt&0xffff),
+        MemOp::LWL => 0,
+        MemOp::LW => virt,
+        MemOp::LBU => 0,
+        MemOp::LHU => 0,
+        MemOp::LWR => 0,
+        MemOp::LL => 0,
+        MemOp::LB => 0,
+        _ => todo!(),
+    };
 
-    let address = MemoryAddress::new(0, Segment::Code, virt);
+    let address = MemoryAddress::new(0, Segment::Code, virt as usize);
 
     let (val, log_in2) = mem_read_gp_with_log_and_fill(1, address, state, &mut row);
 
@@ -577,8 +583,19 @@ pub(crate) fn generate_mstore_general<F: Field>(
 
     let (src1, log_in2) = reg_read_with_log(base, 1, state, &mut row)?;
     let offset = sign_extend::<16>(offset);
-    let virt = src1 + offset as usize;
-    let address = MemoryAddress::new(0, Segment::Code, virt);
+    let virt = src1 as u32 + offset;
+
+    let virt = match op {
+        MemOp::SB => 0,
+        MemOp::SH => sign_extend::<16>(virt&0xffff),
+        MemOp::SWL => 0,
+        MemOp::SW => virt,
+        MemOp::SWR => 0,
+        MemOp::SC => 0,
+        _ => todo!(),
+    };
+
+    let address = MemoryAddress::new(0, Segment::Code, virt as usize);
 
     let log_out0 = mem_write_gp_log_and_fill(2, address, state, &mut row, in1 as u32);
     state.traces.push_memory(log_in1);
