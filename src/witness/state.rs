@@ -12,6 +12,7 @@ pub struct RegistersState {
     pub is_kernel: bool,
     pub context: usize,
     pub exited: bool,
+    pub exit_code: u8,
 }
 
 impl RegistersState {
@@ -35,6 +36,7 @@ impl Default for RegistersState {
             is_kernel: true,
             context: 0,
             exited: false,
+            exit_code: 0u8,
         }
     }
 }

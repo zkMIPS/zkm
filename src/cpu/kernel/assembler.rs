@@ -18,6 +18,7 @@ pub struct Kernel {
     // FIXME: precompiled function and global variable, like HALT PC or ecrecover
     //  should be preprocessed after loading code
     pub(crate) global_labels: HashMap<String, usize>,
+    pub blockpath: String,
 }
 
 // FIXME
@@ -42,6 +43,7 @@ pub(crate) fn combined_kernel() -> Kernel {
     });
     let code_hash = code_hash_be.map(u32::from_be);
     log::debug!("code_hash: {:?}", code_hash);
+    let blockpath = Program::get_block_path("13284491", "");
 
     Kernel {
         program: p,
@@ -49,6 +51,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         code_hash,
         ordered_labels: vec![],
         global_labels: HashMap::new(),
+        blockpath,
     }
 }
 
