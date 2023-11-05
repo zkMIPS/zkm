@@ -129,13 +129,20 @@ pub(crate) fn generate_binary_logic_imm_op<F: Field>(
 }
 
 pub(crate) fn generate_binary_arithmetic_op<F: Field>(
+    operator: arithmetic::BinaryOperator,
     rs: u8,
     rt: u8,
     rd: u8,
-    operator: arithmetic::BinaryOperator,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
+    assert!(![
+        arithmetic::BinaryOperator::DIV,
+        arithmetic::BinaryOperator::DIVU,
+        arithmetic::BinaryOperator::MULT,
+        arithmetic::BinaryOperator::MULTU,
+    ]
+    .contains(&operator));
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
     let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
     let operation = arithmetic::Operation::binary(operator, in0 as u32, in1 as u32);
@@ -147,6 +154,55 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_binary_arithmetic_hilo_op<F: Field>(
+    operator: arithmetic::BinaryOperator,
+    rs: u8,
+    rt: u8,
+    rd: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    assert!([
+        arithmetic::BinaryOperator::DIV,
+        arithmetic::BinaryOperator::DIVU,
+        arithmetic::BinaryOperator::MULT,
+        arithmetic::BinaryOperator::MULTU,
+    ]
+    .contains(&operator));
+
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let in0 = in0 as u32;
+    let in1 = in1 as u32;
+    let (hi, lo) = match operator {
+        arithmetic::BinaryOperator::DIV => (
+            ((in0 as i32) % (in1 as i32)) as u32,
+            ((in0 as i32) / (in1 as i32)) as u32,
+        ),
+        arithmetic::BinaryOperator::DIVU => (in0 % in1, in0 / in1),
+        arithmetic::BinaryOperator::MULT => {
+            let out = (in0 as i64 * in1 as i64) as u64;
+            u32_from_u64(out)
+        }
+        arithmetic::BinaryOperator::MULTU => {
+            let out = in0 as u64 * in1 as u64;
+            u32_from_u64(out)
+        }
+        _ => todo!(),
+    };
+
+    let log_out0 = reg_write_with_log(rd, 32, lo as usize, state, &mut row)?;
+    let log_out1 = reg_write_with_log(rd, 33, hi as usize, state, &mut row)?;
+
+    // state.traces.push_arithmetic(operation);
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_out0);
+    state.traces.push_memory(log_out1);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -538,34 +594,44 @@ pub(crate) fn generate_exit_kernel<F: Field>(
 pub(crate) fn generate_mload_general<F: Field>(
     op: MemOp,
     base: u8,
-    rt: u8,
-    offset: u32,
+    rt_reg: u8,
+    mem: u32,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let (src1, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
-    let offset = sign_extend::<16>(offset);
-    let virt = src1 as u32 + offset;
+    let (rs, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
+    let (rt, log_in2) = reg_read_with_log(rt_reg, 1, state, &mut row)?;
+    let rs = rs as u32;
+    let rt = rt as u32;
 
     let virt = match op {
-        MemOp::LH => sign_extend::<16>(virt&0xffff),
-        MemOp::LWL => 0,
-        MemOp::LW => virt,
-        MemOp::LBU => 0,
-        MemOp::LHU => 0,
-        MemOp::LWR => 0,
-        MemOp::LL => 0,
-        MemOp::LB => 0,
+        MemOp::LH => sign_extend::<16>((mem >> (16 - (rs & 2) * 8)) & 0xffff),
+        MemOp::LWL => {
+            let val = mem << ((rs & 3) * 8);
+            let mask = 0xffFFffFFu32 << ((rs & 3) * 8);
+            (rt & (!mask)) | val
+        }
+        MemOp::LW => mem,
+        MemOp::LBU => (mem >> (24 - (rs & 3) * 8)) & 0xff,
+        MemOp::LHU => (mem >> (16 - (rs & 2) * 8)) & 0xffff,
+        MemOp::LWR => {
+            let val = mem >> (24 - (rs & 3) * 8);
+            let mask = 0xffFFffFFu32 >> (24 - (rs & 3) * 8);
+            (rt & (!mask)) | val
+        }
+        MemOp::LL => mem,
+        MemOp::LB => sign_extend::<8>((mem >> (24 - (rs & 3) * 8)) & 0xff),
         _ => todo!(),
     };
 
     let address = MemoryAddress::new(0, Segment::Code, virt as usize);
 
-    let (val, log_in2) = mem_read_gp_with_log_and_fill(1, address, state, &mut row);
+    let (val, log_in3) = mem_read_gp_with_log_and_fill(2, address, state, &mut row);
+    let log_out0 = reg_write_with_log(rt_reg, 2, val as usize, state, &mut row)?;
 
-    let log_out0 = reg_write_with_log(rt, 2, val as usize, state, &mut row)?;
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_in3);
     state.traces.push_memory(log_out0);
     state.traces.push_cpu(row);
     Ok(())
@@ -574,30 +640,45 @@ pub(crate) fn generate_mload_general<F: Field>(
 pub(crate) fn generate_mstore_general<F: Field>(
     op: MemOp,
     base: u8,
-    rt: u8,
-    offset: u32,
+    rt_reg: u8,
+    mem: u32,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let (in1, log_in1) = reg_read_with_log(rt, 0, state, &mut row)?;
-
-    let (src1, log_in2) = reg_read_with_log(base, 1, state, &mut row)?;
-    let offset = sign_extend::<16>(offset);
-    let virt = src1 as u32 + offset;
+    let (rs, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
+    let (rt, log_in2) = reg_read_with_log(rt_reg, 1, state, &mut row)?;
+    let rs = rs as u32;
+    let rt = rt as u32;
 
     let virt = match op {
-        MemOp::SB => 0,
-        MemOp::SH => sign_extend::<16>(virt&0xffff),
-        MemOp::SWL => 0,
-        MemOp::SW => virt,
-        MemOp::SWR => 0,
-        MemOp::SC => 0,
+        MemOp::SB => {
+            let val = (rt & 0xff) << (24 - (rs & 3) * 8);
+            let mask = 0xffFFffFFu32 ^ (0xff << (24 - (rs & 3) * 8));
+            (mem & mask) | val
+        }
+        MemOp::SH => {
+            let val = (rt & 0xffff) << (16 - (rs & 2) * 8);
+            let mask = 0xffFFffFFu32 ^ (0xffff << (16 - (rs & 2) * 8));
+            (mem & mask) | val
+        }
+        MemOp::SWL => {
+            let val = rt >> ((rs & 3) * 8);
+            let mask = 0xffFFffFFu32 >> ((rs & 3) * 8);
+            (mem & (!mask)) | val
+        }
+        MemOp::SW => mem,
+        MemOp::SWR => {
+            let val = rt << (24 - (rs & 3) * 8);
+            let mask = 0xffFFffFFu32 << (24 - (rs & 3) * 8);
+            (mem & (!mask)) | val
+        }
+        MemOp::SC => rt,
         _ => todo!(),
     };
 
     let address = MemoryAddress::new(0, Segment::Code, virt as usize);
+    let log_out0 = mem_write_gp_log_and_fill(3, address, state, &mut row, rt);
 
-    let log_out0 = mem_write_gp_log_and_fill(2, address, state, &mut row, in1 as u32);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_out0);

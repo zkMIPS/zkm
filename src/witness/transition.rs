@@ -197,6 +197,46 @@ fn perform_op<F: Field>(
         Operation::BinaryLogic(binary_logic_op, rs, rt, rd) => {
             generate_binary_logic_op(binary_logic_op, rs, rt, rd, state, row)?
         }
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::MULT, rs, rt, rd) => {
+            generate_binary_arithmetic_hilo_op(
+                arithmetic::BinaryOperator::MULT,
+                rs,
+                rt,
+                rd,
+                state,
+                row,
+            )?
+        }
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::MULTU, rs, rt, rd) => {
+            generate_binary_arithmetic_hilo_op(
+                arithmetic::BinaryOperator::MULTU,
+                rs,
+                rt,
+                rd,
+                state,
+                row,
+            )?
+        }
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::DIV, rs, rt, rd) => {
+            generate_binary_arithmetic_hilo_op(
+                arithmetic::BinaryOperator::DIV,
+                rs,
+                rt,
+                rd,
+                state,
+                row,
+            )?
+        }
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::DIVU, rs, rt, rd) => {
+            generate_binary_arithmetic_hilo_op(
+                arithmetic::BinaryOperator::DIVU,
+                rs,
+                rt,
+                rd,
+                state,
+                row,
+            )?
+        }
         Operation::BinaryLogicImm(binary_logic_op, rs, rd, imm) => {
             generate_binary_logic_imm_op(binary_logic_op, rs, rd, imm, state, row)?
         }
@@ -207,7 +247,7 @@ fn perform_op<F: Field>(
             generate_shr(rs, rt, rd, state, row)?
         }
         Operation::BinaryArithmetic(op, rs, rt, rd) => {
-            generate_binary_arithmetic_op(rs, rt, rd, op, state, row)?
+            generate_binary_arithmetic_op(op, rs, rt, rd, state, row)?
         }
         Operation::BinaryArithmeticImm(op, rs, rt, imm) => {
             generate_binary_arithmetic_imm_op(rs, rt, imm, op, state, row)?
@@ -220,15 +260,15 @@ fn perform_op<F: Field>(
             generate_branch(cond, input1, input2, target, state, row)?
         }
         Operation::Pc => generate_pc(state, row)?,
-        Operation::GetContext => generate_get_context(state, row)?,
-        Operation::SetContext => generate_set_context(state, row)?,
-        Operation::ExitKernel => generate_exit_kernel(state, row)?,
         Operation::MloadGeneral(op, base, rt, offset) => {
             generate_mload_general(op, base, rt, offset, state, row)?
         }
         Operation::MstoreGeneral(op, base, rt, offset) => {
             generate_mstore_general(op, base, rt, offset, state, row)?
         }
+        Operation::GetContext => generate_get_context(state, row)?,
+        Operation::SetContext => generate_set_context(state, row)?,
+        Operation::ExitKernel => generate_exit_kernel(state, row)?,
     };
 
     state.registers.program_counter += match op {
