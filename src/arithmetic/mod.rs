@@ -52,14 +52,16 @@ impl BinaryOperator {
             BinaryOperator::SUBU => input0.overflowing_sub(input1).0,
             BinaryOperator::MULT => input0.overflowing_mul(input1).0, //FIXME: hi, lo
             BinaryOperator::MULTU => input0.overflowing_mul(input1).0, //FIXME: hi, lo
-            BinaryOperator::DIV => { // FIXME: hi, lo
+            BinaryOperator::DIV => {
+                // FIXME: hi, lo
                 if input1.is_zero() {
                     0
                 } else {
                     input0 / input1
                 }
             }
-            BinaryOperator::DIVU => { // FIXME: hi, lo
+            BinaryOperator::DIVU => {
+                // FIXME: hi, lo
                 if input1.is_zero() {
                     0
                 } else {

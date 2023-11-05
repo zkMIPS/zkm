@@ -543,7 +543,6 @@ pub(crate) fn generate_mload_general<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-
     let (src1, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
     let offset = sign_extend::<16>(offset);
     let virt = (src1 as u32 + offset) as usize;

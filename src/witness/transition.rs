@@ -231,8 +231,12 @@ fn perform_op<F: Field>(
         }
         */
         Operation::ExitKernel => generate_exit_kernel(state, row)?,
-        Operation::MloadGeneral(op, base, rt, offset) => generate_mload_general(op, base, rt, offset, state, row)?,
-        Operation::MstoreGeneral(op, base, rt, offset) => generate_mstore_general(op, base, rt, offset, state, row)?,
+        Operation::MloadGeneral(op, base, rt, offset) => {
+            generate_mload_general(op, base, rt, offset, state, row)?
+        }
+        Operation::MstoreGeneral(op, base, rt, offset) => {
+            generate_mstore_general(op, base, rt, offset, state, row)?
+        }
     };
 
     state.registers.program_counter += match op {
