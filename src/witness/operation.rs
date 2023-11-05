@@ -146,7 +146,7 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
     let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
     let operation = arithmetic::Operation::binary(operator, in0 as u32, in1 as u32);
-    let out = operation.result();
+    let out = operation.result().0;
 
     let log_out0 = reg_write_with_log(rd, 2, out as usize, state, &mut row)?;
 
@@ -178,6 +178,7 @@ pub(crate) fn generate_binary_arithmetic_hilo_op<F: Field>(
     let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
     let in0 = in0 as u32;
     let in1 = in1 as u32;
+    /*
     let (hi, lo) = match operator {
         arithmetic::BinaryOperator::DIV => (
             ((in0 as i32) % (in1 as i32)) as u32,
@@ -194,11 +195,14 @@ pub(crate) fn generate_binary_arithmetic_hilo_op<F: Field>(
         }
         _ => todo!(),
     };
+    */
+    let operation = arithmetic::Operation::binary(operator, in0 as u32, in1 as u32);
+    let (hi, lo) = operation.result();
 
     let log_out0 = reg_write_with_log(32, 2, lo as usize, state, &mut row)?;
     let log_out1 = reg_write_with_log(33, 3, hi as usize, state, &mut row)?;
 
-    // state.traces.push_arithmetic(operation);
+    state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_out0);
@@ -218,7 +222,7 @@ pub(crate) fn generate_binary_arithmetic_imm_op<F: Field>(
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
     let in1 = sign_extend::<16>(imm);
     let operation = arithmetic::Operation::binary(operator, in0 as u32, in1);
-    let out = operation.result();
+    let out = operation.result().0;
 
     let log_out0 = reg_write_with_log(rt, 2, out as usize, state, &mut row)?;
 
@@ -498,7 +502,7 @@ fn append_shift<F: Field>(
         arithmetic::BinaryOperator::SRL
     };
     let operation = arithmetic::Operation::binary(operator, input0, input1);
-    let result = operation.result();
+    let result = operation.result().0;
 
     state.traces.push_arithmetic(operation);
     let outlog = reg_write_with_log(rd, channel, result as usize, state, &mut row)?;
@@ -543,7 +547,7 @@ pub(crate) fn generate_sra<F: Field>(
     let in1 = sa as u32;
 
     let operation = arithmetic::Operation::binary(arithmetic::BinaryOperator::SRA, in0 as u32, in1);
-    let result = operation.result();
+    let result = operation.result().0;
 
     state.traces.push_arithmetic(operation);
     let outlog = reg_write_with_log(rd, 2, result as usize, state, &mut row)?;
@@ -590,7 +594,7 @@ pub(crate) fn generate_shrav<F: Field>(
 
     let operation =
         arithmetic::Operation::binary(arithmetic::BinaryOperator::SRAV, in0 as u32, in1);
-    let result = operation.result();
+    let result = operation.result().0;
 
     state.traces.push_arithmetic(operation);
     let outlog = reg_write_with_log(rd, 2, result as usize, state, &mut row)?;

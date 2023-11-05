@@ -7,6 +7,7 @@ pub mod utils;
 
 use crate::util::*;
 use crate::witness::util::sign_extend;
+use crate::witness::util::u32_from_u64;
 use num::Zero;
 use plonky2::field::types::PrimeField64;
 
@@ -36,78 +37,85 @@ pub(crate) enum BinaryOperator {
 }
 
 impl BinaryOperator {
-    pub(crate) fn result(&self, input0: u32, input1: u32) -> u32 {
+    pub(crate) fn result(&self, input0: u32, input1: u32) -> (u32, u32) {
         match self {
-            BinaryOperator::ADD => input0.overflowing_add(input1).0,
-            BinaryOperator::ADDU => input0.overflowing_add(input1).0,
+            BinaryOperator::ADD => (input0.overflowing_add(input1).0, 0),
+            BinaryOperator::ADDU => (input0.overflowing_add(input1).0, 0),
             BinaryOperator::ADDI => {
                 let sein = sign_extend::<16>(input1);
-                input0.overflowing_add(sein).0
+                (input0.overflowing_add(sein).0, 0)
             }
             BinaryOperator::ADDIU => {
                 let sein = sign_extend::<16>(input1);
-                input0.overflowing_add(sein).0
+                (input0.overflowing_add(sein).0, 0)
             }
-            BinaryOperator::SUB => input0.overflowing_sub(input1).0,
-            BinaryOperator::SUBU => input0.overflowing_sub(input1).0,
+            BinaryOperator::SUB => (input0.overflowing_sub(input1).0, 0),
+            BinaryOperator::SUBU => (input0.overflowing_sub(input1).0, 0),
 
-            BinaryOperator::SLL => input0.overflowing_shl(input1).0,
-            BinaryOperator::SRL => input0.overflowing_shr(input1).0,
+            BinaryOperator::SLL => (input0.overflowing_shl(input1).0, 0),
+            BinaryOperator::SRL => (input0.overflowing_shr(input1).0, 0),
             BinaryOperator::SRA => {
                 let sin = input0 as i32;
                 let sout = sin >> input1;
-                sout as u32
+                (sout as u32, 0)
             }
 
-            /*
-            BinaryOperator::SLLV => { // FIXME: use register
-                let low_5bits = input1 & 0x1F;
-                input0.overflowing_shl(low_5bits).0
-            }
-            BinaryOperator::SRLV => {
-                let low_5bits = input1 & 0x1F;
-                input0.overflowing_shr(low_5bits).0
-            }
+            BinaryOperator::SLLV => (input0.overflowing_shl(input1).0, 0),
+            BinaryOperator::SRLV => (input0.overflowing_shr(input1).0, 0),
             BinaryOperator::SRAV => {
-                let low_5bits = input1 & 0x1F;
-                input0.overflowing_shr(low_5bits).0
+                // same as SRA
+                let sin = input0 as i32;
+                let sout = sin >> input1;
+                (sout as u32, 0)
             }
-            */
             BinaryOperator::SLTU => {
                 if input0 < input1 {
-                    1
+                    (1, 0)
                 } else {
-                    0
+                    (0, 0)
                 }
             }
             BinaryOperator::SLT => {
                 if (input0 as i32) < (input1 as i32) {
-                    1
+                    (1, 0)
                 } else {
-                    0
+                    (0, 0)
                 }
             }
             BinaryOperator::SLTIU => {
                 let out = sign_extend::<16>(input1);
                 if input0 < out {
-                    1
+                    (1, 0)
                 } else {
-                    0
+                    (0, 0)
                 }
             }
             BinaryOperator::SLTI => {
                 let out = sign_extend::<16>(input1);
                 if (input0 as i32) < (out as i32) {
-                    1
+                    (1, 0)
                 } else {
-                    0
+                    (0, 0)
                 }
             }
             BinaryOperator::LUI => {
                 let out = sign_extend::<16>(input1);
-                out.overflowing_shl(16).0
+                (out.overflowing_shl(16).0, 0)
             }
-            _ => todo!(),
+
+            BinaryOperator::MULT => {
+                let out = (input0 as i64 * input1 as i64) as u64;
+                u32_from_u64(out)
+            }
+            BinaryOperator::MULTU => {
+                let out = input0 as u64 * input1 as u64;
+                u32_from_u64(out)
+            }
+            BinaryOperator::DIV => (
+                ((input0 as i32) % (input1 as i32)) as u32,
+                ((input0 as i32) / (input1 as i32)) as u32,
+            ),
+            BinaryOperator::DIVU => (input0 % input1, input0 / input1),
         }
     }
 
@@ -145,7 +153,8 @@ pub(crate) enum Operation {
         operator: BinaryOperator,
         input0: u32,
         input1: u32,
-        result: u32,
+        result0: u32,
+        result1: u32,
     },
 }
 
@@ -166,18 +175,21 @@ impl Operation {
     /// See witness/operation.rs::append_shift() for an example (indeed
     /// the only call site for such inputs).
     pub(crate) fn binary(operator: BinaryOperator, input0: u32, input1: u32) -> Self {
-        let result = operator.result(input0, input1);
+        let (result0, result1) = operator.result(input0, input1);
         Self::BinaryOperation {
             operator,
             input0,
             input1,
-            result,
+            result0,
+            result1,
         }
     }
 
-    pub(crate) fn result(&self) -> u32 {
+    pub(crate) fn result(&self) -> (u32, u32) {
         match self {
-            Operation::BinaryOperation { result, .. } => *result,
+            Operation::BinaryOperation {
+                result0, result1, ..
+            } => (*result0, *result1),
         }
     }
 
@@ -197,8 +209,9 @@ impl Operation {
                 operator,
                 input0,
                 input1,
-                result,
-            } => binary_op_to_rows(operator, input0, input1, result),
+                result0,
+                result1,
+            } => binary_op_to_rows(operator, input0, input1, result0, result1),
         }
     }
 }
@@ -207,7 +220,8 @@ fn binary_op_to_rows<F: PrimeField64>(
     op: BinaryOperator,
     input0: u32,
     input1: u32,
-    result: u32,
+    result0: u32,
+    result1: u32,
 ) -> (Vec<F>, Option<Vec<F>>) {
     let mut row = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
     row[op.row_filter()] = F::ONE;
