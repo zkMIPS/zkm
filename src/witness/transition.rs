@@ -96,7 +96,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         (0b101110, _, _) => Ok(Operation::MstoreGeneral(MemOp::SWR, rs, rt, offset)),
         (0b110000, _, _) => Ok(Operation::MloadGeneral(MemOp::LL, rs, rt, offset)),
         (0b111000, _, _) => Ok(Operation::MstoreGeneral(MemOp::SC, rs, rt, offset)),
-        (0b100001, _, _) => Ok(Operation::MloadGeneral(MemOp::LB, rs, rt, offset)),
+        (0b100000, _, _) => Ok(Operation::MloadGeneral(MemOp::LB, rs, rt, offset)),
 
         (0b001000, _, _) => Ok(Operation::BinaryArithmeticImm(
             arithmetic::BinaryOperator::ADDI,
