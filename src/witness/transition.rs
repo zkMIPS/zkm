@@ -59,6 +59,24 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             rt,
             rd,
         )), // ADD: rd = rs+rt
+        (0b000000, 0b100001, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::ADDU,
+            rs,
+            rt,
+            rd,
+        )), // ADDU: rd = rs+rt
+        (0b000000, 0b100010, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SUB,
+            rs,
+            rt,
+            rd,
+        )), // SUB: rd = rs-rt
+        (0b000000, 0b100011, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SUBU,
+            rs,
+            rt,
+            rd,
+        )), // SUBU: rd = rs-rt
         (0b000000, 0b000000, _) => Ok(Operation::BinaryArithmetic(
             arithmetic::BinaryOperator::SLL,
             rt,
@@ -149,10 +167,11 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         (0b000000, 0b100100, _) => Ok(Operation::BinaryLogic(logic::Op::And, rs, rt, rd)), // AND: rd = rs & rt
         (0b000000, 0b100101, _) => Ok(Operation::BinaryLogic(logic::Op::Or, rs, rt, rd)), // OR: rd = rs | rt
         (0b000000, 0b100110, _) => Ok(Operation::BinaryLogic(logic::Op::Xor, rs, rt, rd)), // XOR: rd = rs ^ rt
+        (0b000000, 0b100111, _) => Ok(Operation::BinaryLogic(logic::Op::Nor, rs, rt, rd)), // NOR: rd = ! rs | rt
 
-        (0b001100, 0b000000, _) => Ok(Operation::BinaryLogicImm(logic::Op::And, rs, rt, offset)), // AND: rt = rs + zext(imm)
-        (0b001101, 0b000000, _) => Ok(Operation::BinaryLogicImm(logic::Op::Or, rs, rt, offset)), // OR: rt = rs + zext(imm)
-        (0b001110, 0b000000, _) => Ok(Operation::BinaryLogicImm(logic::Op::Xor, rs, rt, offset)), // XOR: rt = rs + zext(imm)
+        (0b001100, _, _) => Ok(Operation::BinaryLogicImm(logic::Op::And, rs, rt, offset)), // ANDI: rt = rs + zext(imm)
+        (0b001101, _, _) => Ok(Operation::BinaryLogicImm(logic::Op::Or, rs, rt, offset)), // ORI: rt = rs + zext(imm)
+        (0b001110, _, _) => Ok(Operation::BinaryLogicImm(logic::Op::Xor, rs, rt, offset)), // XORI: rt = rs + zext(imm)
         (0b000000, 0b001100, _) => Ok(Operation::Syscall), // Syscall
         _ => {
             log::warn!("decode: invalid opcode {:#08b} {:#08b}", opcode, func);
