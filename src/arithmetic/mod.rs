@@ -50,29 +50,17 @@ impl BinaryOperator {
             }
             BinaryOperator::SUB => input0.overflowing_sub(input1).0,
             BinaryOperator::SUBU => input0.overflowing_sub(input1).0,
-            BinaryOperator::MULT => input0.overflowing_mul(input1).0, //FIXME: hi, lo
-            BinaryOperator::MULTU => input0.overflowing_mul(input1).0, //FIXME: hi, lo
-            BinaryOperator::DIV => {
-                // FIXME: hi, lo
-                if input1.is_zero() {
-                    0
-                } else {
-                    input0 / input1
-                }
-            }
-            BinaryOperator::DIVU => {
-                // FIXME: hi, lo
-                if input1.is_zero() {
-                    0
-                } else {
-                    input0 / input1
-                }
-            }
 
             BinaryOperator::SLL => input0.overflowing_shl(input1).0,
             BinaryOperator::SRL => input0.overflowing_shr(input1).0,
-            BinaryOperator::SRA => input0.overflowing_shr(input1).0,
-            BinaryOperator::SLLV => {
+            BinaryOperator::SRA => {
+                let sin = input0 as i32;
+                let sout = sin >> input1;
+                sout as u32
+            }
+
+            /*
+            BinaryOperator::SLLV => { // FIXME: use register
                 let low_5bits = input1 & 0x1F;
                 input0.overflowing_shl(low_5bits).0
             }
@@ -84,6 +72,7 @@ impl BinaryOperator {
                 let low_5bits = input1 & 0x1F;
                 input0.overflowing_shr(low_5bits).0
             }
+            */
             BinaryOperator::SLTU => {
                 if input0 < input1 {
                     1
@@ -92,7 +81,7 @@ impl BinaryOperator {
                 }
             }
             BinaryOperator::SLT => {
-                if input0 < input1 {
+                if (input0 as i32) < (input1 as i32) {
                     1
                 } else {
                     0
@@ -108,7 +97,7 @@ impl BinaryOperator {
             }
             BinaryOperator::SLTI => {
                 let out = sign_extend::<16>(input1);
-                if input0 < out {
+                if (input0 as i32) < (out as i32) {
                     1
                 } else {
                     0
@@ -118,6 +107,7 @@ impl BinaryOperator {
                 let out = sign_extend::<16>(input1);
                 out.overflowing_shl(16).0
             }
+            _ => todo!(),
         }
     }
 

@@ -240,12 +240,27 @@ fn perform_op<F: Field>(
         Operation::BinaryLogicImm(binary_logic_op, rs, rd, imm) => {
             generate_binary_logic_imm_op(binary_logic_op, rs, rd, imm, state, row)?
         }
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLL, rs, rt, rd) => {
-            generate_shl(rs, rt, rd, state, row)?
+
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLL, sa, rt, rd) => {
+            generate_shl(sa, rt, rd, state, row)?
         }
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRL, rs, rt, rd) => {
-            generate_shr(rs, rt, rd, state, row)?
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRL, sa, rt, rd) => {
+            generate_shr(sa, rt, rd, state, row)?
         }
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRA, sa, rt, rd) => {
+            generate_sra(sa, rt, rd, state, row)?
+        }
+
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLLV, rs, rt, rd) => {
+            generate_shlv(rs, rt, rd, state, row)?
+        }
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRLV, rs, rt, rd) => {
+            generate_shrv(rs, rt, rd, state, row)?
+        }
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRAV, rs, rt, rd) => {
+            generate_shrav(rs, rt, rd, state, row)?
+        }
+
         Operation::BinaryArithmetic(op, rs, rt, rd) => {
             generate_binary_arithmetic_op(op, rs, rt, rd, state, row)?
         }
