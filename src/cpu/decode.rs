@@ -23,7 +23,8 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u32, usize, bool, usize); 13] = [
+/// FIXME: stephen
+const OPCODES: [(u32, usize, bool, usize); 10] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
     // ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags are handled partly manually here, and partly through the Arithmetic table CTL.
     // ADDMOD, MULMOD and SUBMOD flags are handled partly manually here, and partly through the Arithmetic table CTL.
@@ -36,11 +37,8 @@ const OPCODES: [(u32, usize, bool, usize); 13] = [
     (0x0D, 1, false, COL_MAP.op.jumps), // 0x56-0x57
     (0x0E, 0, false, COL_MAP.op.branch),
     (0x0F, 0, false, COL_MAP.op.pc),
-    (0x10, 4, false, COL_MAP.op.swap), // 0x90-0x9f
     (0x12, 0, true, COL_MAP.op.get_context),
     (0x13, 0, true, COL_MAP.op.set_context),
-    (0x14, 0, true, COL_MAP.op.mstore_32bytes),
-    (0x15, 0, true, COL_MAP.op.mload_32bytes),
     (0x16, 0, true, COL_MAP.op.exit_kernel),
     // MLOAD_GENERAL and MSTORE_GENERAL flags are handled manually here.
 ];

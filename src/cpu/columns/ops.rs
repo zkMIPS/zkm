@@ -7,9 +7,10 @@ use crate::util::transmute_no_compile_time_size_checks;
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct OpsColumnsView<T: Copy> {
-    pub binary_op: T, // Combines ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags.
-    pub eq_iszero: T, // Combines EQ and ISZERO flags.
-    pub logic_op: T,  // Combines AND, OR and XOR flags.
+    pub binary_op: T,     // Combines ADD, MUL, SUB, DIV, SLL, ... flags.
+    pub binary_imm_op: T, // Combines ADDI, ADDIU
+    pub eq_iszero: T,     // Combines EQ and ISZERO flags.
+    pub logic_op: T,      // Combines AND, OR and XOR flags.
     pub not: T,
     pub shift: T, // Combines SHL and SHR flags.
     pub keccak_general: T,
@@ -17,11 +18,8 @@ pub struct OpsColumnsView<T: Copy> {
     pub jumps: T, // Combines JUMP and JUMPI flags.
     pub branch: T,
     pub pc: T,
-    pub swap: T,
     pub get_context: T,
     pub set_context: T,
-    pub mstore_32bytes: T,
-    pub mload_32bytes: T,
     pub exit_kernel: T,
     pub m_op_general: T,
 

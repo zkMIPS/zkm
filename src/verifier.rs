@@ -1,7 +1,6 @@
 use std::any::type_name;
 
 use anyhow::{ensure, Result};
-use ethereum_types::{BigEndianHash, U256};
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
@@ -270,7 +269,6 @@ where
 
     prod
 }
-*/
 
 fn add_data_write<F, const D: usize>(
     challenge: GrandProductChallenge<F>,
@@ -294,6 +292,7 @@ where
     row[12] = F::ONE; // timestamp
     running_product * challenge.combine(row.iter())
 }
+*/
 
 pub(crate) fn verify_stark_proof_with_challenges<
     F: RichField + Extendable<D>,
@@ -471,6 +470,7 @@ mod tests {
     use crate::all_stark::AllStark;
     use crate::config::StarkConfig;
     use crate::generation::GenerationInputs;
+    use crate::logic::LogicStark;
     use crate::proof;
     use crate::prover::prove;
     use crate::verifier::eval_l_0_and_l_last;
@@ -493,8 +493,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // raise OOM in CI
-    fn test_prove_and_verify() {
+    #[ignore]
+    fn test_mips_prove_and_verify() {
+        env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -502,9 +503,10 @@ mod tests {
         let allstark: AllStark<F, D> = AllStark::default();
         let mut config = StarkConfig::standard_fast_config();
         config.fri_config.rate_bits = 2;
-        let input = GenerationInputs {};
-        let mut timing = TimingTree::default();
 
+        let input = GenerationInputs {};
+
+        let mut timing = TimingTree::new("prove", log::Level::Debug);
         let allproof: proof::AllProof<GoldilocksField, C, D> =
             prove(&allstark, &config, input, &mut timing).unwrap();
         verify_proof(&allstark, allproof, &config).unwrap();

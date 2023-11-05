@@ -21,7 +21,9 @@ use crate::cpu::{
     modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
 };
 */
-use crate::cpu::{bootstrap_kernel, control_flow, decode, jumps, membus, pc, shift, simple_logic};
+use crate::cpu::{
+    bootstrap_kernel, control_flow, decode, jumps, membus, memio, pc, shift, simple_logic,
+};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
@@ -100,10 +102,6 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
 
 pub fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
     ctl_data_keccak_sponge()
-}
-
-pub fn ctl_filter_byte_packing<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.op.mload_32bytes)
 }
 
 /*
@@ -230,8 +228,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         */
         jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
-        /*
         memio::eval_packed(local_values, next_values, yield_constr);
+        /*
         modfp254::eval_packed(local_values, yield_constr);
         */
         pc::eval_packed(local_values, next_values, yield_constr);
@@ -278,8 +276,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         */
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
-        /*
         memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        /*
         modfp254::eval_ext_circuit(builder, local_values, yield_constr);
         */
         pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);

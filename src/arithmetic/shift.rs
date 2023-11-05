@@ -27,9 +27,9 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
-use super::mul;
+// use super::mul;
 use crate::arithmetic::columns::*;
-use crate::arithmetic::utils::*;
+// use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Generates a shift operation (either SHL or SHR).

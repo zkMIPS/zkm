@@ -33,6 +33,7 @@ pub(crate) mod columns {
     pub const IS_AND: usize = 0;
     pub const IS_OR: usize = IS_AND + 1;
     pub const IS_XOR: usize = IS_OR + 1;
+    pub const IS_NOR: usize = IS_XOR + 1;
     // The inputs are decomposed into bits.
     pub const INPUT0: Range<usize> = (IS_XOR + 1)..(IS_XOR + 1) + VAL_BITS;
     pub const INPUT1: Range<usize> = INPUT0.end..INPUT0.end + VAL_BITS;
@@ -90,6 +91,7 @@ pub(crate) enum Op {
     And,
     Or,
     Xor,
+    Nor,
 }
 
 impl Op {
@@ -98,6 +100,7 @@ impl Op {
             Op::And => a & b,
             Op::Or => a | b,
             Op::Xor => a ^ b,
+            Op::Nor => !(a | b),
         }
     }
 }
@@ -133,6 +136,7 @@ impl Operation {
             Op::And => columns::IS_AND,
             Op::Or => columns::IS_OR,
             Op::Xor => columns::IS_XOR,
+            Op::Nor => columns::IS_NOR,
         }] = F::ONE;
         for i in 0..32 {
             row[columns::INPUT0.start + i] = F::from_canonical_u32(input0 & (1 << i));

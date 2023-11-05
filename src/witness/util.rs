@@ -65,10 +65,10 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
 }
 
 pub(crate) fn sign_extend<const N: usize>(value: u32) -> u32 {
-    let isSigned = (value >> (N - 1)) != 0;
+    let is_signed = (value >> (N - 1)) != 0;
     let signed = ((1 << (32 - N)) - 1) << N;
     let mask = (1 << N) - 1;
-    return if isSigned {
+    return if is_signed {
         value & mask | signed
     } else {
         value & mask
@@ -390,4 +390,8 @@ fn xor_into_sponge<F: Field>(
     for i in 0..KECCAK_RATE_BYTES {
         sponge_state[i] ^= block[i];
     }
+}
+
+pub(crate) fn u32_from_u64(v: u64) -> (u32, u32) {
+    ((v >> 32) as u32, v as u32)
 }

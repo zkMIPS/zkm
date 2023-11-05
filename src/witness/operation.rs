@@ -1,26 +1,26 @@
 use itertools::Itertools;
-use keccak_hash::keccak;
+// use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
 use super::util::*;
-use crate::arithmetic::BinaryOperator;
+// use crate::arithmetic::BinaryOperator;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
-use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
+// use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::KERNEL;
-use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
+// use crate::cpu::membus::NUM_GP_CHANNELS;
+// use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
+// use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
 use crate::witness::errors::ProgramError;
-use crate::witness::errors::ProgramError::MemoryError;
-use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
-use crate::witness::operation::MemoryChannel::GeneralPurpose;
+// use crate::witness::errors::ProgramError::MemoryError;
+use crate::witness::memory::{MemoryAddress, MemoryOp};
+// use crate::witness::operation::MemoryChannel::GeneralPurpose;
 use crate::{arithmetic, logic};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum Cond {
+pub(crate) enum BranchCond {
     EQ,
     NE,
     GE,
@@ -29,79 +29,205 @@ pub(crate) enum Cond {
     LT,
 }
 
-impl Cond {
+impl BranchCond {
     pub(crate) fn result(&self, input0: usize, input1: usize) -> bool {
         match self {
-            Cond::EQ => input0 == input1,
-            Cond::NE => input0 != input1,
-            Cond::GE => input0 >= input1,
-            Cond::LE => input0 <= input1,
-            Cond::GT => input0 > input1,
-            Cond::LT => input0 < input1,
+            BranchCond::EQ => input0 == input1,
+            BranchCond::NE => input0 != input1,
+            BranchCond::GE => input0 >= input1,
+            BranchCond::LE => input0 <= input1,
+            BranchCond::GT => input0 > input1,
+            BranchCond::LT => input0 < input1,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MemOp {
+    LH,
+    LWL,
+    LW,
+    LBU,
+    LHU,
+    LWR,
+    SB,
+    SH,
+    SWL,
+    SW,
+    SWR,
+    LL,
+    SC,
+    LB,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Operation {
     Iszero,
     Not,
-    Syscall(u32, usize, bool), // (syscall number, minimum stack length, increases stack length)
+    Syscall,
     Eq,
-    BinaryLogic(logic::Op),
+    BinaryLogic(logic::Op, u8, u8, u8),
+    BinaryLogicImm(logic::Op, u8, u8, u32),
     BinaryArithmetic(arithmetic::BinaryOperator, u8, u8, u8),
+    BinaryArithmeticImm(arithmetic::BinaryOperator, u8, u8, u32),
     KeccakGeneral,
     ProverInput,
     Jump(u8, u8),
     Jumpi(u8, u32),
-    Branch(Cond, u8, u8, u32),
+    Branch(BranchCond, u8, u8, u32),
     Pc,
-    Swap(u8),
     GetContext,
     SetContext,
-    Mload32Bytes(u8, u8, u32),
-    Mstore32Bytes,
     ExitKernel,
-    MloadGeneral,
-    MstoreGeneral,
+    MloadGeneral(MemOp, u8, u8, u32),
+    MstoreGeneral(MemOp, u8, u8, u32),
 }
 
 pub(crate) fn generate_binary_logic_op<F: Field>(
     op: logic::Op,
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    let [(in0, _), (in1, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
-    let operation = logic::Operation::new(op, in0, in1);
-
-    push_no_write(state, &mut row, operation.result, Some(NUM_GP_CHANNELS - 1));
-
-    state.traces.push_logic(operation);
-    state.traces.push_memory(log_in1);
-    state.traces.push_cpu(row);
-    */
-    Ok(())
-}
-
-pub(crate) fn generate_binary_arithmetic_op<F: Field>(
     rs: u8,
     rt: u8,
     rd: u8,
-    operator: arithmetic::BinaryOperator,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
     let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let operation = logic::Operation::new(op, in0 as u32, in1 as u32);
+    let out = operation.result;
+
+    let log_out0 = reg_write_with_log(rd, 2, out as usize, state, &mut row)?;
+
+    state.traces.push_logic(operation);
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_binary_logic_imm_op<F: Field>(
+    op: logic::Op,
+    rs: u8,
+    rd: u8,
+    imm: u32,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let in1 = imm;
+    let operation = logic::Operation::new(op, in0 as u32, in1);
+    let out = operation.result;
+
+    let log_out0 = reg_write_with_log(rd, 2, out as usize, state, &mut row)?;
+
+    state.traces.push_logic(operation);
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_binary_arithmetic_op<F: Field>(
+    operator: arithmetic::BinaryOperator,
+    rs: u8,
+    rt: u8,
+    rd: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    assert!(![
+        arithmetic::BinaryOperator::DIV,
+        arithmetic::BinaryOperator::DIVU,
+        arithmetic::BinaryOperator::MULT,
+        arithmetic::BinaryOperator::MULTU,
+    ]
+    .contains(&operator));
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
     let operation = arithmetic::Operation::binary(operator, in0 as u32, in1 as u32);
-    let out = operation.result();
+    let out = operation.result().0;
 
     let log_out0 = reg_write_with_log(rd, 2, out as usize, state, &mut row)?;
 
     state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_binary_arithmetic_hilo_op<F: Field>(
+    operator: arithmetic::BinaryOperator,
+    rs: u8,
+    rt: u8,
+    rd: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    assert!([
+        arithmetic::BinaryOperator::DIV,
+        arithmetic::BinaryOperator::DIVU,
+        arithmetic::BinaryOperator::MULT,
+        arithmetic::BinaryOperator::MULTU,
+    ]
+    .contains(&operator));
+
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let in0 = in0 as u32;
+    let in1 = in1 as u32;
+    /*
+    let (hi, lo) = match operator {
+        arithmetic::BinaryOperator::DIV => (
+            ((in0 as i32) % (in1 as i32)) as u32,
+            ((in0 as i32) / (in1 as i32)) as u32,
+        ),
+        arithmetic::BinaryOperator::DIVU => (in0 % in1, in0 / in1),
+        arithmetic::BinaryOperator::MULT => {
+            let out = (in0 as i64 * in1 as i64) as u64;
+            u32_from_u64(out)
+        }
+        arithmetic::BinaryOperator::MULTU => {
+            let out = in0 as u64 * in1 as u64;
+            u32_from_u64(out)
+        }
+        _ => todo!(),
+    };
+    */
+    let operation = arithmetic::Operation::binary(operator, in0 as u32, in1 as u32);
+    let (hi, lo) = operation.result();
+
+    let log_out0 = reg_write_with_log(32, 2, lo as usize, state, &mut row)?;
+    let log_out1 = reg_write_with_log(33, 3, hi as usize, state, &mut row)?;
+
+    state.traces.push_arithmetic(operation);
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_out0);
+    state.traces.push_memory(log_out1);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_binary_arithmetic_imm_op<F: Field>(
+    rs: u8,
+    rt: u8,
+    imm: u32,
+    operator: arithmetic::BinaryOperator,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let in1 = sign_extend::<16>(imm);
+    let operation = arithmetic::Operation::binary(operator, in0 as u32, in1);
+    let out = operation.result().0;
+
+    let log_out0 = reg_write_with_log(rt, 2, out as usize, state, &mut row)?;
+
+    state.traces.push_arithmetic(operation);
+    state.traces.push_memory(log_in0);
     state.traces.push_memory(log_out0);
     state.traces.push_cpu(row);
     Ok(())
@@ -156,19 +282,6 @@ pub(crate) fn generate_prover_input<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_pop<F: Field>(
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    let [(_, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
-
-    state.traces.push_cpu(row);
-    */
-
-    Ok(())
-}
-
 pub(crate) fn generate_jump<F: Field>(
     link: u8,
     target: u8,
@@ -187,7 +300,7 @@ pub(crate) fn generate_jump<F: Field>(
 }
 
 pub(crate) fn generate_branch<F: Field>(
-    cond: Cond,
+    cond: BranchCond,
     src1: u8,
     src2: u8,
     target: u32,
@@ -331,135 +444,6 @@ pub(crate) fn generate_set_context<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_push<F: Field>(
-    n: u8,
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    let code_context = state.registers.code_context();
-    let num_bytes = n as usize;
-    if num_bytes > 32 {
-        // The call to `U256::from_big_endian()` would panic.
-        return Err(ProgramError::IntegerTooLarge);
-    }
-    let initial_offset = state.registers.program_counter + 1;
-
-    // First read val without going through `mem_read_with_log` type methods, so we can pass it
-    // to stack_push_log_and_fill.
-    let bytes = (0..num_bytes)
-        .map(|i| {
-            state.memory.get(MemoryAddress::new(
-                code_context,
-                Segment::Code,
-                initial_offset + i,
-            )) as u8
-        })
-        .collect_vec();
-
-    /*
-    let val = U256::from_big_endian(&bytes);
-    push_with_write(state, &mut row, val)?;
-    state.traces.push_cpu(row);
-    */
-
-    Ok(())
-}
-
-// This instruction is special. The order of the operations are:
-// - Write `stack_top` at `stack[stack_len - 1]`
-// - Read `val` at `stack[stack_len - 1 - n]`
-// - Update `stack_top` with `val` and add 1 to `stack_len`
-// Since the write must happen before the read, the normal way of assigning
-// GP channels doesn't work and we must handle them manually.
-pub(crate) fn generate_dup<F: Field>(
-    n: u8,
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    // Same logic as in `push_with_write`, but we use the channel GP(0) instead.
-    /*
-    if !state.registers.is_kernel && state.registers.stack_len >= MAX_USER_STACK_SIZE {
-        return Err(ProgramError::StackOverflow);
-    }
-    if n as usize >= state.registers.stack_len {
-        return Err(ProgramError::StackUnderflow);
-    }
-    let stack_top = state.registers.stack_top;
-    let address = MemoryAddress::new(
-        state.registers.context,
-        Segment::Stack,
-        state.registers.stack_len - 1,
-    );
-    let log_push = mem_write_gp_log_and_fill(1, address, state, &mut row, stack_top);
-    state.traces.push_memory(log_push);
-
-    let other_addr = MemoryAddress::new(
-        state.registers.context,
-        Segment::Stack,
-        state.registers.stack_len - 1 - n as usize,
-    );
-
-    // If n = 0, we read a value that hasn't been written to memory: the corresponding write
-    // is buffered in the mem_ops queue, but hasn't been applied yet.
-    let (val, log_read) = if n == 0 {
-        let op = MemoryOp::new(
-            MemoryChannel::GeneralPurpose(2),
-            state.traces.clock(),
-            other_addr,
-            MemoryOpKind::Read,
-            stack_top,
-        );
-
-        let channel = &mut row.mem_channels[2];
-        assert_eq!(channel.used, F::ZERO);
-        channel.used = F::ONE;
-        channel.is_read = F::ONE;
-        channel.addr_context = F::from_canonical_usize(other_addr.context);
-        channel.addr_segment = F::from_canonical_usize(other_addr.segment);
-        channel.addr_virtual = F::from_canonical_usize(other_addr.virt);
-        let val_limbs: [u64; 4] = state.registers.stack_top.0;
-        for (i, limb) in val_limbs.into_iter().enumerate() {
-            channel.value[2 * i] = F::from_canonical_u32(limb as u32);
-            channel.value[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
-        }
-
-        (stack_top, op)
-    } else {
-        mem_read_gp_with_log_and_fill(2, other_addr, state, &mut row)
-    };
-    push_no_write(state, &mut row, val, None);
-
-    state.traces.push_memory(log_read);
-    state.traces.push_cpu(row);
-    */
-    Ok(())
-}
-
-pub(crate) fn generate_swap<F: Field>(
-    n: u8,
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    let other_addr_lo = state
-        .registers
-        .stack_len
-        .checked_sub(2 + (n as usize))
-        .ok_or(ProgramError::StackUnderflow)?;
-    let other_addr = MemoryAddress::new(state.registers.context, Segment::Stack, other_addr_lo);
-
-    let [(in0, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
-    let (in1, log_in1) = mem_read_gp_with_log_and_fill(1, other_addr, state, &mut row);
-    let log_out0 = mem_write_gp_log_and_fill(2, other_addr, state, &mut row, in0);
-    push_no_write(state, &mut row, in1, None);
-
-    state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_out0);
-    state.traces.push_cpu(row);
-    */
-    Ok(())
-}
-
 pub(crate) fn generate_not<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
@@ -494,153 +478,159 @@ pub(crate) fn generate_iszero<F: Field>(
     Ok(())
 }
 
-fn append_shift<F: Field>(
+pub(crate) fn generate_shl<F: Field>(
+    sa: u8,
+    rt: u8,
+    rd: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
-    is_shl: bool,
-    input0: u32,
-    input1: u32,
-    log_in1: MemoryOp,
-    result: u32,
 ) -> Result<(), ProgramError> {
-    const LOOKUP_CHANNEL: usize = 2;
-    let lookup_addr = MemoryAddress::new(0, Segment::ShiftTable, input0 as usize);
-    let (_, read) = mem_read_gp_with_log_and_fill(LOOKUP_CHANNEL, lookup_addr, state, &mut row);
-    state.traces.push_memory(read);
-    /*
-    if input0.bits() <= 32 {
-        let (_, read) = mem_read_gp_with_log_and_fill(LOOKUP_CHANNEL, lookup_addr, state, &mut row);
-        state.traces.push_memory(read);
-    } else {
-        // The shift constraints still expect the address to be set, even though no read will occur.
-        let channel = &mut row.mem_channels[LOOKUP_CHANNEL];
-        channel.addr_context = F::from_canonical_usize(lookup_addr.context);
-        channel.addr_segment = F::from_canonical_usize(lookup_addr.segment);
-        channel.addr_virtual = F::from_canonical_usize(lookup_addr.virt);
-
-        // Extra field required by the constraints for large shifts.
-        let high_limb_sum = row.mem_channels[0].value[1..].iter().copied().sum::<F>();
-        row.general.shift_mut().high_limb_sum_inv = high_limb_sum.inverse();
-    }
-
-    let operator = if is_shl {
-        BinaryOperator::Shl
-    } else {
-        BinaryOperator::Shr
-    };
-    let operation = arithmetic::Operation::binary(operator, input0, input1);
+    let (input0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
+    let input1 = sa as u32;
+    let operation = arithmetic::Operation::binary(
+        arithmetic::BinaryOperator::SLL,
+        input0 as u32,
+        input1 as u32,
+    );
+    let result = operation.result().0;
 
     state.traces.push_arithmetic(operation);
-    push_no_write(state, &mut row, result, Some(NUM_GP_CHANNELS - 1));
-    state.traces.push_memory(log_in1);
+    let outlog = reg_write_with_log(rd, 1, result as usize, state, &mut row)?;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(outlog);
     state.traces.push_cpu(row);
-    */
-    Ok(())
-}
-
-pub(crate) fn generate_shl<F: Field>(
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    let [(input0, _), (input1, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
-
-    let result = if input0 > 31 {
-        0
-    } else {
-        input1 << input0
-    };
-    append_shift(state, row, true, input0, input1, log_in1, result)
-    */
     Ok(())
 }
 
 pub(crate) fn generate_shr<F: Field>(
+    sa: u8,
+    rt: u8,
+    rd: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    /*
-    let [(input0, _), (input1, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
+    let (input0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
+    let input1 = sa as u32;
 
-    let result = if input0 > 31 {
-        0
-    } else {
-        input1 >> input0
-    };
-    append_shift(state, row, false, input0, input1, log_in1, result)
-    */
+    let operation = arithmetic::Operation::binary(
+        arithmetic::BinaryOperator::SRL,
+        input0 as u32,
+        input1 as u32,
+    );
+    let result = operation.result().0;
+
+    state.traces.push_arithmetic(operation);
+    let outlog = reg_write_with_log(rd, 1, result as usize, state, &mut row)?;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(outlog);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_sra<F: Field>(
+    sa: u8,
+    rt: u8,
+    rd: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
+    let in1 = sa as u32;
+
+    let operation = arithmetic::Operation::binary(arithmetic::BinaryOperator::SRA, in0 as u32, in1);
+    let result = operation.result().0;
+
+    state.traces.push_arithmetic(operation);
+    let outlog = reg_write_with_log(rd, 2, result as usize, state, &mut row)?;
+    state.traces.push_memory(outlog);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_shlv<F: Field>(
+    rs: u8,
+    rt: u8,
+    rd: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (input1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let input0 = in0 & 0x1F;
+    let operation = arithmetic::Operation::binary(
+        arithmetic::BinaryOperator::SLLV,
+        input0 as u32,
+        input1 as u32,
+    );
+    let result = operation.result().0;
+
+    state.traces.push_arithmetic(operation);
+    let outlog = reg_write_with_log(rd, 2, result as usize, state, &mut row)?;
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(outlog);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_shrv<F: Field>(
+    rs: u8,
+    rt: u8,
+    rd: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (input1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let input0 = in0 & 0x1F;
+    let operation = arithmetic::Operation::binary(
+        arithmetic::BinaryOperator::SRLV,
+        input0 as u32,
+        input1 as u32,
+    );
+    let result = operation.result().0;
+
+    state.traces.push_arithmetic(operation);
+    let outlog = reg_write_with_log(rd, 2, result as usize, state, &mut row)?;
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(outlog);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_shrav<F: Field>(
+    sa: u8,
+    rt: u8,
+    rd: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
+    let in1 = sa as u32;
+
+    let operation =
+        arithmetic::Operation::binary(arithmetic::BinaryOperator::SRAV, in0 as u32, in1);
+    let result = operation.result().0;
+
+    state.traces.push_arithmetic(operation);
+    let outlog = reg_write_with_log(rd, 2, result as usize, state, &mut row)?;
+    state.traces.push_memory(outlog);
+    state.traces.push_cpu(row);
     Ok(())
 }
 
 pub(crate) fn generate_syscall<F: Field>(
-    opcode: u32,
-    stack_values_read: usize,
-    stack_len_increased: bool,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    /*
-    if TryInto::<u64>::try_into(state.registers.gas_used).is_err() {
-        return Err(ProgramError::GasLimitError);
-    }
-
-    if state.registers.stack_len < stack_values_read {
-        return Err(ProgramError::StackUnderflow);
-    }
-    if stack_len_increased
-        && !state.registers.is_kernel
-        && state.registers.stack_len >= MAX_USER_STACK_SIZE
-    {
-        return Err(ProgramError::StackOverflow);
-    }
-
-    let handler_jumptable_addr = KERNEL.global_labels["syscall_jumptable"];
-    let handler_addr_addr =
-        handler_jumptable_addr + (opcode as usize) * (BYTES_PER_OFFSET as usize);
-    assert_eq!(BYTES_PER_OFFSET, 3, "Code below assumes 3 bytes per offset");
-    let (handler_addr0, log_in0) = mem_read_gp_with_log_and_fill(
-        1,
-        MemoryAddress::new(0, Segment::Code, handler_addr_addr),
-        state,
-        &mut row,
-    );
-    let (handler_addr1, log_in1) = mem_read_gp_with_log_and_fill(
-        2,
-        MemoryAddress::new(0, Segment::Code, handler_addr_addr + 1),
-        state,
-        &mut row,
-    );
-    let (handler_addr2, log_in2) = mem_read_gp_with_log_and_fill(
-        3,
-        MemoryAddress::new(0, Segment::Code, handler_addr_addr + 2),
-        state,
-        &mut row,
-    );
-
-    let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
-    let new_program_counter = handler_addr;
-
-    let syscall_info = U256::from(state.registers.program_counter + 1)
-        + (U256::from(u64::from(state.registers.is_kernel)) << 32)
-        + (U256::from(state.registers.gas_used) << 192);
-
-    // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
-    // can't incorrectly trigger a stack overflow. However, note that we have to do it _after_ we
-    // make `syscall_info`, which should contain the old values.
-    state.registers.program_counter = new_program_counter;
-    state.registers.is_kernel = true;
-    state.registers.gas_used = 0;
-
-    push_with_write(state, &mut row, syscall_info)?;
-
-    log::debug!("Syscall to {}", KERNEL.offset_name(new_program_counter as usize));
-
-    state.traces.push_memory(log_in0);
-    state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
-    state.traces.push_cpu(row);
-    */
-
+    let (sys_num, log_in1) = reg_read_with_log(2, 0, state, &mut row)?;
+    let (a0, log_in2) = reg_read_with_log(4, 1, state, &mut row)?;
+    let (a1, log_in3) = reg_read_with_log(5, 2, state, &mut row)?;
+    let (a2, log_in4) = reg_read_with_log(8, 3, state, &mut row)?;
+    // TODO @yuki
     Ok(())
 }
 
@@ -663,6 +653,7 @@ pub(crate) fn generate_eq<F: Field>(
     Ok(())
 }
 
+// FIXME: unused?
 pub(crate) fn generate_exit_kernel<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
@@ -695,120 +686,112 @@ pub(crate) fn generate_exit_kernel<F: Field>(
 }
 
 pub(crate) fn generate_mload_general<F: Field>(
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    let [(context, _), (segment, log_in1), (virt, log_in2)] =
-        stack_pop_with_log_and_fill::<3, _>(state, &mut row)?;
-
-    let (val, log_read) = mem_read_gp_with_log_and_fill(
-        3,
-        MemoryAddress::new_u256s(context, segment, virt)?,
-        state,
-        &mut row,
-    );
-    push_no_write(state, &mut row, val, None);
-
-    let diff = row.stack_len - F::from_canonical_usize(4);
-    if let Some(inv) = diff.try_inverse() {
-        row.general.stack_mut().stack_inv = inv;
-        row.general.stack_mut().stack_inv_aux = F::ONE;
-    } else {
-        row.general.stack_mut().stack_inv = F::ZERO;
-        row.general.stack_mut().stack_inv_aux = F::ZERO;
-    }
-
-    state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
-    state.traces.push_memory(log_read);
-    state.traces.push_cpu(row);
-    */
-    Ok(())
-}
-
-pub(crate) fn generate_mload_32bytes<F: Field>(
+    op: MemOp,
     base: u8,
-    rt: u8,
+    rt_reg: u8,
     offset: u32,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let (src1, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
-    let offset = sign_extend::<16>(offset);
-    let virt = src1 + offset as usize;
-    let address = MemoryAddress::new(0, Segment::Code, virt);
+    let (rs, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
+    let (rt, log_in2) = reg_read_with_log(rt_reg, 1, state, &mut row)?;
 
-    let (val, log_in2) = mem_read_gp_with_log_and_fill(1, address, state, &mut row);
+    let virt_raw = (rs as u32) + sign_extend::<16>(offset);
+    let virt = virt_raw & 0xFFFF_FFFC;
+    let address = MemoryAddress::new(0, Segment::Code, virt as usize);
+    let (mem, log_in3) = mem_read_gp_with_log_and_fill(2, address, state, &mut row);
 
-    let log_out0 = reg_write_with_log(rt, 2, val as usize, state, &mut row)?;
+    let rs = virt_raw as u32;
+    let rt = rt as u32;
+
+    let val = match op {
+        MemOp::LH => sign_extend::<16>((mem >> (16 - (rs & 2) * 8)) & 0xffff),
+        MemOp::LWL => {
+            let val = mem << ((rs & 3) * 8);
+            let mask = 0xffFFffFFu32 << ((rs & 3) * 8);
+            (rt & (!mask)) | val
+        }
+        MemOp::LW => mem,
+        MemOp::LBU => (mem >> (24 - (rs & 3) * 8)) & 0xff,
+        MemOp::LHU => (mem >> (16 - (rs & 2) * 8)) & 0xffff,
+        MemOp::LWR => {
+            let val = mem >> (24 - (rs & 3) * 8);
+            let mask = 0xffFFffFFu32 >> (24 - (rs & 3) * 8);
+            (rt & (!mask)) | val
+        }
+        MemOp::LL => mem,
+        MemOp::LB => sign_extend::<8>((mem >> (24 - (rs & 3) * 8)) & 0xff),
+        _ => todo!(),
+    };
+
+    let log_out0 = reg_write_with_log(rt_reg, 3, val as usize, state, &mut row)?;
+
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_in3);
     state.traces.push_memory(log_out0);
     state.traces.push_cpu(row);
     Ok(())
 }
 
 pub(crate) fn generate_mstore_general<F: Field>(
+    op: MemOp,
+    base: u8,
+    rt_reg: u8,
+    offset: u32,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    /*
-    let [(context, _), (segment, log_in1), (virt, log_in2), (val, log_in3)] =
-        stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
+    let (rs, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
+    let (rt, log_in2) = reg_read_with_log(rt_reg, 1, state, &mut row)?;
 
-    let address = MemoryAddress {
-        context: context
-            .try_into()
-            .map_err(|_| MemoryError(ContextTooLarge { context }))?,
-        segment: segment
-            .try_into()
-            .map_err(|_| MemoryError(SegmentTooLarge { segment }))?,
-        virt: virt
-            .try_into()
-            .map_err(|_| MemoryError(VirtTooLarge { virt }))?,
+    let virt_raw = (rs as u32) + sign_extend::<16>(offset);
+    let virt = virt_raw & 0xFFFF_FFFC;
+    let address = MemoryAddress::new(0, Segment::Code, virt as usize);
+    let (mem, log_in3) = mem_read_gp_with_log_and_fill(2, address, state, &mut row);
+
+    let rs = virt_raw as u32;
+    let rt = rt as u32;
+
+    let val = match op {
+        MemOp::SB => {
+            let val = (rt & 0xff) << (24 - (rs & 3) * 8);
+            let mask = 0xffFFffFFu32 ^ (0xff << (24 - (rs & 3) * 8));
+            (mem & mask) | val
+        }
+        MemOp::SH => {
+            let val = (rt & 0xffff) << (16 - (rs & 2) * 8);
+            let mask = 0xffFFffFFu32 ^ (0xffff << (16 - (rs & 2) * 8));
+            (mem & mask) | val
+        }
+        MemOp::SWL => {
+            let val = rt >> ((rs & 3) * 8);
+            let mask = 0xffFFffFFu32 >> ((rs & 3) * 8);
+            (mem & (!mask)) | val
+        }
+        MemOp::SW => mem,
+        MemOp::SWR => {
+            let val = rt << (24 - (rs & 3) * 8);
+            let mask = 0xffFFffFFu32 << (24 - (rs & 3) * 8);
+            (mem & (!mask)) | val
+        }
+        MemOp::SC => rt,
+        _ => todo!(),
     };
-    let log_write = mem_write_gp_log_and_fill(4, address, state, &mut row, val);
 
-    let diff = row.stack_len - F::from_canonical_usize(4);
-    if let Some(inv) = diff.try_inverse() {
-        row.general.stack_mut().stack_inv = inv;
-        row.general.stack_mut().stack_inv_aux = F::ONE;
-        row.general.stack_mut().stack_inv_aux_2 = F::ONE;
-        state.registers.is_stack_top_read = true;
-    } else {
-        row.general.stack_mut().stack_inv = F::ZERO;
-        row.general.stack_mut().stack_inv_aux = F::ZERO;
+    let log_out0 = mem_write_gp_log_and_fill(3, address, state, &mut row, val);
+
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_in3);
+    state.traces.push_memory(log_out0);
+
+    if op == MemOp::SC {
+        let log_out1 = reg_write_with_log(rt_reg, 4, 1, state, &mut row)?;
+        state.traces.push_memory(log_out1);
     }
 
-    state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
-    state.traces.push_memory(log_in3);
-    state.traces.push_memory(log_write);
     state.traces.push_cpu(row);
-    */
-
-    Ok(())
-}
-
-pub(crate) fn generate_mstore_32bytes<F: Field>(
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    let [(context, _), (segment, log_in1), (base_virt, log_in2), (val, log_in3), (len, log_in4)] =
-        stack_pop_with_log_and_fill::<5, _>(state, &mut row)?;
-
-    let base_address = MemoryAddress::new(context, segment, base_virt);
-
-    // byte_unpacking_log(state, base_address, val, len);
-
-    state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
-    state.traces.push_memory(log_in3);
-    state.traces.push_memory(log_in4);
-    state.traces.push_cpu(row);
-    */
     Ok(())
 }
 
