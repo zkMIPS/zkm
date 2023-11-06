@@ -3,6 +3,7 @@
 pub enum ProgramError {
     OutOfGas,
     InvalidRegister,
+    InvalidSyscall,
     InvalidOpcode,
     StackUnderflow,
     InvalidRlp,
