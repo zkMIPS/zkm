@@ -646,10 +646,14 @@ pub(crate) fn generate_shrav<F: Field>(
 pub(crate) fn load_preimage<F: Field>(
     state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
-    preiamge: &str) -> Result<()> {
+    preiamge: &str,
+) -> Result<()> {
     let content = fs::read(preiamge).expect("Read file failed");
 
-    state.memory.set(MemoryAddress::new(0, Segment::Code, 0x31000000), (content.len() as u32).to_be());
+    state.memory.set(
+        MemoryAddress::new(0, Segment::Code, 0x31000000),
+        (content.len() as u32).to_be(),
+    );
     let mut map_addr = 0x31000004;
     for i in (0..content.len()).step_by(WORD_SIZE) {
         let mut word = 0;
@@ -660,7 +664,9 @@ pub(crate) fn load_preimage<F: Field>(
             let byte = content.get(offset).context("Invalid block offset")?;
             word |= (*byte as u32) << (j * 8);
         }
-        state.memory.set(MemoryAddress::new(0, Segment::Code, map_addr), word);
+        state
+            .memory
+            .set(MemoryAddress::new(0, Segment::Code, map_addr), word);
         map_addr += 4;
     }
 
@@ -681,20 +687,68 @@ pub(crate) fn generate_syscall<F: Field>(
     let result = match sys_num {
         SYSGETPID => {
             let mut hash_bytes = [0u8; 32];
-            hash_bytes[0..4].copy_from_slice(state.memory.get(MemoryAddress::new(0, Segment::Code, 0x30001000)).to_le_bytes().as_ref());
-            hash_bytes[4..8].copy_from_slice(state.memory.get(MemoryAddress::new(0, Segment::Code, 0x30001004)).to_le_bytes().as_ref());
-            hash_bytes[8..12].copy_from_slice(state.memory.get(MemoryAddress::new(0, Segment::Code, 0x30001008)).to_le_bytes().as_ref());
-            hash_bytes[12..16].copy_from_slice(state.memory.get(MemoryAddress::new(0, Segment::Code, 0x3000100C)).to_le_bytes().as_ref());
-            hash_bytes[16..20].copy_from_slice(state.memory.get(MemoryAddress::new(0, Segment::Code, 0x30001010)).to_le_bytes().as_ref());
-            hash_bytes[20..24].copy_from_slice(state.memory.get(MemoryAddress::new(0, Segment::Code, 0x30001014)).to_le_bytes().as_ref());
-            hash_bytes[24..28].copy_from_slice(state.memory.get(MemoryAddress::new(0, Segment::Code, 0x30001018)).to_le_bytes().as_ref());
-            hash_bytes[28..32].copy_from_slice(state.memory.get(MemoryAddress::new(0, Segment::Code, 0x3000101C)).to_le_bytes().as_ref());
+            hash_bytes[0..4].copy_from_slice(
+                state
+                    .memory
+                    .get(MemoryAddress::new(0, Segment::Code, 0x30001000))
+                    .to_le_bytes()
+                    .as_ref(),
+            );
+            hash_bytes[4..8].copy_from_slice(
+                state
+                    .memory
+                    .get(MemoryAddress::new(0, Segment::Code, 0x30001004))
+                    .to_le_bytes()
+                    .as_ref(),
+            );
+            hash_bytes[8..12].copy_from_slice(
+                state
+                    .memory
+                    .get(MemoryAddress::new(0, Segment::Code, 0x30001008))
+                    .to_le_bytes()
+                    .as_ref(),
+            );
+            hash_bytes[12..16].copy_from_slice(
+                state
+                    .memory
+                    .get(MemoryAddress::new(0, Segment::Code, 0x3000100C))
+                    .to_le_bytes()
+                    .as_ref(),
+            );
+            hash_bytes[16..20].copy_from_slice(
+                state
+                    .memory
+                    .get(MemoryAddress::new(0, Segment::Code, 0x30001010))
+                    .to_le_bytes()
+                    .as_ref(),
+            );
+            hash_bytes[20..24].copy_from_slice(
+                state
+                    .memory
+                    .get(MemoryAddress::new(0, Segment::Code, 0x30001014))
+                    .to_le_bytes()
+                    .as_ref(),
+            );
+            hash_bytes[24..28].copy_from_slice(
+                state
+                    .memory
+                    .get(MemoryAddress::new(0, Segment::Code, 0x30001018))
+                    .to_le_bytes()
+                    .as_ref(),
+            );
+            hash_bytes[28..32].copy_from_slice(
+                state
+                    .memory
+                    .get(MemoryAddress::new(0, Segment::Code, 0x3000101C))
+                    .to_le_bytes()
+                    .as_ref(),
+            );
             let hex_string = hex::encode(&hash_bytes);
             let mut preiamge_path = KERNEL.blockpath.clone();
             preiamge_path.push_str(hex_string.as_str());
             load_preimage(state, &mut row, preiamge_path.as_str());
             Ok(())
-        },
+        }
         SYSMMAP => {
             let mut sz = a1;
             if sz & 0xFFF != 0 {
@@ -709,60 +763,59 @@ pub(crate) fn generate_syscall<F: Field>(
                 state.traces.push_memory(outlog);
             };
             Ok(())
-        },
+        }
         SYSBRK => {
             v0 = 0x40000000;
             Ok(())
-        },
-        SYSCLONE => { // clone (not supported)
+        }
+        SYSCLONE => {
+            // clone (not supported)
             v0 = 1;
             Ok(())
-        },
+        }
         SYSEXITGROUP => {
             state.registers.exited = true;
             state.registers.exit_code = a0 as u8;
             Ok(())
-        },
+        }
         SYSREAD => {
             match a0 {
-            FD_STDIN =>  (),  // fdStdin
-            _ => {
-                v0 = 0xFFFFFFFF;
-                v1 = MIPSEBADF;
-            },
+                FD_STDIN => (), // fdStdin
+                _ => {
+                    v0 = 0xFFFFFFFF;
+                    v1 = MIPSEBADF;
+                }
             };
             Ok(())
-        },
+        }
         SYSWRITE => {
             match a0 {
-            FD_STDOUT | FD_STDERR =>  (),  // fdStdout
-            _ => {
-                v0 = 0xFFFFFFFF;
-                v1 = MIPSEBADF;
-            },
+                FD_STDOUT | FD_STDERR => (), // fdStdout
+                _ => {
+                    v0 = 0xFFFFFFFF;
+                    v1 = MIPSEBADF;
+                }
             };
             Ok(())
-        },
+        }
         SysFcntl => {
-        match a0 {
-            FD_STDIN => {
-                v0 = 0;
-                ()
-            }, // fdStdin
-            FD_STDOUT | FD_STDERR => {
-                v0 = 1;
-                ()
-            },  // fdStdout / fdStderr
-            _ => {
-                v0 = 0xFFFFFFFF;
-                v1 = MIPSEBADF;
-            },
+            match a0 {
+                FD_STDIN => {
+                    v0 = 0;
+                    ()
+                } // fdStdin
+                FD_STDOUT | FD_STDERR => {
+                    v0 = 1;
+                    ()
+                } // fdStdout / fdStderr
+                _ => {
+                    v0 = 0xFFFFFFFF;
+                    v1 = MIPSEBADF;
+                }
             };
             Ok(())
-        },
-        _ => {
-            Err(ProgramError::InvalidSyscall)
-        },
+        }
+        _ => Err(ProgramError::InvalidSyscall),
     };
     let outlog1 = reg_write_with_log(2, 4, v0, state, &mut row)?;
     let outlog2 = reg_write_with_log(7, 5, v1, state, &mut row)?;
