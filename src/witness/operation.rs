@@ -47,17 +47,21 @@ impl BranchCond {
     }
 }
 
-pub(crate) const SysGetpid: usize = 4020;
-pub(crate) const SysGetgid: usize = 4047;
-pub(crate) const SysMmap: usize = 4090;
-pub(crate) const SysBrk: usize = 4045;
-pub(crate) const SysClone: usize = 4120;
-pub(crate) const SysExitGroup: usize = 4246;
-pub(crate) const SysRead: usize = 4003;
-pub(crate) const SysWrite: usize = 4004;
-pub(crate) const SysFcntl: usize = 4055;
+pub(crate) const SYSGETPID: usize = 4020;
+pub(crate) const SYSGETGID: usize = 4047;
+pub(crate) const SYSMMAP: usize = 4090;
+pub(crate) const SYSBRK: usize = 4045;
+pub(crate) const SYSCLONE: usize = 4120;
+pub(crate) const SYSEXITGROUP: usize = 4246;
+pub(crate) const SYSREAD: usize = 4003;
+pub(crate) const SYSWRITE: usize = 4004;
+pub(crate) const SYSFCNTL: usize = 4055;
 
-pub(crate) const MipsEBADF: usize = 0x9;
+pub(crate) const FD_STDIN: usize = 0;
+pub(crate) const FD_STDOUT: usize = 1;
+pub(crate) const FD_STDERR: usize = 2;
+
+pub(crate) const MIPSEBADF: usize = 0x9;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum MemOp {
@@ -675,7 +679,7 @@ pub(crate) fn generate_syscall<F: Field>(
     let mut v1 = 0usize;
 
     let result = match sys_num {
-        SysGetpid => {
+        SYSGETPID => {
             let mut hash_bytes = [0u8; 32];
             hash_bytes[0..4].copy_from_slice(state.memory.get(MemoryAddress::new(0, Segment::Code, 0x30001000)).to_le_bytes().as_ref());
             hash_bytes[4..8].copy_from_slice(state.memory.get(MemoryAddress::new(0, Segment::Code, 0x30001004)).to_le_bytes().as_ref());
@@ -691,7 +695,7 @@ pub(crate) fn generate_syscall<F: Field>(
             load_preimage(state, &mut row, preiamge_path.as_str());
             Ok(())
         },
-        SysMmap => {
+        SYSMMAP => {
             let mut sz = a1;
             if sz & 0xFFF != 0 {
                 sz += 0x1000 - sz & 0xFFF;
@@ -706,57 +710,52 @@ pub(crate) fn generate_syscall<F: Field>(
             };
             Ok(())
         },
-        SysBrk => {
+        SYSBRK => {
             v0 = 0x40000000;
             Ok(())
         },
-        SysClone => { // clone (not supported)
+        SYSCLONE => { // clone (not supported)
             v0 = 1;
             Ok(())
         },
-        SysExitGroup => {
+        SYSEXITGROUP => {
             state.registers.exited = true;
             state.registers.exit_code = a0 as u8;
             Ok(())
         },
-        SysRead => {
+        SYSREAD => {
             match a0 {
-            0 =>  (),  // fdStdin
+            FD_STDIN =>  (),  // fdStdin
             _ => {
                 v0 = 0xFFFFFFFF;
-                v1 = MipsEBADF;
+                v1 = MIPSEBADF;
             },
             };
             Ok(())
         },
-        SysWrite => {
+        SYSWRITE => {
             match a0 {
-            1 =>  (),  // fdStdout
-            2 =>  (),  // fdStderr
+            FD_STDOUT | FD_STDERR =>  (),  // fdStdout
             _ => {
                 v0 = 0xFFFFFFFF;
-                v1 = MipsEBADF;
+                v1 = MIPSEBADF;
             },
             };
             Ok(())
         },
         SysFcntl => {
         match a0 {
-            0 => {
+            FD_STDIN => {
                 v0 = 0;
                 ()
             }, // fdStdin
-            1 => {
+            FD_STDOUT | FD_STDERR => {
                 v0 = 1;
                 ()
-            },  // fdStdout
-            2 => {
-                v0 = 1;
-                ()
-            },  // fdStderr
+            },  // fdStdout / fdStderr
             _ => {
                 v0 = 0xFFFFFFFF;
-                v1 = MipsEBADF;
+                v1 = MIPSEBADF;
             },
             };
             Ok(())
