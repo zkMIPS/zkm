@@ -876,7 +876,7 @@ pub(crate) fn generate_syscall<F: Field>(
             };
             Ok(())
         }
-        _ => Err(ProgramError::InvalidSyscall),
+        _ => Ok(()),
     };
     let outlog1 = reg_write_with_log(2, 4, v0, state, &mut row)?;
     let outlog2 = reg_write_with_log(7, 5, v1, state, &mut row)?;
