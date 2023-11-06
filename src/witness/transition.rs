@@ -23,7 +23,7 @@ fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColum
     let address = MemoryAddress::new(code_context, Segment::Code, state.registers.program_counter);
     let (opcode, mem_log) = mem_read_code_with_log_and_fill(address, state, row);
     log::debug!(
-        "read_code_memory: PC {} op: {:?}, {:?}",
+        "read_code_memory: PC {:X} op: {:?}, {:?}",
         state.registers.program_counter,
         opcode,
         mem_log
@@ -169,6 +169,12 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             0,
             32,
         )), // MTLO: lo = rs
+        (0b000000, 0b001111, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::ADD,
+            0,
+            0,
+            0,
+        )), // SYNC
         (0b011100, 0b100000, _) => Ok(Operation::Count(false, rs, rd)), // CLZ: rd = count_leading_zeros(rs)
         (0b011100, 0b100001, _) => Ok(Operation::Count(true, rs, rd)), // CLO: rd = count_leading_ones(rs)
         (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)),               // JR
@@ -398,7 +404,7 @@ fn perform_op<F: Field>(
     };
 
     state.registers.program_counter += match op {
-        Operation::Syscall | Operation::ExitKernel => 0,
+        Operation::ExitKernel => 0,
         Operation::Jump(_, _) => 0,
         Operation::Jumpi(_, _) => 0,
         Operation::Branch(_, _, _, _) => 0,

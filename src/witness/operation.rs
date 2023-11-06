@@ -393,18 +393,19 @@ pub(crate) fn generate_branch<F: Field>(
     let should_jump = cond.result(src1, src2);
     reg_write_with_log(0, 2, src1 - src2, state, &mut row)?;
     reg_write_with_log(0, 3, src2 - src1, state, &mut row)?;
-    let pc = state.registers.program_counter;
+    let pc = state.registers.program_counter as u32;
     if should_jump {
-        let (mut target_pc, _) = (target as usize).overflowing_shl(2);
-        target_pc = target_pc.wrapping_add(pc);
+        let target = sign_extend::<16>(target);
+        let (mut target_pc, _) = target.overflowing_shl(2);
+        target_pc = target_pc.wrapping_add(pc + 4);
         row.general.jumps_mut().should_jump = F::ONE;
         state.traces.push_cpu(row);
-        state.jump_to(target_pc);
+        state.jump_to(target_pc as usize);
     } else {
         let next_pc = pc.wrapping_add(8);
         row.general.jumps_mut().should_jump = F::ZERO;
         state.traces.push_cpu(row);
-        state.jump_to(next_pc);
+        state.jump_to(next_pc as usize);
     }
     state.traces.push_cpu(row);
     state.traces.push_memory(src1_op);
@@ -625,6 +626,7 @@ pub(crate) fn generate_sra<F: Field>(
 
     state.traces.push_arithmetic(operation);
     let outlog = reg_write_with_log(rd, 2, result as usize, state, &mut row)?;
+    state.traces.push_memory(log_in0);
     state.traces.push_memory(outlog);
     state.traces.push_cpu(row);
     Ok(())
@@ -642,8 +644,8 @@ pub(crate) fn generate_shlv<F: Field>(
     let input0 = in0 & 0x1F;
     let operation = arithmetic::Operation::binary(
         arithmetic::BinaryOperator::SLLV,
-        input0 as u32,
         input1 as u32,
+        input0 as u32,
     );
     let result = operation.result().0;
 
@@ -668,8 +670,8 @@ pub(crate) fn generate_shrv<F: Field>(
     let input0 = in0 & 0x1F;
     let operation = arithmetic::Operation::binary(
         arithmetic::BinaryOperator::SRLV,
-        input0 as u32,
         input1 as u32,
+        input0 as u32,
     );
     let result = operation.result().0;
 
@@ -683,21 +685,27 @@ pub(crate) fn generate_shrv<F: Field>(
 }
 
 pub(crate) fn generate_shrav<F: Field>(
-    sa: u8,
+    rs: u8,
     rt: u8,
     rd: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
-    let in1 = sa as u32;
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (input1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let input0 = in0 & 0x1F;
 
-    let operation =
-        arithmetic::Operation::binary(arithmetic::BinaryOperator::SRAV, in0 as u32, in1);
+    let operation = arithmetic::Operation::binary(
+        arithmetic::BinaryOperator::SRAV,
+        input1 as u32,
+        input0 as u32,
+    );
     let result = operation.result().0;
 
     state.traces.push_arithmetic(operation);
     let outlog = reg_write_with_log(rd, 2, result as usize, state, &mut row)?;
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
     state.traces.push_memory(outlog);
     state.traces.push_cpu(row);
     Ok(())
@@ -821,6 +829,8 @@ pub(crate) fn generate_syscall<F: Field>(
                 let outlog = reg_write_with_log(34, 7, heap, state, &mut row)?;
                 state.traces.push_memory(log_in5);
                 state.traces.push_memory(outlog);
+            } else {
+                v0 = a0;
             };
             Ok(())
         }
@@ -875,7 +885,7 @@ pub(crate) fn generate_syscall<F: Field>(
             };
             Ok(())
         }
-        _ => Err(ProgramError::InvalidSyscall),
+        _ => Ok(()),
     };
     let outlog1 = reg_write_with_log(2, 4, v0, state, &mut row)?;
     let outlog2 = reg_write_with_log(7, 5, v1, state, &mut row)?;
@@ -1024,7 +1034,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
             let mask = 0xffFFffFFu32 >> ((rs & 3) * 8);
             (mem & (!mask)) | val
         }
-        MemOp::SW => mem,
+        MemOp::SW => rt,
         MemOp::SWR => {
             let val = rt << (24 - (rs & 3) * 8);
             let mask = 0xffFFffFFu32 << (24 - (rs & 3) * 8);
@@ -1036,6 +1046,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
 
     let log_out0 = mem_write_gp_log_and_fill(3, address, state, &mut row, val);
 
+    log::debug!("write {:X} : {:X}", address.virt, val);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_in3);
