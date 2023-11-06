@@ -806,7 +806,7 @@ pub(crate) fn generate_syscall<F: Field>(
             let hex_string = hex::encode(&hash_bytes);
             let mut preiamge_path = KERNEL.blockpath.clone();
             preiamge_path.push_str(hex_string.as_str());
-            load_preimage(state, &mut row, preiamge_path.as_str());
+            let _ = load_preimage(state, &mut row, preiamge_path.as_str());
             Ok(())
         }
         SYSMMAP => {
@@ -858,7 +858,7 @@ pub(crate) fn generate_syscall<F: Field>(
             };
             Ok(())
         }
-        SysFcntl => {
+        SYSFCNTL => {
             match a0 {
                 FD_STDIN => {
                     v0 = 0;
