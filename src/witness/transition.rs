@@ -23,7 +23,7 @@ fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColum
     let address = MemoryAddress::new(code_context, Segment::Code, state.registers.program_counter);
     let (opcode, mem_log) = mem_read_code_with_log_and_fill(address, state, row);
     log::debug!(
-        "read_code_memory: PC {} op: {:?}, {:?}",
+        "read_code_memory: PC {:X} op: {:?}, {:?}",
         state.registers.program_counter,
         opcode,
         mem_log
