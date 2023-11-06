@@ -1,5 +1,5 @@
-use crate::cpu::kernel::KERNEL;
 use crate::cpu::kernel::elf::INIT_SP;
+use crate::cpu::kernel::KERNEL;
 
 const KERNEL_CONTEXT: usize = 0;
 
