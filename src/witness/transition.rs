@@ -169,6 +169,12 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             0,
             32,
         )), // MTLO: lo = rs
+        (0b000000, 0b001111, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::ADD,
+            0,
+            0,
+            0,
+        )), // SYNC
         (0b011100, 0b100000, _) => Ok(Operation::Count(false, rs, rd)), // CLZ: rd = count_leading_zeros(rs)
         (0b011100, 0b100001, _) => Ok(Operation::Count(true, rs, rd)), // CLO: rd = count_leading_ones(rs)
         (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)),               // JR
