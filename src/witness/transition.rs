@@ -145,6 +145,30 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             rt,
             rd,
         )), // DIVU: (hi, lo) = rt / rs
+        (0b000000, 0b010000, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::ADD,
+            33,
+            0,
+            rd,
+        )), // MFHI: rd = hi
+        (0b000000, 0b010001, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::ADD,
+            rs,
+            0,
+            33,
+        )), // MTHI: hi = rs
+        (0b000000, 0b010010, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::ADD,
+            32,
+            0,
+            rd,
+        )), // MFLO: rd = lo
+        (0b000000, 0b010011, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::ADD,
+            rs,
+            0,
+            32,
+        )), // MTLO: lo = rs
         (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)),                               // JR
         (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),                                // JALR
         (0x01, _, _) => {
