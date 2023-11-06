@@ -626,6 +626,7 @@ pub(crate) fn generate_sra<F: Field>(
 
     state.traces.push_arithmetic(operation);
     let outlog = reg_write_with_log(rd, 2, result as usize, state, &mut row)?;
+    state.traces.push_memory(log_in0);
     state.traces.push_memory(outlog);
     state.traces.push_cpu(row);
     Ok(())
@@ -643,8 +644,8 @@ pub(crate) fn generate_shlv<F: Field>(
     let input0 = in0 & 0x1F;
     let operation = arithmetic::Operation::binary(
         arithmetic::BinaryOperator::SLLV,
-        input0 as u32,
         input1 as u32,
+        input0 as u32,
     );
     let result = operation.result().0;
 
@@ -669,8 +670,8 @@ pub(crate) fn generate_shrv<F: Field>(
     let input0 = in0 & 0x1F;
     let operation = arithmetic::Operation::binary(
         arithmetic::BinaryOperator::SRLV,
-        input0 as u32,
         input1 as u32,
+        input0 as u32,
     );
     let result = operation.result().0;
 
@@ -684,21 +685,27 @@ pub(crate) fn generate_shrv<F: Field>(
 }
 
 pub(crate) fn generate_shrav<F: Field>(
-    sa: u8,
+    rs: u8,
     rt: u8,
     rd: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
-    let in1 = sa as u32;
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (input1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let input0 = in0 & 0x1F;
 
-    let operation =
-        arithmetic::Operation::binary(arithmetic::BinaryOperator::SRAV, in0 as u32, in1);
+    let operation = arithmetic::Operation::binary(
+        arithmetic::BinaryOperator::SRAV,
+        input1 as u32,
+        input0 as u32,
+    );
     let result = operation.result().0;
 
     state.traces.push_arithmetic(operation);
     let outlog = reg_write_with_log(rd, 2, result as usize, state, &mut row)?;
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
     state.traces.push_memory(outlog);
     state.traces.push_cpu(row);
     Ok(())

@@ -29,7 +29,8 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
             // FIXMEBoth instruction and memory data are located in
             // code section for MIPS
             let address = MemoryAddress::new(0, Segment::Code, *addr as usize);
-            let write = mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, (*val).to_be());
+            let write =
+                mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, (*val).to_be());
             //log::debug!(
             //    "init memory: v: {}, addr: {:?}, val : {}",
             //    *addr, address, *val

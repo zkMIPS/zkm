@@ -281,7 +281,12 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     row: &mut CpuColumnsView<F>,
     val: u32,
 ) -> MemoryOp {
-    let op = mem_write_log(MemoryChannel::GeneralPurpose(n), address, state, val.to_be());
+    let op = mem_write_log(
+        MemoryChannel::GeneralPurpose(n),
+        address,
+        state,
+        val.to_be(),
+    );
 
     let channel = &mut row.mem_channels[n];
     assert_eq!(channel.used, F::ZERO);
