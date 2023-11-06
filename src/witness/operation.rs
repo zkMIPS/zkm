@@ -393,18 +393,19 @@ pub(crate) fn generate_branch<F: Field>(
     let should_jump = cond.result(src1, src2);
     reg_write_with_log(0, 2, src1 - src2, state, &mut row)?;
     reg_write_with_log(0, 3, src2 - src1, state, &mut row)?;
-    let pc = state.registers.program_counter;
+    let pc = state.registers.program_counter as u32;
     if should_jump {
-        let (mut target_pc, _) = (target as usize).overflowing_shl(2);
+        let target = sign_extend::<16>(target);
+        let (mut target_pc, _) = target.overflowing_shl(2);
         target_pc = target_pc.wrapping_add(pc + 4);
         row.general.jumps_mut().should_jump = F::ONE;
         state.traces.push_cpu(row);
-        state.jump_to(target_pc);
+        state.jump_to(target_pc as usize);
     } else {
         let next_pc = pc.wrapping_add(8);
         row.general.jumps_mut().should_jump = F::ZERO;
         state.traces.push_cpu(row);
-        state.jump_to(next_pc);
+        state.jump_to(next_pc as usize);
     }
     state.traces.push_cpu(row);
     state.traces.push_memory(src1_op);
