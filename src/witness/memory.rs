@@ -150,6 +150,7 @@ impl MemoryState {
             if kind == MemoryOpKind::Write {
                 self.set(address, value);
             }
+            log::debug!("set mem {:X} : {:X}", address.virt, value);
         }
     }
 
@@ -157,9 +158,10 @@ impl MemoryState {
         if address.context >= self.contexts.len() {
             return 0;
         }
-
+    
         let segment = Segment::all()[address.segment];
         let val = self.contexts[address.context].segments[address.segment].get(address.virt);
+        log::debug!("read mem {:X} : {:X}", address.virt, val);
         /*
         assert!(
             u32::BITS as usize <= segment.bit_range(),

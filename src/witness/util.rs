@@ -60,7 +60,6 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
     row.opcode_bits = to_bits_le(val_op);
     row.func_bits = to_bits_le(val_func);
     row.insn_bits = to_bits32_le(val);
-    log::debug!("read mem {:X} : {:X}", address.virt, val);
     (val, op)
 }
 
