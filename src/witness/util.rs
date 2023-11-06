@@ -254,6 +254,7 @@ pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
 ) -> (u32, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::GeneralPurpose(n), address, state);
 
+    let val = val.to_be();
     let channel = &mut row.mem_channels[n];
     assert_eq!(channel.used, F::ZERO);
     channel.used = F::ONE;
