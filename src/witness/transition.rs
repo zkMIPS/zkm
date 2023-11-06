@@ -115,6 +115,12 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             rt,
             rd,
         )), // SRAV: rd = rt >> rs[4:0]
+        (0b011100, 0b000010, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::MUL,
+            rs,
+            rt,
+            rd,
+        )), // MUL: rd = rt * rs
         (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)),                               // JR
         (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),                                // JALR
         (0x01, _, _) => {

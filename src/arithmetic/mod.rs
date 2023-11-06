@@ -21,6 +21,7 @@ pub(crate) enum BinaryOperator {
     SUBU,
     MULT,
     MULTU,
+    MUL,
     DIV,
     DIVU,
     SLLV,
@@ -68,6 +69,7 @@ impl BinaryOperator {
                 let sout = sin >> input1;
                 (sout as u32, 0)
             }
+            BinaryOperator::MUL => (input0.overflowing_mul(input1).0, 0),
             BinaryOperator::SLTU => {
                 if input0 < input1 {
                     (1, 0)
@@ -129,6 +131,7 @@ impl BinaryOperator {
             BinaryOperator::SUBU => columns::IS_SUBU,
             BinaryOperator::MULT => columns::IS_MULT,
             BinaryOperator::MULTU => columns::IS_MULTU,
+            BinaryOperator::MUL => columns::IS_MUL,
             BinaryOperator::DIV => columns::IS_DIV,
             BinaryOperator::DIVU => columns::IS_DIVU,
             BinaryOperator::SLL => columns::IS_SLL,
