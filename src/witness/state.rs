@@ -1,4 +1,5 @@
 use crate::cpu::kernel::KERNEL;
+use crate::cpu::kernel::elf::INIT_SP;
 
 const KERNEL_CONTEXT: usize = 0;
 
@@ -26,11 +27,13 @@ impl RegistersState {
 
 impl Default for RegistersState {
     fn default() -> Self {
+        let mut gprs = [0usize; 32];
+        gprs[29] = INIT_SP as usize;
         Self {
-            gprs: Default::default(),
+            gprs,
             lo: 0,
             hi: 0,
-            heap: 0,
+            heap: 0x20000000,
             program_counter: KERNEL.program.entry as usize,
             is_kernel: true,
             context: 0,
