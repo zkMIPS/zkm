@@ -395,13 +395,13 @@ pub(crate) fn generate_branch<F: Field>(
     reg_write_with_log(0, 3, src2 - src1, state, &mut row)?;
     let pc = state.registers.program_counter;
     if should_jump {
-        let (mut target_pc, _) = (target as usize).overflowing_shl(2);
+        let (mut target_pc, _) = ((target + 4) as usize).overflowing_shl(2);
         target_pc = target_pc.wrapping_add(pc);
         row.general.jumps_mut().should_jump = F::ONE;
         state.traces.push_cpu(row);
         state.jump_to(target_pc);
     } else {
-        let next_pc = pc.wrapping_add(8);
+        let next_pc = pc.wrapping_add(4);
         row.general.jumps_mut().should_jump = F::ZERO;
         state.traces.push_cpu(row);
         state.jump_to(next_pc);
