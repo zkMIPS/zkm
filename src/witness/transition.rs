@@ -79,10 +79,40 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         )), // SUBU: rd = rs-rt
         (0b000000, 0b000000, _) => Ok(Operation::BinaryArithmetic(
             arithmetic::BinaryOperator::SLL,
-            rt,
             sa,
+            rt,
             rd,
         )), // SLL: rd = rt << sa
+        (0b000000, 0b000010, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SRL,
+            sa,
+            rt,
+            rd,
+        )), // SRL: rd = rt >> sa
+        (0b000000, 0b000011, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SRA,
+            sa,
+            rt,
+            rd,
+        )), // SRA: rd = rt >> sa
+        (0b000000, 0b000100, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SLLV,
+            rs,
+            rt,
+            rd,
+        )), // SLLV: rd = rt << rs[4:0]
+        (0b000000, 0b000110, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SRLV,
+            rs,
+            rt,
+            rd,
+        )), // SRLV: rd = rt >> rs[4:0]
+        (0b000000, 0b000111, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SRAV,
+            rs,
+            rt,
+            rd,
+        )), // SRAV: rd = rt >> rs[4:0]
         (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)), // JR
         (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),  // JALR
         (0x01, _, _) => {
