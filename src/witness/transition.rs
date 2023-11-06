@@ -121,6 +121,30 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             rt,
             rd,
         )), // MUL: rd = rt * rs
+        (0b000000, 0b011000, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::MULT,
+            rs,
+            rt,
+            rd,
+        )), // MULT: (hi, lo) = rt * rs
+        (0b000000, 0b011001, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::MULTU,
+            rs,
+            rt,
+            rd,
+        )), // MULTU: (hi, lo) = rt * rs
+        (0b000000, 0b011010, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::DIV,
+            rs,
+            rt,
+            rd,
+        )), // DIV: (hi, lo) = rt / rs
+        (0b000000, 0b011011, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::DIVU,
+            rs,
+            rt,
+            rd,
+        )), // DIVU: (hi, lo) = rt / rs
         (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)),                               // JR
         (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),                                // JALR
         (0x01, _, _) => {
