@@ -91,6 +91,7 @@ pub(crate) enum Operation {
     BinaryLogicImm(logic::Op, u8, u8, u32),
     BinaryArithmetic(arithmetic::BinaryOperator, u8, u8, u8),
     BinaryArithmeticImm(arithmetic::BinaryOperator, u8, u8, u32),
+    Count(bool, u8, u8),
     CondMov(BranchCond, u8, u8, u8),
     KeccakGeneral,
     ProverInput,
@@ -130,6 +131,34 @@ pub(crate) fn generate_cond_mov_op<F: Field>(
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_count_op<F: Field>(
+    ones: bool,
+    rs: u8,
+    rd: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (mut in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+
+    let mut src = in0 as u32;
+    if !ones {
+        src = !src;
+    }
+
+    let mut out: usize = 0;
+    while src & 0x80000000 != 0 {
+        src <<= 1;
+        out += 1;
+    }
+
+    let log_out0 = reg_write_with_log(rd, 1, out, state, &mut row)?;
+
+    state.traces.push_memory(log_in0);
     state.traces.push_memory(log_out0);
     state.traces.push_cpu(row);
     Ok(())

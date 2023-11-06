@@ -12,6 +12,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub eq_iszero: T,     // Combines EQ and ISZERO flags.
     pub logic_op: T,      // Combines AND, OR and XOR flags.
     pub condmov_op: T,
+    pub count_op: T,
     pub not: T,
     pub shift: T, // Combines SHL and SHR flags.
     pub keccak_general: T,
