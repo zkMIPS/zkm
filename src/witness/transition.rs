@@ -23,7 +23,8 @@ fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColum
     let address = MemoryAddress::new(code_context, Segment::Code, state.registers.program_counter);
     let (opcode, mem_log) = mem_read_code_with_log_and_fill(address, state, row);
     log::debug!(
-        "read_code_memory: PC {:X} op: {:?}, {:?}",
+        "read_code_memory: PC {:X} ({}) op: {:?}, {:?}",
+        state.registers.program_counter,
         state.registers.program_counter,
         opcode,
         mem_log
@@ -409,6 +410,18 @@ fn perform_op<F: Field>(
         Operation::Jumpi(_, _) => 0,
         Operation::Branch(_, _, _, _) => 0,
         _ => 4,
+    };
+
+    match  op {
+        Operation::Jump(_, _) | Operation::Jumpi(_, _) | Operation::Branch(_, _, _, _) => {
+            log::debug!("states: pc {} registers: {:?}", state.registers.program_counter, state.registers.gprs);
+            ()
+        },
+        Operation::Syscall => {
+            log::debug!("states: pc {} registers: {:?}", state.registers.program_counter + 4, state.registers.gprs);
+            ()
+        },
+        _ => (),
     };
 
     Ok(())

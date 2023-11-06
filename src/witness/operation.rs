@@ -35,7 +35,7 @@ pub(crate) enum BranchCond {
 }
 
 impl BranchCond {
-    pub(crate) fn result(&self, input0: usize, input1: usize) -> bool {
+    pub(crate) fn result(&self, input0: i32, input1: i32) -> bool {
         match self {
             BranchCond::EQ => input0 == input1,
             BranchCond::NE => input0 != input1,
@@ -390,7 +390,7 @@ pub(crate) fn generate_branch<F: Field>(
 ) -> Result<(), ProgramError> {
     let (src1, src1_op) = reg_read_with_log(src1, 0, state, &mut row)?;
     let (src2, src2_op) = reg_read_with_log(src2, 1, state, &mut row)?;
-    let should_jump = cond.result(src1, src2);
+    let should_jump = cond.result(src1 as i32, src2 as i32);
     reg_write_with_log(0, 2, src1 - src2, state, &mut row)?;
     reg_write_with_log(0, 3, src2 - src1, state, &mut row)?;
     let pc = state.registers.program_counter as u32;
@@ -860,7 +860,7 @@ pub(crate) fn generate_syscall<F: Field>(
         }
         SYSWRITE => {
             match a0 {
-                FD_STDOUT | FD_STDERR => (), // fdStdout
+                FD_STDOUT | FD_STDERR => v0 = a2, // fdStdout
                 _ => {
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
@@ -1046,7 +1046,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
 
     let log_out0 = mem_write_gp_log_and_fill(3, address, state, &mut row, val);
 
-    log::debug!("write {:X} : {:X}", address.virt, val);
+    log::debug!("write {:X} : {:X} ({})", address.virt, val, val);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_in3);

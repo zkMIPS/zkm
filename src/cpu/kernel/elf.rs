@@ -191,10 +191,10 @@ impl Program {
         image.insert(sp + 4 * 7, (sp + 4 * 9).to_be()); // auxv[3] = address of 16 bytes containing random value
         image.insert(sp + 4 * 8, 0); // auxv[term] = 0
 
-        image.insert(sp + 4 * 9, 0x34322343);
-        image.insert(sp + 4 * 10, 0x54323423);
-        image.insert(sp + 4 * 11, 0x44572234);
-        image.insert(sp + 4 * 12, 0x90032dd2);
+        image.insert(sp + 4 * 9, 0x34322343u32.to_be());
+        image.insert(sp + 4 * 10, 0x54323423u32.to_be());
+        image.insert(sp + 4 * 11, 0x44572234u32.to_be());
+        image.insert(sp + 4 * 12, 0x90032dd2u32.to_be());
 
         Ok(Program { entry, image })
     }
