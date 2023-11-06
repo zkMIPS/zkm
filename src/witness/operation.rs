@@ -829,6 +829,8 @@ pub(crate) fn generate_syscall<F: Field>(
                 let outlog = reg_write_with_log(34, 7, heap, state, &mut row)?;
                 state.traces.push_memory(log_in5);
                 state.traces.push_memory(outlog);
+            } else {
+                v0 = a0;
             };
             Ok(())
         }
