@@ -53,6 +53,8 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
     );
 
     match (opcode, func, registers.is_kernel) {
+        (0b000000, 0b001010, _) => Ok(Operation::CondMov(BranchCond::EQ, rs, rt, rd)), // MOVZ: rd = rs if rt == 0
+        (0b000000, 0b001011, _) => Ok(Operation::CondMov(BranchCond::NE, rs, rt, rd)), // MOVZ: rd = rs if rt != 0
         (0b000000, 0b100000, _) => Ok(Operation::BinaryArithmetic(
             arithmetic::BinaryOperator::ADD,
             rs,
@@ -79,12 +81,98 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         )), // SUBU: rd = rs-rt
         (0b000000, 0b000000, _) => Ok(Operation::BinaryArithmetic(
             arithmetic::BinaryOperator::SLL,
-            rt,
             sa,
+            rt,
             rd,
         )), // SLL: rd = rt << sa
-        (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)), // JR
-        (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),  // JALR
+        (0b000000, 0b000010, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SRL,
+            sa,
+            rt,
+            rd,
+        )), // SRL: rd = rt >> sa
+        (0b000000, 0b000011, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SRA,
+            sa,
+            rt,
+            rd,
+        )), // SRA: rd = rt >> sa
+        (0b000000, 0b000100, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SLLV,
+            rs,
+            rt,
+            rd,
+        )), // SLLV: rd = rt << rs[4:0]
+        (0b000000, 0b000110, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SRLV,
+            rs,
+            rt,
+            rd,
+        )), // SRLV: rd = rt >> rs[4:0]
+        (0b000000, 0b000111, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::SRAV,
+            rs,
+            rt,
+            rd,
+        )), // SRAV: rd = rt >> rs[4:0]
+        (0b011100, 0b000010, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::MUL,
+            rs,
+            rt,
+            rd,
+        )), // MUL: rd = rt * rs
+        (0b000000, 0b011000, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::MULT,
+            rs,
+            rt,
+            rd,
+        )), // MULT: (hi, lo) = rt * rs
+        (0b000000, 0b011001, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::MULTU,
+            rs,
+            rt,
+            rd,
+        )), // MULTU: (hi, lo) = rt * rs
+        (0b000000, 0b011010, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::DIV,
+            rs,
+            rt,
+            rd,
+        )), // DIV: (hi, lo) = rt / rs
+        (0b000000, 0b011011, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::DIVU,
+            rs,
+            rt,
+            rd,
+        )), // DIVU: (hi, lo) = rt / rs
+        (0b000000, 0b010000, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::ADD,
+            33,
+            0,
+            rd,
+        )), // MFHI: rd = hi
+        (0b000000, 0b010001, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::ADD,
+            rs,
+            0,
+            33,
+        )), // MTHI: hi = rs
+        (0b000000, 0b010010, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::ADD,
+            32,
+            0,
+            rd,
+        )), // MFLO: rd = lo
+        (0b000000, 0b010011, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::ADD,
+            rs,
+            0,
+            32,
+        )), // MTLO: lo = rs
+        (0b011100, 0b100000, _) => Ok(Operation::Count(false, rs, rd)), // CLZ: rd = count_leading_zeros(rs)
+        (0b011100, 0b100001, _) => Ok(Operation::Count(true, rs, rd)), // CLO: rd = count_leading_ones(rs)
+        (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)),               // JR
+        (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),                // JALR
         (0x01, _, _) => {
             if rt == 1 {
                 Ok(Operation::Branch(BranchCond::GE, rs, 0u8, offset)) // BGEZ
@@ -186,6 +274,8 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Iszero | Operation::Eq => &mut flags.eq_iszero,
         Operation::Not => &mut flags.not,
         Operation::Syscall => &mut flags.syscall,
+        Operation::CondMov(_, _, _, _) => &mut flags.condmov_op,
+        Operation::Count(_, _, _) => &mut flags.count_op,
         Operation::BinaryLogic(_, _, _, _) => &mut flags.logic_op,
         Operation::BinaryLogicImm(_, _, _, _) => &mut flags.logic_op,
         Operation::BinaryArithmetic(..) => &mut flags.binary_op,
@@ -213,6 +303,8 @@ fn perform_op<F: Field>(
         Operation::Not => generate_not(state, row)?,
         Operation::Syscall => generate_syscall(state, row)?,
         Operation::Eq => generate_eq(state, row)?,
+        Operation::CondMov(cond, rs, rt, rd) => generate_cond_mov_op(cond, rs, rt, rd, state, row)?,
+        Operation::Count(ones, rs, rd) => generate_count_op(ones, rs, rd, state, row)?,
         Operation::BinaryLogic(binary_logic_op, rs, rt, rd) => {
             generate_binary_logic_op(binary_logic_op, rs, rt, rd, state, row)?
         }
