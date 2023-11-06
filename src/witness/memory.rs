@@ -150,7 +150,6 @@ impl MemoryState {
             if kind == MemoryOpKind::Write {
                 self.set(address, value);
             }
-            log::debug!("set mem {:X} : {:X}", address.virt, value);
         }
     }
 
