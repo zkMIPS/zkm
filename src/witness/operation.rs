@@ -1025,7 +1025,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
             let mask = 0xffFFffFFu32 >> ((rs & 3) * 8);
             (mem & (!mask)) | val
         }
-        MemOp::SW => mem,
+        MemOp::SW => rt,
         MemOp::SWR => {
             let val = rt << (24 - (rs & 3) * 8);
             let mask = 0xffFFffFFu32 << (24 - (rs & 3) * 8);
