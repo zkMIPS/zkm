@@ -398,7 +398,7 @@ fn perform_op<F: Field>(
     };
 
     state.registers.program_counter += match op {
-        Operation::Syscall | Operation::ExitKernel => 0,
+        Operation::ExitKernel => 0,
         Operation::Jump(_, _) => 0,
         Operation::Jumpi(_, _) => 0,
         Operation::Branch(_, _, _, _) => 0,
