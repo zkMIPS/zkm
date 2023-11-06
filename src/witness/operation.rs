@@ -91,6 +91,7 @@ pub(crate) enum Operation {
     BinaryLogicImm(logic::Op, u8, u8, u32),
     BinaryArithmetic(arithmetic::BinaryOperator, u8, u8, u8),
     BinaryArithmeticImm(arithmetic::BinaryOperator, u8, u8, u32),
+    CondMov(BranchCond, u8, u8, u8),
     KeccakGeneral,
     ProverInput,
     Jump(u8, u8),
@@ -102,6 +103,36 @@ pub(crate) enum Operation {
     ExitKernel,
     MloadGeneral(MemOp, u8, u8, u32),
     MstoreGeneral(MemOp, u8, u8, u32),
+}
+
+pub(crate) fn generate_cond_mov_op<F: Field>(
+    cond: BranchCond,
+    rs: u8,
+    rt: u8,
+    rd: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let (in2, log_in2) = reg_read_with_log(rd, 2, state, &mut row)?;
+
+    let mov = match cond {
+        BranchCond::EQ => in1 == 0,
+        BranchCond::NE => in1 != 0,
+        _ => true,
+    };
+
+    let out = if mov { in0 } else { in2 };
+
+    let log_out0 = reg_write_with_log(rd, 3, out, state, &mut row)?;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+    Ok(())
 }
 
 pub(crate) fn generate_binary_logic_op<F: Field>(
