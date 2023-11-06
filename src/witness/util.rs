@@ -60,7 +60,6 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
     row.opcode_bits = to_bits_le(val_op);
     row.func_bits = to_bits_le(val_func);
     row.insn_bits = to_bits32_le(val);
-
     (val, op)
 }
 
@@ -95,7 +94,7 @@ pub(crate) fn reg_read_with_log<F: Field>(
     } else {
         return Err(ProgramError::InvalidRegister);
     }
-
+    log::debug!("read reg {} : {:X}", index, result);
     let address = MemoryAddress::new(0, Segment::RegisterFile, index as usize);
     let op = MemoryOp::new(
         MemoryChannel::GeneralPurpose(channel),
@@ -140,6 +139,8 @@ pub(crate) fn reg_write_with_log<F: Field>(
     } else {
         return Err(ProgramError::InvalidRegister);
     }
+
+    log::debug!("write reg {} : {:X}", index, value);
 
     let address = MemoryAddress::new(0, Segment::RegisterFile, index as usize);
     let op = MemoryOp::new(
@@ -253,6 +254,7 @@ pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
 ) -> (u32, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::GeneralPurpose(n), address, state);
 
+    let val = val.to_be();
     let channel = &mut row.mem_channels[n];
     assert_eq!(channel.used, F::ZERO);
     channel.used = F::ONE;
@@ -279,7 +281,12 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     row: &mut CpuColumnsView<F>,
     val: u32,
 ) -> MemoryOp {
-    let op = mem_write_log(MemoryChannel::GeneralPurpose(n), address, state, val);
+    let op = mem_write_log(
+        MemoryChannel::GeneralPurpose(n),
+        address,
+        state,
+        val.to_be(),
+    );
 
     let channel = &mut row.mem_channels[n];
     assert_eq!(channel.used, F::ZERO);
