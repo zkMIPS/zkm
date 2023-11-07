@@ -1046,7 +1046,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
 
     let log_out0 = mem_write_gp_log_and_fill(3, address, state, &mut row, val);
 
-    log::debug!("write {:X} : {:X}", address.virt, val);
+    log::debug!("write {:X} : {:X} ({})", address.virt, val, val);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_in3);
