@@ -228,7 +228,9 @@ fn binary_op_to_rows<F: PrimeField64>(
 ) -> (Vec<F>, Option<Vec<F>>) {
     let mut row = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
     row[op.row_filter()] = F::ONE;
+    (row, None)
 
+    /*
     match op {
         BinaryOperator::ADD | BinaryOperator::SUB => {
             addcy::generate(&mut row, op.row_filter(), input0, input1);
@@ -247,4 +249,5 @@ fn binary_op_to_rows<F: PrimeField64>(
         */
         _ => panic!("Unimplemented"),
     }
+        */
 }

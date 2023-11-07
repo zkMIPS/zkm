@@ -113,6 +113,8 @@ where
             .collect::<Vec<_>>()
     );
 
+    println!("trace_commitments: {}", trace_commitments.len());
+
     let trace_caps = trace_commitments
         .iter()
         .map(|c| c.merkle_tree.cap.clone())
