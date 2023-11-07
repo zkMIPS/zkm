@@ -54,7 +54,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
 
     match (opcode, func, registers.is_kernel) {
         (0b000000, 0b001010, _) => Ok(Operation::CondMov(BranchCond::EQ, rs, rt, rd)), // MOVZ: rd = rs if rt == 0
-        (0b000000, 0b001011, _) => Ok(Operation::CondMov(BranchCond::NE, rs, rt, rd)), // MOVZ: rd = rs if rt != 0
+        (0b000000, 0b001011, _) => Ok(Operation::CondMov(BranchCond::NE, rs, rt, rd)), // MOVN: rd = rs if rt != 0
         (0b000000, 0b100000, _) => Ok(Operation::BinaryArithmetic(
             arithmetic::BinaryOperator::ADD,
             rs,
