@@ -17,20 +17,12 @@ pub fn eval_packed<P: PackedField>(
     // rt*(rd-rs)+(1-rt)*(rd-rs)=0
     // Check `mov target register`:
     {
-        let mov_dst_reg = lv.mem_channels[2].value[0];
-        let mut mov_dst_reg_index = [P::ONES; 5];
-        mov_dst_reg_index.copy_from_slice(lv.insn_bits[11..16].as_ref());
-        let mov_dst_val = limb_from_bits_le(mov_dst_reg_index.into_iter());
-        yield_constr.constraint(mov_dst_val - mov_dst_reg);
+        let mov_dst_val = lv.mem_channels[2].value[0];
+        let mov_src_val = lv.mem_channels[0].value[0];
 
-        let mov_src_reg = lv.mem_channels[0].value[0];
-        let mut mov_src_reg_index = [P::ONES; 5];
-        mov_src_reg_index.copy_from_slice(lv.insn_bits[21..26].as_ref());
-        let mov_src_val = limb_from_bits_le(mov_src_reg_index.into_iter());
-        yield_constr.constraint(mov_src_val - mov_src_reg);
-
-        yield_constr.constraint(is_zero_mov_filter * (mov_dst_reg - mov_src_reg));
-        yield_constr.constraint(is_non_zero_mov_filter * (mov_dst_reg - mov_src_reg));
+        yield_constr.constraint(
+            is_zero_mov_filter * (mov_dst_val - mov_src_val) + is_non_zero_mov_filter * (mov_dst_val - mov_src_val)
+        );
     }
 }
 
@@ -49,26 +41,14 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     // Check `mov target register`:
     {
-        let mov_dst_reg = lv.mem_channels[2].value[0];
-        let mut mov_dst_reg_index = [one_extension; 5];
-        mov_dst_reg_index.copy_from_slice(lv.insn_bits[11..16].as_ref());
-        let mov_dst_val = limb_from_bits_le_recursive(builder, mov_dst_reg_index.into_iter());
-        let constr = builder.sub_extension(mov_dst_val, mov_dst_reg);
-        yield_constr.constraint(builder, constr);
+        let mov_dst_val = lv.mem_channels[2].value[0];
+        let mov_src_val = lv.mem_channels[0].value[0];
+        let diff_val = builder.sub_extension(mov_dst_val, mov_src_val);
 
-        let mov_src_reg = lv.mem_channels[0].value[0];
-        let mut mov_src_reg_index = [one_extension; 5];
-        mov_src_reg_index.copy_from_slice(lv.insn_bits[21..26].as_ref());
-        let mov_src_val = limb_from_bits_le_recursive(builder, mov_src_reg_index.into_iter());
-        let constr = builder.sub_extension(mov_src_val, mov_src_reg);
-        yield_constr.constraint(builder, constr);
+        let left = builder.mul_extension(is_zero_mov_filter, diff_val);
+        let right = builder.mul_extension(is_non_zero_mov_filter, diff_val);
 
-        let constr = builder.sub_extension(mov_dst_reg, mov_src_reg);
-        let constr = builder.mul_extension(is_zero_mov_filter, constr);
-        yield_constr.constraint(builder, constr);
-
-        let constr = builder.sub_extension(mov_dst_reg, mov_src_reg);
-        let constr = builder.mul_extension(is_non_zero_mov_filter, constr);
+        let constr = builder.add_extension(left, right);
         yield_constr.constraint(builder, constr);
     }
 }
