@@ -21,7 +21,8 @@ pub fn eval_packed<P: PackedField>(
         let mov_src_val = lv.mem_channels[0].value[0];
 
         yield_constr.constraint(
-            is_zero_mov_filter * (mov_dst_val - mov_src_val) + is_non_zero_mov_filter * (mov_dst_val - mov_src_val)
+            is_zero_mov_filter * (mov_dst_val - mov_src_val)
+                + is_non_zero_mov_filter * (mov_dst_val - mov_src_val),
         );
     }
 }
