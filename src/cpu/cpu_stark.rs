@@ -67,6 +67,7 @@ fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
 
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
+    // opcode: 6, rt: 5, func: 6. The rt would be non-zero only when insn are BGEZ, BLTZ
     let mut base = [0usize; COL_MAP.opcode_bits.len() + COL_MAP.func_bits.len()];
     base[0..COL_MAP.opcode_bits.len()].copy_from_slice(&COL_MAP.opcode_bits[..]);
     base[COL_MAP.opcode_bits.len()..].copy_from_slice(&COL_MAP.func_bits[..]);

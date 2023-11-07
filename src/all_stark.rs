@@ -160,7 +160,7 @@ fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
         Some(cpu_stark::ctl_filter_logic()),
     );
     let mut all_lookers = vec![cpu_looking];
-    /* FIXME: connect keccak, may use 8 u32
+    /* FIXME: connect keccak, may use 8 u32s
     for i in 0..keccak_sponge_stark::num_logic_ctls() {
         let keccak_sponge_looking = TableWithColumns::new(
             Table::KeccakSponge,

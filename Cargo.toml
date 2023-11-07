@@ -9,7 +9,6 @@ edition = "2021"
 [dependencies]
 plonky2 = { git = "https://github.com/0xPolygonZero/plonky2", branch = "main", features = ["timing"] }
 starky = { git = "https://github.com/0xPolygonZero/plonky2", branch = "main" , features = ["timing"] }
-plonky2_evm = { git = "https://github.com/0xPolygonZero/plonky2", branch = "main" }
 plonky2_util = { git = "https://github.com/0xPolygonZero/plonky2", branch = "main" }
 plonky2_maybe_rayon = { git = "https://github.com/0xPolygonZero/plonky2", branch = "main" }
 itertools = "0.11.0"

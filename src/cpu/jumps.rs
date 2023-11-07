@@ -71,11 +71,11 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     let jumps_lv = lv.general.jumps();
 
     let filter = lv.op.jumps; // `JUMP` or `JUMPI`
-    let is_jump = filter * (P::ONES - lv.insn_bits[27]);
-    let is_jumpi = filter * lv.insn_bits[27];
+    let is_jump = filter * (P::ONES - lv.opcode_bits[1]);
+    let is_jumpi = filter * lv.opcode_bits[1];
 
-    let is_link = is_jump * lv.insn_bits[0];
-    let is_linki = is_jumpi * lv.insn_bits[26];
+    let is_link = is_jump * lv.func_bits[0];
+    let is_linki = is_jumpi * lv.opcode_bits[0];
 
     // Check `should_jump`:
     yield_constr.constraint(filter * (P::ONES - jumps_lv.should_jump));
@@ -91,7 +91,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     {
         let jump_reg = lv.mem_channels[0].addr_virtual;
         let mut jump_reg_index = [P::ONES; 5];
-        jump_reg_index.copy_from_slice(lv.insn_bits[21..26].as_ref());
+        jump_reg_index.copy_from_slice(&lv.rs_bits);
         let jump_dst = limb_from_bits_le(jump_reg_index.into_iter());
         yield_constr.constraint(is_jump * (jump_dst - jump_reg));
     }
@@ -99,9 +99,14 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     // Check `jumpi target value`:
     {
         let mut jump_imm = [P::ONES; 26];
-        jump_imm.copy_from_slice(lv.insn_bits[0..26].as_ref());
+        jump_imm[0..6].copy_from_slice(&lv.func_bits);
+        jump_imm[6..11].copy_from_slice(&lv.shamt_bits);
+        jump_imm[11..16].copy_from_slice(&lv.rd_bits);
+        jump_imm[16..21].copy_from_slice(&lv.rt_bits);
+        jump_imm[21..26].copy_from_slice(&lv.rs_bits);
+
         let imm_dst = limb_from_bits_le(jump_imm.into_iter());
-        let remain = lv.program_counter / P::Scalar::from_canonical_u64(1 << 28);
+        let remain = lv.program_counter / P::Scalar::from_canonical_u64(1 << 28); // FIXME
         let remain = remain * P::Scalar::from_canonical_u64(1 << 28);
         let jump_dest = remain + imm_dst * P::Scalar::from_canonical_u8(4);
         yield_constr.constraint(is_jumpi * (nv.program_counter - jump_dest));
@@ -119,9 +124,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     // Check `link target regiseter`:
     let link_reg = lv.mem_channels[1].addr_virtual;
     {
-        let mut link_reg_index = [P::ONES; 5];
-        link_reg_index.copy_from_slice(lv.insn_bits[11..16].as_ref());
-        let link_dst = limb_from_bits_le(link_reg_index.into_iter());
+        let link_dst = limb_from_bits_le(lv.rd_bits.into_iter());
         yield_constr.constraint(is_link * (link_reg - link_dst));
     }
 
@@ -140,12 +143,13 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     let jumps_lv = lv.general.jumps();
     let filter = lv.op.jumps; // `JUMP` or `JUMPI`
     let one_extension = builder.one_extension();
-    let is_jump = builder.sub_extension(one_extension, lv.insn_bits[27]);
+    let b27 = lv.opcode_bits[1];
+    let is_jump = builder.sub_extension(one_extension, b27);
     let is_jump = builder.mul_extension(filter, is_jump);
-    let is_jumpi = builder.mul_extension(filter, lv.insn_bits[27]);
+    let is_jumpi = builder.mul_extension(filter, b27);
 
-    let is_link = builder.mul_extension(is_jump, lv.insn_bits[0]);
-    let is_linki = builder.mul_extension(is_jumpi, lv.insn_bits[26]);
+    let is_link = builder.mul_extension(is_jump, lv.func_bits[0]);
+    let is_linki = builder.mul_extension(is_jumpi, lv.opcode_bits[0]);
 
     // Check `should_jump`:
     {
@@ -166,7 +170,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     {
         let jump_reg = lv.mem_channels[0].addr_virtual;
         let mut jump_reg_index = [one_extension; 5];
-        jump_reg_index.copy_from_slice(lv.insn_bits[21..26].as_ref());
+        jump_reg_index.copy_from_slice(&lv.rs_bits);
         let jump_dst = limb_from_bits_le_recursive(builder, jump_reg_index.into_iter());
         let constr = builder.sub_extension(jump_dst, jump_reg);
         let constr = builder.mul_extension(constr, is_jump);
@@ -176,7 +180,12 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     // Check `jumpi target value`:
     {
         let mut jump_imm = [one_extension; 26];
-        jump_imm.copy_from_slice(lv.insn_bits[0..26].as_ref());
+        jump_imm[0..6].copy_from_slice(&lv.func_bits);
+        jump_imm[6..11].copy_from_slice(&lv.shamt_bits);
+        jump_imm[11..16].copy_from_slice(&lv.rd_bits);
+        jump_imm[16..21].copy_from_slice(&lv.rt_bits);
+        jump_imm[21..26].copy_from_slice(&lv.rs_bits);
+
         let jump_dest = limb_from_bits_le_recursive(builder, jump_imm.into_iter());
         let jump_dest = builder.mul_const_extension(F::from_canonical_u64(4), jump_dest); //TO FIX
 
@@ -202,9 +211,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     // Check `link target register`:
     let link_reg = lv.mem_channels[1].addr_virtual;
     {
-        let mut link_reg_index = [one_extension; 5];
-        link_reg_index.copy_from_slice(lv.insn_bits[11..16].as_ref());
-        let link_dst = limb_from_bits_le_recursive(builder, link_reg_index.into_iter());
+        let link_dst = limb_from_bits_le_recursive(builder, lv.rd_bits.into_iter());
         let constr = builder.sub_extension(link_reg, link_dst);
         let constr = builder.mul_extension(constr, is_link);
         yield_constr.constraint(builder, constr);
@@ -227,14 +234,14 @@ pub fn eval_packed_branch<P: PackedField>(
     let jumps_lv = lv.general.jumps();
 
     let filter = lv.op.branch; // `BRANCH`
-    let norm_filter = lv.insn_bits[28];
-    let special_filter = P::ONES - lv.insn_bits[28];
-    let is_eq = lv.insn_bits[28] * (P::ONES - lv.insn_bits[27]) * (P::ONES - lv.insn_bits[26]);
-    let is_ne = lv.insn_bits[28] * (P::ONES - lv.insn_bits[27]) * lv.insn_bits[26];
-    let is_le = lv.insn_bits[28] * lv.insn_bits[27] * (P::ONES - lv.insn_bits[26]);
-    let is_gt = lv.insn_bits[28] * lv.insn_bits[27] * lv.insn_bits[26];
-    let is_ge = (P::ONES - lv.insn_bits[28]) * lv.insn_bits[16];
-    let is_lt = (P::ONES - lv.insn_bits[28]) * (P::ONES - lv.insn_bits[16]);
+    let norm_filter = lv.opcode_bits[2];
+    let special_filter = P::ONES - lv.opcode_bits[2];
+    let is_eq = lv.opcode_bits[2] * (P::ONES - lv.opcode_bits[1]) * (P::ONES - lv.opcode_bits[0]);
+    let is_ne = lv.opcode_bits[2] * (P::ONES - lv.opcode_bits[1]) * lv.opcode_bits[0];
+    let is_le = lv.opcode_bits[2] * lv.opcode_bits[1] * (P::ONES - lv.opcode_bits[0]);
+    let is_gt = lv.opcode_bits[2] * lv.opcode_bits[1] * lv.opcode_bits[0];
+    let is_ge = (P::ONES - lv.opcode_bits[2]) * lv.rt_bits[0];
+    let is_lt = (P::ONES - lv.opcode_bits[2]) * (P::ONES - lv.rt_bits[0]);
 
     // Check `should_jump`:
     yield_constr.constraint(filter * jumps_lv.should_jump * (P::ONES - jumps_lv.should_jump));
@@ -242,8 +249,12 @@ pub fn eval_packed_branch<P: PackedField>(
     // Check `branch target value`:
     {
         let mut branch_offset = [P::ZEROS; 32];
-        branch_offset[2..18].copy_from_slice(lv.insn_bits[0..16].as_ref());
-        branch_offset[18..32].copy_from_slice([lv.insn_bits[15]; 14].as_ref());
+
+        branch_offset[2..8].copy_from_slice(&lv.func_bits); // 6 bits
+        branch_offset[8..13].copy_from_slice(&lv.shamt_bits); // 5 bits
+        branch_offset[13..18].copy_from_slice(&lv.rd_bits); // 5 bits
+        branch_offset[18..32].copy_from_slice(&[lv.rd_bits[4]; 14]); // lv.insn_bits[15]
+
         let offset_dst = limb_from_bits_le(branch_offset.into_iter());
         let branch_dst = lv.program_counter + offset_dst;
         let next_inst = lv.program_counter + P::Scalar::from_canonical_u64(8);
@@ -262,18 +273,14 @@ pub fn eval_packed_branch<P: PackedField>(
     // Check rs Reg
     {
         let rs_reg = lv.mem_channels[0].addr_virtual;
-        let mut rs_reg_index = [P::ZEROS; 5];
-        rs_reg_index.copy_from_slice(lv.insn_bits[21..26].as_ref());
-        let rs_src = limb_from_bits_le(rs_reg_index.into_iter());
+        let rs_src = limb_from_bits_le(lv.rs_bits.into_iter());
         yield_constr.constraint(filter * (rs_reg - rs_src));
     }
 
     // Check rt Reg
     {
         let rt_reg = lv.mem_channels[1].addr_virtual;
-        let mut rt_reg_index = [P::ZEROS; 5];
-        rt_reg_index.copy_from_slice(lv.insn_bits[16..21].as_ref());
-        let rt_src = limb_from_bits_le(rt_reg_index.into_iter());
+        let rt_src = limb_from_bits_le(lv.rt_bits.into_iter());
         yield_constr.constraint(filter * norm_filter * (rt_reg - rt_src));
         yield_constr.constraint(filter * special_filter * rt_reg);
     }
@@ -285,7 +292,7 @@ pub fn eval_packed_branch<P: PackedField>(
         let aux1 = lv.mem_channels[2].value[0];
         let aux2 = lv.mem_channels[3].value[0];
         let overflow = P::Scalar::from_canonical_u64(1 << 32);
-        let overflow_div = P::Scalar::from_canonical_u64(1) / overflow;
+        let overflow_div = P::Scalar::from_canonical_u64(1) / overflow; // FIXME: CHECK
 
         let constr_a = src2 + aux1 - src1;
         yield_constr.constraint(filter * constr_a * (overflow - constr_a));
@@ -316,18 +323,18 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
     let filter = lv.op.branch; // `BRANCH`
     let one_extension = builder.one_extension();
     let zero_extension = builder.zero_extension();
-    let norm_filter = lv.insn_bits[28];
-    let spec_filter = builder.sub_extension(one_extension, lv.insn_bits[28]);
-    let bit27_not = builder.sub_extension(one_extension, lv.insn_bits[27]);
-    let bit26_not = builder.sub_extension(one_extension, lv.insn_bits[26]);
-    let bit16_not = builder.sub_extension(one_extension, lv.insn_bits[16]);
+    let norm_filter = lv.opcode_bits[2];
+    let spec_filter = builder.sub_extension(one_extension, lv.opcode_bits[2]);
+    let bit27_not = builder.sub_extension(one_extension, lv.opcode_bits[1]);
+    let bit26_not = builder.sub_extension(one_extension, lv.opcode_bits[0]);
+    let bit16_not = builder.sub_extension(one_extension, lv.rt_bits[0]);
     let is_eq = builder.mul_extension(norm_filter, bit27_not);
-    let is_ne = builder.mul_extension(is_eq, lv.insn_bits[26]);
+    let is_ne = builder.mul_extension(is_eq, lv.opcode_bits[0]);
     let is_eq = builder.mul_extension(is_eq, bit26_not);
-    let is_le = builder.mul_extension(norm_filter, lv.insn_bits[27]);
-    let is_gt = builder.mul_extension(is_le, lv.insn_bits[26]);
+    let is_le = builder.mul_extension(norm_filter, lv.opcode_bits[1]);
+    let is_gt = builder.mul_extension(is_le, lv.opcode_bits[0]);
     let is_le = builder.mul_extension(is_le, bit26_not);
-    let is_ge = builder.mul_extension(spec_filter, lv.insn_bits[16]);
+    let is_ge = builder.mul_extension(spec_filter, lv.rt_bits[0]);
     let is_lt = builder.mul_extension(spec_filter, bit16_not);
 
     // Check `should_jump`:
@@ -341,8 +348,11 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
     // Check `branch target value`:
     {
         let mut branch_offset = [zero_extension; 32];
-        branch_offset[2..18].copy_from_slice(lv.insn_bits[0..16].as_ref());
-        branch_offset[18..32].copy_from_slice([lv.insn_bits[15]; 14].as_ref());
+
+        branch_offset[2..8].copy_from_slice(&lv.func_bits); // 6 bits
+        branch_offset[8..13].copy_from_slice(&lv.shamt_bits); // 5 bits
+        branch_offset[13..18].copy_from_slice(&lv.rd_bits); // 5 bits
+        branch_offset[18..32].copy_from_slice(&[lv.rd_bits[4]; 14]); // lv.insn_bits[15]
         let offset_dst = limb_from_bits_le_recursive(builder, branch_offset.into_iter());
 
         let branch_dst = builder.add_extension(lv.program_counter, offset_dst);
@@ -369,7 +379,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
     {
         let rs_reg = lv.mem_channels[0].addr_virtual;
         let mut rs_reg_index = [one_extension; 5];
-        rs_reg_index.copy_from_slice(lv.insn_bits[21..26].as_ref());
+        rs_reg_index.copy_from_slice(&lv.rs_bits);
         let rs_src = limb_from_bits_le_recursive(builder, rs_reg_index.into_iter());
         let constr = builder.sub_extension(rs_reg, rs_src);
         let constr = builder.mul_extension(constr, filter);
@@ -379,9 +389,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
     // Check rt Reg
     {
         let rt_reg = lv.mem_channels[1].addr_virtual;
-        let mut rt_reg_index = [one_extension; 5];
-        rt_reg_index.copy_from_slice(lv.insn_bits[16..21].as_ref());
-        let rt_src = limb_from_bits_le_recursive(builder, rt_reg_index.into_iter());
+        let rt_src = limb_from_bits_le_recursive(builder, lv.rt_bits.into_iter());
         let constr = builder.sub_extension(rt_reg, rt_src);
         let constr = builder.mul_extension(constr, norm_filter);
         let constr = builder.mul_extension(constr, filter);

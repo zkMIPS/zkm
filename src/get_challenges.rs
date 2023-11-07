@@ -13,6 +13,7 @@ use crate::proof::*;
 //use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::witness::errors::ProgramError;
 
+/*
 fn observe_root<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     root: H256,
@@ -23,7 +24,6 @@ fn observe_root<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const 
     }
 }
 
-/*
 fn observe_trie_roots<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     trie_roots: &TrieRoots,
