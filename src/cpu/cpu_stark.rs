@@ -290,6 +290,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         stack_bounds::eval_ext_circuit(builder, local_values, yield_constr);
         syscalls_exceptions::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         */
+        mov::eval_ext_circuit(builder, local_values, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {
