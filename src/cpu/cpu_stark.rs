@@ -16,8 +16,8 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::{
-    bootstrap_kernel, contextops, control_flow, decode, dup_swap, gas, jumps, membus, memio,
-    modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
+    bootstrap_kernel, control_flow, decode, jumps, membus, memio, mov, pc, shift, simple_logic,
+    syscall,
 };
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
