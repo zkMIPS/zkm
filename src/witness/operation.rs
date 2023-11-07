@@ -860,7 +860,7 @@ pub(crate) fn generate_syscall<F: Field>(
         }
         SYSWRITE => {
             match a0 {
-                FD_STDOUT | FD_STDERR => (), // fdStdout
+                FD_STDOUT | FD_STDERR => v0 = a2, // fdStdout
                 _ => {
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
