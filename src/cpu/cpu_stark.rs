@@ -19,7 +19,6 @@ use crate::cpu::{
     bootstrap_kernel, contextops, control_flow, decode, dup_swap, gas, jumps, membus, memio,
     modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
 };
-};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;

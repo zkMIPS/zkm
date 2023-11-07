@@ -12,3 +12,4 @@ pub(crate) mod pc;
 pub(crate) mod shift;
 pub(crate) mod simple_logic;
 pub(crate) mod syscall;
+pub(crate) mod mov;
