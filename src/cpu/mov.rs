@@ -22,6 +22,7 @@ pub fn eval_packed<P: PackedField>(
 
         let mov_src_reg = lv.mem_channels[0].value[0];
         let mut mov_src_reg_index = [P::ONES; 5];
+        mov_src_reg_index.copy_from_slice(lv.insn_bits[21..26].as_ref());
         let mov_src_val = limb_from_bits_le(mov_src_reg_index.into_iter());
         yield_constr.constraint(mov_src_val - mov_src_reg);
 
