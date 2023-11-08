@@ -961,7 +961,7 @@ pub(crate) fn generate_mload_general<F: Field>(
     let (rs, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
     let (rt, log_in2) = reg_read_with_log(rt_reg, 1, state, &mut row)?;
 
-    let virt_raw = (rs as u32) + sign_extend::<16>(offset);
+    let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
     let virt = virt_raw & 0xFFFF_FFFC;
     let address = MemoryAddress::new(0, Segment::Code, virt as usize);
     let (mem, log_in3) = mem_read_gp_with_log_and_fill(2, address, state, &mut row);
@@ -1010,7 +1010,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
     let (rs, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
     let (rt, log_in2) = reg_read_with_log(rt_reg, 1, state, &mut row)?;
 
-    let virt_raw = (rs as u32) + sign_extend::<16>(offset);
+    let virt_raw = (rs as u32)wrapping_add(sign_extend::<16>(offset));
     let virt = virt_raw & 0xFFFF_FFFC;
     let address = MemoryAddress::new(0, Segment::Code, virt as usize);
     let (mem, log_in3) = mem_read_gp_with_log_and_fill(2, address, state, &mut row);
