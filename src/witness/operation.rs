@@ -391,8 +391,8 @@ pub(crate) fn generate_branch<F: Field>(
     let (src1, src1_op) = reg_read_with_log(src1, 0, state, &mut row)?;
     let (src2, src2_op) = reg_read_with_log(src2, 1, state, &mut row)?;
     let should_jump = cond.result(src1 as i32, src2 as i32);
-    reg_write_with_log(0, 2, src1 - src2, state, &mut row)?;
-    reg_write_with_log(0, 3, src2 - src1, state, &mut row)?;
+    reg_write_with_log(0, 2, src1.wrapping_sub(src2), state, &mut row)?;
+    reg_write_with_log(0, 3, src2.wrapping_sub(src1), state, &mut row)?;
     let pc = state.registers.program_counter as u32;
     if should_jump {
         let target = sign_extend::<16>(target);
@@ -961,7 +961,7 @@ pub(crate) fn generate_mload_general<F: Field>(
     let (rs, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
     let (rt, log_in2) = reg_read_with_log(rt_reg, 1, state, &mut row)?;
 
-    let virt_raw = (rs as u32) + sign_extend::<16>(offset);
+    let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
     let virt = virt_raw & 0xFFFF_FFFC;
     let address = MemoryAddress::new(0, Segment::Code, virt as usize);
     let (mem, log_in3) = mem_read_gp_with_log_and_fill(2, address, state, &mut row);
@@ -1010,7 +1010,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
     let (rs, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
     let (rt, log_in2) = reg_read_with_log(rt_reg, 1, state, &mut row)?;
 
-    let virt_raw = (rs as u32) + sign_extend::<16>(offset);
+    let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
     let virt = virt_raw & 0xFFFF_FFFC;
     let address = MemoryAddress::new(0, Segment::Code, virt as usize);
     let (mem, log_in3) = mem_read_gp_with_log_and_fill(2, address, state, &mut row);
