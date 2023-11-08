@@ -412,15 +412,23 @@ fn perform_op<F: Field>(
         _ => 4,
     };
 
-    match  op {
+    match op {
         Operation::Jump(_, _) | Operation::Jumpi(_, _) | Operation::Branch(_, _, _, _) => {
-            log::debug!("states: pc {} registers: {:?}", state.registers.program_counter, state.registers.gprs);
+            log::debug!(
+                "states: pc {} registers: {:?}",
+                state.registers.program_counter,
+                state.registers.gprs
+            );
             ()
-        },
+        }
         Operation::Syscall => {
-            log::debug!("states: pc {} registers: {:?}", state.registers.program_counter + 4, state.registers.gprs);
+            log::debug!(
+                "states: pc {} registers: {:?}",
+                state.registers.program_counter + 4,
+                state.registers.gprs
+            );
             ()
-        },
+        }
         _ => (),
     };
 
