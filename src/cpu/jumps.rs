@@ -296,8 +296,11 @@ pub fn eval_packed_branch<P: PackedField>(
         yield_constr.constraint(filter * constr_b * (overflow - constr_b));
 
         let lt = constr_a * overflow_div;
+        yield_constr.constraint(filter * lt * (P::ONES - lt));
         let gt = constr_b * overflow_div;
+        yield_constr.constraint(filter * gt * (P::ONES - gt));
         let ne = lt + gt;
+        yield_constr.constraint(filter * ne * (P::ONES - ne));
         let constr_eq = (P::ONES - ne) * is_eq;
         let constr_ne = ne * is_ne;
         let constr_le = (P::ONES - gt) * is_le;
@@ -354,6 +357,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
         let branch_dst = builder.add_extension(lv.program_counter, offset_dst);
         let next_insn = builder.add_const_extension(lv.program_counter, F::from_canonical_u64(8));
         let constr_a = builder.mul_extension(branch_dst, jumps_lv.should_jump);
+
         let constr_b = builder.sub_extension(one_extension, jumps_lv.should_jump);
         let constr_b = builder.mul_extension(constr_b, next_insn);
         let constr = builder.add_extension(constr_a, constr_b);
@@ -421,8 +425,23 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr_b);
 
         let lt = builder.mul_extension(overflow_div, diff_a);
+        let constr = builder.sub_extension(one_extension, lt);
+        let constr = builder.mul_extension(constr, lt);
+        let constr = builder.mul_extension(constr, filter);
+        yield_constr.constraint(builder, constr);
+
         let gt = builder.mul_extension(overflow_div, diff_b);
+        let constr = builder.sub_extension(one_extension, gt);
+        let constr = builder.mul_extension(constr, gt);
+        let constr = builder.mul_extension(constr, filter);
+        yield_constr.constraint(builder, constr);
+
         let ne = builder.add_extension(lt, gt);
+        let constr = builder.sub_extension(one_extension, ne);
+        let constr = builder.mul_extension(constr, ne);
+        let constr = builder.mul_extension(constr, filter);
+        yield_constr.constraint(builder, constr);
+
         let constr_eq = builder.sub_extension(one_extension, ne);
         let constr_eq = builder.mul_extension(constr_eq, is_eq);
         let constr_ne = builder.mul_extension(ne, is_ne);
