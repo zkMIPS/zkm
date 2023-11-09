@@ -245,6 +245,6 @@ fn binary_op_to_rows<F: PrimeField64>(
             (row, Some(nv))
         }
         */
-        _ => panic!("Unimplemented"),
+        _ => (row, None),
     }
 }

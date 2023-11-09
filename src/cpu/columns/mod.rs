@@ -53,13 +53,15 @@ pub struct CpuColumnsView<T: Copy> {
     pub op: OpsColumnsView<T>,
 
     /// If CPU cycle: the opcode, broken up into bits in little-endian order.
-    pub opcode_bits: [T; 6],
-
-    pub insn_bits: [T; 32],
-
-    /// If CPU cycle: the func, broken up into bits in little-endian order
-    pub func_bits: [T; 6],
-
+    pub opcode_bits: [T; 6], // insn[31:26]
+    pub rs_bits: [T; 5],    // insn[25:21]
+    pub rt_bits: [T; 5],    // insn[20:16]
+    pub rd_bits: [T; 5],    // insn[15:11]
+    pub shamt_bits: [T; 5], // insn[10:6] i.e. hint
+    pub func_bits: [T; 6],  // insn[5:0]
+    // imm | offset: [rd_bits, shamt_bits, func_bits]
+    // code: [rs_bits, rt_bits, rd_bits, shamt_bits]
+    // inst_index: [rs_bits, rt_bits, rd_bits, shamt_bits, func_bits]
     /// Filter. 1 iff a Keccak sponge lookup is performed on this row.
     pub is_keccak_sponge: T,
 

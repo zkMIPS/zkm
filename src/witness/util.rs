@@ -20,8 +20,8 @@ fn to_byte_checked(n: u32) -> u8 {
     res
 }
 
-fn to_bits_le<F: Field>(n: u8) -> [F; 6] {
-    let mut res = [F::ZERO; 6];
+fn to_bits_le<F: Field, const N: usize>(n: u8) -> [F; N] {
+    let mut res = [F::ZERO; N];
     for (i, bit) in res.iter_mut().enumerate() {
         *bit = F::from_bool(n & (1 << i) != 0);
     }
@@ -55,11 +55,20 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
 ) -> (u32, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::Code, address, state);
 
-    let val_op = to_byte_checked(val >> 26);
     let val_func = to_byte_checked(val & 0x3F);
-    row.opcode_bits = to_bits_le(val_op);
-    row.func_bits = to_bits_le(val_func);
-    row.insn_bits = to_bits32_le(val);
+    let val_shamt = to_byte_checked((val >> 6) & 0x1F);
+    let val_rd = to_byte_checked((val >> 11) & 0x1F);
+    let val_rt = to_byte_checked((val >> 16) & 0x1F);
+    let val_rs = to_byte_checked((val >> 21) & 0x1F);
+    let val_op = to_byte_checked(val >> 26);
+
+    row.opcode_bits = to_bits_le::<F, 6>(val_op);
+    row.func_bits = to_bits_le::<F, 6>(val_func);
+    row.rs_bits = to_bits_le::<F, 5>(val_rs);
+    row.rt_bits = to_bits_le::<F, 5>(val_rt);
+    row.rd_bits = to_bits_le::<F, 5>(val_rd);
+    row.shamt_bits = to_bits_le::<F, 5>(val_shamt);
+
     (val, op)
 }
 
