@@ -22,7 +22,7 @@ use plonky2_util::{log2_ceil, log2_strict};
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-//use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::KERNEL;
 use crate::cross_table_lookup::{
     cross_table_lookup_data, get_grand_product_challenge_set, CtlCheckVars, CtlData,
     GrandProductChallengeSet,
@@ -35,6 +35,10 @@ use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
+#[cfg(test)]
+use crate::{
+    cross_table_lookup::testutils::check_ctls,
+};
 
 /// Generate traces, then create all STARK proofs.
 pub fn prove<F, C, const D: usize>(
@@ -63,7 +67,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    //timed!(timing, "build kernel", Lazy::force(&KERNEL));
+    timed!(timing, "build kernel", Lazy::force(&KERNEL));
     let (traces, public_values, outputs) = timed!(
         timing,
         "generate all traces",
@@ -146,7 +150,7 @@ where
         prove_with_commitments(
             all_stark,
             config,
-            trace_poly_values,
+            trace_poly_values.clone(),
             trace_commitments,
             ctl_data_per_table,
             &mut challenger,
@@ -154,6 +158,15 @@ where
             timing
         )?
     );
+
+    #[cfg(test)]
+    {
+        check_ctls(
+            &trace_poly_values,
+            &all_stark.cross_table_lookups,
+        );
+    }
+
 
     Ok(AllProof {
         stark_proofs,
