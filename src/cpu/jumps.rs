@@ -106,9 +106,8 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
         jump_imm[21..26].copy_from_slice(&lv.rs_bits);
 
         let imm_dst = limb_from_bits_le(jump_imm.into_iter());
-        let remain = lv.program_counter / P::Scalar::from_canonical_u64(1 << 28); // FIXME
-        let remain = remain * P::Scalar::from_canonical_u64(1 << 28);
-        let jump_dest = remain + imm_dst * P::Scalar::from_canonical_u8(4);
+        let pc_remain = lv.mem_channels[7].value[0];
+        let jump_dest = pc_remain + imm_dst * P::Scalar::from_canonical_u8(4);
         yield_constr.constraint(is_jumpi * (nv.program_counter - jump_dest));
     }
 
@@ -189,10 +188,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
         let jump_dest = limb_from_bits_le_recursive(builder, jump_imm.into_iter());
         let jump_dest = builder.mul_const_extension(F::from_canonical_u64(4), jump_dest); //TO FIX
 
-        let remain = builder.mul_const_extension(F::from_canonical_u64(1 << 28), one_extension);
-        let constr = builder.div_extension(lv.program_counter, remain);
-        let constr = builder.mul_extension(constr, remain);
-        let constr = builder.add_extension(constr, jump_dest);
+        let constr = builder.add_extension(lv.mem_channels[7].value[0], jump_dest);
         let constr = builder.sub_extension(nv.program_counter, constr);
         let constr = builder.mul_extension(is_jumpi, constr);
         yield_constr.constraint(builder, constr);

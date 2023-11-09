@@ -421,13 +421,19 @@ pub(crate) fn generate_jumpi<F: Field>(
 ) -> Result<(), ProgramError> {
     let (mut target_pc, _) = (target as usize).overflowing_shl(2);
     let pc = state.registers.program_counter;
-    target_pc = target_pc.wrapping_add(pc & 0xf0000000);
+    let operation: logic::Operation =
+        logic::Operation::new(logic::Op::And, pc as u32, 0xf0000000u32);
+    let pc_result = operation.result as usize;
+    let result_op = reg_write_with_log(0, 7, pc_result, state, &mut row)?;
+    target_pc = target_pc.wrapping_add(pc_result);
     row.general.jumps_mut().should_jump = F::ONE;
     let next_pc = pc.wrapping_add(8);
     let link_op = reg_write_with_log(link, 1, next_pc, state, &mut row)?;
+    state.traces.push_logic(operation);
     state.traces.push_cpu(row);
     state.jump_to(target_pc);
     state.traces.push_memory(link_op);
+    state.traces.push_memory(result_op);
     Ok(())
 }
 
