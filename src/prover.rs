@@ -113,6 +113,8 @@ where
             .collect::<Vec<_>>()
     );
 
+    println!("trace_commitments: {}", trace_commitments.len());
+
     let trace_caps = trace_commitments
         .iter()
         .map(|c| c.merkle_tree.cap.clone())
@@ -204,6 +206,7 @@ where
         )?
     );
     */
+    println!("cpu looking");
     let cpu_proof = timed!(
         timing,
         "prove CPU STARK",
@@ -218,6 +221,8 @@ where
             timing,
         )?
     );
+
+    println!("keccak looking");
     let keccak_proof = timed!(
         timing,
         "prove Keccak STARK",
@@ -323,6 +328,7 @@ where
             .collect::<Vec<_>>()
     });
     let lookups = stark.lookups();
+    println!("lookups111: {:?}", lookups.len());
     let lookup_helper_columns = timed!(
         timing,
         "compute lookup helper columns",
@@ -342,6 +348,7 @@ where
         })
     );
     let num_lookup_columns = lookup_helper_columns.as_ref().map(|v| v.len()).unwrap_or(0);
+    println!("num_lookup_columns: {:?}", num_lookup_columns);
 
     let auxiliary_polys = match lookup_helper_columns {
         None => ctl_data.z_polys(),

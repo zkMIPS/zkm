@@ -120,6 +120,7 @@ where
     )?;
 
     let public_values = all_proof.public_values;
+    println!("public_values: {:?}", public_values);
 
     // Extra products to add to the looked last value.
     // Only necessary for the Memory values.

@@ -276,6 +276,10 @@ impl<F: Field> CrossTableLookup<F> {
         looking_tables: Vec<TableWithColumns<F>>,
         looked_table: TableWithColumns<F>,
     ) -> Self {
+        looking_tables
+            .iter()
+            .for_each(|e| println!("looking: {}", e.columns.len()));
+        println!("looked {}", looked_table.columns.len());
         assert!(looking_tables
             .iter()
             .all(|twc| twc.columns.len() == looked_table.columns.len()));
