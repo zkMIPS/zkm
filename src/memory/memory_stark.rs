@@ -61,9 +61,12 @@ impl MemoryOp {
         row[ADDR_CONTEXT] = F::from_canonical_usize(context);
         row[ADDR_SEGMENT] = F::from_canonical_usize(segment);
         row[ADDR_VIRTUAL] = F::from_canonical_usize(virt);
+        row[value_limb(0)] = F::from_canonical_u32(self.value);
+        /*
         for j in 0..VALUE_LIMBS {
             row[value_limb(j)] = F::from_canonical_u32(self.value >> (j * 32));
         }
+        */
         row
     }
 }
