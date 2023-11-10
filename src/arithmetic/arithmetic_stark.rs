@@ -217,6 +217,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         lui::eval_packed_generic(lv, nv, yield_constr);
         //divmod::eval_packed(lv, nv, yield_constr);
         div::eval_packed(lv, nv, yield_constr);
+        slt::eval_packed_generic(lv, yield_constr);
+        //divmod::eval_packed(lv, nv, yield_constr);
         //modular::eval_packed(lv, nv, yield_constr);
         //byte::eval_packed(lv, yield_constr);
         shift::eval_packed_generic(lv, nv, yield_constr);
@@ -251,6 +253,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         lui::eval_ext_circuit(builder, lv, nv, yield_constr);
         //divmod::eval_ext_circuit(builder, lv, nv, yield_constr);
         div::eval_ext_circuit(builder, lv, nv, yield_constr);
+        slt::eval_ext_circuit(builder, lv, yield_constr);
+        //divmod::eval_ext_circuit(builder, lv, nv, yield_constr);
         //modular::eval_ext_circuit(builder, lv, nv, yield_constr);
         //byte::eval_ext_circuit(builder, lv, yield_constr);
         shift::eval_ext_circuit(builder, lv, nv, yield_constr);
