@@ -3,6 +3,7 @@ pub mod arithmetic_stark;
 pub mod columns;
 pub mod mul;
 pub mod shift;
+pub mod slt;
 pub mod utils;
 
 use crate::util::*;

@@ -12,8 +12,8 @@ pub fn eval_packed<P: PackedField>(
 ) {
     let filter = lv.op.condmov_op; // `MOVZ` or `MOVN`
 
-    let is_zero_mov_filter = filter * lv.insn_bits[16];
-    let is_non_zero_mov_filter = filter * (P::ONES - lv.insn_bits[16]);
+    let is_zero_mov_filter = filter * lv.rt_bits[0];
+    let is_non_zero_mov_filter = filter * (P::ONES - lv.rt_bits[0]);
     // rt*(rd-rs)+(1-rt)*(rd-rs)=0
     // Check `mov target register`:
     {
@@ -34,10 +34,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 ) {
     let filter = lv.op.condmov_op; // `MOVZ` or `MOVN`
     let one_extension = builder.one_extension();
-    let is_zero_mov_filter = builder.mul_extension(one_extension, lv.insn_bits[16]);
+    let is_zero_mov_filter = builder.mul_extension(one_extension, lv.rt_bits[0]);
     let is_zero_mov_filter = builder.mul_extension(filter, is_zero_mov_filter);
 
-    let is_non_zero_mov_filter = builder.sub_extension(one_extension, lv.insn_bits[16]);
+    let is_non_zero_mov_filter = builder.sub_extension(one_extension, lv.rt_bits[0]);
     let is_non_zero_mov_filter = builder.mul_extension(filter, is_non_zero_mov_filter);
 
     // Check `mov target register`:
