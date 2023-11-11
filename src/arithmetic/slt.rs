@@ -27,7 +27,7 @@ pub(crate) fn generate<F: PrimeField64>(
     u32_to_array(&mut lv[INPUT_REGISTER_2], 0);
 
     match filter {
-        IS_SLT => {
+        IS_SLT | IS_SLTI => {
             let (diff, cy) = left_in.overflowing_sub(right_in);
             u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], cy as u32);
             u32_to_array(&mut lv[AUX_INPUT_REGISTER_1], rd);
@@ -45,6 +45,7 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let is_slt = lv[IS_SLT];
+    let is_slti = lv[IS_SLTI];
 
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
@@ -53,6 +54,7 @@ pub fn eval_packed_generic<P: PackedField>(
     let rd = &lv[AUX_INPUT_REGISTER_1];
 
     eval_packed_generic_slt(yield_constr, is_slt, in1, aux, in0, out, rd, false);
+    eval_packed_generic_slt(yield_constr, is_slti, in1, aux, in0, out, rd, false);
 }
 
 pub(crate) fn eval_packed_generic_slt<P: PackedField>(
@@ -121,6 +123,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let is_slt = lv[IS_SLT];
+    let is_slti = lv[IS_SLTI];
 
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
@@ -129,6 +132,18 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let rd = &lv[AUX_INPUT_REGISTER_1];
 
     eval_ext_circuit_slt(builder, yield_constr, is_slt, in1, aux, in0, out, rd, false);
+
+    eval_ext_circuit_slt(
+        builder,
+        yield_constr,
+        is_slti,
+        in1,
+        aux,
+        in0,
+        out,
+        rd,
+        false,
+    );
 }
 
 #[allow(clippy::needless_collect)]
