@@ -223,7 +223,7 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
         arithmetic::BinaryOperator::MULT,
         arithmetic::BinaryOperator::MULTU,
     ]
-    .contains(&operator));
+        .contains(&operator));
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
     let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
     let operation = arithmetic::Operation::binary(operator, in0 as u32, in1 as u32);
@@ -253,7 +253,7 @@ pub(crate) fn generate_binary_arithmetic_hilo_op<F: Field>(
         arithmetic::BinaryOperator::MULT,
         arithmetic::BinaryOperator::MULTU,
     ]
-    .contains(&operator));
+        .contains(&operator));
 
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
     let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
@@ -820,9 +820,11 @@ pub(crate) fn generate_syscall<F: Field>(
         SYSMMAP => {
             let mut sz = a1;
             if sz & 0xFFF != 0 {
+                row.mem_channels[0].value[1] =F::from_canonical_u32(1u32);
                 sz += 0x1000 - sz & 0xFFF;
             };
             if a0 == 0 {
+                row.mem_channels[0].value[2] =F::from_canonical_u32(1u32);
                 let (heap, log_in5) = reg_read_with_log(34, 6, state, &mut row)?;
                 v0 = heap;
                 let heap = heap + sz;
@@ -835,11 +837,13 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSBRK => {
+            row.mem_channels[0].value[3] =F::from_canonical_u32(1u32);
             v0 = 0x40000000;
             Ok(())
         }
         SYSCLONE => {
             // clone (not supported)
+            row.mem_channels[0].value[4] =F::from_canonical_u32(1u32);
             v0 = 1;
             Ok(())
         }
@@ -850,8 +854,11 @@ pub(crate) fn generate_syscall<F: Field>(
         }
         SYSREAD => {
             match a0 {
-                FD_STDIN => (), // fdStdin
+                FD_STDIN => {
+                    row.mem_channels[0].value[5] =F::from_canonical_u32(1u32);
+                }, // fdStdin
                 _ => {
+                    row.mem_channels[0].value[6] =F::from_canonical_u32(1u32);
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -860,8 +867,14 @@ pub(crate) fn generate_syscall<F: Field>(
         }
         SYSWRITE => {
             match a0 {
-                FD_STDOUT | FD_STDERR => v0 = a2, // fdStdout
+                // fdStdout
+                FD_STDOUT | FD_STDERR => {
+                    v0 = a2;
+                    row.mem_channels[0].value[7] =F::from_canonical_u32(1u32);
+
+                }, // fdStdout
                 _ => {
+                    row.mem_channels[1].value[1] =F::from_canonical_u32(1u32);
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -871,14 +884,17 @@ pub(crate) fn generate_syscall<F: Field>(
         SYSFCNTL => {
             match a0 {
                 FD_STDIN => {
+                    row.mem_channels[1].value[2] =F::from_canonical_u32(1u32);
                     v0 = 0;
                     ()
                 } // fdStdin
                 FD_STDOUT | FD_STDERR => {
+                    row.mem_channels[1].value[3] =F::from_canonical_u32(1u32);
                     v0 = 1;
                     ()
                 } // fdStdout / fdStderr
                 _ => {
+                    row.mem_channels[1].value[4] =F::from_canonical_u32(1u32);
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
