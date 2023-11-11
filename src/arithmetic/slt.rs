@@ -15,7 +15,13 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 /// Generate row for SLT operations.
-pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], filter: usize, left_in: u32, right_in: u32, rd: u32) {
+pub(crate) fn generate<F: PrimeField64>(
+    lv: &mut [F],
+    filter: usize,
+    left_in: u32,
+    right_in: u32,
+    rd: u32,
+) {
     u32_to_array(&mut lv[INPUT_REGISTER_0], left_in);
     u32_to_array(&mut lv[INPUT_REGISTER_1], right_in);
     u32_to_array(&mut lv[INPUT_REGISTER_2], 0);
@@ -52,11 +58,11 @@ pub fn eval_packed_generic<P: PackedField>(
 pub(crate) fn eval_packed_generic_slt<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
     filter: P,
-    x: &[P], // right
-    y: &[P], // aux
-    z: &[P], // left
+    x: &[P],        // right
+    y: &[P],        // aux
+    z: &[P],        // left
     given_cy: &[P], // diff (left-right)
-    rd: &[P], // rd
+    rd: &[P],       // rd
     is_two_row_op: bool,
 ) {
     debug_assert!(
