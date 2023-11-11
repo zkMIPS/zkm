@@ -88,7 +88,7 @@ pub(crate) fn eval_packed_generic_slt<P: PackedField>(
         // cy <-- 0 or 1   le:cy=0 gt:cy=1
         // NB: this is multiplication by a constant, so doesn't
         // increase the degree of the constraint.
-        cy = t * overflow_inv; // (right[i]+aux[i]-left[i])/overflow_inv
+        cy = t * overflow_inv; // (right[i]+aux[i]-left[i])/overflow
     }
 
     if is_two_row_op {
