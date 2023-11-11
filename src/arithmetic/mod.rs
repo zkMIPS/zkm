@@ -1,5 +1,4 @@
 pub mod addcy;
-pub mod addicy;
 pub mod arithmetic_stark;
 pub mod columns;
 pub mod lui;
