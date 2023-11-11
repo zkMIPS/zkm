@@ -229,6 +229,7 @@ pub(crate) fn eval_ext_mul_circuit<F: RichField + Extendable<D>, const D: usize>
         }
         let mut aux_limbs_ext = [ExtensionTarget::default(); 2 * N_LIMBS];
         aux_limbs_ext[..2 * N_LIMBS - 1].copy_from_slice(&aux_limbs);
+        aux_limbs_ext[2 * N_LIMBS - 1] = builder.constant_extension(F::Extension::ZERO);
 
         aux_limbs_ext
     };
@@ -236,6 +237,7 @@ pub(crate) fn eval_ext_mul_circuit<F: RichField + Extendable<D>, const D: usize>
     let constr_poly = pol_mul_wide_ext_circuit(builder, left_in_limbs, right_in_limbs);
     let mut constr_poly_ext = [ExtensionTarget::default(); 2 * N_LIMBS];
     constr_poly_ext[..2 * N_LIMBS - 1].clone_from_slice(&constr_poly);
+    constr_poly_ext[2 * N_LIMBS - 1] = builder.constant_extension(F::Extension::ZERO);
 
     pol_sub_assign_ext_circuit(builder, &mut constr_poly_ext, &output_limbs);
 
@@ -279,6 +281,7 @@ mod tests {
     use crate::constraint_consumer::ConstraintConsumer;
 
     const N_RND_TESTS: usize = 100000;
+    const DIV_OPS: [usize; 2] = [IS_DIV, IS_DIVU];
 
     #[test]
     fn generate_eval_consistency_not_mul() {
@@ -287,9 +290,10 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
         let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
 
-        // if `IS_MUL == 0`, then the constraints should be met even
+        // if `IS_MULT and IS_MULTU == 0`, then the constraints should be met even
         // if all values are garbage.
         lv[IS_MULT] = F::ZERO;
+        lv[IS_MULTU] = F::ZERO;
 
         let mut constraint_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -313,26 +317,34 @@ mod tests {
         // set `IS_MUL == 1` and ensure all constraints are satisfied.
         lv[IS_MULT] = F::ONE;
 
-        for _i in 0..N_RND_TESTS {
-            // set inputs to random values
-            for (ai, bi) in INPUT_REGISTER_0.zip(INPUT_REGISTER_1) {
-                lv[ai] = F::from_canonical_u16(rng.gen());
-                lv[bi] = F::from_canonical_u16(rng.gen());
-            }
+        for op_filter in DIV_OPS {
+            for _i in 0..N_RND_TESTS {
+                // Reset operation columns, then select one
+                for op in DIV_OPS {
+                    lv[op] = F::ZERO;
+                }
+                lv[op_filter] = F::ONE;
 
-            let left_in = rng.gen::<u32>();
-            let right_in = rng.gen::<u32>();
-            generate(&mut lv, left_in, right_in);
+                // set inputs to random values
+                for (ai, bi) in INPUT_REGISTER_0.zip(INPUT_REGISTER_1) {
+                    lv[ai] = F::from_canonical_u16(rng.gen());
+                    lv[bi] = F::from_canonical_u16(rng.gen());
+                }
 
-            let mut constraint_consumer = ConstraintConsumer::new(
-                vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
-                GoldilocksField::ONE,
-                GoldilocksField::ONE,
-                GoldilocksField::ONE,
-            );
-            eval_packed_generic(&lv, &mut constraint_consumer);
-            for &acc in &constraint_consumer.constraint_accs {
-                assert_eq!(acc, GoldilocksField::ZERO);
+                let left_in = rng.gen::<u32>();
+                let right_in = rng.gen::<u32>();
+                generate(&mut lv, left_in, right_in);
+
+                let mut constraint_consumer = ConstraintConsumer::new(
+                    vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+                    GoldilocksField::ONE,
+                    GoldilocksField::ONE,
+                    GoldilocksField::ONE,
+                );
+                eval_packed_generic(&lv, &mut constraint_consumer);
+                for &acc in &constraint_consumer.constraint_accs {
+                    assert_eq!(acc, GoldilocksField::ZERO);
+                }
             }
         }
     }

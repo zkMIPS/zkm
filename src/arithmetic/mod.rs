@@ -236,17 +236,21 @@ fn binary_op_to_rows<F: PrimeField64>(
             addcy::generate(&mut row, op.row_filter(), input0, input1);
             (row, None)
         }
-        BinaryOperator::MULT => {
+        BinaryOperator::MUL => {
             mul::generate(&mut row, input0, input1);
             (row, None)
         }
-        /*
-        BinaryOperator::DIV => {
+        BinaryOperator::MULT | BinaryOperator::MULTU => {
+            mult::generate(&mut row, input0, input1);
+            (row, None)
+        }
+
+        BinaryOperator::DIV | BinaryOperator::DIVU => {
             let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
-            divmod::generate(&mut row, &mut nv, op.row_filter(), input0, input1, result);
+            div::generate(&mut row, &mut nv, op.row_filter(), input0, input1, result1);
             (row, Some(nv))
         }
-        */
+
         _ => (row, None),
     }
 }
