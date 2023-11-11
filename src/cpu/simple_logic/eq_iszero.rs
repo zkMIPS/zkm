@@ -8,8 +8,8 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 
-/// store the (val0 - val1)^-1 in logic.diff_pinv[offset]
-pub fn generate_pinv_diff<F: Field>(offset: usize, val0: u32, val1: u32, lv: &mut CpuColumnsView<F>) {
+/// store the (val0 - val1)^-1 in logic.diff_pinv
+pub fn generate_pinv_diff<F: Field>(val0: u32, val1: u32, lv: &mut CpuColumnsView<F>) {
     let num_unequal_limbs = if val0 != val1 {1} else {0};
     let equal = num_unequal_limbs == 0;
 
@@ -69,12 +69,12 @@ pub fn eval_packed<P: PackedField>(
     // If `unequal`, find `diff_pinv` such that `(input0 - input1) @ diff_pinv == 1`, where `@`
     // denotes the dot product (there will be many such `diff_pinv`). This can only be done if
     // `input0 != input1`.
+    /*
     let dot: P = izip!(input0, input1, logic.diff_pinv)
         .map(|(limb0, limb1, diff_pinv_el)| (limb0 - limb1) * diff_pinv_el)
         .sum();
     yield_constr.constraint(eq_or_iszero_filter * (dot - unequal));
 
-    /*
     // Stack constraints.
     stack::eval_packed_one(lv, nv, eq_filter, EQ_STACK_BEHAVIOR.unwrap(), yield_constr);
     stack::eval_packed_one(
@@ -141,6 +141,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // If `unequal`, find `diff_pinv` such that `(input0 - input1) @ diff_pinv == 1`, where `@`
     // denotes the dot product (there will be many such `diff_pinv`). This can only be done if
     // `input0 != input1`.
+    /*
     {
         let dot: ExtensionTarget<D> = izip!(input0, input1, logic.diff_pinv).fold(
             zero,
@@ -154,7 +155,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 
-    /*
     // Stack constraints.
     stack::eval_ext_circuit_one(
         builder,
