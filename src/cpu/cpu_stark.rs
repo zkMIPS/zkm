@@ -16,7 +16,9 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::{
-    bootstrap_kernel, control_flow, decode, jumps, membus, memio, mov, pc, shift, simple_logic,
+    bootstrap_kernel, contextops, control_flow, decode, dup_swap, gas, jumps, membus, memio,
+    modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
+};
 };
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
@@ -233,6 +235,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         */
         shift::eval_packed(local_values, yield_constr);
         simple_logic::eval_packed(local_values, next_values, yield_constr);
+        syscall::eval_packed(local_values, yield_constr);
         /*
         stack::eval_packed(local_values, next_values, yield_constr);
         stack_bounds::eval_packed(local_values, yield_constr);
@@ -282,6 +285,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         */
         shift::eval_ext_circuit(builder, local_values, yield_constr);
         simple_logic::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        syscall::eval_ext_circuit(builder, local_values, yield_constr);
         /*
         stack::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         stack_bounds::eval_ext_circuit(builder, local_values, yield_constr);
