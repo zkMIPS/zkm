@@ -446,7 +446,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
         let aux2 = lv.mem_channels[3].addr_virtual;
         let constr = builder.add_extension(aux1, aux2);
         let constr = builder.mul_extension(constr, overflow_inv);
-        let constr = builder.mul_extension(one_extension, constr);
+        let constr = builder.sub_extension(one_extension, constr);
         let constr = builder.mul_extension(constr, filter);
 
         yield_constr.constraint(builder, constr);
@@ -566,8 +566,8 @@ pub fn eval_packed_condmov<P: PackedField>(
     let rd = lv.mem_channels[2].value[0]; // rd
     let out = lv.mem_channels[3].value[0]; // out
     let filter = lv.op.condmov_op;
-    let is_movz = P::ONES - lv.func_bits[0];
     let is_movn = lv.func_bits[0];
+    let is_movz = P::ONES - lv.func_bits[0];
 
     // constraints:
     // * is_ne = p_inv0 * rt
