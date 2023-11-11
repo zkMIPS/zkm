@@ -291,18 +291,20 @@ pub fn eval_packed_branch<P: PackedField>(
         let rt = lv.mem_channels[1].value[0]; // rt
         let rd = lv.mem_channels[2].value[0]; // rd
         let out = lv.mem_channels[3].value[0]; // out
-        // constraints:
-        // * out = is_eq * eq(rt, 0) * rs + is_ne * (1 - eq(rt, 0)) * rs;
+        // constraints: is_eq: is_movz, is_ne: is_movn
+        // * let change_rd = is_eq * eq(rt, 0) + is_ne * (1 - eq(rt, 0));
+        // * out = change_rd * rs + (1 - change_rd) * rd;
         // * is_eq * is_ne = 0
         // * (is_eq) * (1 - is_eq) = 0;
         // * (is_n) * (1 - is_ne) = 0;
         // where eq(rt, 0) = 1 - p_inv0 * rt
 
-        let p_inv0 = lv.general.logic().diff_pinv[0]; // rt^-1
+        let p_inv0 = lv.general.logic().diff_pinv; // rt^-1
         let eq_rt_0 = P::ONES - p_inv0 * rt;
+        let change_rd = is_eq * eq_rt_0 + is_ne * (P::ONES - eq_rt_0);
 
         yield_constr.constraint(filter * (
-                out - is_eq * eq_rt_0 * rs - is_ne * (P::ONES - eq_rt_0) * rs
+                out - change_rd * rs - (P::ONES - change_rd) * rd
         ));
         yield_constr.constraint(filter * (is_eq * is_ne));
         yield_constr.constraint(filter * (is_eq * (P::ONES - is_eq)));

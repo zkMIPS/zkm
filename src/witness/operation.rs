@@ -128,7 +128,6 @@ pub(crate) fn generate_cond_mov_op<F: Field>(
     let log_out0 = reg_write_with_log(rd, 3, out, state, &mut row)?;
 
     generate_pinv_diff(0, in1 as u32, 0, &mut row);
-    generate_pinv_diff(1, in0 as u32, in2 as u32, &mut row);
 
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
