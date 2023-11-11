@@ -17,6 +17,7 @@ use crate::witness::errors::ProgramError;
 // use crate::witness::errors::ProgramError::MemoryError;
 use crate::witness::memory::{MemoryAddress, MemoryOp};
 // use crate::witness::operation::MemoryChannel::GeneralPurpose;
+use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::{arithmetic, logic};
 use anyhow::{anyhow, bail, Context, Result};
 
@@ -223,7 +224,7 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
         arithmetic::BinaryOperator::MULT,
         arithmetic::BinaryOperator::MULTU,
     ]
-        .contains(&operator));
+    .contains(&operator));
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
     let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
     let operation = arithmetic::Operation::binary(operator, in0 as u32, in1 as u32);
@@ -253,7 +254,7 @@ pub(crate) fn generate_binary_arithmetic_hilo_op<F: Field>(
         arithmetic::BinaryOperator::MULT,
         arithmetic::BinaryOperator::MULTU,
     ]
-        .contains(&operator));
+    .contains(&operator));
 
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
     let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
@@ -711,19 +712,51 @@ pub(crate) fn generate_shrav<F: Field>(
     Ok(())
 }
 
-pub(crate) fn load_preimage<F: Field>(
-    state: &mut GenerationState<F>,
-    row: &mut CpuColumnsView<F>,
-    preiamge: &str,
-) -> Result<()> {
-    let content = fs::read(preiamge).expect("Read file failed");
+pub(crate) fn load_preimage<F: Field>(state: &mut GenerationState<F>) -> Result<()> {
+    let mut hash_bytes = [0u8; 32];
+    {
+        let mut cpu_row = CpuColumnsView::default();
+        cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+        cpu_row.is_load_preimage = F::ONE;
+        for i in 0..NUM_GP_CHANNELS {
+            let address = MemoryAddress::new(0, Segment::Code, 0x30001000 + i * 4);
+            let (mem, op) = mem_read_gp_with_log_and_fill(i, address, state, &mut cpu_row);
+            hash_bytes[i * 4..i * 4 + 4].copy_from_slice(mem.to_be_bytes().as_ref());
+            state.traces.push_memory(op);
+        }
+        state.traces.push_cpu(cpu_row);
+    }
 
-    state.memory.set(
+    let hex_string = hex::encode(&hash_bytes);
+    let mut preiamge_path = KERNEL.blockpath.clone();
+    preiamge_path.push_str(hex_string.as_str());
+
+    let content = fs::read(preiamge_path).expect("Read file failed");
+
+    let mut cpu_row = CpuColumnsView::default();
+    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+    cpu_row.is_load_preimage = F::ONE;
+
+    let mem_op = mem_write_gp_log_and_fill(
+        0,
         MemoryAddress::new(0, Segment::Code, 0x31000000),
+        state,
+        &mut cpu_row,
         (content.len() as u32).to_be(),
     );
+    state.traces.push_memory(mem_op);
+
     let mut map_addr = 0x31000004;
+
+    let mut j = 1;
     for i in (0..content.len()).step_by(WORD_SIZE) {
+        if j == 8 {
+            state.traces.push_cpu(cpu_row);
+            cpu_row = CpuColumnsView::default();
+            cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+            cpu_row.is_load_preimage = F::ONE;
+            j = 0;
+        }
         let mut word = 0;
         // Don't read past the end of the file.
         let len = core::cmp::min(content.len() - i, WORD_SIZE);
@@ -732,9 +765,15 @@ pub(crate) fn load_preimage<F: Field>(
             let byte = content.get(offset).context("Invalid block offset")?;
             word |= (*byte as u32) << (j * 8);
         }
-        state
-            .memory
-            .set(MemoryAddress::new(0, Segment::Code, map_addr), word);
+
+        let mem_op = mem_write_gp_log_and_fill(
+            j,
+            MemoryAddress::new(0, Segment::Code, map_addr),
+            state,
+            &mut cpu_row,
+            word.to_be(),
+        );
+        state.traces.push_memory(mem_op);
         map_addr += 4;
     }
 
@@ -754,77 +793,17 @@ pub(crate) fn generate_syscall<F: Field>(
 
     let result = match sys_num {
         SYSGETPID => {
-            let mut hash_bytes = [0u8; 32];
-            hash_bytes[0..4].copy_from_slice(
-                state
-                    .memory
-                    .get(MemoryAddress::new(0, Segment::Code, 0x30001000))
-                    .to_le_bytes()
-                    .as_ref(),
-            );
-            hash_bytes[4..8].copy_from_slice(
-                state
-                    .memory
-                    .get(MemoryAddress::new(0, Segment::Code, 0x30001004))
-                    .to_le_bytes()
-                    .as_ref(),
-            );
-            hash_bytes[8..12].copy_from_slice(
-                state
-                    .memory
-                    .get(MemoryAddress::new(0, Segment::Code, 0x30001008))
-                    .to_le_bytes()
-                    .as_ref(),
-            );
-            hash_bytes[12..16].copy_from_slice(
-                state
-                    .memory
-                    .get(MemoryAddress::new(0, Segment::Code, 0x3000100C))
-                    .to_le_bytes()
-                    .as_ref(),
-            );
-            hash_bytes[16..20].copy_from_slice(
-                state
-                    .memory
-                    .get(MemoryAddress::new(0, Segment::Code, 0x30001010))
-                    .to_le_bytes()
-                    .as_ref(),
-            );
-            hash_bytes[20..24].copy_from_slice(
-                state
-                    .memory
-                    .get(MemoryAddress::new(0, Segment::Code, 0x30001014))
-                    .to_le_bytes()
-                    .as_ref(),
-            );
-            hash_bytes[24..28].copy_from_slice(
-                state
-                    .memory
-                    .get(MemoryAddress::new(0, Segment::Code, 0x30001018))
-                    .to_le_bytes()
-                    .as_ref(),
-            );
-            hash_bytes[28..32].copy_from_slice(
-                state
-                    .memory
-                    .get(MemoryAddress::new(0, Segment::Code, 0x3000101C))
-                    .to_le_bytes()
-                    .as_ref(),
-            );
-            let hex_string = hex::encode(&hash_bytes);
-            let mut preiamge_path = KERNEL.blockpath.clone();
-            preiamge_path.push_str(hex_string.as_str());
-            let _ = load_preimage(state, &mut row, preiamge_path.as_str());
+            let _ = load_preimage(state);
             Ok(())
         }
         SYSMMAP => {
             let mut sz = a1;
             if sz & 0xFFF != 0 {
-                row.mem_channels[0].value[1] =F::from_canonical_u32(1u32);
+                row.mem_channels[0].value[1] = F::from_canonical_u32(1u32);
                 sz += 0x1000 - sz & 0xFFF;
             };
             if a0 == 0 {
-                row.mem_channels[0].value[2] =F::from_canonical_u32(1u32);
+                row.mem_channels[0].value[2] = F::from_canonical_u32(1u32);
                 let (heap, log_in5) = reg_read_with_log(34, 6, state, &mut row)?;
                 v0 = heap;
                 let heap = heap + sz;
@@ -837,13 +816,13 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSBRK => {
-            row.mem_channels[0].value[3] =F::from_canonical_u32(1u32);
+            row.mem_channels[0].value[3] = F::from_canonical_u32(1u32);
             v0 = 0x40000000;
             Ok(())
         }
         SYSCLONE => {
             // clone (not supported)
-            row.mem_channels[0].value[4] =F::from_canonical_u32(1u32);
+            row.mem_channels[0].value[4] = F::from_canonical_u32(1u32);
             v0 = 1;
             Ok(())
         }
@@ -855,10 +834,10 @@ pub(crate) fn generate_syscall<F: Field>(
         SYSREAD => {
             match a0 {
                 FD_STDIN => {
-                    row.mem_channels[0].value[5] =F::from_canonical_u32(1u32);
-                }, // fdStdin
+                    row.mem_channels[0].value[5] = F::from_canonical_u32(1u32);
+                } // fdStdin
                 _ => {
-                    row.mem_channels[0].value[6] =F::from_canonical_u32(1u32);
+                    row.mem_channels[0].value[6] = F::from_canonical_u32(1u32);
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -870,11 +849,10 @@ pub(crate) fn generate_syscall<F: Field>(
                 // fdStdout
                 FD_STDOUT | FD_STDERR => {
                     v0 = a2;
-                    row.mem_channels[0].value[7] =F::from_canonical_u32(1u32);
-
-                }, // fdStdout
+                    row.mem_channels[0].value[7] = F::from_canonical_u32(1u32);
+                } // fdStdout
                 _ => {
-                    row.mem_channels[1].value[1] =F::from_canonical_u32(1u32);
+                    row.mem_channels[1].value[1] = F::from_canonical_u32(1u32);
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -884,17 +862,17 @@ pub(crate) fn generate_syscall<F: Field>(
         SYSFCNTL => {
             match a0 {
                 FD_STDIN => {
-                    row.mem_channels[1].value[2] =F::from_canonical_u32(1u32);
+                    row.mem_channels[1].value[2] = F::from_canonical_u32(1u32);
                     v0 = 0;
                     ()
                 } // fdStdin
                 FD_STDOUT | FD_STDERR => {
-                    row.mem_channels[1].value[3] =F::from_canonical_u32(1u32);
+                    row.mem_channels[1].value[3] = F::from_canonical_u32(1u32);
                     v0 = 1;
                     ()
                 } // fdStdout / fdStderr
                 _ => {
-                    row.mem_channels[1].value[4] =F::from_canonical_u32(1u32);
+                    row.mem_channels[1].value[4] = F::from_canonical_u32(1u32);
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
