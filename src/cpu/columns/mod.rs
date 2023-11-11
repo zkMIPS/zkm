@@ -35,6 +35,9 @@ pub struct CpuColumnsView<T: Copy> {
     /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
     pub is_bootstrap_kernel: T,
 
+    /// Filter. 1 if the row is part of load preimage, 0 otherwise.
+    pub is_load_preimage: T,
+
     /// If CPU cycle: Current context.
     // TODO: this is currently unconstrained
     pub context: T,
