@@ -7,31 +7,11 @@ use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
-// use crate::cpu::stack::{self, EQ_STACK_BEHAVIOR, IS_ZERO_STACK_BEHAVIOR};
 
-/*
-fn limbs(x: U256) -> [u32; 8] {
-    let mut res = [0; 8];
-    let x_u64: [u64; 4] = x.0;
-    for i in 0..4 {
-        res[2 * i] = x_u64[i] as u32;
-        res[2 * i + 1] = (x_u64[i] >> 32) as u32;
-    }
-    res
-}
-*/
-
-pub fn generate_pinv_diff<F: Field>(val0: u32, val1: u32, lv: &mut CpuColumnsView<F>) {
-    let num_unequal_limbs = izip!([val0], [val1])
-        .map(|(limb0, limb1)| (limb0 != limb1) as usize)
-        .sum();
+/// store the (val0 - val1)^-1 in logic.diff_pinv[offset]
+pub fn generate_pinv_diff<F: Field>(offset: usize, val0: u32, val1: u32, lv: &mut CpuColumnsView<F>) {
+    let num_unequal_limbs = if val0 != val1 {1} else {0};
     let equal = num_unequal_limbs == 0;
-
-    let output = &mut lv.mem_channels[2].value;
-    output[0] = F::from_bool(equal);
-    for limb in &mut output[1..] {
-        *limb = F::ZERO;
-    }
 
     // Form `diff_pinv`.
     // Let `diff = val0 - val1`. Consider `x[i] = diff[i]^-1` if `diff[i] != 0` and 0 otherwise.
@@ -42,10 +22,9 @@ pub fn generate_pinv_diff<F: Field>(val0: u32, val1: u32, lv: &mut CpuColumnsVie
     let num_unequal_limbs_inv = F::from_canonical_usize(num_unequal_limbs)
         .try_inverse()
         .unwrap_or(F::ZERO);
-    for (limb_pinv, limb0, limb1) in izip!(logic.diff_pinv.iter_mut(), [val0], [val1]) {
-        // FIXME
-        // *limb_pinv = (limb0 - limb1).try_inverse().unwrap_or(F::ZERO) * num_unequal_limbs_inv;
-    }
+    let val0_f = F::from_canonical_u32(val0);
+    let val1_f = F::from_canonical_u32(val1);
+    logic.diff_pinv[offset] = (val0_f - val1_f).try_inverse().unwrap_or(F::ZERO) * num_unequal_limbs_inv;
 }
 
 pub fn eval_packed<P: PackedField>(

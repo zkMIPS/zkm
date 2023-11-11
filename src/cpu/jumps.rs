@@ -287,29 +287,26 @@ pub fn eval_packed_branch<P: PackedField>(
 
     // Check Condition
     {
-        let src1 = lv.mem_channels[0].value[0];
-        let src2 = lv.mem_channels[1].value[0];
-        let aux1 = lv.mem_channels[2].value[0];
-        let aux2 = lv.mem_channels[3].value[0];
-        let overflow = P::Scalar::from_canonical_u64(1 << 32);
-        let overflow_div = P::Scalar::from_canonical_u64(1) / overflow; // FIXME: CHECK
+        let rs = lv.mem_channels[0].value[0]; // rs
+        let rt = lv.mem_channels[1].value[0]; // rt
+        let rd = lv.mem_channels[2].value[0]; // rd
+        let out = lv.mem_channels[3].value[0]; // out
+        // constraints:
+        // * out = is_eq * eq(rt, 0) * rs + is_ne * (1 - eq(rt, 0)) * rs;
+        // * is_eq * is_ne = 0
+        // * (is_eq) * (1 - is_eq) = 0;
+        // * (is_n) * (1 - is_ne) = 0;
+        // where eq(rt, 0) = 1 - p_inv0 * rt
 
-        let constr_a = src2 + aux1 - src1;
-        yield_constr.constraint(filter * constr_a * (overflow - constr_a));
-        let constr_b = src1 + aux2 - src2;
-        yield_constr.constraint(filter * constr_b * (overflow - constr_b));
+        let p_inv0 = lv.general.logic().diff_pinv[0]; // rt^-1
+        let eq_rt_0 = P::ONES - p_inv0 * rt;
 
-        let lt = constr_a * overflow_div;
-        let gt = constr_b * overflow_div;
-        let ne = lt + gt;
-        let constr_eq = (P::ONES - ne) * is_eq;
-        let constr_ne = ne * is_ne;
-        let constr_le = (P::ONES - gt) * is_le;
-        let constr_ge = (P::ONES - lt) * is_ge;
-        let constr_gt = gt * is_gt;
-        let constr_lt = lt * is_lt;
-        let constr = constr_eq + constr_ne + constr_le + constr_ge + constr_lt + constr_gt;
-        yield_constr.constraint(filter * (jumps_lv.should_jump - constr));
+        yield_constr.constraint(filter * (
+                out - is_eq * eq_rt_0 * rs - is_ne * (P::ONES - eq_rt_0) * rs
+        ));
+        yield_constr.constraint(filter * (is_eq * is_ne));
+        yield_constr.constraint(filter * (is_eq * (P::ONES - is_eq)));
+        yield_constr.constraint(filter * (is_ne * (P::ONES - is_ne)));
     }
 }
 

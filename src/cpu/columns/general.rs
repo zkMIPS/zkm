@@ -103,7 +103,7 @@ pub(crate) struct CpuExceptionView<T: Copy> {
 #[derive(Copy, Clone)]
 pub(crate) struct CpuLogicView<T: Copy> {
     // Pseudoinverse of `(input0 - input1)`. Used prove that they are unequal. Assumes 32-bit limbs.
-    pub(crate) diff_pinv: [T; 8],
+    pub(crate) diff_pinv: [T; 4],
 }
 
 #[derive(Copy, Clone)]
