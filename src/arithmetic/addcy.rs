@@ -33,7 +33,7 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], filter: usize, left_in: u3
     u32_to_array(&mut lv[INPUT_REGISTER_2], 0);
 
     match filter {
-        IS_ADD => {
+        IS_ADD | IS_ADDI => {
             let (result, cy) = left_in.overflowing_add(right_in);
             u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], cy as u32);
             u32_to_array(&mut lv[OUTPUT_REGISTER], result);
@@ -141,6 +141,7 @@ pub fn eval_packed_generic<P: PackedField>(
     let is_sub = lv[IS_SUB];
     // let is_lt = lv[IS_LT];
     // let is_gt = lv[IS_GT];
+    let is_addi = lv[IS_ADDI];
 
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
@@ -152,6 +153,7 @@ pub fn eval_packed_generic<P: PackedField>(
     eval_packed_generic_addcy(yield_constr, is_sub, in1, out, in0, aux, false);
     // eval_packed_generic_addcy(yield_constr, is_lt, in1, aux, in0, out, false);
     // eval_packed_generic_addcy(yield_constr, is_gt, in0, aux, in1, out, false);
+    eval_packed_generic_addcy(yield_constr, is_addi, in0, in1, out, aux, false);
 }
 
 #[allow(clippy::needless_collect)]
@@ -229,6 +231,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let is_sub = lv[IS_SUB];
     //let is_lt = lv[IS_LT];
     //let is_gt = lv[IS_GT];
+    let is_addi = lv[IS_ADDI];
 
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
@@ -239,6 +242,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     eval_ext_circuit_addcy(builder, yield_constr, is_sub, in1, out, in0, aux, false);
     //eval_ext_circuit_addcy(builder, yield_constr, is_lt, in1, aux, in0, out, false);
     //eval_ext_circuit_addcy(builder, yield_constr, is_gt, in0, aux, in1, out, false);
+    eval_ext_circuit_addcy(builder, yield_constr, is_addi, in0, in1, out, aux, false);
 }
 
 #[cfg(test)]
@@ -267,6 +271,7 @@ mod tests {
         lv[IS_SUB] = F::ZERO;
         // lv[IS_LT] = F::ZERO;
         // lv[IS_GT] = F::ZERO;
+        lv[IS_ADDI] = F::ZERO;
 
         let mut constrant_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -288,7 +293,7 @@ mod tests {
         const N_ITERS: usize = 1000;
 
         for _ in 0..N_ITERS {
-            for op_filter in [IS_ADD, IS_SUB] {
+            for op_filter in [IS_ADD, IS_SUB, IS_ADDI] {
                 // set entire row to random 16-bit values
                 let mut lv = [F::default(); NUM_ARITH_COLUMNS]
                     .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
@@ -299,6 +304,7 @@ mod tests {
                 // the call.
                 lv[IS_ADD] = F::ZERO;
                 lv[IS_SUB] = F::ZERO;
+                lv[IS_ADDI] = F::ZERO;
                 lv[op_filter] = F::ONE;
 
                 let left_in = rng.gen::<u32>();
@@ -318,7 +324,7 @@ mod tests {
                 }
 
                 let expected = match op_filter {
-                    IS_ADD => left_in.overflowing_add(right_in).0,
+                    IS_ADD | IS_ADDI => left_in.overflowing_add(right_in).0,
                     IS_SUB => left_in.overflowing_sub(right_in).0,
                     _ => panic!("unrecognised operation"),
                 };

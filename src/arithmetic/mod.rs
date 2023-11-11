@@ -1,5 +1,4 @@
 pub mod addcy;
-pub mod addicy;
 pub mod arithmetic_stark;
 pub mod columns;
 pub mod mul;
@@ -232,7 +231,7 @@ fn binary_op_to_rows<F: PrimeField64>(
     row[op.row_filter()] = F::ONE;
 
     match op {
-        BinaryOperator::ADD | BinaryOperator::SUB => {
+        BinaryOperator::ADD | BinaryOperator::SUB | BinaryOperator::ADDI => {
             addcy::generate(&mut row, op.row_filter(), input0, input1);
             (row, None)
         }
