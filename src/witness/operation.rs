@@ -9,7 +9,7 @@ use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
 // use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::KERNEL;
 // use crate::cpu::membus::NUM_GP_CHANNELS;
-// use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
+use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 // use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
@@ -125,6 +125,8 @@ pub(crate) fn generate_cond_mov_op<F: Field>(
     };
 
     let out = if mov { in0 } else { in2 };
+
+    generate_pinv_diff(0, in1 as u32, 0, &mut row);
 
     let log_out0 = reg_write_with_log(rd, 3, out, state, &mut row)?;
 
@@ -421,13 +423,19 @@ pub(crate) fn generate_jumpi<F: Field>(
 ) -> Result<(), ProgramError> {
     let (mut target_pc, _) = (target as usize).overflowing_shl(2);
     let pc = state.registers.program_counter;
-    target_pc = target_pc.wrapping_add(pc & 0xf0000000);
+    let operation: logic::Operation =
+        logic::Operation::new(logic::Op::And, pc as u32, 0xf0000000u32);
+    let pc_result = operation.result as usize;
+    let result_op = reg_write_with_log(0, 7, pc_result, state, &mut row)?;
+    target_pc = target_pc.wrapping_add(pc_result);
     row.general.jumps_mut().should_jump = F::ONE;
     let next_pc = pc.wrapping_add(8);
     let link_op = reg_write_with_log(link, 1, next_pc, state, &mut row)?;
+    state.traces.push_logic(operation);
     state.traces.push_cpu(row);
     state.jump_to(target_pc);
     state.traces.push_memory(link_op);
+    state.traces.push_memory(result_op);
     Ok(())
 }
 
