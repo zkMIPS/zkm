@@ -61,19 +61,19 @@ pub(crate) const SHARED_COLS: Range<usize> = START_SHARED_COLS..START_SHARED_COL
 pub(crate) const INPUT_REGISTER_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LIMBS;
 pub(crate) const INPUT_REGISTER_1: Range<usize> =
     INPUT_REGISTER_0.end..INPUT_REGISTER_0.end + N_LIMBS;
-pub(crate) const INPUT_REGISTER_2: Range<usize> =
+pub(crate) const OUTPUT_REGISTER_0: Range<usize> =
     INPUT_REGISTER_1.end..INPUT_REGISTER_1.end + N_LIMBS;
-pub(crate) const OUTPUT_REGISTER: Range<usize> =
-    INPUT_REGISTER_2.end..INPUT_REGISTER_2.end + N_LIMBS;
+pub(crate) const OUTPUT_REGISTER_1: Range<usize> =
+    OUTPUT_REGISTER_0.end..OUTPUT_REGISTER_0.end + N_LIMBS;
 
 // NB: Only one of AUX_INPUT_REGISTER_[01] or AUX_INPUT_REGISTER_DBL
 // will be used for a given operation since they overlap
 pub(crate) const AUX_INPUT_REGISTER_0: Range<usize> =
-    OUTPUT_REGISTER.end..OUTPUT_REGISTER.end + N_LIMBS;
+    OUTPUT_REGISTER_1.end..OUTPUT_REGISTER_1.end + N_LIMBS;
 pub(crate) const AUX_INPUT_REGISTER_1: Range<usize> =
     AUX_INPUT_REGISTER_0.end..AUX_INPUT_REGISTER_0.end + N_LIMBS;
 pub(crate) const AUX_INPUT_REGISTER_DBL: Range<usize> =
-    OUTPUT_REGISTER.end..OUTPUT_REGISTER.end + 2 * N_LIMBS;
+    OUTPUT_REGISTER_1.end..OUTPUT_REGISTER_1.end + 2 * N_LIMBS;
 
 // The auxiliary input columns overlap the general input columns
 // because they correspond to the values in the second row for modular
@@ -99,8 +99,8 @@ pub(crate) const MUL_AUX_INPUT_HI: Range<usize> = AUX_INPUT_REGISTER_1;
 // over two rows).
 pub(crate) const MODULAR_INPUT_0: Range<usize> = INPUT_REGISTER_0;
 pub(crate) const MODULAR_INPUT_1: Range<usize> = INPUT_REGISTER_1;
-pub(crate) const MODULAR_MODULUS: Range<usize> = INPUT_REGISTER_2;
-pub(crate) const MODULAR_OUTPUT: Range<usize> = OUTPUT_REGISTER;
+pub(crate) const MODULAR_OUTPUT_0: Range<usize> = OUTPUT_REGISTER_0;
+pub(crate) const MODULAR_OUTPUT_1: Range<usize> = OUTPUT_REGISTER_1;
 pub(crate) const MODULAR_QUO_INPUT: Range<usize> = AUX_INPUT_REGISTER_DBL;
 pub(crate) const MODULAR_OUT_AUX_RED: Range<usize> = AUX_REGISTER_0;
 // NB: Last value is not used in AUX, it is used in MOD_IS_ZERO

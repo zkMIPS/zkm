@@ -1154,7 +1154,7 @@ pub(crate) fn generate_exception<F: Field>(
     state.registers.program_counter = new_program_counter as usize;
     state.registers.is_kernel = true;
 
-    push_with_write(state, &mut row, exc_info)?;
+    //push_with_write(state, &mut row, exc_info)?;
 
     log::debug!(
         "Exception to {}",

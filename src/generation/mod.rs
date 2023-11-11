@@ -3,7 +3,6 @@ pub(crate) mod state;
 // use crate::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, MemsRoot};
 use crate::proof::{MemsRoot, PublicValues};
 use anyhow::anyhow;
-use ethereum_types::{Address, BigEndianHash, H256, U256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;

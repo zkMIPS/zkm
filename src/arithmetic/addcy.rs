@@ -30,18 +30,17 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], filter: usize, left_in: u32, right_in: u32) {
     u32_to_array(&mut lv[INPUT_REGISTER_0], left_in);
     u32_to_array(&mut lv[INPUT_REGISTER_1], right_in);
-    u32_to_array(&mut lv[INPUT_REGISTER_2], 0);
 
     match filter {
         IS_ADD => {
             let (result, cy) = left_in.overflowing_add(right_in);
             u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], cy as u32);
-            u32_to_array(&mut lv[OUTPUT_REGISTER], result);
+            u32_to_array(&mut lv[OUTPUT_REGISTER_0], result);
         }
         IS_SUB => {
             let (diff, cy) = left_in.overflowing_sub(right_in);
             u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], cy as u32);
-            u32_to_array(&mut lv[OUTPUT_REGISTER], diff);
+            u32_to_array(&mut lv[OUTPUT_REGISTER_0], diff);
         }
         _ => panic!("unexpected operation filter"),
     };
@@ -144,7 +143,7 @@ pub fn eval_packed_generic<P: PackedField>(
 
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
-    let out = &lv[OUTPUT_REGISTER];
+    let out = &lv[OUTPUT_REGISTER_0];
     let aux = &lv[AUX_INPUT_REGISTER_0];
 
     // x + y = z + w*2^32
@@ -232,7 +231,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
-    let out = &lv[OUTPUT_REGISTER];
+    let out = &lv[OUTPUT_REGISTER_0];
     let aux = &lv[AUX_INPUT_REGISTER_0];
 
     eval_ext_circuit_addcy(builder, yield_constr, is_add, in0, in1, out, aux, false);
@@ -327,7 +326,7 @@ mod tests {
                 u32_to_array(&mut expected_limbs, expected);
                 assert!(expected_limbs
                     .iter()
-                    .zip(&lv[OUTPUT_REGISTER])
+                    .zip(&lv[OUTPUT_REGISTER_0])
                     .all(|(x, y)| x == y));
             }
         }

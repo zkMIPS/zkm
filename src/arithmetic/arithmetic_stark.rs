@@ -88,10 +88,11 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         (columns::IS_LUI, 0b001111 + 0b000000 * (1 << 6)),
     ];
 
-    const REGISTER_MAP: [Range<usize>; 3] = [
+    const REGISTER_MAP: [Range<usize>; 4] = [
         columns::INPUT_REGISTER_0,
         columns::INPUT_REGISTER_1,
-        columns::OUTPUT_REGISTER,
+        columns::OUTPUT_REGISTER_0,
+        columns::OUTPUT_REGISTER_1,
     ];
 
     let filter_column = Some(Column::sum(COMBINED_OPS.iter().map(|(c, _v)| *c)));
@@ -270,7 +271,7 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use super::{columns, ArithmeticStark};
-    use crate::arithmetic::columns::OUTPUT_REGISTER;
+    use crate::arithmetic::columns::OUTPUT_REGISTER_0;
     use crate::arithmetic::*;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
@@ -357,7 +358,7 @@ mod tests {
 
         for (row, expected) in expected_output {
             // First register should match expected value...
-            let first = OUTPUT_REGISTER.start;
+            let first = OUTPUT_REGISTER_0.start;
             let out = pols[first].values[row].to_canonical_u64();
             assert_eq!(
                 out, expected,
@@ -365,7 +366,7 @@ mod tests {
                 first, row, expected, out,
             );
             // ...other registers should be zero
-            let rest = OUTPUT_REGISTER.start + 1..OUTPUT_REGISTER.end;
+            let rest = OUTPUT_REGISTER_0.start + 1..OUTPUT_REGISTER_0.end;
             assert!(pols[rest].iter().all(|v| v.values[row] == F::ZERO));
         }
     }

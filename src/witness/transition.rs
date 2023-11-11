@@ -285,6 +285,12 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Count(_, _, _) => &mut flags.count_op,
         Operation::BinaryLogic(_, _, _, _) => &mut flags.logic_op,
         Operation::BinaryLogicImm(_, _, _, _) => &mut flags.logic_op,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLL, ..)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRL, ..)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRA, ..) => &mut flags.shift,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLLV, ..)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRLV, ..)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRAV, ..) => &mut flags.shift_imm,
         Operation::BinaryArithmetic(..) => &mut flags.binary_op,
         Operation::BinaryArithmeticImm(..) => &mut flags.binary_imm_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
@@ -468,8 +474,6 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
     }
 
     fill_op_flag(op, &mut row);
-
-    // FIXME: decode instruction data, and load IMM and input data into registers
 
     /*
     if state.registers.is_stack_top_read {

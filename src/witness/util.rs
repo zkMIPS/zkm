@@ -219,42 +219,6 @@ pub(crate) fn push_no_write<F: Field>(
     }
 }
 
-/// Pushes and (maybe) writes the previous stack top in memory. This happens in opcodes which only push.
-pub(crate) fn push_with_write<F: Field>(
-    state: &mut GenerationState<F>,
-    row: &mut CpuColumnsView<F>,
-    val: u32,
-) -> Result<(), ProgramError> {
-    /*
-    if !state.registers.is_kernel && state.registers.stack_len >= MAX_USER_STACK_SIZE {
-        return Err(ProgramError::StackOverflow);
-    }
-
-    let write = if state.registers.stack_len == 0 {
-        None
-    } else {
-        let address = MemoryAddress::new(
-            state.registers.context,
-            Segment::Stack,
-            state.registers.stack_len - 1,
-        );
-        let res = mem_write_gp_log_and_fill(
-            NUM_GP_CHANNELS - 1,
-            address,
-            state,
-            row,
-            state.registers.stack_top,
-        );
-        Some(res)
-    };
-    push_no_write(state, row, val, None);
-    if let Some(log) = write {
-        state.traces.push_memory(log);
-    }
-    */
-    Ok(())
-}
-
 pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
     n: usize,
     address: MemoryAddress,
