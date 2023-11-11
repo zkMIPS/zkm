@@ -555,6 +555,87 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
     }
 }
 
+pub fn eval_packed_condmov<P: PackedField>(
+    lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    let rs = lv.mem_channels[0].value[0]; // rs
+    let rt = lv.mem_channels[1].value[0]; // rt
+    let rd = lv.mem_channels[2].value[0]; // rd
+    let out = lv.mem_channels[3].value[0]; // out
+    let filter = lv.op.condmov_op;
+    let is_movz = P::ONES - lv.func_bits[0];
+    let is_movn = lv.func_bits[0];
+    
+    // constraints:
+    // * is_ne = p_inv0 * rt
+    // * filter * (is_ne * (1 - is_ne)) == 0
+    // * is_mov = is_ne * is_movn + (1 - is_ne) * is_movz
+    // * filter * is_mov * (1 - is_mov) == 0
+    // * res = is_mov * rs + (1 - is_mov) * rd
+    // * filter * (out - res) == 0
+    {
+        let p_inv0 = lv.general.logic().diff_pinv[0]; // rt^-1
+        let is_ne = p_inv0 * rt;
+        let is_eq = P::ONES - is_ne;
+        yield_constr.constraint(filter * is_eq * is_ne);
+
+        let is_mov = is_ne * is_movn + is_eq * is_movz;
+        yield_constr.constraint(filter * is_mov * (P::ONES - is_mov));
+
+        yield_constr.constraint(filter * (
+                out - (is_mov * rs + (P::ONES - is_mov) * rd)));
+    }
+}
+
+pub fn eval_ext_circuit_condmov<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    let rs = lv.mem_channels[0].value[0]; // rs
+    let rt = lv.mem_channels[1].value[0]; // rt
+    let rd = lv.mem_channels[2].value[0]; // rd
+    let out = lv.mem_channels[3].value[0]; // out
+    let filter = lv.op.condmov_op;
+    let is_movn = lv.func_bits[0];
+    let one_extension = builder.one_extension();
+    let is_movz = builder.sub_extension(one_extension, lv.func_bits[0]);
+
+    // constraints:
+    // * is_ne = p_inv0 * rt
+    // * filter * (is_ne * (1 - is_ne)) == 0
+    // * is_mov = is_ne * is_movn + (1 - is_ne) * is_movz
+    // * filter * is_mov * (1 - is_mov) == 0
+    // * res = is_mov * rs + (1 - is_mov) * rd
+    // * filter * (out - res) == 0
+    {
+        let p_inv0 = lv.general.logic().diff_pinv[0]; // rt^-1
+        let is_ne = builder.mul_extension(p_inv0, rt);
+        let is_eq = builder.sub_extension(one_extension, is_ne);
+        let constr = builder.mul_extension(is_eq, is_ne);
+        let constr = builder.mul_extension(filter, constr);
+        yield_constr.constraint(builder, constr);
+
+        let is_movn_mov = builder.mul_extension(is_ne, is_movn);
+        let is_movz_mov = builder.mul_extension(is_eq, is_movz);
+        let is_mov = builder.add_extension(is_movn_mov, is_movz_mov);
+        let no_mov = builder.sub_extension(one_extension, is_mov);
+        let constr = builder.mul_extension(is_mov, no_mov);
+        let constr = builder.mul_extension(filter, constr);
+        yield_constr.constraint(builder, constr);
+
+        let constr_a = builder.mul_extension(is_mov, rs);
+        let constr_b = builder.mul_extension(no_mov, rd);
+        let constr = builder.add_extension(constr_a, constr_b);
+        let constr = builder.sub_extension(out, constr);
+        let constr = builder.mul_extension(filter, constr);
+        yield_constr.constraint(builder, constr);
+    }
+}
+
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -563,6 +644,7 @@ pub fn eval_packed<P: PackedField>(
     eval_packed_exit_kernel(lv, nv, yield_constr);
     eval_packed_jump_jumpi(lv, nv, yield_constr);
     eval_packed_branch(lv, nv, yield_constr);
+    eval_packed_condmov(lv, nv, yield_constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -574,4 +656,5 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     eval_ext_circuit_exit_kernel(builder, lv, nv, yield_constr);
     eval_ext_circuit_jump_jumpi(builder, lv, nv, yield_constr);
     eval_ext_circuit_branch(builder, lv, nv, yield_constr);
+    eval_ext_circuit_condmov(builder, lv, nv, yield_constr);
 }
