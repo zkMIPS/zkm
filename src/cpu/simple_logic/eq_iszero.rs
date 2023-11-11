@@ -21,8 +21,13 @@ fn limbs(x: U256) -> [u32; 8] {
 }
 */
 
-pub fn generate_pinv_diff<F: Field>(offset: usize, val0: u32, val1: u32, lv: &mut CpuColumnsView<F>) {
-    let num_unequal_limbs = if val0 != val1 {1} else {0};
+pub fn generate_pinv_diff<F: Field>(
+    offset: usize,
+    val0: u32,
+    val1: u32,
+    lv: &mut CpuColumnsView<F>,
+) {
+    let num_unequal_limbs = if val0 != val1 { 1 } else { 0 };
     let equal = num_unequal_limbs == 0;
 
     // Form `diff_pinv`.
@@ -36,7 +41,8 @@ pub fn generate_pinv_diff<F: Field>(offset: usize, val0: u32, val1: u32, lv: &mu
         .unwrap_or(F::ZERO);
     let val0_f = F::from_canonical_u32(val0);
     let val1_f = F::from_canonical_u32(val1);
-    logic.diff_pinv[offset] = (val0_f - val1_f).try_inverse().unwrap_or(F::ZERO) * num_unequal_limbs_inv;
+    logic.diff_pinv[offset] =
+        (val0_f - val1_f).try_inverse().unwrap_or(F::ZERO) * num_unequal_limbs_inv;
 }
 
 pub fn eval_packed<P: PackedField>(

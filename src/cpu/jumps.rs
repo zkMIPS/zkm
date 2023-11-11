@@ -122,7 +122,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     }
 
     // Check `link/linki target value`:
-    // constraint: 
+    // constraint:
     // * next_addr = program_counter + 8
     // * link = is_link + is_linki
     // * link * (ret_addr - next_addr) == 0
@@ -218,7 +218,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     }
 
     // Check `link/linki target value`:
-    // constraint: 
+    // constraint:
     // * next_addr = program_counter + 8
     // * link = is_link + is_linki
     // * link * (ret_addr - next_addr) == 0
@@ -268,7 +268,7 @@ pub fn eval_packed_branch<P: PackedField>(
     let is_ge = (P::ONES - lv.opcode_bits[2]) * lv.rt_bits[0];
     let is_lt = (P::ONES - lv.opcode_bits[2]) * (P::ONES - lv.rt_bits[0]);
     let overflow = P::Scalar::from_canonical_u64(1 << 32);
-    let overflow_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP32);;
+    let overflow_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP32);
 
     // Check `should_jump`:
     // constraint: filter * (1 - should_jump) * should_jump == 0
@@ -351,7 +351,7 @@ pub fn eval_packed_branch<P: PackedField>(
         yield_constr.constraint(filter * constr_b * (overflow - constr_b));
         let gt = constr_b * overflow_inv;
         yield_constr.constraint(filter * gt * (P::ONES - gt));
-        
+
         // constraints:
         // * is_ne = is_lt + is_gt
         // * filter * ne * (1 - is_ne) == 0
@@ -399,7 +399,8 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
     let is_ge = builder.mul_extension(spec_filter, lv.rt_bits[0]);
     let is_lt = builder.mul_extension(spec_filter, bit16_not);
     let overflow = builder.constant_extension(F::Extension::from_canonical_u64(1 << 32));
-    let overflow_inv = builder.constant_extension(F::Extension::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP32));
+    let overflow_inv =
+        builder.constant_extension(F::Extension::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP32));
 
     // Check `should_jump`:
     {
@@ -447,7 +448,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(constr, overflow_inv);
         let constr = builder.mul_extension(one_extension, constr);
         let constr = builder.mul_extension(constr, filter);
-        
+
         yield_constr.constraint(builder, constr);
     }
 
@@ -567,7 +568,7 @@ pub fn eval_packed_condmov<P: PackedField>(
     let filter = lv.op.condmov_op;
     let is_movz = P::ONES - lv.func_bits[0];
     let is_movn = lv.func_bits[0];
-    
+
     // constraints:
     // * is_ne = p_inv0 * rt
     // * filter * (is_ne * (1 - is_ne)) == 0
@@ -584,8 +585,7 @@ pub fn eval_packed_condmov<P: PackedField>(
         let is_mov = is_ne * is_movn + is_eq * is_movz;
         yield_constr.constraint(filter * is_mov * (P::ONES - is_mov));
 
-        yield_constr.constraint(filter * (
-                out - (is_mov * rs + (P::ONES - is_mov) * rd)));
+        yield_constr.constraint(filter * (out - (is_mov * rs + (P::ONES - is_mov) * rd)));
     }
 }
 
