@@ -250,7 +250,10 @@ fn binary_op_to_rows<F: PrimeField64>(
             mult::generate(&mut row, input0, input1);
             (row, None)
         }
-
+        BinaryOperator::SLT => {
+            slt::generate(&mut row, op.row_filter(), input0, input1, result0);
+            (row, None)
+        }
         BinaryOperator::DIV | BinaryOperator::DIVU => {
             let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
             div::generate(&mut row, &mut nv, op.row_filter(), input0, input1, result1);
