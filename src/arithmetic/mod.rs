@@ -242,7 +242,10 @@ fn binary_op_to_rows<F: PrimeField64>(
             mul::generate(&mut row, input0, input1);
             (row, None)
         }
-        BinaryOperator::SLT | BinaryOperator::SLTI => {
+        BinaryOperator::SLT
+        | BinaryOperator::SLTI
+        | BinaryOperator::SLTU
+        | BinaryOperator::SLTIU => {
             slt::generate(&mut row, op.row_filter(), input0, input1, result0);
             (row, None)
         }
