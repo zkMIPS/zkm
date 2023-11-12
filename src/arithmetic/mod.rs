@@ -2,7 +2,9 @@ pub mod addcy;
 pub mod arithmetic_stark;
 pub mod columns;
 pub mod lui;
+pub mod div;
 pub mod mul;
+pub mod mult;
 pub mod shift;
 pub mod slt;
 pub mod utils;
@@ -236,7 +238,7 @@ fn binary_op_to_rows<F: PrimeField64>(
             addcy::generate(&mut row, op.row_filter(), input0, input1);
             (row, None)
         }
-        BinaryOperator::MULT => {
+        BinaryOperator::MUL => {
             mul::generate(&mut row, input0, input1);
             (row, None)
         }
@@ -244,13 +246,17 @@ fn binary_op_to_rows<F: PrimeField64>(
             slt::generate(&mut row, op.row_filter(), input0, input1, result0);
             (row, None)
         }
-        /*
-        BinaryOperator::DIV => {
+        BinaryOperator::MULT | BinaryOperator::MULTU => {
+            mult::generate(&mut row, input0, input1);
+            (row, None)
+        }
+
+        BinaryOperator::DIV | BinaryOperator::DIVU => {
             let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
-            divmod::generate(&mut row, &mut nv, op.row_filter(), input0, input1, result);
+            div::generate(&mut row, &mut nv, op.row_filter(), input0, input1, result1);
             (row, Some(nv))
         }
-        */
+
         _ => (row, None),
     }
 }
