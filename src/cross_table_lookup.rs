@@ -175,8 +175,6 @@ impl<F: Field> Column<F> {
 
     /// Evaluate on an row of a table given in column-major form.
     pub fn eval_table(&self, table: &[PolynomialValues<F>], row: usize) -> F {
-        log::debug!("eval_table@{:?}: table: {:?}, row: {:?}", self, table, row);
-        log::debug!("lc: {:?}", self.linear_combination);
         let mut res = self
             .linear_combination
             .iter()
@@ -194,7 +192,6 @@ impl<F: Field> Column<F> {
                 .sum::<F>();
         }
 
-        log::debug!("eval_table result: {:?}", res);
         res
     }
 
@@ -282,7 +279,6 @@ impl<F: Field> CrossTableLookup<F> {
         looking_tables
             .iter()
             .for_each(|e| println!("looking: {}", e.columns.len()));
-        log::debug!("looked {}", looked_table.columns.len());
         assert!(looking_tables
             .iter()
             .all(|twc| twc.columns.len() == looked_table.columns.len()));
@@ -853,7 +849,6 @@ pub(crate) mod testutils {
         cross_table_lookups: &[CrossTableLookup<F>],
     ) {
         for (i, ctl) in cross_table_lookups.iter().enumerate() {
-            log::debug!("check_ctl: {:?}", i);
             check_ctl(trace_poly_values, ctl, i);
         }
     }
@@ -863,7 +858,6 @@ pub(crate) mod testutils {
         ctl: &CrossTableLookup<F>,
         ctl_index: usize,
     ) {
-        log::debug!("check_ctl");
         let CrossTableLookup {
             looking_tables,
             looked_table,
@@ -897,11 +891,6 @@ pub(crate) mod testutils {
         table: &TableWithColumns<F>,
         multiset: &mut MultiSet<F>,
     ) {
-        log::debug!(
-            "process table: {:?}, filter_column: {:?}",
-            table.table,
-            table.filter_column
-        );
         let trace = &trace_poly_values[table.table as usize];
         for i in 0..trace[0].len() {
             let filter = if let Some(column) = &table.filter_column {
@@ -909,20 +898,17 @@ pub(crate) mod testutils {
             } else {
                 F::ONE
             };
-            log::debug!("filter: {:?}", filter);
             if filter.is_one() {
                 let row = table
                     .columns
                     .iter()
                     .map(|c| c.eval_table(trace, i))
                     .collect::<Vec<_>>();
-                log::debug!("set: {:?} => {:?}", row, (table, table, i));
                 multiset.entry(row).or_default().push((table.table, i));
             } else {
                 assert_eq!(filter, F::ZERO, "Non-binary filter?")
             }
         }
-        log::debug!("multi-set: {:?}", multiset);
     }
 
     fn check_locations<F: Field>(
@@ -931,7 +917,6 @@ pub(crate) mod testutils {
         ctl_index: usize,
         row: &[F],
     ) {
-        // log::debug!("{:?} in {:?}", looking_locations, looked_locations);
         if looking_locations.len() != looked_locations.len() {
             panic!(
                 "CTL #{ctl_index}:\n\
@@ -984,7 +969,6 @@ pub(crate) mod testutils {
 
         // check select_f * f \in select_t * t
         let cross_tables = CrossTableLookup::new(lookings, looked);
-
         check_ctls(&[trace_poly_values], &[cross_tables]);
     }
 }

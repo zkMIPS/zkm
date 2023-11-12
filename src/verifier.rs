@@ -44,7 +44,6 @@ where
 
     let AllStark {
         arithmetic_stark,
-        //byte_packing_stark,
         cpu_stark,
         keccak_stark,
         keccak_sponge_stark,
@@ -477,6 +476,7 @@ mod tests {
     use crate::verifier::eval_l_0_and_l_last;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
+    use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
 
     #[test]
     fn test_eval_l_0_and_l_last() {
@@ -494,7 +494,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_mips_prove_and_verify() {
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;

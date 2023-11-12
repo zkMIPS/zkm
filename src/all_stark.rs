@@ -192,19 +192,9 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
             Some(keccak_sponge_stark::ctl_looking_memory_filter(i)),
         )
     });
-    /*
-    let byte_packing_ops = (0..32).map(|i| {
-        TableWithColumns::new(
-            Table::BytePacking,
-            byte_packing_stark::ctl_looking_memory(i),
-            Some(byte_packing_stark::ctl_looking_memory_filter(i)),
-        )
-    });
-    */
     let all_lookers = cpu_memory_gp_ops
         .into_iter()
         .chain(keccak_sponge_reads)
-        //  .chain(byte_packing_ops)
         .collect();
     let memory_looked = TableWithColumns::new(
         Table::Memory,
