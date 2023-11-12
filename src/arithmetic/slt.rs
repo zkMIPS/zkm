@@ -70,7 +70,6 @@ pub(crate) fn eval_packed_generic_slt<P: PackedField>(
     debug_assert!(
         x.len() == N_LIMBS && y.len() == N_LIMBS && z.len() == N_LIMBS && given_cy.len() == N_LIMBS
     );
-    let is_sltu = lv[IS_SLTU];
 
     let overflow = P::Scalar::from_canonical_u64(1u64 << LIMB_BITS);
     let overflow_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_65536);

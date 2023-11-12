@@ -1,7 +1,6 @@
 pub mod addcy;
 pub mod arithmetic_stark;
 pub mod columns;
-pub mod lui;
 pub mod div;
 pub mod lui;
 pub mod mul;
