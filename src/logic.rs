@@ -320,12 +320,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
 
 // for debugging
 impl<F: RichField + Extendable<D>, const D: usize> starky::stark::Stark<F, D> for LogicStark<F, D> {
-    // const COLUMNS: usize = NUM_COLUMNS;
-    // const PUBLIC_INPUTS: usize = 1;
+    const COLUMNS: usize = NUM_COLUMNS;
+    const PUBLIC_INPUTS: usize = 1;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: starky::vars::StarkEvaluationVars<FE, P, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: starky::vars::StarkEvaluationVars<FE, P, { Self::COLUMNS }, { self::PUBLIC_INPUTS }>,
         yield_constr: &mut starky::constraint_consumer::ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
@@ -339,7 +339,6 @@ impl<F: RichField + Extendable<D>, const D: usize> starky::stark::Stark<F, D> fo
         vars: starky::vars::StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-
     }
 
       fn constraint_degree(&self) -> usize {
