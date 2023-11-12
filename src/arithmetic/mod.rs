@@ -2,9 +2,11 @@ pub mod addcy;
 pub mod arithmetic_stark;
 pub mod columns;
 pub mod div;
+pub mod lui;
 pub mod mul;
 pub mod mult;
 pub mod shift;
+pub mod slt;
 pub mod utils;
 
 use crate::util::*;
@@ -232,7 +234,7 @@ fn binary_op_to_rows<F: PrimeField64>(
     row[op.row_filter()] = F::ONE;
 
     match op {
-        BinaryOperator::ADD | BinaryOperator::SUB => {
+        BinaryOperator::ADD | BinaryOperator::SUB | BinaryOperator::ADDI => {
             addcy::generate(&mut row, op.row_filter(), input0, input1);
             (row, None)
         }
@@ -240,11 +242,14 @@ fn binary_op_to_rows<F: PrimeField64>(
             mul::generate(&mut row, input0, input1);
             (row, None)
         }
+        BinaryOperator::SLT | BinaryOperator::SLTI => {
+            slt::generate(&mut row, op.row_filter(), input0, input1, result0);
+            (row, None)
+        }
         BinaryOperator::MULT | BinaryOperator::MULTU => {
             mult::generate(&mut row, input0, input1);
             (row, None)
         }
-
         BinaryOperator::DIV | BinaryOperator::DIVU => {
             let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
             div::generate(&mut row, &mut nv, op.row_filter(), input0, input1, result1);
