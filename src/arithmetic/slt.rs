@@ -29,9 +29,20 @@ pub(crate) fn generate<F: PrimeField64>(
     match filter {
         IS_SLT | IS_SLTI => {
             let (diff, cy) = left_in.overflowing_sub(right_in);
-            u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], cy as u32);
+            let mut cy_val = cy as u32;
+            if left_in < 0x80000000u32 && right_in > 0x80000000u32 {
+                cy_val = 1 << 16;
+            }
+
+            u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], diff);
             u32_to_array(&mut lv[AUX_INPUT_REGISTER_1], rd);
-            u32_to_array(&mut lv[OUTPUT_REGISTER], diff);
+            u32_to_array(&mut lv[OUTPUT_REGISTER], cy_val);
+        }
+        IS_SLTU | IS_SLTIU => {
+            let (diff, cy) = left_in.overflowing_sub(right_in);
+            u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], diff);
+            u32_to_array(&mut lv[AUX_INPUT_REGISTER_1], rd);
+            u32_to_array(&mut lv[OUTPUT_REGISTER], cy as u32);
         }
         _ => panic!("unexpected operation filter"),
     };
@@ -44,8 +55,10 @@ pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let is_slt = lv[IS_SLT];
-    let is_slti = lv[IS_SLTI];
+    let is_lt = lv[IS_SLT] + lv[IS_SLTU];
+    let is_lti = lv[IS_SLTI] + lv[IS_SLTIU];
+    let is_lt = is_lt + is_lti;
+    let is_sign = lv[IS_SLT] + lv[IS_SLTI];
 
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
@@ -53,19 +66,18 @@ pub fn eval_packed_generic<P: PackedField>(
     let aux = &lv[AUX_INPUT_REGISTER_0];
     let rd = &lv[AUX_INPUT_REGISTER_1];
 
-    eval_packed_generic_slt(yield_constr, is_slt, in1, aux, in0, out, rd, false);
-    eval_packed_generic_slt(yield_constr, is_slti, in1, aux, in0, out, rd, false);
+    eval_packed_generic_slt(yield_constr, is_lt, is_sign, in1, aux, in0, out, rd);
 }
 
 pub(crate) fn eval_packed_generic_slt<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
     filter: P,
+    sign: P,
     x: &[P],        // right
-    y: &[P],        // aux
+    y: &[P],        // diff (left-right)
     z: &[P],        // left
-    given_cy: &[P], // diff (left-right)
+    given_cy: &[P], // out
     rd: &[P],       // rd
-    is_two_row_op: bool,
 ) {
     debug_assert!(
         x.len() == N_LIMBS && y.len() == N_LIMBS && z.len() == N_LIMBS && given_cy.len() == N_LIMBS
@@ -82,36 +94,20 @@ pub(crate) fn eval_packed_generic_slt<P: PackedField>(
     for ((&xi, &yi), &zi) in x.iter().zip_eq(y).zip_eq(z) {
         // Verify that (xi + yi) - zi is either 0 or 2^LIMB_BITS  (right[i]+aux[i]-left[i])
         let t = cy + xi + yi - zi;
-        if is_two_row_op {
-            yield_constr.constraint_transition(filter * t * (overflow - t));
-        } else {
-            yield_constr.constraint(filter * t * (overflow - t));
-        }
+        yield_constr.constraint(filter * t * (overflow - t));
+
         // cy <-- 0 or 1   le:cy=0 gt:cy=1
         // NB: this is multiplication by a constant, so doesn't
         // increase the degree of the constraint.
         cy = t * overflow_inv; // (right[i]+aux[i]-left[i])/overflow
     }
 
-    if is_two_row_op {
-        // NB: Mild hack: We don't check that given_cy[0] is 0 or 1
-        // when is_two_row_op is true because that's only the case
-        // when this function is called from
-        // modular::modular_constr_poly(), in which case (1) this
-        // condition has already been checked and (2) it exceeds the
-        // degree budget because given_cy[0] is already degree 2.
-        yield_constr.constraint_transition(filter * (cy - given_cy[0]));
-        yield_constr.constraint_transition(filter * (rd[0] - P::ONES));
-        for i in 1..N_LIMBS {
-            yield_constr.constraint_transition(filter * given_cy[i]);
-            yield_constr.constraint_transition(filter * rd[i]);
-        }
-    } else {
+    {
         yield_constr.constraint(filter * given_cy[0] * (given_cy[0] - P::ONES));
-        yield_constr.constraint(filter * (cy - given_cy[0]));
+        yield_constr.constraint(filter * (cy - given_cy[0]) * (cy - sign * given_cy[1]));
         yield_constr.constraint_transition(filter * (rd[0] - P::ONES));
         for i in 1..N_LIMBS {
-            yield_constr.constraint(filter * given_cy[i]);
+            yield_constr.constraint(filter * given_cy[i] * (P::ONES - sign));
             yield_constr.constraint_transition(filter * rd[i]);
         }
     }
@@ -122,8 +118,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let is_slt = lv[IS_SLT];
-    let is_slti = lv[IS_SLTI];
+    let is_lt = builder.add_extension(lv[IS_SLT], lv[IS_SLTU]);
+    let is_lti = builder.add_extension(lv[IS_SLTI], lv[IS_SLTIU]);
+    let is_lt = builder.add_extension(is_lt, is_lti);
+    let is_sign = builder.add_extension(lv[IS_SLT], lv[IS_SLTI]);
 
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
@@ -131,18 +129,16 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let aux = &lv[AUX_INPUT_REGISTER_0];
     let rd = &lv[AUX_INPUT_REGISTER_1];
 
-    eval_ext_circuit_slt(builder, yield_constr, is_slt, in1, aux, in0, out, rd, false);
-
     eval_ext_circuit_slt(
         builder,
         yield_constr,
-        is_slti,
+        is_lt,
+        is_sign,
         in1,
         aux,
         in0,
         out,
         rd,
-        false,
     );
 }
 
@@ -151,12 +147,12 @@ pub(crate) fn eval_ext_circuit_slt<F: RichField + Extendable<D>, const D: usize>
     builder: &mut CircuitBuilder<F, D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     filter: ExtensionTarget<D>,
+    sign: ExtensionTarget<D>,
     x: &[ExtensionTarget<D>],
     y: &[ExtensionTarget<D>],
     z: &[ExtensionTarget<D>],
     given_cy: &[ExtensionTarget<D>],
     rd: &[ExtensionTarget<D>],
-    is_two_row_op: bool,
 ) {
     debug_assert!(
         x.len() == N_LIMBS && y.len() == N_LIMBS && z.len() == N_LIMBS && given_cy.len() == N_LIMBS
@@ -182,43 +178,32 @@ pub(crate) fn eval_ext_circuit_slt<F: RichField + Extendable<D>, const D: usize>
         let t2 = builder.mul_extension(t, t1);
 
         let filtered_limb_constraint = builder.mul_extension(filter, t2);
-        if is_two_row_op {
-            yield_constr.constraint_transition(builder, filtered_limb_constraint);
-        } else {
-            yield_constr.constraint(builder, filtered_limb_constraint);
-        }
+        yield_constr.constraint(builder, filtered_limb_constraint);
 
         cy = builder.mul_const_extension(overflow_inv, t);
     }
 
-    let good_cy = builder.sub_extension(cy, given_cy[0]);
+    let good_cy1 = builder.sub_extension(cy, given_cy[0]);
+    let sign_posneg = builder.mul_extension(sign, given_cy[1]);
+    let good_cy2 = builder.sub_extension(cy, sign_posneg);
+    let good_cy = builder.mul_extension(good_cy1, good_cy2);
     let cy_filter = builder.mul_extension(filter, good_cy);
 
     // Check given carry is one bit
     let bit_constr = builder.mul_sub_extension(given_cy[0], given_cy[0], given_cy[0]);
     let bit_filter = builder.mul_extension(filter, bit_constr);
 
-    if is_two_row_op {
-        yield_constr.constraint_transition(builder, cy_filter);
-        let one = builder.one_extension();
-        let rd_filter = builder.sub_extension(rd[0], one);
-        let rd_filter = builder.mul_extension(filter, rd_filter);
-        yield_constr.constraint_transition(builder, rd_filter);
-        for i in 1..N_LIMBS {
-            let t = builder.mul_extension(filter, given_cy[i]);
-            yield_constr.constraint_transition(builder, t);
-            let r = builder.mul_extension(filter, rd[i]);
-            yield_constr.constraint_transition(builder, r);
-        }
-    } else {
+    {
         yield_constr.constraint(builder, bit_filter);
         yield_constr.constraint(builder, cy_filter);
         let one = builder.one_extension();
+        let not_sign = builder.sub_extension(one, sign);
         let rd_filter = builder.sub_extension(rd[0], one);
         let rd_filter = builder.mul_extension(filter, rd_filter);
         yield_constr.constraint_transition(builder, rd_filter);
         for i in 1..N_LIMBS {
             let t = builder.mul_extension(filter, given_cy[i]);
+            let t = builder.mul_extension(t, not_sign);
             yield_constr.constraint(builder, t);
             let r = builder.mul_extension(filter, rd[i]);
             yield_constr.constraint_transition(builder, r);
