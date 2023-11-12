@@ -136,14 +136,12 @@ impl BinaryOperator {
             BinaryOperator::MUL => columns::IS_MUL,
             BinaryOperator::DIV => columns::IS_DIV,
             BinaryOperator::DIVU => columns::IS_DIVU,
-
             BinaryOperator::SLL => columns::IS_SLL,
             BinaryOperator::SRL => columns::IS_SRL,
             BinaryOperator::SRA => columns::IS_SRA,
             BinaryOperator::SLLV => columns::IS_SLLV,
             BinaryOperator::SRLV => columns::IS_SRLV,
             BinaryOperator::SRAV => columns::IS_SRAV,
-
             BinaryOperator::SLTIU => columns::IS_SLTIU,
             BinaryOperator::SLTI => columns::IS_SLTI,
             BinaryOperator::SLTU => columns::IS_SLTU,

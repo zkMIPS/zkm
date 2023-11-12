@@ -88,7 +88,7 @@ pub(crate) fn generate_mul<F: PrimeField64>(lv: &mut [F], left_in: [i64; 2], rig
     // aux_limbs to handle the fact that unreduced_prod will
     // inevitably contain one digit's worth that is > 2^256.
 
-    lv[OUTPUT_REGISTER_0].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
+    lv[OUTPUT_REGISTER].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
     pol_sub_assign(&mut unreduced_prod, &output_limbs);
 
     let mut aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, N_LIMBS>(unreduced_prod);
@@ -111,6 +111,7 @@ pub fn generate<F: PrimeField64>(lv: &mut [F], left_in: u32, right_in: u32) {
     // into an [i64;N] and then copy that to the lv table.
     u32_to_array(&mut lv[INPUT_REGISTER_0], left_in);
     u32_to_array(&mut lv[INPUT_REGISTER_1], right_in);
+    u32_to_array(&mut lv[INPUT_REGISTER_2], 0);
 
     let input0 = read_value_i64_limbs(lv, INPUT_REGISTER_0);
     let input1 = read_value_i64_limbs(lv, INPUT_REGISTER_1);
@@ -125,7 +126,7 @@ pub(crate) fn eval_packed_generic_mul<P: PackedField>(
     right_in_limbs: [P; 2],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let output_limbs = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER_0);
+    let output_limbs = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER);
 
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
 
@@ -190,7 +191,7 @@ pub(crate) fn eval_ext_mul_circuit<F: RichField + Extendable<D>, const D: usize>
     right_in_limbs: [ExtensionTarget<D>; 2],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let output_limbs = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER_0);
+    let output_limbs = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER);
 
     let aux_limbs = {
         let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << LIMB_BITS));
