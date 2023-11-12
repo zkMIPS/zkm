@@ -358,7 +358,7 @@ fn xor_into_sponge<F: Field>(
     sponge_state: &mut [u8; KECCAK_WIDTH_BYTES],
     block: &[u8; KECCAK_RATE_BYTES],
 ) {
-    /// FIXME: why the step does not matter here?
+    // FIXME: why the step does not matter here?
     for i in (0..KECCAK_RATE_BYTES).step_by(4) {
         let range = i..KECCAK_RATE_BYTES.min(i + 4);
         let lhs = LittleEndian::read_u32(&sponge_state[range.clone()]);

@@ -7,10 +7,8 @@ pub mod mult;
 pub mod shift;
 pub mod utils;
 
-use crate::util::*;
 use crate::witness::util::sign_extend;
 use crate::witness::util::u32_from_u64;
-use num::Zero;
 use plonky2::field::types::PrimeField64;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

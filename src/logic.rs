@@ -318,12 +318,45 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
     }
 }
 
+// for debugging
+impl<F: RichField + Extendable<D>, const D: usize> starky::stark::Stark<F, D> for LogicStark<F, D> {
+    // const COLUMNS: usize = NUM_COLUMNS;
+    // const PUBLIC_INPUTS: usize = 1;
+
+    fn eval_packed_generic<FE, P, const D2: usize>(
+        &self,
+        vars: starky::vars::StarkEvaluationVars<FE, P, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        yield_constr: &mut starky::constraint_consumer::ConstraintConsumer<P>,
+    ) where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
+    }
+
+    fn eval_ext_circuit(
+        &self,
+        builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+        vars: starky::vars::StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    ) {
+
+    }
+
+      fn constraint_degree(&self) -> usize {
+        3
+    }
+
+}
+
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-
-    use crate::logic::LogicStark;
+    use plonky2::util::timing::TimingTree;
+    use starky::verifier::verify_stark_proof;
+    use starky::prover::prove;
+    use starky::config::StarkConfig;
+    use crate::logic::{LogicStark, Operation, Op};
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
@@ -350,5 +383,36 @@ mod tests {
             f: Default::default(),
         };
         test_stark_circuit_constraints::<F, C, S, D>(stark)
+    }
+
+    #[test]
+    fn test_stark_verifier() {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = LogicStark<F, D>;
+
+        let config = StarkConfig::standard_fast_config();
+        let stark = S {
+            f: Default::default(),
+        };
+        let ops = vec![
+            Operation::new(Op::And, 0, 1),
+            Operation::new(Op::And, 1, 2),
+        ];
+        let num_rows = 1 << 5;
+
+        let mut timing = TimingTree::new("Logic", log::Level::Debug);
+        let trace = stark.generate_trace(ops, num_rows, &mut timing);
+        let public_inputs;
+        let proof = prove::<F, C, S, D>(
+            stark,
+            &config,
+            trace,
+            public_inputs,
+            &mut timing,
+        ).unwrap();
+
+        verify_stark_proof::<F, C, S, D>(stark, proof, &config).unwrap();
     }
 }

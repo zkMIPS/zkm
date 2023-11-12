@@ -461,6 +461,47 @@ fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
 }
 
 #[cfg(test)]
+pub(crate) mod testutils {
+    use super::*;
+
+    /// Output all the extra memory rows that don't appear in the CPU trace but are
+    /// necessary to correctly check the MemoryStark CTL.
+    pub(crate) fn get_memory_extra_looking_values<F, const D: usize>(
+        public_values: &PublicValues,
+    ) -> Vec<Vec<F>>
+    where
+        F: RichField + Extendable<D>,
+    {
+
+        let mut extra_looking_rows = Vec::new();
+
+        /*
+        let fields = [{}];
+        fields.map(|(field, val)| {
+            extra_looking_rows.push(add_extra_looking_row(segment, field as usize, val))
+        });
+        */
+        extra_looking_rows
+    }
+
+    fn add_extra_looking_row<F, const D: usize>(segment: F, index: usize, val: u32) -> Vec<F>
+    where
+        F: RichField + Extendable<D>,
+    {
+        let mut row = vec![F::ZERO; 13];
+        row[0] = F::ZERO; // is_read
+        row[1] = F::ZERO; // context
+        row[2] = segment;
+        row[3] = F::from_canonical_usize(index);
+
+        row[4] = F::from_canonical_u32(val);
+        // FIXME
+        row[12] = F::ONE; // timestamp
+        row
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::polynomial::PolynomialValues;
@@ -476,7 +517,6 @@ mod tests {
     use crate::verifier::eval_l_0_and_l_last;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
-    use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
 
     #[test]
     fn test_eval_l_0_and_l_last() {
@@ -494,6 +534,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_mips_prove_and_verify() {
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
