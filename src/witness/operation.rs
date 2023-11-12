@@ -805,6 +805,7 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSMMAP => {
+            row.mem_channels[2].value[1] = F::from_canonical_u32(1u32);
             let mut sz = a1;
             if sz & 0xFFF != 0 {
                 row.mem_channels[0].value[1] = F::from_canonical_u32(1u32);
@@ -840,6 +841,7 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSREAD => {
+            row.mem_channels[2].value[2] = F::from_canonical_u32(1u32);
             match a0 {
                 FD_STDIN => {
                     row.mem_channels[0].value[5] = F::from_canonical_u32(1u32);
@@ -853,6 +855,7 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSWRITE => {
+            row.mem_channels[2].value[3] = F::from_canonical_u32(1u32);
             match a0 {
                 // fdStdout
                 FD_STDOUT | FD_STDERR => {
@@ -868,6 +871,7 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSFCNTL => {
+            row.mem_channels[2].value[4] = F::from_canonical_u32(1u32);
             match a0 {
                 FD_STDIN => {
                     row.mem_channels[1].value[2] = F::from_canonical_u32(1u32);
