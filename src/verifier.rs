@@ -472,7 +472,6 @@ pub(crate) mod testutils {
     where
         F: RichField + Extendable<D>,
     {
-
         let mut extra_looking_rows = Vec::new();
 
         /*

@@ -38,8 +38,7 @@ use crate::vanishing_poly::eval_vanishing_poly;
 
 #[cfg(test)]
 use crate::{
-    verifier::testutils::get_memory_extra_looking_values,
-    cross_table_lookup::testutils::check_ctls,
+    cross_table_lookup::testutils::check_ctls, verifier::testutils::get_memory_extra_looking_values,
 };
 
 /// Generate traces, then create all STARK proofs.

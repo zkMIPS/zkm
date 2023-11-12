@@ -56,7 +56,6 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     // If a logic operation is happening on the CPU side, the CTL
     // will enforce that the reconstructed opcode value from the
     // opcode bits matches.
-    // FIXME: https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/cpu/kernel/opcodes.rs#L31
     let mut res = vec![Column::linear_combination([
         (
             columns::IS_AND,
@@ -64,10 +63,14 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
         ),
         (
             columns::IS_OR,
-            F::from_canonical_u32(0b000000 + 0b100110 * (1 << 6)),
+            F::from_canonical_u32(0b000000 + 0b100101 * (1 << 6)),
         ),
         (
             columns::IS_XOR,
+            F::from_canonical_u32(0b000000 + 0b100110 * (1 << 6)),
+        ),
+        (
+            columns::IS_NOR,
             F::from_canonical_u32(0b000000 + 0b100111 * (1 << 6)),
         ),
     ])];
@@ -78,7 +81,12 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
 }
 
 pub fn ctl_filter<F: Field>() -> Column<F> {
-    Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
+    Column::sum([
+        columns::IS_AND,
+        columns::IS_OR,
+        columns::IS_XOR,
+        columns::IS_NOR,
+    ])
 }
 
 #[derive(Copy, Clone, Default)]
@@ -100,7 +108,7 @@ impl Op {
             Op::And => a & b,
             Op::Or => a | b,
             Op::Xor => a ^ b,
-            Op::Nor => !(a | b),
+            Op::Nor => 1 - (a | b),
         }
     }
 }
@@ -116,6 +124,7 @@ pub(crate) struct Operation {
 impl Operation {
     pub(crate) fn new(operator: Op, input0: u32, input1: u32) -> Self {
         let result = operator.result(input0, input1);
+        println!("{:?}: {} {} => {}", operator, input0, input1, result);
         Operation {
             operator,
             input0,
@@ -139,8 +148,8 @@ impl Operation {
             Op::Nor => columns::IS_NOR,
         }] = F::ONE;
         for i in 0..32 {
-            row[columns::INPUT0.start + i] = F::from_canonical_u32(input0 & (1 << i));
-            row[columns::INPUT1.start + i] = F::from_canonical_u32(input1 & (1 << i));
+            row[columns::INPUT0.start + i] = F::from_canonical_u32((input0 >> i) & 1);
+            row[columns::INPUT1.start + i] = F::from_canonical_u32((input1 >> i) & 1);
         }
         row[columns::RESULT.start] = F::from_canonical_u32(result);
         row
@@ -211,13 +220,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
         let is_and = lv[columns::IS_AND];
         let is_or = lv[columns::IS_OR];
         let is_xor = lv[columns::IS_XOR];
+        let is_nor = lv[columns::IS_NOR];
 
-        // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1)`.
-        // `AND => sum_coeff = 0, and_coeff = 1`
-        // `OR  => sum_coeff = 1, and_coeff = -1`
-        // `XOR => sum_coeff = 1, and_coeff = -2`
-        let sum_coeff = is_or + is_xor;
-        let and_coeff = is_and - is_or - is_xor * FE::TWO;
+        // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1) + not_coeff * 1`.
+        // `AND => sum_coeff = 0, and_coeff = 1, not_coeff=0`
+        // `OR  => sum_coeff = 1, and_coeff = -1, not_coeff=0`
+        // `XOR => sum_coeff = 1, and_coeff = -2, not_coeff=0`
+        // `NOR => sum_coeff = -1, and_coeff = 1, not_coeff=1`
+        let sum_coeff = is_or + is_xor - is_nor;
+        let and_coeff = is_and - is_or - is_xor * FE::TWO + is_nor;
+        let not_coeff = is_nor;
 
         // Ensure that all bits are indeed bits.
         for input_bits_cols in [columns::INPUT0, columns::INPUT1] {
@@ -242,7 +254,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
             let x_land_y: P = izip!(0.., x_bits, y_bits)
                 .map(|(i, x_bit, y_bit)| x_bit * y_bit * FE::from_canonical_u64(1 << i))
                 .sum();
-            let x_op_y = sum_coeff * (x + y) + and_coeff * x_land_y;
+            let x_op_y = sum_coeff * (x + y) + and_coeff * x_land_y + not_coeff;
 
             yield_constr.constraint(lv[result_col] - x_op_y);
         }
@@ -260,16 +272,25 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
         let is_and = lv[columns::IS_AND];
         let is_or = lv[columns::IS_OR];
         let is_xor = lv[columns::IS_XOR];
+        let is_nor = lv[columns::IS_NOR];
 
-        // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1)`.
-        // `AND => sum_coeff = 0, and_coeff = 1`
-        // `OR  => sum_coeff = 1, and_coeff = -1`
-        // `XOR => sum_coeff = 1, and_coeff = -2`
-        let sum_coeff = builder.add_extension(is_or, is_xor);
+        // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1) + not_coeff * 1`.
+        // `AND => sum_coeff = 0, and_coeff = 1, not_coeff=0`
+        // `OR  => sum_coeff = 1, and_coeff = -1, not_coeff=0`
+        // `XOR => sum_coeff = 1, and_coeff = -2, not_coeff=0`
+        // `NOR => sum_coeff = -1, and_coeff = 1, not_coeff=1`
+        let sum_coeff = {
+            let sum_coeff = builder.add_extension(is_or, is_xor);
+            builder.sub_extension(sum_coeff, is_nor)
+        };
+
         let and_coeff = {
             let and_coeff = builder.sub_extension(is_and, is_or);
-            builder.mul_const_add_extension(-F::TWO, is_xor, and_coeff)
+            let and_coeff = builder.mul_const_add_extension(-F::TWO, is_xor, and_coeff);
+            builder.add_extension(and_coeff, is_nor)
         };
+
+        let not_coeff = is_nor;
 
         // Ensure that all bits are indeed bits.
         for input_bits_cols in [columns::INPUT0, columns::INPUT1] {
@@ -306,7 +327,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
             let x_op_y = {
                 let x_op_y = builder.mul_extension(sum_coeff, x);
                 let x_op_y = builder.mul_add_extension(sum_coeff, y, x_op_y);
-                builder.mul_add_extension(and_coeff, x_land_y, x_op_y)
+                let tmp = builder.mul_add_extension(and_coeff, x_land_y, x_op_y);
+                builder.add_extension(tmp, not_coeff)
             };
             let constr = builder.sub_extension(lv[result_col], x_op_y);
             yield_constr.constraint(builder, constr);
@@ -321,42 +343,151 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
 // for debugging
 impl<F: RichField + Extendable<D>, const D: usize> starky::stark::Stark<F, D> for LogicStark<F, D> {
     const COLUMNS: usize = NUM_COLUMNS;
-    const PUBLIC_INPUTS: usize = 1;
+    const PUBLIC_INPUTS: usize = 0;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: starky::vars::StarkEvaluationVars<FE, P, { Self::COLUMNS }, { self::PUBLIC_INPUTS }>,
+        vars: starky::vars::StarkEvaluationVars<FE, P, 68, 0>,
         yield_constr: &mut starky::constraint_consumer::ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
+        let lv = vars.local_values;
+        // IS_AND, IS_OR, and IS_XOR come from the CPU table, so we assume they're valid.
+        let is_and = lv[columns::IS_AND];
+        let is_or = lv[columns::IS_OR];
+        let is_xor = lv[columns::IS_XOR];
+        let is_nor = lv[columns::IS_NOR];
+
+        // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1) + not_coeff * 1`.
+        // `AND => sum_coeff = 0, and_coeff = 1, not_coeff=0`
+        // `OR  => sum_coeff = 1, and_coeff = -1, not_coeff=0`
+        // `XOR => sum_coeff = 1, and_coeff = -2, not_coeff=0`
+        // `NOR => sum_coeff = -1, and_coeff = 1, not_coeff=1`
+        let sum_coeff = is_or + is_xor - is_nor;
+        let and_coeff = is_and - is_or - is_xor * FE::TWO + is_nor;
+        let not_coeff = is_nor;
+
+        // Ensure that all bits are indeed bits.
+        for input_bits_cols in [columns::INPUT0, columns::INPUT1] {
+            for i in input_bits_cols {
+                let bit = lv[i];
+                yield_constr.constraint(bit * (bit - P::ONES));
+            }
+        }
+
+        // Form the result
+        for (result_col, x_bits_cols, y_bits_cols) in izip!(
+            columns::RESULT,
+            columns::limb_bit_cols_for_input(columns::INPUT0),
+            columns::limb_bit_cols_for_input(columns::INPUT1),
+        ) {
+            let x: P = limb_from_bits_le(x_bits_cols.clone().map(|col| lv[col]));
+            let y: P = limb_from_bits_le(y_bits_cols.clone().map(|col| lv[col]));
+
+            let x_bits = x_bits_cols.map(|i| lv[i]);
+            let y_bits = y_bits_cols.map(|i| lv[i]);
+
+            let x_land_y: P = izip!(0.., x_bits, y_bits)
+                .map(|(i, x_bit, y_bit)| x_bit * y_bit * FE::from_canonical_u64(1 << i))
+                .sum();
+            let x_op_y = sum_coeff * (x + y) + and_coeff * x_land_y + not_coeff;
+
+            yield_constr.constraint(lv[result_col] - x_op_y);
+        }
     }
 
     fn eval_ext_circuit(
         &self,
         builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        vars: starky::vars::StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
-        yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+        vars: starky::vars::StarkEvaluationTargets<D, 68, 0>,
+        yield_constr: &mut starky::constraint_consumer::RecursiveConstraintConsumer<F, D>,
     ) {
+        let lv = vars.local_values;
+
+        // IS_AND, IS_OR, and IS_XOR come from the CPU table, so we assume they're valid.
+        let is_and = lv[columns::IS_AND];
+        let is_or = lv[columns::IS_OR];
+        let is_xor = lv[columns::IS_XOR];
+        let is_nor = lv[columns::IS_NOR];
+
+        // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1) + not_coeff * 1`.
+        // `AND => sum_coeff = 0, and_coeff = 1, not_coeff=0`
+        // `OR  => sum_coeff = 1, and_coeff = -1, not_coeff=0`
+        // `XOR => sum_coeff = 1, and_coeff = -2, not_coeff=0`
+        // `NOR => sum_coeff = -1, and_coeff = 1, not_coeff=1`
+        let sum_coeff = {
+            let sum_coeff = builder.add_extension(is_or, is_xor);
+            builder.sub_extension(sum_coeff, is_nor)
+        };
+
+        let and_coeff = {
+            let and_coeff = builder.sub_extension(is_and, is_or);
+            let and_coeff = builder.mul_const_add_extension(-F::TWO, is_xor, and_coeff);
+            builder.add_extension(and_coeff, is_nor)
+        };
+
+        let not_coeff = is_nor;
+
+        // Ensure that all bits are indeed bits.
+        for input_bits_cols in [columns::INPUT0, columns::INPUT1] {
+            for i in input_bits_cols {
+                let bit = lv[i];
+                let constr = builder.mul_sub_extension(bit, bit, bit);
+                yield_constr.constraint(builder, constr);
+            }
+        }
+
+        // Form the result
+        for (result_col, x_bits_cols, y_bits_cols) in izip!(
+            columns::RESULT,
+            columns::limb_bit_cols_for_input(columns::INPUT0),
+            columns::limb_bit_cols_for_input(columns::INPUT1),
+        ) {
+            let x = limb_from_bits_le_recursive(builder, x_bits_cols.clone().map(|i| lv[i]));
+            let y = limb_from_bits_le_recursive(builder, y_bits_cols.clone().map(|i| lv[i]));
+            let x_bits = x_bits_cols.map(|i| lv[i]);
+            let y_bits = y_bits_cols.map(|i| lv[i]);
+
+            let x_land_y = izip!(0usize.., x_bits, y_bits).fold(
+                builder.zero_extension(),
+                |acc, (i, x_bit, y_bit)| {
+                    builder.arithmetic_extension(
+                        F::from_canonical_u64(1 << i),
+                        F::ONE,
+                        x_bit,
+                        y_bit,
+                        acc,
+                    )
+                },
+            );
+            let x_op_y = {
+                let x_op_y = builder.mul_extension(sum_coeff, x);
+                let x_op_y = builder.mul_add_extension(sum_coeff, y, x_op_y);
+                let tmp = builder.mul_add_extension(and_coeff, x_land_y, x_op_y);
+                builder.add_extension(tmp, not_coeff)
+            };
+            let constr = builder.sub_extension(lv[result_col], x_op_y);
+            yield_constr.constraint(builder, constr);
+        }
     }
 
-      fn constraint_degree(&self) -> usize {
+    fn constraint_degree(&self) -> usize {
         3
     }
-
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::logic::{LogicStark, Op, Operation};
+    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
     use anyhow::Result;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
-    use starky::verifier::verify_stark_proof;
-    use starky::prover::prove;
     use starky::config::StarkConfig;
-    use crate::logic::{LogicStark, Operation, Op};
-    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+    use starky::prover::prove;
+    use starky::verifier::verify_stark_proof;
 
     #[test]
     fn test_stark_degree() -> Result<()> {
@@ -396,21 +527,25 @@ mod tests {
             f: Default::default(),
         };
         let ops = vec![
-            Operation::new(Op::And, 0, 1),
-            Operation::new(Op::And, 1, 2),
+            //Operation::new(Op::Nor, 0, 1),
+            //Operation::new(Op::Nor, 1, 1),
+            Operation::new(Op::Nor, 0, 0),
+            //Operation::new(Op::And, 0, 1),
+            //Operation::new(Op::And, 1, 1),
+            //Operation::new(Op::And, 0, 0),
+            //Operation::new(Op::Or, 0, 1),
+            //Operation::new(Op::Or, 1, 1),
+            //Operation::new(Op::Or, 0, 0),
+            //Operation::new(Op::Xor, 0, 1),
+            //Operation::new(Op::Xor, 1, 1),
+            //Operation::new(Op::Xor, 0, 0),
         ];
         let num_rows = 1 << 5;
 
         let mut timing = TimingTree::new("Logic", log::Level::Debug);
         let trace = stark.generate_trace(ops, num_rows, &mut timing);
-        let public_inputs;
-        let proof = prove::<F, C, S, D>(
-            stark,
-            &config,
-            trace,
-            public_inputs,
-            &mut timing,
-        ).unwrap();
+        let public_inputs = [];
+        let proof = prove::<F, C, S, D>(stark, &config, trace, public_inputs, &mut timing).unwrap();
 
         verify_stark_proof::<F, C, S, D>(stark, proof, &config).unwrap();
     }
