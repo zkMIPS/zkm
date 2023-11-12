@@ -40,12 +40,12 @@ pub fn eval_packed<P: PackedField>(
     let result_v1 = lv.mem_channels[5].value[0];
 
     let heap_in_a0_zero_and_not_in_sz_mid_not_zero = heap_in_a0_zero + sz; // branch2: sz&fff==0 &a0 ==0
-    //check:
-    //1 is_syscall
-    //2 sysnum==SYSMMAP
-    //3 a0 is zero
-    //4 heap value is right
-    //5 sz & 0xFFF != 0
+                                                                           //check:
+                                                                           //1 is_syscall
+                                                                           //2 sysnum==SYSMMAP
+                                                                           //3 a0 is zero
+                                                                           //4 heap value is right
+                                                                           //5 sz & 0xFFF != 0
     yield_constr.constraint(
         filter
             * is_SYSMMAP
