@@ -65,7 +65,6 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Table {
     Arithmetic = 0,
-    //    BytePacking = 1,
     Cpu = 1,
     Keccak = 2,
     KeccakSponge = 3,
@@ -79,7 +78,6 @@ impl Table {
     pub(crate) fn all() -> [Self; NUM_TABLES] {
         [
             Self::Arithmetic,
-            //            Self::BytePacking,
             Self::Cpu,
             Self::Keccak,
             Self::KeccakSponge,
@@ -92,7 +90,6 @@ impl Table {
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
     vec![
         ctl_arithmetic(),
-        //        ctl_byte_packing(),
         ctl_keccak_sponge(),
         ctl_keccak_inputs(),
         ctl_keccak_outputs(),
