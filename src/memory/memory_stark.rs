@@ -21,9 +21,11 @@ use crate::memory::columns::{
     FREQUENCIES, IS_READ, NUM_COLUMNS, RANGE_CHECK, SEGMENT_FIRST_CHANGE, TIMESTAMP,
     VIRTUAL_FIRST_CHANGE,
 };
+use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::stark::Stark;
 use crate::witness::memory::MemoryOpKind::Read;
+use crate::witness::memory::MemoryOpKind::Write;
 use crate::witness::memory::{MemoryAddress, MemoryOp};
 
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
@@ -61,7 +63,17 @@ impl MemoryOp {
         row[ADDR_CONTEXT] = F::from_canonical_usize(context);
         row[ADDR_SEGMENT] = F::from_canonical_usize(segment);
         row[ADDR_VIRTUAL] = F::from_canonical_usize(virt);
-        row[value_limb(0)] = F::from_canonical_u32(self.value);
+        // The value written to R0 register should be ignored as 0
+        let value = if (self.kind == Write)
+            && (context == 0)
+            && (segment == (Segment::RegisterFile as usize))
+            && (virt == 0)
+        {
+            0 as u32
+        } else {
+            self.value
+        };
+        row[value_limb(0)] = F::from_canonical_u32(value);
         /*
         for j in 0..VALUE_LIMBS {
             row[value_limb(j)] = F::from_canonical_u32(self.value >> (j * 32));

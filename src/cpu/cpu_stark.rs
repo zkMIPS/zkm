@@ -16,7 +16,8 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::{
-    bootstrap_kernel, control_flow, decode, jumps, membus, memio, pc, shift, simple_logic, syscall,
+    bootstrap_kernel, control_flow, decode, jumps, membus, memio, mov, pc, shift, simple_logic,
+    syscall,
 };
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
@@ -216,6 +217,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         stack_bounds::eval_packed(local_values, yield_constr);
         syscalls_exceptions::eval_packed(local_values, next_values, yield_constr);
         */
+        mov::eval_packed(local_values, yield_constr);
     }
 
     fn eval_ext_circuit(
@@ -265,6 +267,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         stack_bounds::eval_ext_circuit(builder, local_values, yield_constr);
         syscalls_exceptions::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         */
+        mov::eval_ext_circuit(builder, local_values, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {
