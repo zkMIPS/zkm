@@ -108,7 +108,7 @@ impl BinaryOperator {
             }
 
             BinaryOperator::MULT => {
-                let out = (input0 as i64 * input1 as i64) as u64;
+                let out = (input0 as i64).wrapping_mul(input1 as i64) as u64;
                 u32_from_u64(out)
             }
             BinaryOperator::MULTU => {
