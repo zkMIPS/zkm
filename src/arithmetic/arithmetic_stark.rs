@@ -16,7 +16,7 @@ use super::shift;
 use crate::all_stark::Table;
 use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 //use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
-use crate::arithmetic::{addcy, columns, mul, slt, Operation};
+use crate::arithmetic::{addcy, columns, lui, mul, slt, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
@@ -213,6 +213,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         mul::eval_packed_generic(lv, yield_constr);
         addcy::eval_packed_generic(lv, yield_constr);
         slt::eval_packed_generic(lv, yield_constr);
+        lui::eval_packed_generic(lv, nv, yield_constr);
         //divmod::eval_packed(lv, nv, yield_constr);
         //modular::eval_packed(lv, nv, yield_constr);
         //byte::eval_packed(lv, yield_constr);
@@ -244,6 +245,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         mul::eval_ext_circuit(builder, lv, yield_constr);
         addcy::eval_ext_circuit(builder, lv, yield_constr);
         slt::eval_ext_circuit(builder, lv, yield_constr);
+        lui::eval_ext_circuit(builder, lv, nv, yield_constr);
         //divmod::eval_ext_circuit(builder, lv, nv, yield_constr);
         //modular::eval_ext_circuit(builder, lv, nv, yield_constr);
         //byte::eval_ext_circuit(builder, lv, yield_constr);
