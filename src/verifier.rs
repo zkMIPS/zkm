@@ -507,7 +507,7 @@ mod tests {
     use crate::all_stark::AllStark;
     use crate::config::StarkConfig;
     use crate::generation::GenerationInputs;
-    
+
     use crate::proof;
     use crate::prover::prove;
     use crate::verifier::eval_l_0_and_l_last;

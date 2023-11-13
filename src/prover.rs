@@ -36,8 +36,6 @@ use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkPro
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 
-
-
 /// Generate traces, then create all STARK proofs.
 pub fn prove<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,

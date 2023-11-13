@@ -185,14 +185,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
 #[cfg(test)]
 mod tests {
-    
-    
-    
-    
-
-    
-    
-    
 
     const N_RND_TESTS: usize = 1000;
 
