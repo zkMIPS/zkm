@@ -22,5 +22,5 @@ pub(crate) mod vanishing_poly;
 pub(crate) mod verifier;
 pub(crate) mod witness;
 
-#[macro_use]
+//#[macro_use]
 extern crate prettytable;

@@ -1,4 +1,3 @@
-use itertools::Itertools;
 // use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
@@ -15,7 +14,7 @@ use crate::memory::segments::Segment;
 // use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
 use crate::witness::errors::ProgramError;
 // use crate::witness::errors::ProgramError::MemoryError;
-use crate::witness::memory::{MemoryAddress};
+use crate::witness::memory::MemoryAddress;
 // use crate::witness::operation::MemoryChannel::GeneralPurpose;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::{arithmetic, logic};

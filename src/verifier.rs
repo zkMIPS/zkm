@@ -1,7 +1,6 @@
 use std::any::type_name;
 
 use anyhow::{ensure, Result};
-use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
@@ -13,12 +12,9 @@ use crate::all_stark::{AllStark, Table};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 //use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cross_table_lookup::{
-    CtlCheckVars, GrandProductChallengeSet,
-};
+use crate::cross_table_lookup::{CtlCheckVars, GrandProductChallengeSet};
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVars;
-
 
 use crate::proof::{
     AllProof, AllProofChallenges, StarkOpeningSet, StarkProof, StarkProofChallenges,
@@ -463,6 +459,7 @@ fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
 #[cfg(test)]
 pub(crate) mod testutils {
     use super::*;
+    use crate::proof::PublicValues;
 
     /// Output all the extra memory rows that don't appear in the CPU trace but are
     /// necessary to correctly check the MemoryStark CTL.

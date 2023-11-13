@@ -11,9 +11,6 @@ use MemoryChannel::{Code, GeneralPurpose};
 //use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::memory::segments::Segment;
 
-
-
-
 impl MemoryChannel {
     pub fn index(&self) -> usize {
         match *self {

@@ -10,8 +10,6 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::util::transpose;
 
-
-
 /// Construct an integer from its constituent bits (in little-endian order)
 pub fn limb_from_bits_le<P: PackedField>(iter: impl IntoIterator<Item = P>) -> P {
     // TODO: This is technically wrong, as 1 << i won't be canonical for all fields...

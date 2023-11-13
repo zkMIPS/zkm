@@ -2,8 +2,6 @@ use anyhow::bail;
 use log::log_enabled;
 use plonky2::field::types::Field;
 
-
-
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::KERNEL;
 use crate::generation::state::GenerationState;

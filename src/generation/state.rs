@@ -1,5 +1,3 @@
-
-
 // use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
@@ -8,7 +6,7 @@ use plonky2::field::types::Field;
 use crate::generation::GenerationInputs;
 
 use crate::witness::errors::ProgramError;
-use crate::witness::memory::{MemoryState};
+use crate::witness::memory::MemoryState;
 use crate::witness::state::RegistersState;
 use crate::witness::traces::{TraceCheckpoint, Traces};
 

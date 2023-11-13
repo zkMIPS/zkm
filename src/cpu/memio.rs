@@ -9,7 +9,6 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 
-
 fn get_addr<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
     let addr_context = lv.mem_channels[0].value[0];
     let addr_segment = lv.mem_channels[1].value[0];

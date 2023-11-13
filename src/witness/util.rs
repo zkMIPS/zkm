@@ -1,9 +1,8 @@
 use plonky2::field::types::Field;
 
-
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::keccak_util::keccakf_u8s;
-use crate::cpu::membus::{NUM_CHANNELS};
+use crate::cpu::membus::NUM_CHANNELS;
 use crate::generation::state::GenerationState;
 use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_WIDTH_BYTES};
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
@@ -89,20 +88,21 @@ pub(crate) fn reg_read_with_log<F: Field>(
     state: &GenerationState<F>,
     row: &mut CpuColumnsView<F>,
 ) -> Result<(usize, MemoryOp), ProgramError> {
-    let mut result = 0;
-    if index < 32 {
-        result = state.registers.gprs[index as usize];
-    } else if index == 32 {
-        result = state.registers.lo;
-    } else if index == 33 {
-        result = state.registers.hi;
-    } else if index == 34 {
-        result = state.registers.heap;
-    } else if index == 35 {
-        result = state.registers.program_counter;
-    } else {
-        return Err(ProgramError::InvalidRegister);
-    }
+    let result = {
+        if index < 32 {
+            state.registers.gprs[index as usize]
+        } else if index == 32 {
+            state.registers.lo
+        } else if index == 33 {
+            state.registers.hi
+        } else if index == 34 {
+            state.registers.heap
+        } else if index == 35 {
+            state.registers.program_counter
+        } else {
+            return Err(ProgramError::InvalidRegister);
+        }
+    };
     log::debug!("read reg {} : {:X}({})", index, result, result);
     let address = MemoryAddress::new(0, Segment::RegisterFile, index as usize);
     let op = MemoryOp::new(
