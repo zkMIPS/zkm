@@ -150,7 +150,7 @@ fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(vec![cpu_looking], keccak_sponge_looked)
 }
 
-fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
+pub(crate) fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
     let cpu_looking = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_logic(),

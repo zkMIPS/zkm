@@ -1,4 +1,3 @@
-use ethereum_types::{BigEndianHash, H256, U256};
 use plonky2::field::extension::Extendable;
 use plonky2::fri::proof::{FriProof, FriProofTarget};
 use plonky2::hash::hash_types::RichField;
