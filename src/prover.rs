@@ -36,10 +36,7 @@ use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkPro
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 
-#[cfg(test)]
-use crate::{
-    cross_table_lookup::testutils::check_ctls, verifier::testutils::get_memory_extra_looking_values,
-};
+
 
 /// Generate traces, then create all STARK proofs.
 pub fn prove<F, C, const D: usize>(

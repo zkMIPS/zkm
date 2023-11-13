@@ -464,12 +464,12 @@ pub(crate) mod testutils {
     /// Output all the extra memory rows that don't appear in the CPU trace but are
     /// necessary to correctly check the MemoryStark CTL.
     pub(crate) fn get_memory_extra_looking_values<F, const D: usize>(
-        public_values: &PublicValues,
+        _public_values: &PublicValues,
     ) -> Vec<Vec<F>>
     where
         F: RichField + Extendable<D>,
     {
-        let mut extra_looking_rows = Vec::new();
+        let extra_looking_rows = Vec::new();
 
         /*
         let fields = [{}];
@@ -507,7 +507,7 @@ mod tests {
     use crate::all_stark::AllStark;
     use crate::config::StarkConfig;
     use crate::generation::GenerationInputs;
-    use crate::logic::LogicStark;
+    
     use crate::proof;
     use crate::prover::prove;
     use crate::verifier::eval_l_0_and_l_last;

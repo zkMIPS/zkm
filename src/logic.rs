@@ -348,8 +348,7 @@ mod tests {
     use crate::all_stark::Table;
     use crate::config::StarkConfig;
     use crate::cross_table_lookup::{
-        cross_table_lookup_data, get_grand_product_challenge_set, CtlCheckVars, CtlData,
-        GrandProductChallengeSet,
+        cross_table_lookup_data, get_grand_product_challenge_set, CtlCheckVars,
     };
     use crate::logic::{LogicStark, Op, Operation};
     use crate::prover::prove_single_table;
@@ -360,7 +359,7 @@ mod tests {
     use itertools::Itertools;
     use plonky2::fri::oracle::PolynomialBatch;
     use plonky2::iop::challenger::Challenger;
-    use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::timed;
     use plonky2::util::timing::TimingTree;
 
