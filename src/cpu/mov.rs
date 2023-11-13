@@ -1,6 +1,6 @@
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
-use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
+
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::hash::hash_types::RichField;

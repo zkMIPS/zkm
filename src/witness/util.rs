@@ -1,9 +1,9 @@
 use plonky2::field::types::Field;
 
-use super::memory::DUMMY_MEMOP;
+
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::keccak_util::keccakf_u8s;
-use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
+use crate::cpu::membus::{NUM_CHANNELS};
 use crate::generation::state::GenerationState;
 use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_WIDTH_BYTES};
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
@@ -191,7 +191,7 @@ pub(crate) fn mem_read_with_log<F: Field>(
 /// Pushes without writing in memory. This happens in opcodes where a push immediately follows a pop.
 /// The pushed value may be loaded in a memory channel, without creating a memory operation.
 pub(crate) fn push_no_write<F: Field>(
-    state: &mut GenerationState<F>,
+    _state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
     val: u32,
     channel_opt: Option<usize>,

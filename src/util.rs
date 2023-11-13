@@ -1,7 +1,7 @@
 use std::mem::{size_of, transmute_copy, ManuallyDrop};
 
 use itertools::Itertools;
-use num::BigUint;
+
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
@@ -10,7 +10,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::util::transpose;
 
-use crate::witness::errors::ProgramError;
+
 
 /// Construct an integer from its constituent bits (in little-endian order)
 pub fn limb_from_bits_le<P: PackedField>(iter: impl IntoIterator<Item = P>) -> P {

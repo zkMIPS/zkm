@@ -10,9 +10,9 @@ use MemoryChannel::{Code, GeneralPurpose};
 
 //use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::memory::segments::Segment;
-use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
-use crate::witness::errors::ProgramError;
-use crate::witness::errors::ProgramError::MemoryError;
+
+
+
 
 impl MemoryChannel {
     pub fn index(&self) -> usize {
@@ -158,7 +158,7 @@ impl MemoryState {
             return 0;
         }
 
-        let segment = Segment::all()[address.segment];
+        let _segment = Segment::all()[address.segment];
         let val = self.contexts[address.context].segments[address.segment].get(address.virt);
         log::debug!("read mem {:X} : {:X} ({})", address.virt, val, val);
         /*
@@ -178,7 +178,7 @@ impl MemoryState {
             self.contexts.push(MemoryContextState::default());
         }
 
-        let segment = Segment::all()[address.segment];
+        let _segment = Segment::all()[address.segment];
         /*
         assert!(
             u32::BITS as usize <= segment.bit_range(),

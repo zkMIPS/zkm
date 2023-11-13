@@ -9,7 +9,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
 
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;

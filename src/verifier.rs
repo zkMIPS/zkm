@@ -9,19 +9,19 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
 
-use crate::all_stark::{AllStark, Table, NUM_TABLES};
+use crate::all_stark::{AllStark, Table};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 //use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{
-    verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge, GrandProductChallengeSet,
+    CtlCheckVars, GrandProductChallengeSet,
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVars;
-use crate::memory::segments::Segment;
-use crate::memory::VALUE_LIMBS;
+
+
 use crate::proof::{
-    AllProof, AllProofChallenges, PublicValues, StarkOpeningSet, StarkProof, StarkProofChallenges,
+    AllProof, AllProofChallenges, StarkOpeningSet, StarkProof, StarkProofChallenges,
 };
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;

@@ -1,14 +1,14 @@
 use itertools::izip;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
-use plonky2::field::types::Field;
+
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::memory::segments::Segment;
+
 
 fn get_addr<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
     let addr_context = lv.mem_channels[0].value[0];
@@ -19,7 +19,7 @@ fn get_addr<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
 
 fn eval_packed_load<P: PackedField>(
     lv: &CpuColumnsView<P>,
-    nv: &CpuColumnsView<P>,
+    _nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     // The opcode for MLOAD_GENERAL is 0xfb. If the operation is MLOAD_GENERAL, lv.opcode_bits[0] = 1
@@ -54,7 +54,7 @@ fn eval_packed_load<P: PackedField>(
 fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
-    nv: &CpuColumnsView<ExtensionTarget<D>>,
+    _nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let mut filter = lv.op.m_op_general;
@@ -105,7 +105,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
 
 fn eval_packed_store<P: PackedField>(
     lv: &CpuColumnsView<P>,
-    nv: &CpuColumnsView<P>,
+    _nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let filter = lv.op.m_op_general * (lv.opcode_bits[0] - P::ONES);
@@ -179,7 +179,7 @@ fn eval_packed_store<P: PackedField>(
 fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
-    nv: &CpuColumnsView<ExtensionTarget<D>>,
+    _nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let filter =

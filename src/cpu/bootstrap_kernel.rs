@@ -11,8 +11,8 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::KERNEL;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
-use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
-use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
+
+
 use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::{keccak_sponge_log, mem_write_gp_log_and_fill};

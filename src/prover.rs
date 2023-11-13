@@ -2,7 +2,7 @@ use std::any::type_name;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-use once_cell::sync::Lazy;
+
 use plonky2::field::extension::Extendable;
 use plonky2::field::packable::Packable;
 use plonky2::field::packed::PackedField;

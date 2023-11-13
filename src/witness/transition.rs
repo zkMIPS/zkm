@@ -2,15 +2,15 @@ use anyhow::bail;
 use log::log_enabled;
 use plonky2::field::types::Field;
 
-use super::memory::{MemoryOp, MemoryOpKind};
-use super::util::fill_channel_with_value;
+
+
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::KERNEL;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
-use crate::witness::memory::MemoryChannel::GeneralPurpose;
+
 use crate::witness::operation::*;
 use crate::witness::state::RegistersState;
 use crate::witness::util::mem_read_code_with_log_and_fill;

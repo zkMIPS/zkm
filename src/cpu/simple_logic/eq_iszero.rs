@@ -28,7 +28,7 @@ pub fn generate_pinv_diff<F: Field>(
     lv: &mut CpuColumnsView<F>,
 ) {
     let num_unequal_limbs = if val0 != val1 { 1 } else { 0 };
-    let equal = num_unequal_limbs == 0;
+    let _equal = num_unequal_limbs == 0;
 
     // Form `diff_pinv`.
     // Let `diff = val0 - val1`. Consider `x[i] = diff[i]^-1` if `diff[i] != 0` and 0 otherwise.
@@ -47,7 +47,7 @@ pub fn generate_pinv_diff<F: Field>(
 
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
-    nv: &CpuColumnsView<P>,
+    _nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let logic = lv.general.logic();
@@ -56,7 +56,7 @@ pub fn eval_packed<P: PackedField>(
     let output = lv.mem_channels[2].value;
 
     // EQ (0x14) and ISZERO (0x15) are differentiated by their first opcode bit.
-    let eq_filter = lv.op.eq_iszero * (P::ONES - lv.opcode_bits[0]);
+    let _eq_filter = lv.op.eq_iszero * (P::ONES - lv.opcode_bits[0]);
     let iszero_filter = lv.op.eq_iszero * lv.opcode_bits[0];
     let eq_or_iszero_filter = lv.op.eq_iszero;
 
@@ -106,7 +106,7 @@ pub fn eval_packed<P: PackedField>(
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
-    nv: &CpuColumnsView<ExtensionTarget<D>>,
+    _nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let zero = builder.zero_extension();
@@ -119,7 +119,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     // EQ (0x14) and ISZERO (0x15) are differentiated by their first opcode bit.
     let eq_filter = builder.mul_extension(lv.op.eq_iszero, lv.opcode_bits[0]);
-    let eq_filter = builder.sub_extension(lv.op.eq_iszero, eq_filter);
+    let _eq_filter = builder.sub_extension(lv.op.eq_iszero, eq_filter);
 
     let iszero_filter = builder.mul_extension(lv.op.eq_iszero, lv.opcode_bits[0]);
     let eq_or_iszero_filter = lv.op.eq_iszero;

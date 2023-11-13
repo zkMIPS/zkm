@@ -156,7 +156,7 @@ pub(crate) fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
         cpu_stark::ctl_data_logic(),
         Some(cpu_stark::ctl_filter_logic()),
     );
-    let mut all_lookers = vec![cpu_looking];
+    let all_lookers = vec![cpu_looking];
     /* FIXME: connect keccak, may use 8 u32s
     for i in 0..keccak_sponge_stark::num_logic_ctls() {
         let keccak_sponge_looking = TableWithColumns::new(
@@ -173,7 +173,7 @@ pub(crate) fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
-    let cpu_memory_code_read = TableWithColumns::new(
+    let _cpu_memory_code_read = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_code_memory::<F>(),
         Some(cpu_stark::ctl_filter_code_memory()),
