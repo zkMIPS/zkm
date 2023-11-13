@@ -1,8 +1,8 @@
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
-use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
+
 use crate::witness::operation::*;
-use itertools::cloned;
+
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -14,7 +14,7 @@ pub fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let filter = lv.op.syscall; // syscall
-    let sys_num = lv.mem_channels[0].value[0];
+    let _sys_num = lv.mem_channels[0].value[0];
     let a0 = lv.mem_channels[1].value[0];
     let a1 = lv.mem_channels[2].value[0];
     let a2 = lv.mem_channels[3].value[0];
@@ -26,7 +26,7 @@ pub fn eval_packed<P: PackedField>(
     let is_SYSMMAP = lv.mem_channels[2].value[1];
     let is_sz_mid_not_zero = lv.mem_channels[0].value[1]; //sz & 0xFFF != 0
     let is_sz_mid_zero = P::ONES - is_sz_mid_not_zero;
-    let mut sz = a1;
+    let sz = a1;
     let remain = sz / P::Scalar::from_canonical_u64(1 << 12);
     let remain = remain * P::Scalar::from_canonical_u64(1 << 12);
     let sz_mid = sz - remain; //sz & 0xfff
@@ -163,7 +163,7 @@ pub fn eval_packed<P: PackedField>(
     let a0_is_FD_STDIN = lv.mem_channels[1].value[2];
     let v0_in_a0_is_FD_STDIN = P::ZEROS;
     let a0_is_FD_STDOUT_or_FD_STDERR = lv.mem_channels[1].value[3];
-    let v0_in_a0_is_FD_STDOUT_or_FD_STDERR = P::ONES;
+    let _v0_in_a0_is_FD_STDOUT_or_FD_STDERR = P::ONES;
     let a0_is_else = lv.mem_channels[1].value[4];
     let v0_in_a0_is_not_FD_STDOUT_and_FD_STDERR_and_FD_STDIN =
         P::Scalar::from_canonical_usize(0xFFFFFFFF);
@@ -200,7 +200,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let filter = lv.op.syscall;
-    let sys_num = lv.mem_channels[0].value[0];
+    let _sys_num = lv.mem_channels[0].value[0];
     let a0 = lv.mem_channels[1].value[0];
     let a1 = lv.mem_channels[2].value[0];
     let a2 = lv.mem_channels[3].value[0];
@@ -212,7 +212,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let is_sz_mid_not_zero = lv.mem_channels[0].value[1]; //sz & 0xFFF != 0
     let one_extension = builder.one_extension();
     let is_sz_mid_zero = builder.sub_extension(one_extension, is_sz_mid_not_zero);
-    let mut sz = a1;
+    let sz = a1;
     let divsor = builder.constant_extension(F::Extension::from_canonical_u64(1 << 12));
     let remain = builder.div_extension(sz, divsor);
     let remain = builder.mul_extension(remain, divsor);

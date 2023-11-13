@@ -279,7 +279,6 @@ impl<F: Field> CrossTableLookup<F> {
         looking_tables
             .iter()
             .for_each(|e| println!("looking: {}", e.columns.len()));
-        println!("looked {}", looked_table.columns.len());
         assert!(looking_tables
             .iter()
             .all(|twc| twc.columns.len() == looked_table.columns.len()));
@@ -836,8 +835,10 @@ pub(crate) mod testutils {
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Field;
 
+    use super::*;
     use crate::all_stark::Table;
     use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     type MultiSet<F> = HashMap<Vec<F>, Vec<(Table, usize)>>;
 
@@ -926,5 +927,48 @@ pub(crate) mod testutils {
                 l1 = looked_locations.len(),
             );
         }
+    }
+
+    #[test]
+    fn test_check_ctls() {
+        env_logger::try_init().unwrap_or_default();
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        // must be binary matrix
+        let p_values = vec![F::from_canonical_u32(1), F::from_canonical_u32(0)];
+        let p2_values = vec![F::from_canonical_u32(1), F::from_canonical_u32(1)];
+        let p3_values = vec![F::from_canonical_u32(0), F::from_canonical_u32(1)];
+        let p4_values = vec![F::from_canonical_u32(1), F::from_canonical_u32(0)];
+        let trace_poly_values = vec![
+            PolynomialValues::<F>::new(p_values),
+            PolynomialValues::<F>::new(p2_values),
+            PolynomialValues::<F>::new(p3_values),
+            PolynomialValues::<F>::new(p4_values),
+        ];
+
+        // select_t [(1, 0), (0, 1)]
+        let looked_col = vec![Column::single(0), Column::single(2)];
+
+        // select_f [(0, 1), (1, 0)]
+        let looking_col = vec![Column::single(2), Column::single(3)];
+
+        let looked = TableWithColumns::<F>::new(
+            Table::Arithmetic,
+            looked_col,
+            Some(Column::single(3)), // t: (1, 0)
+        );
+
+        let lookings = vec![TableWithColumns::<F>::new(
+            Table::Arithmetic,
+            looking_col,
+            Some(Column::single(2)), // f: (0, 1)
+        )];
+
+        // select_f * f = trace[looking_col[row]][row] * \sum_{row=0..n, i=0..m} ([trace[looking_col[i]][row] ...]), where n is domain size, m is the looking_col.size,
+
+        // check select_f * f \in select_t * t
+        let cross_tables = CrossTableLookup::new(lookings, looked);
+        check_ctls(&[trace_poly_values], &[cross_tables]);
     }
 }

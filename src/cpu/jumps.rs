@@ -558,7 +558,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
 
 pub fn eval_packed_condmov<P: PackedField>(
     lv: &CpuColumnsView<P>,
-    nv: &CpuColumnsView<P>,
+    _nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let rs = lv.mem_channels[0].value[0]; // rs
@@ -592,7 +592,7 @@ pub fn eval_packed_condmov<P: PackedField>(
 pub fn eval_ext_circuit_condmov<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
-    nv: &CpuColumnsView<ExtensionTarget<D>>,
+    _nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let rs = lv.mem_channels[0].value[0]; // rs

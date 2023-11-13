@@ -24,7 +24,7 @@ impl Program {
     pub fn get_block_path(block: &str, file: &str) -> String {
         let mut blockpath = match env::var("BASEDIR") {
             Ok(val) => val,
-            Err(e) => String::from("/tmp/cannon"),
+            Err(_e) => String::from("/tmp/cannon"),
         };
 
         blockpath.push_str("/0_");

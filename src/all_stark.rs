@@ -65,7 +65,6 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Table {
     Arithmetic = 0,
-    //    BytePacking = 1,
     Cpu = 1,
     Keccak = 2,
     KeccakSponge = 3,
@@ -79,7 +78,6 @@ impl Table {
     pub(crate) fn all() -> [Self; NUM_TABLES] {
         [
             Self::Arithmetic,
-            //            Self::BytePacking,
             Self::Cpu,
             Self::Keccak,
             Self::KeccakSponge,
@@ -92,7 +90,6 @@ impl Table {
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
     vec![
         ctl_arithmetic(),
-        //        ctl_byte_packing(),
         ctl_keccak_sponge(),
         ctl_keccak_inputs(),
         ctl_keccak_outputs(),
@@ -153,13 +150,13 @@ fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(vec![cpu_looking], keccak_sponge_looked)
 }
 
-fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
+pub(crate) fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
     let cpu_looking = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_logic(),
         Some(cpu_stark::ctl_filter_logic()),
     );
-    let mut all_lookers = vec![cpu_looking];
+    let all_lookers = vec![cpu_looking];
     /* FIXME: connect keccak, may use 8 u32s
     for i in 0..keccak_sponge_stark::num_logic_ctls() {
         let keccak_sponge_looking = TableWithColumns::new(
@@ -176,7 +173,7 @@ fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
-    let cpu_memory_code_read = TableWithColumns::new(
+    let _cpu_memory_code_read = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_code_memory::<F>(),
         Some(cpu_stark::ctl_filter_code_memory()),
@@ -195,19 +192,9 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
             Some(keccak_sponge_stark::ctl_looking_memory_filter(i)),
         )
     });
-    /*
-    let byte_packing_ops = (0..32).map(|i| {
-        TableWithColumns::new(
-            Table::BytePacking,
-            byte_packing_stark::ctl_looking_memory(i),
-            Some(byte_packing_stark::ctl_looking_memory_filter(i)),
-        )
-    });
-    */
     let all_lookers = cpu_memory_gp_ops
         .into_iter()
         .chain(keccak_sponge_reads)
-        //  .chain(byte_packing_ops)
         .collect();
     let memory_looked = TableWithColumns::new(
         Table::Memory,

@@ -38,12 +38,12 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 /// We leverage the functions in mul.rs and divmod.rs to carry out
 /// the computation.
 pub fn generate<F: PrimeField64>(
-    lv: &mut [F],
-    nv: &mut [F],
-    is_shl: bool,
-    shift: u32,
-    input: u32,
-    result: u32,
+    _lv: &mut [F],
+    _nv: &mut [F],
+    _is_shl: bool,
+    _shift: u32,
+    _input: u32,
+    _result: u32,
 ) {
     /*
     // We use the multiplication logic to generate SHL
@@ -79,8 +79,8 @@ pub fn generate<F: PrimeField64>(
 /// the inputs are in `INPUT_REGISTER_1`  and `INPUT_REGISTER_2` instead of
 /// `INPUT_REGISTER_0` and `INPUT_REGISTER_1`.
 fn eval_packed_shl<P: PackedField>(
-    lv: &[P; NUM_ARITH_COLUMNS],
-    yield_constr: &mut ConstraintConsumer<P>,
+    _lv: &[P; NUM_ARITH_COLUMNS],
+    _yield_constr: &mut ConstraintConsumer<P>,
 ) {
     /*
     let is_shl = lv[IS_SHL];
@@ -96,9 +96,9 @@ fn eval_packed_shl<P: PackedField>(
 /// the inputs are in `INPUT_REGISTER_1`  and `INPUT_REGISTER_2` instead of
 /// `INPUT_REGISTER_0` and `INPUT_REGISTER_1`.
 fn eval_packed_shr<P: PackedField>(
-    lv: &[P; NUM_ARITH_COLUMNS],
-    nv: &[P; NUM_ARITH_COLUMNS],
-    yield_constr: &mut ConstraintConsumer<P>,
+    _lv: &[P; NUM_ARITH_COLUMNS],
+    _nv: &[P; NUM_ARITH_COLUMNS],
+    _yield_constr: &mut ConstraintConsumer<P>,
 ) {
     /*
     let quo_range = OUTPUT_REGISTER;
@@ -128,9 +128,9 @@ pub fn eval_packed_generic<P: PackedField>(
 }
 
 fn eval_ext_circuit_shl<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
-    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    _builder: &mut CircuitBuilder<F, D>,
+    _lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
+    _yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     /*
     let is_shl = lv[IS_SHL];
@@ -149,10 +149,10 @@ fn eval_ext_circuit_shl<F: RichField + Extendable<D>, const D: usize>(
 }
 
 fn eval_ext_circuit_shr<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
-    nv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
-    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    _builder: &mut CircuitBuilder<F, D>,
+    _lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
+    _nv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
+    _yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     /*
     let filter = lv[IS_SHR];

@@ -1,9 +1,8 @@
 use plonky2::field::types::Field;
 
-use super::memory::DUMMY_MEMOP;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::keccak_util::keccakf_u8s;
-use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
+use crate::cpu::membus::NUM_CHANNELS;
 use crate::generation::state::GenerationState;
 use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_WIDTH_BYTES};
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
@@ -89,20 +88,21 @@ pub(crate) fn reg_read_with_log<F: Field>(
     state: &GenerationState<F>,
     row: &mut CpuColumnsView<F>,
 ) -> Result<(usize, MemoryOp), ProgramError> {
-    let mut result = 0;
-    if index < 32 {
-        result = state.registers.gprs[index as usize];
-    } else if index == 32 {
-        result = state.registers.lo;
-    } else if index == 33 {
-        result = state.registers.hi;
-    } else if index == 34 {
-        result = state.registers.heap;
-    } else if index == 35 {
-        result = state.registers.program_counter;
-    } else {
-        return Err(ProgramError::InvalidRegister);
-    }
+    let result = {
+        if index < 32 {
+            state.registers.gprs[index as usize]
+        } else if index == 32 {
+            state.registers.lo
+        } else if index == 33 {
+            state.registers.hi
+        } else if index == 34 {
+            state.registers.heap
+        } else if index == 35 {
+            state.registers.program_counter
+        } else {
+            return Err(ProgramError::InvalidRegister);
+        }
+    };
     log::debug!("read reg {} : {:X}({})", index, result, result);
     let address = MemoryAddress::new(0, Segment::RegisterFile, index as usize);
     let op = MemoryOp::new(
@@ -191,7 +191,7 @@ pub(crate) fn mem_read_with_log<F: Field>(
 /// Pushes without writing in memory. This happens in opcodes where a push immediately follows a pop.
 /// The pushed value may be loaded in a memory channel, without creating a memory operation.
 pub(crate) fn push_no_write<F: Field>(
-    state: &mut GenerationState<F>,
+    _state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
     val: u32,
     channel_opt: Option<usize>,
@@ -217,42 +217,6 @@ pub(crate) fn push_no_write<F: Field>(
         }
         */
     }
-}
-
-/// Pushes and (maybe) writes the previous stack top in memory. This happens in opcodes which only push.
-pub(crate) fn push_with_write<F: Field>(
-    state: &mut GenerationState<F>,
-    row: &mut CpuColumnsView<F>,
-    val: u32,
-) -> Result<(), ProgramError> {
-    /*
-    if !state.registers.is_kernel && state.registers.stack_len >= MAX_USER_STACK_SIZE {
-        return Err(ProgramError::StackOverflow);
-    }
-
-    let write = if state.registers.stack_len == 0 {
-        None
-    } else {
-        let address = MemoryAddress::new(
-            state.registers.context,
-            Segment::Stack,
-            state.registers.stack_len - 1,
-        );
-        let res = mem_write_gp_log_and_fill(
-            NUM_GP_CHANNELS - 1,
-            address,
-            state,
-            row,
-            state.registers.stack_top,
-        );
-        Some(res)
-    };
-    push_no_write(state, row, val, None);
-    if let Some(log) = write {
-        state.traces.push_memory(log);
-    }
-    */
-    Ok(())
 }
 
 pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
@@ -394,7 +358,7 @@ fn xor_into_sponge<F: Field>(
     sponge_state: &mut [u8; KECCAK_WIDTH_BYTES],
     block: &[u8; KECCAK_RATE_BYTES],
 ) {
-    /// FIXME: why the step does not matter here?
+    // FIXME: why the step does not matter here?
     for i in (0..KECCAK_RATE_BYTES).step_by(4) {
         let range = i..KECCAK_RATE_BYTES.min(i + 4);
         let lhs = LittleEndian::read_u32(&sponge_state[range.clone()]);

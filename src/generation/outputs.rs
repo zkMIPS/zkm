@@ -10,7 +10,7 @@ pub struct GenerationOutputs {
 }
 
 pub(crate) fn get_outputs<F: Field>(
-    state: &mut GenerationState<F>,
+    _state: &mut GenerationState<F>,
 ) -> Result<GenerationOutputs, ProgramError> {
     // FIXME
     Ok(GenerationOutputs {
