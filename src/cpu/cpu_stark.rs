@@ -62,7 +62,7 @@ fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
 
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
-    // opcode: 6, rt: 5, func: 6. The rt would be non-zero only when insn are BGEZ, BLTZ
+    // opcode: 6, func: 6. The rt would be non-zero only when insn are BGEZ, BLTZ
     let mut base = [0usize; COL_MAP.opcode_bits.len() + COL_MAP.func_bits.len()];
     base[0..COL_MAP.opcode_bits.len()].copy_from_slice(&COL_MAP.opcode_bits[..]);
     base[COL_MAP.opcode_bits.len()..].copy_from_slice(&COL_MAP.func_bits[..]);
@@ -92,41 +92,18 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Cpu,
         columns,
-        Some(Column::sum([COL_MAP.op.binary_op, COL_MAP.op.shift])),
+        Some(Column::sum([
+            COL_MAP.op.binary_op,
+            COL_MAP.op.binary_imm_op,
+            COL_MAP.op.shift,
+            COL_MAP.op.shift_imm,
+        ])),
     )
 }
 
 pub fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
     ctl_data_keccak_sponge()
 }
-
-/*
-pub fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
-    // When executing MSTORE_32BYTES, the GP memory channels are used as follows:
-    // GP channel 0: stack[-1] = context
-    // GP channel 1: stack[-2] = segment
-    // GP channel 2: stack[-3] = virt
-    // GP channel 3: stack[-4] = val
-    // GP channel 4: stack[-5] = len
-    let context = Column::single(COL_MAP.mem_channels[0].value[0]);
-    let segment = Column::single(COL_MAP.mem_channels[1].value[0]);
-    let virt = Column::single(COL_MAP.mem_channels[2].value[0]);
-    let val = Column::singles(COL_MAP.mem_channels[3].value);
-    let len = Column::single(COL_MAP.mem_channels[4].value[0]);
-
-    let num_channels = F::from_canonical_usize(NUM_CHANNELS);
-    let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
-
-    let mut res = vec![context, segment, virt, len, timestamp];
-    res.extend(val);
-
-    res
-}
-
-pub fn ctl_filter_byte_unpacking<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.op.mstore_32bytes)
-}
-*/
 
 pub const MEM_CODE_CHANNEL_IDX: usize = 0;
 pub const MEM_GP_CHANNELS_IDX_START: usize = MEM_CODE_CHANNEL_IDX + 1;

@@ -46,10 +46,12 @@ const OPCODES: [(u32, usize, bool, usize); 10] = [
 /// List of combined opcodes requiring a special handling.
 /// Each index in the list corresponds to an arbitrary combination
 /// of opcodes defined in evm/src/cpu/columns/ops.rs.
-const COMBINED_OPCODES: [usize; 4] = [
+const COMBINED_OPCODES: [usize; 6] = [
     COL_MAP.op.logic_op,
     COL_MAP.op.binary_op,
+    COL_MAP.op.binary_imm_op,
     COL_MAP.op.shift,
+    COL_MAP.op.shift_imm,
     COL_MAP.op.m_op_general,
 ];
 

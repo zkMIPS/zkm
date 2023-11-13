@@ -1,4 +1,3 @@
-use itertools::Itertools;
 // use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
@@ -15,11 +14,11 @@ use crate::memory::segments::Segment;
 // use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
 use crate::witness::errors::ProgramError;
 // use crate::witness::errors::ProgramError::MemoryError;
-use crate::witness::memory::{MemoryAddress, MemoryOp};
+use crate::witness::memory::MemoryAddress;
 // use crate::witness::operation::MemoryChannel::GeneralPurpose;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::{arithmetic, logic};
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result};
 
 use hex;
 use std::fs;
@@ -146,7 +145,7 @@ pub(crate) fn generate_count_op<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let (mut in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
 
     let mut src = in0 as u32;
     if !ones {
@@ -246,7 +245,7 @@ pub(crate) fn generate_binary_arithmetic_hilo_op<F: Field>(
     operator: arithmetic::BinaryOperator,
     rs: u8,
     rt: u8,
-    rd: u8,
+    _rd: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -318,8 +317,8 @@ pub(crate) fn generate_binary_arithmetic_imm_op<F: Field>(
 }
 
 pub(crate) fn generate_keccak_general<F: Field>(
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
+    _state: &mut GenerationState<F>,
+    _row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     /*
     row.is_keccak_sponge = F::ONE;
@@ -353,8 +352,8 @@ pub(crate) fn generate_keccak_general<F: Field>(
 }
 
 pub(crate) fn generate_prover_input<F: Field>(
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
+    _state: &mut GenerationState<F>,
+    _row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     /*
     let pc = state.registers.program_counter;
@@ -449,8 +448,8 @@ pub(crate) fn generate_pc<F: Field>(
 }
 
 pub(crate) fn generate_get_context<F: Field>(
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
+    _state: &mut GenerationState<F>,
+    _row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     /*
     push_with_write(state, &mut row, state.registers.context.into())?;
@@ -460,8 +459,8 @@ pub(crate) fn generate_get_context<F: Field>(
 }
 
 pub(crate) fn generate_set_context<F: Field>(
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
+    _state: &mut GenerationState<F>,
+    _row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     /*
     let [(ctx, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
@@ -536,8 +535,8 @@ pub(crate) fn generate_set_context<F: Field>(
 }
 
 pub(crate) fn generate_not<F: Field>(
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
+    _state: &mut GenerationState<F>,
+    _row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     /*
     let [(x, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
@@ -550,8 +549,8 @@ pub(crate) fn generate_not<F: Field>(
 }
 
 pub(crate) fn generate_iszero<F: Field>(
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
+    _state: &mut GenerationState<F>,
+    _row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     /*
     let [(x, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
@@ -906,8 +905,8 @@ pub(crate) fn generate_syscall<F: Field>(
 }
 
 pub(crate) fn generate_eq<F: Field>(
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
+    _state: &mut GenerationState<F>,
+    _row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     /*
     let [(in0, _), (in1, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
@@ -926,8 +925,8 @@ pub(crate) fn generate_eq<F: Field>(
 
 // FIXME: unused?
 pub(crate) fn generate_exit_kernel<F: Field>(
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
+    _state: &mut GenerationState<F>,
+    _row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     /*
     let [(kexit_info, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
@@ -1151,7 +1150,7 @@ pub(crate) fn generate_exception<F: Field>(
     let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
     let new_program_counter = handler_addr;
 
-    let exc_info = state.registers.program_counter as u32;
+    let _exc_info = state.registers.program_counter as u32;
     // U256::from(state.registers.program_counter) + (U256::from(state.registers.gas_used) << 192);
 
     // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
@@ -1160,7 +1159,7 @@ pub(crate) fn generate_exception<F: Field>(
     state.registers.program_counter = new_program_counter as usize;
     state.registers.is_kernel = true;
 
-    push_with_write(state, &mut row, exc_info)?;
+    //push_with_write(state, &mut row, exc_info)?;
 
     log::debug!(
         "Exception to {}",

@@ -1,7 +1,6 @@
 use std::any::type_name;
 
 use anyhow::{ensure, Result};
-use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
@@ -9,19 +8,16 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
 
-use crate::all_stark::{AllStark, Table, NUM_TABLES};
+use crate::all_stark::{AllStark, Table};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 //use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cross_table_lookup::{
-    verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge, GrandProductChallengeSet,
-};
+use crate::cross_table_lookup::{CtlCheckVars, GrandProductChallengeSet};
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVars;
-use crate::memory::segments::Segment;
-use crate::memory::VALUE_LIMBS;
+
 use crate::proof::{
-    AllProof, AllProofChallenges, PublicValues, StarkOpeningSet, StarkProof, StarkProofChallenges,
+    AllProof, AllProofChallenges, StarkOpeningSet, StarkProof, StarkProofChallenges,
 };
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
@@ -44,7 +40,6 @@ where
 
     let AllStark {
         arithmetic_stark,
-        //byte_packing_stark,
         cpu_stark,
         keccak_stark,
         keccak_sponge_stark,
@@ -459,6 +454,47 @@ fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
     let invs = F::batch_multiplicative_inverse(&[n * (x - F::ONE), n * (g * x - F::ONE)]);
 
     (z_x * invs[0], z_x * invs[1])
+}
+
+#[cfg(test)]
+pub(crate) mod testutils {
+    use super::*;
+    use crate::proof::PublicValues;
+
+    /// Output all the extra memory rows that don't appear in the CPU trace but are
+    /// necessary to correctly check the MemoryStark CTL.
+    pub(crate) fn get_memory_extra_looking_values<F, const D: usize>(
+        public_values: &PublicValues,
+    ) -> Vec<Vec<F>>
+    where
+        F: RichField + Extendable<D>,
+    {
+        let mut extra_looking_rows = Vec::new();
+
+        /*
+        let fields = [{}];
+        fields.map(|(field, val)| {
+            extra_looking_rows.push(add_extra_looking_row(segment, field as usize, val))
+        });
+        */
+        extra_looking_rows
+    }
+
+    fn add_extra_looking_row<F, const D: usize>(segment: F, index: usize, val: u32) -> Vec<F>
+    where
+        F: RichField + Extendable<D>,
+    {
+        let mut row = vec![F::ZERO; 13];
+        row[0] = F::ZERO; // is_read
+        row[1] = F::ZERO; // context
+        row[2] = segment;
+        row[3] = F::from_canonical_usize(index);
+
+        row[4] = F::from_canonical_u32(val);
+        // FIXME
+        row[12] = F::ONE; // timestamp
+        row
+    }
 }
 
 #[cfg(test)]

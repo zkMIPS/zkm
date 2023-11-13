@@ -3,14 +3,12 @@ pub(crate) mod state;
 // use crate::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, MemsRoot};
 use crate::proof::{MemsRoot, PublicValues};
 use anyhow::anyhow;
-use ethereum_types::{Address, BigEndianHash, H256, U256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;

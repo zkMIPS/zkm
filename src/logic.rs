@@ -56,7 +56,6 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     // If a logic operation is happening on the CPU side, the CTL
     // will enforce that the reconstructed opcode value from the
     // opcode bits matches.
-    // FIXME: https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/cpu/kernel/opcodes.rs#L31
     let mut res = vec![Column::linear_combination([
         (
             columns::IS_AND,
@@ -64,10 +63,14 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
         ),
         (
             columns::IS_OR,
-            F::from_canonical_u32(0b000000 + 0b100110 * (1 << 6)),
+            F::from_canonical_u32(0b000000 + 0b100101 * (1 << 6)),
         ),
         (
             columns::IS_XOR,
+            F::from_canonical_u32(0b000000 + 0b100110 * (1 << 6)),
+        ),
+        (
+            columns::IS_NOR,
             F::from_canonical_u32(0b000000 + 0b100111 * (1 << 6)),
         ),
     ])];
@@ -78,7 +81,12 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
 }
 
 pub fn ctl_filter<F: Field>() -> Column<F> {
-    Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
+    Column::sum([
+        columns::IS_AND,
+        columns::IS_OR,
+        columns::IS_XOR,
+        columns::IS_NOR,
+    ])
 }
 
 #[derive(Copy, Clone, Default)]
@@ -116,6 +124,7 @@ pub(crate) struct Operation {
 impl Operation {
     pub(crate) fn new(operator: Op, input0: u32, input1: u32) -> Self {
         let result = operator.result(input0, input1);
+        println!("{:?}: {} {} => {}", operator, input0, input1, result);
         Operation {
             operator,
             input0,
@@ -139,10 +148,11 @@ impl Operation {
             Op::Nor => columns::IS_NOR,
         }] = F::ONE;
         for i in 0..32 {
-            row[columns::INPUT0.start + i] = F::from_canonical_u32(input0 & (1 << i));
-            row[columns::INPUT1.start + i] = F::from_canonical_u32(input1 & (1 << i));
+            row[columns::INPUT0.start + i] = F::from_canonical_u32((input0 >> i) & 1);
+            row[columns::INPUT1.start + i] = F::from_canonical_u32((input1 >> i) & 1);
         }
         row[columns::RESULT.start] = F::from_canonical_u32(result);
+        println!("row: {:?}, result: {}", row, result);
         row
     }
 }
@@ -211,13 +221,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
         let is_and = lv[columns::IS_AND];
         let is_or = lv[columns::IS_OR];
         let is_xor = lv[columns::IS_XOR];
+        let is_nor = lv[columns::IS_NOR];
 
-        // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1)`.
-        // `AND => sum_coeff = 0, and_coeff = 1`
-        // `OR  => sum_coeff = 1, and_coeff = -1`
-        // `XOR => sum_coeff = 1, and_coeff = -2`
-        let sum_coeff = is_or + is_xor;
-        let and_coeff = is_and - is_or - is_xor * FE::TWO;
+        // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1) + not_coeff * 1`.
+        // `AND => sum_coeff = 0, and_coeff = 1, not_coeff=0`
+        // `OR  => sum_coeff = 1, and_coeff = -1, not_coeff=0`
+        // `XOR => sum_coeff = 1, and_coeff = -2, not_coeff=0`
+        // `NOR => sum_coeff = -1, and_coeff = 1, not_coeff=1`
+        let sum_coeff = is_or + is_xor - is_nor;
+        let and_coeff = is_and - is_or - is_xor * FE::TWO + is_nor;
+        let not_coeff = is_nor;
 
         // Ensure that all bits are indeed bits.
         for input_bits_cols in [columns::INPUT0, columns::INPUT1] {
@@ -242,7 +255,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
             let x_land_y: P = izip!(0.., x_bits, y_bits)
                 .map(|(i, x_bit, y_bit)| x_bit * y_bit * FE::from_canonical_u64(1 << i))
                 .sum();
-            let x_op_y = sum_coeff * (x + y) + and_coeff * x_land_y;
+            let x_op_y = sum_coeff * (x + y) + and_coeff * x_land_y + not_coeff;
 
             yield_constr.constraint(lv[result_col] - x_op_y);
         }
@@ -260,16 +273,25 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
         let is_and = lv[columns::IS_AND];
         let is_or = lv[columns::IS_OR];
         let is_xor = lv[columns::IS_XOR];
+        let is_nor = lv[columns::IS_NOR];
 
-        // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1)`.
-        // `AND => sum_coeff = 0, and_coeff = 1`
-        // `OR  => sum_coeff = 1, and_coeff = -1`
-        // `XOR => sum_coeff = 1, and_coeff = -2`
-        let sum_coeff = builder.add_extension(is_or, is_xor);
+        // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1) + not_coeff * 1`.
+        // `AND => sum_coeff = 0, and_coeff = 1, not_coeff=0`
+        // `OR  => sum_coeff = 1, and_coeff = -1, not_coeff=0`
+        // `XOR => sum_coeff = 1, and_coeff = -2, not_coeff=0`
+        // `NOR => sum_coeff = -1, and_coeff = 1, not_coeff=1`
+        let sum_coeff = {
+            let sum_coeff = builder.add_extension(is_or, is_xor);
+            builder.sub_extension(sum_coeff, is_nor)
+        };
+
         let and_coeff = {
             let and_coeff = builder.sub_extension(is_and, is_or);
-            builder.mul_const_add_extension(-F::TWO, is_xor, and_coeff)
+            let and_coeff = builder.mul_const_add_extension(-F::TWO, is_xor, and_coeff);
+            builder.add_extension(and_coeff, is_nor)
         };
+
+        let not_coeff = is_nor;
 
         // Ensure that all bits are indeed bits.
         for input_bits_cols in [columns::INPUT0, columns::INPUT1] {
@@ -306,7 +328,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
             let x_op_y = {
                 let x_op_y = builder.mul_extension(sum_coeff, x);
                 let x_op_y = builder.mul_add_extension(sum_coeff, y, x_op_y);
-                builder.mul_add_extension(and_coeff, x_land_y, x_op_y)
+                let tmp = builder.mul_add_extension(and_coeff, x_land_y, x_op_y);
+                builder.add_extension(tmp, not_coeff)
             };
             let constr = builder.sub_extension(lv[result_col], x_op_y);
             yield_constr.constraint(builder, constr);
@@ -320,11 +343,25 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-
-    use crate::logic::LogicStark;
+    use crate::all_stark::ctl_logic;
+    use crate::all_stark::Table;
+    use crate::config::StarkConfig;
+    use crate::cross_table_lookup::{
+        cross_table_lookup_data, get_grand_product_challenge_set, CtlCheckVars, CtlData,
+        GrandProductChallengeSet,
+    };
+    use crate::logic::{LogicStark, Op, Operation};
+    use crate::prover::prove_single_table;
+    use crate::stark::Stark;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+    use crate::verifier::verify_stark_proof_with_challenges;
+    use anyhow::Result;
+    use itertools::Itertools;
+    use plonky2::fri::oracle::PolynomialBatch;
+    use plonky2::iop::challenger::Challenger;
+    use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::timed;
+    use plonky2::util::timing::TimingTree;
 
     #[test]
     fn test_stark_degree() -> Result<()> {
@@ -350,5 +387,161 @@ mod tests {
             f: Default::default(),
         };
         test_stark_circuit_constraints::<F, C, S, D>(stark)
+    }
+
+    #[test]
+    #[ignore]
+    fn test_stark_verifier() {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = LogicStark<F, D>;
+
+        let config = StarkConfig::standard_fast_config();
+        let stark = S {
+            f: Default::default(),
+        };
+        let ops = vec![
+            //Operation::new(Op::Nor, 0, 1),
+            //Operation::new(Op::Nor, 1, 1),
+            //Operation::new(Op::Nor, 0, 0),
+            Operation::new(Op::And, 0, 1),
+            //Operation::new(Op::And, 1, 1),
+            //Operation::new(Op::And, 0, 0),
+            //Operation::new(Op::Or, 0, 1),
+            //Operation::new(Op::Or, 1, 1),
+            //Operation::new(Op::Or, 0, 0),
+            //Operation::new(Op::Xor, 0, 1),
+            //Operation::new(Op::Xor, 1, 1),
+            //Operation::new(Op::Xor, 0, 0),
+        ];
+        let num_rows = 1 << 5;
+
+        let mut timing = TimingTree::new("Logic", log::Level::Debug);
+        let trace_poly_value = stark.generate_trace(ops, num_rows, &mut timing);
+
+        let all_tables = [
+            Table::Arithmetic,
+            Table::Arithmetic,
+            Table::Arithmetic,
+            Table::Arithmetic,
+            Table::Arithmetic,
+            Table::Arithmetic,
+        ];
+        let rate_bits = config.fri_config.rate_bits;
+        let cap_height = config.fri_config.cap_height;
+
+        let trace_poly_values = [
+            trace_poly_value.clone(),
+            trace_poly_value.clone(),
+            trace_poly_value.clone(),
+            trace_poly_value.clone(),
+            trace_poly_value.clone(),
+            trace_poly_value.clone(),
+        ];
+
+        let trace_commitments = timed!(
+            timing,
+            "compute all trace commitments",
+            trace_poly_values
+                .iter()
+                .zip_eq(all_tables)
+                .map(|(trace, table)| {
+                    timed!(
+                        timing,
+                        &format!("compute trace commitment for {:?}", table),
+                        PolynomialBatch::<F, C, D>::from_values(
+                            // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
+                            // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
+                            trace.clone(),
+                            rate_bits,
+                            false,
+                            cap_height,
+                            &mut timing,
+                            None,
+                        )
+                    )
+                })
+                .collect::<Vec<_>>()
+        );
+
+        log::debug!("trace_commitments: {}", trace_commitments.len());
+
+        let trace_caps = trace_commitments
+            .iter()
+            .map(|c| c.merkle_tree.cap.clone())
+            .collect::<Vec<_>>();
+        let mut challenger = Challenger::<F, <C as GenericConfig<D>>::Hasher>::new();
+        for cap in &trace_caps {
+            challenger.observe_cap(cap);
+        }
+
+        let cross_table_lookups = [
+            ctl_logic(),
+            ctl_logic(),
+            ctl_logic(),
+            ctl_logic(),
+            ctl_logic(),
+            ctl_logic(),
+        ];
+
+        let ctl_challenges =
+            get_grand_product_challenge_set(&mut challenger, config.num_challenges);
+        let ctl_data_per_table = timed!(
+            timing,
+            "compute CTL data",
+            cross_table_lookup_data::<F, D>(
+                &trace_poly_values,
+                &cross_table_lookups,
+                &ctl_challenges,
+            )
+        );
+
+        let proof = prove_single_table::<F, C, S, D>(
+            &stark,
+            &config,
+            &trace_poly_values[0],
+            &trace_commitments[0],
+            &ctl_data_per_table[0],
+            &ctl_challenges,
+            &mut challenger,
+            &mut timing,
+        )
+        .unwrap();
+
+        let num_lookup_columns = stark.num_lookup_helper_columns(&config);
+        let proofs = [
+            proof.clone(),
+            proof.clone(),
+            proof.clone(),
+            proof.clone(),
+            proof.clone(),
+            proof.clone(),
+        ];
+        let ctl_vars_per_table = CtlCheckVars::from_proofs(
+            &proofs,
+            &cross_table_lookups,
+            &ctl_challenges,
+            &[num_lookup_columns; 6],
+        );
+
+        let mut challenger = Challenger::<F, <C as GenericConfig<D>>::Hasher>::new();
+        let ctl_challenges =
+            get_grand_product_challenge_set(&mut challenger, config.num_challenges);
+
+        let stark_challenger: crate::proof::StarkProofChallenges<F, D> = {
+            challenger.compact();
+            proof.proof.get_challenges(&mut challenger, &config)
+        };
+
+        verify_stark_proof_with_challenges::<F, C, S, D>(
+            &stark,
+            &proof.proof,
+            &stark_challenger,
+            &ctl_vars_per_table[0],
+            &ctl_challenges,
+            &config,
+        )
+        .unwrap();
     }
 }
