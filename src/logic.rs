@@ -348,7 +348,7 @@ mod tests {
     use crate::all_stark::Table;
     use crate::config::StarkConfig;
     use crate::cross_table_lookup::{
-        cross_table_lookup_data, get_grand_product_challenge_set, CtlCheckVars,
+        cross_table_lookup_data_ex, get_grand_product_challenge_set, CtlCheckVars,
     };
     use crate::logic::{LogicStark, Op, Operation};
     use crate::prover::prove_single_table;
@@ -414,75 +414,37 @@ mod tests {
             //Operation::new(Op::Xor, 1, 1),
             //Operation::new(Op::Xor, 0, 0),
         ];
-        let num_rows = 1 << 5;
+        let num_rows = 1 << 10;
 
         let mut timing = TimingTree::new("Logic", log::Level::Debug);
-        let trace_poly_value = stark.generate_trace(ops, num_rows, &mut timing);
+        let trace_poly_values = stark.generate_trace(ops, num_rows, &mut timing);
 
         let all_tables = [
-            Table::Arithmetic,
-            Table::Arithmetic,
-            Table::Arithmetic,
-            Table::Arithmetic,
-            Table::Arithmetic,
             Table::Arithmetic,
         ];
         let rate_bits = config.fri_config.rate_bits;
         let cap_height = config.fri_config.cap_height;
 
-        let trace_poly_values = [
-            trace_poly_value.clone(),
-            trace_poly_value.clone(),
-            trace_poly_value.clone(),
-            trace_poly_value.clone(),
-            trace_poly_value.clone(),
-            trace_poly_value.clone(),
-        ];
-
         let trace_commitments = timed!(
             timing,
             "compute all trace commitments",
-            trace_poly_values
-                .iter()
-                .zip_eq(all_tables)
-                .map(|(trace, table)| {
-                    timed!(
-                        timing,
-                        &format!("compute trace commitment for {:?}", table),
-                        PolynomialBatch::<F, C, D>::from_values(
-                            // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
-                            // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
-                            trace.clone(),
-                            rate_bits,
-                            false,
-                            cap_height,
-                            &mut timing,
-                            None,
-                        )
-                    )
-                })
-                .collect::<Vec<_>>()
+            PolynomialBatch::<F, C, D>::from_values(
+                // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
+                // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
+                trace_poly_values.clone(),
+                rate_bits,
+                false,
+                cap_height,
+                &mut timing,
+                None,
+            )
         );
 
-        log::debug!("trace_commitments: {}", trace_commitments.len());
-
-        let trace_caps = trace_commitments
-            .iter()
-            .map(|c| c.merkle_tree.cap.clone())
-            .collect::<Vec<_>>();
+        let trace_caps = trace_commitments.merkle_tree.cap.clone();
         let mut challenger = Challenger::<F, <C as GenericConfig<D>>::Hasher>::new();
-        for cap in &trace_caps {
-            challenger.observe_cap(cap);
-        }
+        challenger.observe_cap(&trace_caps);
 
-        let cross_table_lookups = [
-            ctl_logic(),
-            ctl_logic(),
-            ctl_logic(),
-            ctl_logic(),
-            ctl_logic(),
-            ctl_logic(),
-        ];
+        let cross_table_lookups = ctl_logic();
 
         log::debug!("cross_table_lookup");
 
@@ -494,9 +456,9 @@ mod tests {
         let ctl_data_per_table = timed!(
             timing,
             "compute CTL data",
-            cross_table_lookup_data::<F, D>(
+            cross_table_lookup_data_ex::<F, D>(
                 &trace_poly_values,
-                &cross_table_lookups,
+                &[cross_table_lookups.clone()],
                 &ctl_challenges,
             )
         );
@@ -504,9 +466,9 @@ mod tests {
         let proof = prove_single_table::<F, C, S, D>(
             &stark,
             &config,
-            &trace_poly_values[0],
-            &trace_commitments[0],
-            &ctl_data_per_table[0],
+            &trace_poly_values,
+            &trace_commitments,
+            &ctl_data_per_table,
             &ctl_challenges,
             &mut challenger,
             &mut timing,
@@ -522,9 +484,10 @@ mod tests {
             proof.clone(),
             proof.clone(),
         ];
+        let binding = [cross_table_lookups.clone()];
         let ctl_vars_per_table = CtlCheckVars::from_proofs(
             &proofs,
-            &cross_table_lookups,
+            &binding,
             &ctl_challenges,
             &[num_lookup_columns; 6],
         );
