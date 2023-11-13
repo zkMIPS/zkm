@@ -256,7 +256,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
                 .sum();
             let x_op_y = sum_coeff * (x + y)
                 + and_coeff * x_land_y
-                + not_coeff
                 + not_coeff * FE::from_canonical_u32(u32::MAX);
 
             yield_constr.constraint(lv[result_col] - x_op_y);
