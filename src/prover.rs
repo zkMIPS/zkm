@@ -355,7 +355,7 @@ where
             .collect::<Vec<_>>()
     });
     let lookups = stark.lookups();
-    println!("lookups111: {:?}", lookups.len());
+    log::debug!("lookup len: {:?}", lookups.len());
     let lookup_helper_columns = timed!(
         timing,
         "compute lookup helper columns",
@@ -375,7 +375,7 @@ where
         })
     );
     let num_lookup_columns = lookup_helper_columns.as_ref().map(|v| v.len()).unwrap_or(0);
-    println!("num_lookup_columns: {:?}", num_lookup_columns);
+    log::debug!("num_lookup_columns: {:?}", num_lookup_columns);
 
     let auxiliary_polys = match lookup_helper_columns {
         None => ctl_data.z_polys(),

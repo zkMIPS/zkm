@@ -35,7 +35,7 @@ pub(crate) mod columns {
     pub const IS_XOR: usize = IS_OR + 1;
     pub const IS_NOR: usize = IS_XOR + 1;
     // The inputs are decomposed into bits.
-    pub const INPUT0: Range<usize> = (IS_XOR + 1)..(IS_XOR + 1) + VAL_BITS;
+    pub const INPUT0: Range<usize> = (IS_NOR + 1)..(IS_NOR + 1) + VAL_BITS;
     pub const INPUT1: Range<usize> = INPUT0.end..INPUT0.end + VAL_BITS;
     // The result is packed in limbs of `PACKED_LIMB_BITS` bits.
     pub const RESULT: Range<usize> = INPUT1.end..INPUT1.end + PACKED_LEN;
@@ -152,7 +152,6 @@ impl Operation {
             row[columns::INPUT1.start + i] = F::from_canonical_u32((input1 >> i) & 1);
         }
         row[columns::RESULT.start] = F::from_canonical_u32(result);
-        println!("row: {:?}, result: {}", row, result);
         row
     }
 }
@@ -223,7 +222,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
         let is_xor = lv[columns::IS_XOR];
         let is_nor = lv[columns::IS_NOR];
 
-        // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1) + not_coeff * 1`.
+        // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1) + not_coeff * u32::MAX`.
         // `AND => sum_coeff = 0, and_coeff = 1, not_coeff=0`
         // `OR  => sum_coeff = 1, and_coeff = -1, not_coeff=0`
         // `XOR => sum_coeff = 1, and_coeff = -2, not_coeff=0`
@@ -255,7 +254,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
             let x_land_y: P = izip!(0.., x_bits, y_bits)
                 .map(|(i, x_bit, y_bit)| x_bit * y_bit * FE::from_canonical_u64(1 << i))
                 .sum();
-            let x_op_y = sum_coeff * (x + y) + and_coeff * x_land_y + not_coeff;
+            let x_op_y = sum_coeff * (x + y)
+                + and_coeff * x_land_y
+                + not_coeff
+                + not_coeff * FE::from_canonical_u32(u32::MAX);
 
             yield_constr.constraint(lv[result_col] - x_op_y);
         }
@@ -275,7 +277,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
         let is_xor = lv[columns::IS_XOR];
         let is_nor = lv[columns::IS_NOR];
 
-        // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1) + not_coeff * 1`.
+        // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1) + not_coeff * u32::MAX`.
         // `AND => sum_coeff = 0, and_coeff = 1, not_coeff=0`
         // `OR  => sum_coeff = 1, and_coeff = -1, not_coeff=0`
         // `XOR => sum_coeff = 1, and_coeff = -2, not_coeff=0`
@@ -328,8 +330,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
             let x_op_y = {
                 let x_op_y = builder.mul_extension(sum_coeff, x);
                 let x_op_y = builder.mul_add_extension(sum_coeff, y, x_op_y);
-                let tmp = builder.mul_add_extension(and_coeff, x_land_y, x_op_y);
-                builder.add_extension(tmp, not_coeff)
+                let x_op_y = builder.mul_add_extension(and_coeff, x_land_y, x_op_y);
+                builder.mul_const_add_extension(F::from_canonical_u32(u32::MAX), not_coeff, x_op_y)
             };
             let constr = builder.sub_extension(lv[result_col], x_op_y);
             yield_constr.constraint(builder, constr);
@@ -390,7 +392,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_stark_verifier() {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
@@ -485,8 +486,13 @@ mod tests {
             ctl_logic(),
         ];
 
+        log::debug!("cross_table_lookup");
+
         let ctl_challenges =
             get_grand_product_challenge_set(&mut challenger, config.num_challenges);
+
+        log::debug!("ctl_challenges");
+
         let ctl_data_per_table = timed!(
             timing,
             "compute CTL data",
