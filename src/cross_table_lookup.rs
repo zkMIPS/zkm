@@ -530,23 +530,19 @@ pub(crate) fn cross_table_lookup_data_ex<F: RichField, const D: usize>(
                 challenge,
             );
             for (table, z) in looking_tables.iter().zip(zs_looking) {
-                ctl_data_per_table
-                    .zs_columns
-                    .push(CtlZData {
-                        z,
-                        challenge,
-                        columns: table.columns.clone(),
-                        filter_column: table.filter_column.clone(),
-                    });
-            }
-            ctl_data_per_table
-                .zs_columns
-                .push(CtlZData {
-                    z: z_looked,
+                ctl_data_per_table.zs_columns.push(CtlZData {
+                    z,
                     challenge,
-                    columns: looked_table.columns.clone(),
-                    filter_column: looked_table.filter_column.clone(),
+                    columns: table.columns.clone(),
+                    filter_column: table.filter_column.clone(),
                 });
+            }
+            ctl_data_per_table.zs_columns.push(CtlZData {
+                z: z_looked,
+                challenge,
+                columns: looked_table.columns.clone(),
+                filter_column: looked_table.filter_column.clone(),
+            });
         }
     }
     ctl_data_per_table

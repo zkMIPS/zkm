@@ -419,9 +419,7 @@ mod tests {
         let mut timing = TimingTree::new("Logic", log::Level::Debug);
         let trace_poly_values = stark.generate_trace(ops, num_rows, &mut timing);
 
-        let all_tables = [
-            Table::Arithmetic,
-        ];
+        let all_tables = [Table::Arithmetic];
         let rate_bits = config.fri_config.rate_bits;
         let cap_height = config.fri_config.cap_height;
 
@@ -485,12 +483,8 @@ mod tests {
             proof.clone(),
         ];
         let binding = [cross_table_lookups.clone()];
-        let ctl_vars_per_table = CtlCheckVars::from_proofs(
-            &proofs,
-            &binding,
-            &ctl_challenges,
-            &[num_lookup_columns; 6],
-        );
+        let ctl_vars_per_table =
+            CtlCheckVars::from_proofs(&proofs, &binding, &ctl_challenges, &[num_lookup_columns; 6]);
 
         let mut challenger = Challenger::<F, <C as GenericConfig<D>>::Hasher>::new();
         let ctl_challenges =
