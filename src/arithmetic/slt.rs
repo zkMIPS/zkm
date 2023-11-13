@@ -189,7 +189,7 @@ pub(crate) fn eval_ext_circuit_slt<F: RichField + Extendable<D>, const D: usize>
     let good_cy1 = builder.sub_extension(cy, given_cy[0]);
     let cy_filter1 = builder.mul_extension(good_cy1, not_sign);
     let cy_filter1 = builder.mul_extension(filter, cy_filter1);
-    
+
     let sign_posneg = builder.mul_extension(sign, given_cy[1]);
     let good_cy2 = builder.sub_extension(one, cy);
     let good_cy2 = builder.sub_extension(good_cy2, given_cy[0]);
