@@ -30,8 +30,8 @@ pub(crate) fn generate<F: PrimeField64>(
         IS_SLT | IS_SLTI => {
             let (diff, cy) = left_in.overflowing_sub(right_in);
             let mut cy_val = cy as u32;
-            if left_in < 0x80000000u32 && right_in > 0x80000000u32 {
-                cy_val = 1 << 16;
+            if (left_in & 0x80000000u32) != (right_in & 0x80000000u32) {
+                cy_val = 1u32 << 16 | (!cy as u32);
             }
 
             u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], diff);
@@ -104,8 +104,9 @@ pub(crate) fn eval_packed_generic_slt<P: PackedField>(
 
     {
         yield_constr.constraint(filter * given_cy[0] * (given_cy[0] - P::ONES));
-        yield_constr.constraint(filter * (cy - given_cy[0]) * (cy - sign * given_cy[1]));
-        yield_constr.constraint_transition(filter * (rd[0] - P::ONES));
+        yield_constr.constraint(filter * (cy - given_cy[0]) * (P::ONES - sign));
+        yield_constr.constraint(filter * sign * given_cy[1] * (P::ONES - cy - given_cy[0]));
+        yield_constr.constraint_transition(filter * (rd[0] - given_cy[0]));
         for i in 1..N_LIMBS {
             yield_constr.constraint(filter * given_cy[i] * (P::ONES - sign));
             yield_constr.constraint_transition(filter * rd[i]);
@@ -166,6 +167,8 @@ pub(crate) fn eval_ext_circuit_slt<F: RichField + Extendable<D>, const D: usize>
     let overflow_inv = F::from_canonical_u64(GOLDILOCKS_INVERSE_65536);
 
     let mut cy = builder.zero_extension();
+    let one = builder.one_extension();
+    let not_sign = builder.sub_extension(one, sign);
 
     for ((&xi, &yi), &zi) in x.iter().zip_eq(y).zip_eq(z) {
         // t0 = cy + xi + yi
@@ -184,10 +187,14 @@ pub(crate) fn eval_ext_circuit_slt<F: RichField + Extendable<D>, const D: usize>
     }
 
     let good_cy1 = builder.sub_extension(cy, given_cy[0]);
+    let cy_filter1 = builder.mul_extension(good_cy1, not_sign);
+    let cy_filter1 = builder.mul_extension(filter, cy_filter1);
+    
     let sign_posneg = builder.mul_extension(sign, given_cy[1]);
-    let good_cy2 = builder.sub_extension(cy, sign_posneg);
-    let good_cy = builder.mul_extension(good_cy1, good_cy2);
-    let cy_filter = builder.mul_extension(filter, good_cy);
+    let good_cy2 = builder.sub_extension(one, cy);
+    let good_cy2 = builder.sub_extension(good_cy2, given_cy[0]);
+    let cy_filter2 = builder.mul_extension(sign_posneg, good_cy2);
+    let cy_filter2 = builder.mul_extension(filter, cy_filter2);
 
     // Check given carry is one bit
     let bit_constr = builder.mul_sub_extension(given_cy[0], given_cy[0], given_cy[0]);
@@ -195,10 +202,9 @@ pub(crate) fn eval_ext_circuit_slt<F: RichField + Extendable<D>, const D: usize>
 
     {
         yield_constr.constraint(builder, bit_filter);
-        yield_constr.constraint(builder, cy_filter);
-        let one = builder.one_extension();
-        let not_sign = builder.sub_extension(one, sign);
-        let rd_filter = builder.sub_extension(rd[0], one);
+        yield_constr.constraint(builder, cy_filter1);
+        yield_constr.constraint(builder, cy_filter2);
+        let rd_filter = builder.sub_extension(rd[0], given_cy[0]);
         let rd_filter = builder.mul_extension(filter, rd_filter);
         yield_constr.constraint_transition(builder, rd_filter);
         for i in 1..N_LIMBS {
