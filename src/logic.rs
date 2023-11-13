@@ -391,6 +391,7 @@ mod tests {
 
     #[test]
     fn test_stark_verifier() {
+        env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -417,12 +418,14 @@ mod tests {
         let num_rows = 1 << 10;
 
         let mut timing = TimingTree::new("Logic", log::Level::Debug);
+        log::debug!("generate trace");
         let trace_poly_values = stark.generate_trace(ops, num_rows, &mut timing);
 
         let all_tables = [Table::Arithmetic];
         let rate_bits = config.fri_config.rate_bits;
         let cap_height = config.fri_config.cap_height;
 
+        log::debug!("trace commit");
         let trace_commitments = timed!(
             timing,
             "compute all trace commitments",
@@ -438,19 +441,19 @@ mod tests {
             )
         );
 
+        log::debug!("observe cap");
         let trace_caps = trace_commitments.merkle_tree.cap.clone();
         let mut challenger = Challenger::<F, <C as GenericConfig<D>>::Hasher>::new();
         challenger.observe_cap(&trace_caps);
 
+        log::debug!("cross_table_lookup");
         let cross_table_lookups = ctl_logic();
 
-        log::debug!("cross_table_lookup");
-
+        log::debug!("ctl_challenges");
         let ctl_challenges =
             get_grand_product_challenge_set(&mut challenger, config.num_challenges);
 
-        log::debug!("ctl_challenges");
-
+        log::debug!("ctl data per table");
         let ctl_data_per_table = timed!(
             timing,
             "compute CTL data",
@@ -461,6 +464,7 @@ mod tests {
             )
         );
 
+        log::debug!("prove single table");
         let proof = prove_single_table::<F, C, S, D>(
             &stark,
             &config,
@@ -472,6 +476,7 @@ mod tests {
             &mut timing,
         )
         .unwrap();
+        log::debug!("prove done");
 
         let num_lookup_columns = stark.num_lookup_helper_columns(&config);
         let proofs = [
