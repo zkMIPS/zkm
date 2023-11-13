@@ -108,7 +108,7 @@ impl Op {
             Op::And => a & b,
             Op::Or => a | b,
             Op::Xor => a ^ b,
-            Op::Nor => 1 - (a | b),
+            Op::Nor => !(a | b),
         }
     }
 }
@@ -152,6 +152,7 @@ impl Operation {
             row[columns::INPUT1.start + i] = F::from_canonical_u32((input1 >> i) & 1);
         }
         row[columns::RESULT.start] = F::from_canonical_u32(result);
+        println!("row: {:?}, result: {}", row, result);
         row
     }
 }
@@ -340,7 +341,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
     }
 }
 
-// for debugging
+// For debugging only, the constaints are as same as above.
 impl<F: RichField + Extendable<D>, const D: usize> starky::stark::Stark<F, D> for LogicStark<F, D> {
     const COLUMNS: usize = NUM_COLUMNS;
     const PUBLIC_INPUTS: usize = 0;
@@ -388,11 +389,13 @@ impl<F: RichField + Extendable<D>, const D: usize> starky::stark::Stark<F, D> fo
 
             let x_bits = x_bits_cols.map(|i| lv[i]);
             let y_bits = y_bits_cols.map(|i| lv[i]);
+            println!("x_bits: {:?}", x_bits);
 
             let x_land_y: P = izip!(0.., x_bits, y_bits)
                 .map(|(i, x_bit, y_bit)| x_bit * y_bit * FE::from_canonical_u64(1 << i))
                 .sum();
             let x_op_y = sum_coeff * (x + y) + and_coeff * x_land_y + not_coeff;
+            println!("{:?}, {:?}, {:?}", lv[result_col], x_op_y, not_coeff);
 
             yield_constr.constraint(lv[result_col] - x_op_y);
         }
@@ -527,9 +530,9 @@ mod tests {
             f: Default::default(),
         };
         let ops = vec![
-            //Operation::new(Op::Nor, 0, 1),
+            Operation::new(Op::Nor, 0, 1),
             //Operation::new(Op::Nor, 1, 1),
-            Operation::new(Op::Nor, 0, 0),
+            //Operation::new(Op::Nor, 0, 0),
             //Operation::new(Op::And, 0, 1),
             //Operation::new(Op::And, 1, 1),
             //Operation::new(Op::And, 0, 0),
