@@ -479,17 +479,12 @@ mod tests {
         log::debug!("prove done");
 
         let num_lookup_columns = stark.num_lookup_helper_columns(&config);
-        let proofs = [
-            proof.clone(),
-            proof.clone(),
-            proof.clone(),
-            proof.clone(),
-            proof.clone(),
-            proof.clone(),
-        ];
-        let binding = [cross_table_lookups.clone()];
-        let ctl_vars_per_table =
-            CtlCheckVars::from_proofs(&proofs, &binding, &ctl_challenges, &[num_lookup_columns; 6]);
+        let ctl_vars_per_table = CtlCheckVars::from_proof(
+            &proof,
+            &cross_table_lookups,
+            &ctl_challenges,
+            num_lookup_columns,
+        );
 
         let mut challenger = Challenger::<F, <C as GenericConfig<D>>::Hasher>::new();
         let ctl_challenges =
@@ -504,7 +499,7 @@ mod tests {
             &stark,
             &proof.proof,
             &stark_challenger,
-            &ctl_vars_per_table[0],
+            &ctl_vars_per_table,
             &ctl_challenges,
             &config,
         )

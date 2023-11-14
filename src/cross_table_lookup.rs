@@ -642,6 +642,49 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         }
         ctl_vars_per_table
     }
+
+    pub(crate) fn from_proof<C: GenericConfig<D, F = F>>(
+        proof: &StarkProofWithMetadata<F, C, D>,
+        cross_table_lookup: &'a CrossTableLookup<F>,
+        ctl_challenges: &'a GrandProductChallengeSet<F>,
+        num_lookup_column: usize,
+    ) -> Vec<Self> {
+        let mut ctl_zs = {
+            let openings = &proof.proof.openings;
+            let ctl_zs = openings.auxiliary_polys.iter().skip(num_lookup_column);
+            let ctl_zs_next = openings.auxiliary_polys_next.iter().skip(num_lookup_column);
+            ctl_zs.zip(ctl_zs_next)
+        };
+
+        let mut ctl_vars_per_table = vec![];
+        let CrossTableLookup {
+            looking_tables,
+            looked_table,
+        } = cross_table_lookup;
+
+        for &challenges in &ctl_challenges.challenges {
+            for table in looking_tables {
+                let (looking_z, looking_z_next) = ctl_zs.next().unwrap();
+                ctl_vars_per_table.push(Self {
+                    local_z: *looking_z,
+                    next_z: *looking_z_next,
+                    challenges,
+                    columns: &table.columns,
+                    filter_column: &table.filter_column,
+                });
+            }
+
+            let (looked_z, looked_z_next) = ctl_zs.next().unwrap();
+            ctl_vars_per_table.push(Self {
+                local_z: *looked_z,
+                next_z: *looked_z_next,
+                challenges,
+                columns: &looked_table.columns,
+                filter_column: &looked_table.filter_column,
+            });
+        }
+        ctl_vars_per_table
+    }
 }
 
 /// CTL Z partial products are upside down: the complete product is on the first row, and
