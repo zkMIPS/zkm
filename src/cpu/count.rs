@@ -90,39 +90,45 @@ pub fn eval_packed_clz<P: PackedField>(
     let limb4 = P::Scalar::from_canonical_u64(4);
     let limb2 = P::Scalar::from_canonical_u64(2);
     yield_constr.constraint(filter * (P::ONES - rs) * (rd - limb32)); // (1 - rs) * (rd - 32), if rs=0 then rd=32
+
+    // check low16 bit
     let n = P::ONES;
     let pow16 = P::Scalar::from_canonical_u64(1 << 16);
     let pow16_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP16);
     let n = n + limb16;
     let rs = rs * pow16;
     let low16_filter = (P::ONES - rs * pow16_inv) * (n - limb16 - P::ONES);
-    yield_constr.constraint(filter * low16_filter);
+    yield_constr.constraint(filter * low16_filter); // if x >> 16 = 0, then n += 16 && x <<= 16
 
+    // check low24
     let pow24_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP24);
     let pow8 = P::Scalar::from_canonical_u64(1 << 8);
     let n = n + limb8;
     let rs = rs * pow8;
     let low24_filter = (P::ONES - rs * pow24_inv) * (n - limb8 - P::ONES);
-    yield_constr.constraint(filter * low16_filter * low24_filter);
+    yield_constr.constraint(filter * low16_filter * low24_filter); // if x >> 24 = 0, then n += 8 && x <<= 8
 
+    // check low28
     let pow28_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP28);
     let pow4 = P::Scalar::from_canonical_u64(1 << 4);
     let n = n + limb4;
     let rs = rs * pow4;
     let low28_filter = (P::ONES - rs * pow28_inv) * (n - limb4 - P::ONES);
-    yield_constr.constraint(filter * low16_filter * low24_filter * low28_filter);
+    yield_constr.constraint(filter * low16_filter * low24_filter * low28_filter); // if x >> 28 = 0, then n += 4 && x <<= 4
 
+    // check low30
     let pow30_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP30);
     let pow2 = P::Scalar::from_canonical_u64(1 << 2);
     let n = n + limb2;
     let rs = rs * pow2;
     let low30_filter = (P::ONES - rs * pow30_inv) * (n - limb2 - P::ONES);
-    yield_constr.constraint(filter * low16_filter * low24_filter * low28_filter * low30_filter);
+    yield_constr.constraint(filter * low16_filter * low24_filter * low28_filter * low30_filter); // if x >> 30 = 0, then n += 2 && x <<= 2
 
+    // check all
     let pow31_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP31);
     let n = n - (rs * pow31_inv);
     yield_constr
-        .constraint(filter * low16_filter * low24_filter * low28_filter * low30_filter * (n - rd));
+        .constraint(filter * low16_filter * low24_filter * low28_filter * low30_filter * (n - rd)); // check: n = n - (x >> 31) && n = rd
 }
 
 pub fn eval_ext_circuit_clz<F: RichField + Extendable<D>, const D: usize>(
