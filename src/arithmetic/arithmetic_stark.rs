@@ -260,7 +260,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
     }
 
     fn constraint_degree(&self) -> usize {
-        5
+        3
     }
 
     fn lookups(&self) -> Vec<Lookup> {

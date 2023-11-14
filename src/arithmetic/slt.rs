@@ -104,7 +104,7 @@ pub(crate) fn eval_packed_generic_slt<P: PackedField>(
     {
         yield_constr.constraint(filter * given_cy[0] * (given_cy[0] - P::ONES));
         yield_constr.constraint(filter * (cy - given_cy[0]) * (P::ONES - sign));
-        yield_constr.constraint(filter * sign * given_cy[1] * (P::ONES - cy - given_cy[0]));
+        yield_constr.constraint(filter * given_cy[1] * (P::ONES - cy - given_cy[0]));
         yield_constr.constraint_transition(filter * (rd[0] - given_cy[0]));
         for i in 1..N_LIMBS {
             yield_constr.constraint(filter * given_cy[i] * (P::ONES - sign));
@@ -189,10 +189,9 @@ pub(crate) fn eval_ext_circuit_slt<F: RichField + Extendable<D>, const D: usize>
     let cy_filter1 = builder.mul_extension(good_cy1, not_sign);
     let cy_filter1 = builder.mul_extension(filter, cy_filter1);
 
-    let sign_posneg = builder.mul_extension(sign, given_cy[1]);
     let good_cy2 = builder.sub_extension(one, cy);
     let good_cy2 = builder.sub_extension(good_cy2, given_cy[0]);
-    let cy_filter2 = builder.mul_extension(sign_posneg, good_cy2);
+    let cy_filter2 = builder.mul_extension(given_cy[1], good_cy2);
     let cy_filter2 = builder.mul_extension(filter, cy_filter2);
 
     // Check given carry is one bit
