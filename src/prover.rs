@@ -379,6 +379,7 @@ where
             lookup_columns
         }
     };
+    println!("auxiliary_polys: {:?}", auxiliary_polys);
     assert!(!auxiliary_polys.is_empty(), "No CTL?");
 
     let auxiliary_polys_commitment = timed!(
@@ -399,6 +400,7 @@ where
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
     if cfg!(test) {
+        println!("check constraint");
         check_constraints(
             stark,
             trace_commitment,
@@ -410,7 +412,9 @@ where
             degree_bits,
             num_lookup_columns,
         );
+        println!("check constraint done");
     }
+    println!("check constraint done 2");
     let quotient_polys = timed!(
         timing,
         "compute quotient polys",

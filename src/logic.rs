@@ -18,7 +18,7 @@ use crate::logic::columns::NUM_COLUMNS;
 use crate::stark::Stark;
 use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive, trace_rows_to_poly_values};
 
-const VAL_BITS: usize = 32;
+const VAL_BITS: usize = 256;
 // Number of bits stored per field element. Ensure that this fits; it is not checked.
 pub(crate) const PACKED_LIMB_BITS: usize = 32;
 // Number of field elements needed to store each input/output at the specified packing.

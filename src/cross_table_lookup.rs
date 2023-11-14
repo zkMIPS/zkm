@@ -162,7 +162,7 @@ impl<F: Field> Column<F> {
         P: PackedField<Scalar = FE>,
     {
         println!("v {:?}", v);
-        println!("column len: {:?} {:?}", self.linear_combination);
+        println!("column len: {:?} {:?}", self.linear_combination, self);
         self.linear_combination
             .iter()
             .map(|&(c, f)| v[c] * FE::from_basefield(f))
@@ -718,18 +718,23 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             filter_column,
         } = lookup_vars;
         println!("ctl_vars: {:?}", local_z);
+        println!("columns: {:?}", columns);
 
         let evals = columns
             .iter()
             .map(|c| c.eval_with_next(local_values, next_values))
             .collect::<Vec<_>>();
+        println!("evals: {:?}", evals);
         let combined = challenges.combine(evals.iter());
+        println!("combined: {:?}", combined);
         let local_filter = if let Some(column) = filter_column {
             column.eval_with_next(local_values, next_values)
         } else {
             P::ONES
         };
+        println!("local_filter: {:?}", local_filter);
         let select = local_filter * combined + P::ONES - local_filter;
+        println!("select: {:?}", select);
 
         // Check value of `Z(g^(n-1))`
         consumer.constraint_last_row(*local_z - select);

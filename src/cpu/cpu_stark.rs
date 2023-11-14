@@ -14,7 +14,6 @@ use super::columns::CpuColumnsView;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
-use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::{
     bootstrap_kernel, control_flow, decode, jumps, membus, memio, mov, pc, shift, simple_logic,
     syscall,
@@ -52,11 +51,10 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
 /// Create the vector of Columns corresponding to the two inputs and
 /// one output of a binary operation.
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
-    let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value[0]]).collect_vec();
-    res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value[0]]));
-    res.extend(Column::singles(vec![
-        COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value[0],
-    ]));
+    println!("COL_MAP.mem_channels: {:?}", COL_MAP.mem_channels);
+    let mut res = Column::singles(COL_MAP.mem_channels[0].value).collect_vec();
+    res.extend(Column::singles(COL_MAP.mem_channels[1].value));
+    res.extend(Column::singles(COL_MAP.mem_channels[2].value));
     res
 }
 
@@ -67,7 +65,9 @@ pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     base[0..COL_MAP.opcode_bits.len()].copy_from_slice(&COL_MAP.opcode_bits[..]);
     base[COL_MAP.opcode_bits.len()..].copy_from_slice(&COL_MAP.func_bits[..]);
     let mut res = vec![Column::le_bits(base)];
+    println!("ctl_data_logic 1: {:?}", res);
     res.extend(ctl_data_binops());
+    println!("ctl_data_logic 2: {:?}", res);
     res
 }
 
