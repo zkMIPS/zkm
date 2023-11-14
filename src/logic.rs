@@ -447,7 +447,11 @@ mod tests {
         log::debug!("ctl_challenges");
         let ctl_challenges =
             get_grand_product_challenge_set(&mut challenger, config.num_challenges);
-        log::debug!("ctl_challenges: {:?}, num_challenges: {}", ctl_challenges, config.num_challenges);
+        log::debug!(
+            "ctl_challenges: {:?}, num_challenges: {}",
+            ctl_challenges,
+            config.num_challenges
+        );
 
         log::debug!("ctl data per table");
         let ctl_data_per_table = timed!(
@@ -486,7 +490,11 @@ mod tests {
 
         let ctl_challenges =
             get_grand_product_challenge_set(&mut challenger, config.num_challenges);
-        log::debug!("ctl_challenges v: {:?}, num_challenges: {}", ctl_challenges, config.num_challenges);
+        log::debug!(
+            "ctl_challenges v: {:?}, num_challenges: {}",
+            ctl_challenges,
+            config.num_challenges
+        );
 
         let stark_challenger: crate::proof::StarkProofChallenges<F, D> = {
             challenger.compact();
