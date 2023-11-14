@@ -161,6 +161,8 @@ impl<F: Field> Column<F> {
         FE: FieldExtension<D, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
+        println!("v {:?}", v);
+        println!("column len: {:?} {:?}", self.linear_combination);
         self.linear_combination
             .iter()
             .map(|&(c, f)| v[c] * FE::from_basefield(f))
@@ -278,7 +280,8 @@ impl<F: Field> CrossTableLookup<F> {
     ) -> Self {
         looking_tables
             .iter()
-            .for_each(|e| println!("looking: {}", e.columns.len()));
+            .for_each(|e| println!("looking: {}, columns: {:?}", e.columns.len(), e));
+        println!("looked:{} {:?}", looked_table.columns.len(), looked_table);
         assert!(looking_tables
             .iter()
             .all(|twc| twc.columns.len() == looked_table.columns.len()));
@@ -703,6 +706,8 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
 {
     let local_values = vars.get_local_values();
     let next_values = vars.get_next_values();
+    println!("local vals: {:?}, len={}", local_values, local_values.len());
+    println!("local vals: {:?}, len={}", next_values, next_values.len());
 
     for lookup_vars in ctl_vars {
         let CtlCheckVars {
@@ -712,6 +717,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             columns,
             filter_column,
         } = lookup_vars;
+        println!("ctl_vars: {:?}", local_z);
 
         let evals = columns
             .iter()

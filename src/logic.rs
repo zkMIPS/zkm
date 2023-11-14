@@ -345,7 +345,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
 #[cfg(test)]
 mod tests {
     use crate::all_stark::ctl_logic;
-    use crate::all_stark::Table;
     use crate::config::StarkConfig;
     use crate::cross_table_lookup::{
         cross_table_lookup_data_ex, get_grand_product_challenge_set, CtlCheckVars,
@@ -356,7 +355,6 @@ mod tests {
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
     use crate::verifier::verify_stark_proof_with_challenges;
     use anyhow::Result;
-    use itertools::Itertools;
     use plonky2::fri::oracle::PolynomialBatch;
     use plonky2::iop::challenger::Challenger;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
@@ -421,7 +419,6 @@ mod tests {
         log::debug!("generate trace");
         let trace_poly_values = stark.generate_trace(ops, num_rows, &mut timing);
 
-        let all_tables = [Table::Arithmetic];
         let rate_bits = config.fri_config.rate_bits;
         let cap_height = config.fri_config.cap_height;
 
