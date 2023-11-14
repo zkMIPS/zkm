@@ -127,8 +127,9 @@ pub fn eval_packed_clz<P: PackedField>(
     // check all
     let pow31_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP31);
     let n = n - (rs * pow31_inv);
+    // check: n = n - (x >> 31) && n = rd
     yield_constr
-        .constraint(filter * low16_filter * low24_filter * low28_filter * low30_filter * (n - rd)); // check: n = n - (x >> 31) && n = rd
+        .constraint(filter * low16_filter * low24_filter * low28_filter * low30_filter * (n - rd));
 }
 
 pub fn eval_ext_circuit_clz<F: RichField + Extendable<D>, const D: usize>(
