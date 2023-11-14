@@ -51,7 +51,6 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
 /// Create the vector of Columns corresponding to the two inputs and
 /// one output of a binary operation.
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
-    println!("COL_MAP.mem_channels: {:?}", COL_MAP.mem_channels);
     let mut res = Column::singles(COL_MAP.mem_channels[0].value).collect_vec();
     res.extend(Column::singles(COL_MAP.mem_channels[1].value));
     res.extend(Column::singles(COL_MAP.mem_channels[2].value));
@@ -65,9 +64,7 @@ pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     base[0..COL_MAP.opcode_bits.len()].copy_from_slice(&COL_MAP.opcode_bits[..]);
     base[COL_MAP.opcode_bits.len()..].copy_from_slice(&COL_MAP.func_bits[..]);
     let mut res = vec![Column::le_bits(base)];
-    println!("ctl_data_logic 1: {:?}", res);
     res.extend(ctl_data_binops());
-    println!("ctl_data_logic 2: {:?}", res);
     res
 }
 

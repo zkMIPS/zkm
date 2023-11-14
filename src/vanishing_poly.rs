@@ -29,7 +29,6 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
 {
     stark.eval_packed_generic(vars, consumer);
     if let Some(lookup_vars) = lookup_vars {
-        println!("lookup_vars is not none");
         eval_packed_lookups_generic::<F, FE, P, S, D, D2>(
             stark,
             lookups,
@@ -38,9 +37,7 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
             consumer,
         );
     }
-    println!("eval valish");
     eval_cross_table_lookup_checks::<F, FE, P, S, D, D2>(vars, ctl_vars, consumer);
-    println!("eval valish done");
 }
 
 pub(crate) fn eval_vanishing_poly_circuit<F, S, const D: usize>(
@@ -59,5 +56,4 @@ pub(crate) fn eval_vanishing_poly_circuit<F, S, const D: usize>(
         eval_ext_lookups_circuit::<F, S, D>(builder, stark, vars, lookup_vars, consumer);
     }
     eval_cross_table_lookup_checks_circuit::<S, F, D>(builder, vars, ctl_vars, consumer);
-    println!("eval valish done 2");
 }
