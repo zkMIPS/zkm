@@ -14,7 +14,7 @@ pub fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let filter = lv.op.syscall; // syscall
-    // let _sys_num = lv.mem_channels[0].value[0];
+                                // let _sys_num = lv.mem_channels[0].value[0];
     let a0 = lv.mem_channels[1].value[0];
     let a1 = lv.mem_channels[2].value[0];
     let a2 = lv.mem_channels[3].value[0];
