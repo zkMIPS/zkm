@@ -1,6 +1,7 @@
 pub(crate) mod bootstrap_kernel;
 pub mod columns;
 pub(crate) mod control_flow;
+pub(crate) mod count;
 pub mod cpu_stark;
 pub(crate) mod decode;
 pub(crate) mod jumps;
