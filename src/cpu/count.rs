@@ -15,8 +15,7 @@ unsigned clz(uint32_t x)
 }
 */
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::columns::{CpuColumnsView, MemValue};
-use crate::memory;
+use crate::cpu::columns::CpuColumnsView;
 use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
@@ -140,7 +139,6 @@ pub fn eval_ext_circuit_clz<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let one = builder.one_extension();
-    let zero = builder.zero_extension();
     let limb32 = builder.constant_extension(F::Extension::from_canonical_u64(32));
     let limb16 = builder.constant_extension(F::Extension::from_canonical_u64(16));
     let limb8 = builder.constant_extension(F::Extension::from_canonical_u64(8));
