@@ -185,14 +185,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
 #[cfg(test)]
 mod tests {
-    use plonky2::field::goldilocks_field::GoldilocksField;
-    use plonky2::field::types::{Field, Sample};
-    use rand::{Rng, SeedableRng};
-    use rand_chacha::ChaCha8Rng;
-
-    use super::*;
-    use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
-    use crate::constraint_consumer::ConstraintConsumer;
 
     const N_RND_TESTS: usize = 1000;
 
@@ -224,7 +216,7 @@ mod tests {
         */
     }
 
-    fn generate_eval_consistency_shift(is_shl: bool) {
+    fn generate_eval_consistency_shift(_is_shl: bool) {
         /*
         type F = GoldilocksField;
 
@@ -285,7 +277,7 @@ mod tests {
         generate_eval_consistency_shift(false);
     }
 
-    fn generate_eval_consistency_shift_over_32(is_shl: bool) {
+    fn generate_eval_consistency_shift_over_32(_is_shl: bool) {
         /*
         type F = GoldilocksField;
 

@@ -36,11 +36,6 @@ use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkPro
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 
-#[cfg(test)]
-use crate::{
-    cross_table_lookup::testutils::check_ctls, verifier::testutils::get_memory_extra_looking_values,
-};
-
 /// Generate traces, then create all STARK proofs.
 pub fn prove<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
@@ -233,7 +228,6 @@ where
         )?
     );
     */
-    println!("cpu looking");
     let cpu_proof = timed!(
         timing,
         "prove CPU STARK",
@@ -249,7 +243,6 @@ where
         )?
     );
 
-    println!("keccak looking");
     let keccak_proof = timed!(
         timing,
         "prove Keccak STARK",
@@ -355,7 +348,7 @@ where
             .collect::<Vec<_>>()
     });
     let lookups = stark.lookups();
-    println!("lookups111: {:?}", lookups.len());
+    log::debug!("lookup len: {:?}", lookups.len());
     let lookup_helper_columns = timed!(
         timing,
         "compute lookup helper columns",
@@ -375,7 +368,7 @@ where
         })
     );
     let num_lookup_columns = lookup_helper_columns.as_ref().map(|v| v.len()).unwrap_or(0);
-    println!("num_lookup_columns: {:?}", num_lookup_columns);
+    log::debug!("num_lookup_columns: {:?}", num_lookup_columns);
 
     let auxiliary_polys = match lookup_helper_columns {
         None => ctl_data.z_polys(),

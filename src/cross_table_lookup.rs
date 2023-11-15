@@ -278,7 +278,8 @@ impl<F: Field> CrossTableLookup<F> {
     ) -> Self {
         looking_tables
             .iter()
-            .for_each(|e| println!("looking: {}", e.columns.len()));
+            .for_each(|e| println!("looking: {}, columns: {:?}", e.columns.len(), e));
+        println!("looked:{} {:?}", looked_table.columns.len(), looked_table);
         assert!(looking_tables
             .iter()
             .all(|twc| twc.columns.len() == looked_table.columns.len()));
@@ -502,6 +503,52 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
     ctl_data_per_table
 }
 
+pub(crate) fn cross_table_lookup_data_ex<F: RichField, const D: usize>(
+    trace_poly_values: &Vec<PolynomialValues<F>>,
+    cross_table_lookups: &[CrossTableLookup<F>],
+    ctl_challenges: &GrandProductChallengeSet<F>,
+) -> CtlData<F> {
+    let mut ctl_data_per_table = CtlData::default();
+    for CrossTableLookup {
+        looking_tables,
+        looked_table,
+    } in cross_table_lookups
+    {
+        log::debug!("Processing CTL for {:?}", looked_table.table);
+        for &challenge in &ctl_challenges.challenges {
+            let zs_looking = looking_tables.iter().map(|table| {
+                partial_products(
+                    &trace_poly_values,
+                    &table.columns,
+                    &table.filter_column,
+                    challenge,
+                )
+            });
+            let z_looked = partial_products(
+                &trace_poly_values,
+                &looked_table.columns,
+                &looked_table.filter_column,
+                challenge,
+            );
+            for (table, z) in looking_tables.iter().zip(zs_looking) {
+                ctl_data_per_table.zs_columns.push(CtlZData {
+                    z,
+                    challenge,
+                    columns: table.columns.clone(),
+                    filter_column: table.filter_column.clone(),
+                });
+            }
+            ctl_data_per_table.zs_columns.push(CtlZData {
+                z: z_looked,
+                challenge,
+                columns: looked_table.columns.clone(),
+                filter_column: looked_table.filter_column.clone(),
+            });
+        }
+    }
+    ctl_data_per_table
+}
+
 fn partial_products<F: Field>(
     trace: &[PolynomialValues<F>],
     columns: &[Column<F>],
@@ -593,6 +640,49 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                     filter_column: &looked_table.filter_column,
                 });
             }
+        }
+        ctl_vars_per_table
+    }
+
+    pub(crate) fn from_proof<C: GenericConfig<D, F = F>>(
+        proof: &StarkProofWithMetadata<F, C, D>,
+        cross_table_lookup: &'a CrossTableLookup<F>,
+        ctl_challenges: &'a GrandProductChallengeSet<F>,
+        num_lookup_column: usize,
+    ) -> Vec<Self> {
+        let mut ctl_zs = {
+            let openings = &proof.proof.openings;
+            let ctl_zs = openings.auxiliary_polys.iter().skip(num_lookup_column);
+            let ctl_zs_next = openings.auxiliary_polys_next.iter().skip(num_lookup_column);
+            ctl_zs.zip(ctl_zs_next)
+        };
+
+        let mut ctl_vars_per_table = vec![];
+        let CrossTableLookup {
+            looking_tables,
+            looked_table,
+        } = cross_table_lookup;
+
+        for &challenges in &ctl_challenges.challenges {
+            for table in looking_tables {
+                let (looking_z, looking_z_next) = ctl_zs.next().unwrap();
+                ctl_vars_per_table.push(Self {
+                    local_z: *looking_z,
+                    next_z: *looking_z_next,
+                    challenges,
+                    columns: &table.columns,
+                    filter_column: &table.filter_column,
+                });
+            }
+
+            let (looked_z, looked_z_next) = ctl_zs.next().unwrap();
+            ctl_vars_per_table.push(Self {
+                local_z: *looked_z,
+                next_z: *looked_z_next,
+                challenges,
+                columns: &looked_table.columns,
+                filter_column: &looked_table.filter_column,
+            });
         }
         ctl_vars_per_table
     }
