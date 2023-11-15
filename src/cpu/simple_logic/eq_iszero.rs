@@ -1,4 +1,4 @@
-use itertools::izip;
+
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
