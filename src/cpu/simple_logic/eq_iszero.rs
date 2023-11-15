@@ -1,4 +1,3 @@
-
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -21,11 +20,7 @@ fn limbs(x: U256) -> [u32; 8] {
 }
 */
 
-pub fn generate_pinv_diff<F: Field>(
-    val0: u32,
-    val1: u32,
-    lv: &mut CpuColumnsView<F>,
-) {
+pub fn generate_pinv_diff<F: Field>(val0: u32, val1: u32, lv: &mut CpuColumnsView<F>) {
     let num_unequal_limbs = if val0 != val1 { 1 } else { 0 };
     let _equal = num_unequal_limbs == 0;
 
@@ -40,8 +35,7 @@ pub fn generate_pinv_diff<F: Field>(
         .unwrap_or(F::ZERO);
     let val0_f = F::from_canonical_u32(val0);
     let val1_f = F::from_canonical_u32(val1);
-    logic.diff_pinv =
-        (val0_f - val1_f).try_inverse().unwrap_or(F::ZERO) * num_unequal_limbs_inv;
+    logic.diff_pinv = (val0_f - val1_f).try_inverse().unwrap_or(F::ZERO) * num_unequal_limbs_inv;
 }
 
 pub fn eval_packed<P: PackedField>(
@@ -137,14 +131,14 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     */
 
     // If `ISZERO`, constrain input1 to be zero, effectively implementing ISZERO(x) as EQ(x, 0).
-        let constr = builder.mul_extension(iszero_filter, input1);
-        yield_constr.constraint(builder, constr);
+    let constr = builder.mul_extension(iszero_filter, input1);
+    yield_constr.constraint(builder, constr);
 
     // `equal` implies `input0[i] == input1[i]` for all `i`.
-        let diff = builder.sub_extension(input0, input1);
-        let constr = builder.mul_extension(equal, diff);
-        let constr = builder.mul_extension(eq_or_iszero_filter, constr);
-        yield_constr.constraint(builder, constr);
+    let diff = builder.sub_extension(input0, input1);
+    let constr = builder.mul_extension(equal, diff);
+    let constr = builder.mul_extension(eq_or_iszero_filter, constr);
+    yield_constr.constraint(builder, constr);
 
     // `input0[i] == input1[i]` for all `i` implies `equal`.
     // If `unequal`, find `diff_pinv` such that `(input0 - input1) @ diff_pinv == 1`, where `@`
@@ -152,8 +146,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // `input0 != input1`.
     {
         let dot: ExtensionTarget<D> = {
-                let diff = builder.sub_extension(input0, input1);
-                builder.mul_add_extension(diff, logic.diff_pinv, zero)
+            let diff = builder.sub_extension(input0, input1);
+            builder.mul_add_extension(diff, logic.diff_pinv, zero)
         };
         let constr = builder.sub_extension(dot, unequal);
         let constr = builder.mul_extension(eq_or_iszero_filter, constr);

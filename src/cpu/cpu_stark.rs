@@ -15,8 +15,7 @@ use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::{
-    bootstrap_kernel, control_flow, count, decode, jumps, membus, memio, mov, pc, shift,
-    syscall,
+    bootstrap_kernel, control_flow, count, decode, jumps, membus, memio, mov, pc, shift, syscall,
 };
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
@@ -40,7 +39,11 @@ pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
 
     let mut cols = vec![context, segment, virt, len, timestamp];
-    cols.extend(vec![COL_MAP.mem_channels[4].value].into_iter().map(Column::single));
+    cols.extend(
+        vec![COL_MAP.mem_channels[4].value]
+            .into_iter()
+            .map(Column::single),
+    );
     cols
 }
 

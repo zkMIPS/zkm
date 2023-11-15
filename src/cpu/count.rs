@@ -15,7 +15,7 @@ unsigned clz(uint32_t x)
 }
 */
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::columns::{CpuColumnsView};
+use crate::cpu::columns::CpuColumnsView;
 
 use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
 use plonky2::field::extension::Extendable;
