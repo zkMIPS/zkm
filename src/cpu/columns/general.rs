@@ -10,7 +10,6 @@ pub(crate) union CpuGeneralColumnsView<T: Copy> {
     logic: CpuLogicView<T>,
     jumps: CpuJumpsView<T>,
     shift: CpuShiftView<T>,
-    gpr: CpuGPRView<T>,
 }
 
 impl<T: Copy> CpuGeneralColumnsView<T> {
@@ -52,16 +51,6 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn shift_mut(&mut self) -> &mut CpuShiftView<T> {
         unsafe { &mut self.shift }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn gpr(&self) -> &CpuGPRView<T> {
-        unsafe { &self.gpr }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn gpr_mut(&mut self) -> &mut CpuGPRView<T> {
-        unsafe { &mut self.gpr }
     }
 }
 
