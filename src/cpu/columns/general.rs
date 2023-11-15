@@ -6,7 +6,7 @@ use std::mem::{size_of, transmute};
 /// operation is occurring at this row.
 #[derive(Clone, Copy)]
 pub(crate) union CpuGeneralColumnsView<T: Copy> {
-    exception: CpuExceptionView<T>,
+    syscall: CpuSyscallView<T>,
     logic: CpuLogicView<T>,
     jumps: CpuJumpsView<T>,
     shift: CpuShiftView<T>,
@@ -14,13 +14,13 @@ pub(crate) union CpuGeneralColumnsView<T: Copy> {
 
 impl<T: Copy> CpuGeneralColumnsView<T> {
     // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn exception(&self) -> &CpuExceptionView<T> {
-        unsafe { &self.exception }
+    pub(crate) fn syscall(&self) -> &CpuSyscallView<T> {
+        unsafe { &self.syscall }
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn exception_mut(&mut self) -> &mut CpuExceptionView<T> {
-        unsafe { &mut self.exception }
+    pub(crate) fn syscall_mut(&mut self) -> &mut CpuSyscallView<T> {
+        unsafe { &mut self.syscall }
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
@@ -84,9 +84,9 @@ impl<T: Copy> BorrowMut<[T; NUM_SHARED_COLUMNS]> for CpuGeneralColumnsView<T> {
 }
 
 #[derive(Copy, Clone)]
-pub(crate) struct CpuExceptionView<T: Copy> {
-    // Exception code as little-endian bits.
-    pub(crate) exc_code_bits: [T; 3],
+pub(crate) struct CpuSyscallView<T: Copy> {
+    // syscall code as little-endian bits.
+    pub(crate) syscall_code_bits: [T; 9],
 }
 
 #[derive(Copy, Clone)]

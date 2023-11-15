@@ -1122,10 +1122,17 @@ pub(crate) fn generate_exception<F: Field>(
     }
     */
 
-    row.general.exception_mut().exc_code_bits = [
+    // FIXME
+    row.general.syscall_mut().syscall_code_bits = [
         F::from_bool(exc_code & 1 != 0),
         F::from_bool(exc_code & 2 != 0),
         F::from_bool(exc_code & 4 != 0),
+        F::from_bool(exc_code & 8 != 0),
+        F::from_bool(exc_code & 16 != 0),
+        F::from_bool(exc_code & 32 != 0),
+        F::from_bool(exc_code & 64 != 0),
+        F::from_bool(exc_code & 128 != 0),
+        F::from_bool(exc_code & 128 != 0),
     ];
 
     let handler_jumptable_addr = KERNEL.global_labels["exception_jumptable"];
