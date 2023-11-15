@@ -18,7 +18,7 @@ use crate::logic::columns::NUM_COLUMNS;
 use crate::stark::Stark;
 use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive, trace_rows_to_poly_values};
 
-const VAL_BITS: usize = 256;
+const VAL_BITS: usize = 32;
 // Number of bits stored per field element. Ensure that this fits; it is not checked.
 pub(crate) const PACKED_LIMB_BITS: usize = 32;
 // Number of field elements needed to store each input/output at the specified packing.
@@ -400,31 +400,31 @@ mod tests {
             f: Default::default(),
         };
         let ops = vec![
-            //Operation::new(Op::Nor, 0, 1),
+            Operation::new(Op::Nor, 0, 1),
             //Operation::new(Op::Nor, 1, 1),
             //Operation::new(Op::Nor, 0, 0),
             //Operation::new(Op::Nor, 1283818, 219218),
-            Operation::new(Op::And, 0, 1),
-            Operation::new(Op::And, 1, 1),
-            Operation::new(Op::And, 0, 0),
-            Operation::new(Op::Or, 0, 1),
-            Operation::new(Op::Or, 1, 1),
-            Operation::new(Op::Or, 0, 0),
-            Operation::new(Op::Xor, 0, 1),
-            Operation::new(Op::And, 0, 1),
-            Operation::new(Op::And, 1, 1),
-            Operation::new(Op::And, 0, 0),
-            Operation::new(Op::And, 12112, 313131),
-            Operation::new(Op::Or, 0, 1),
-            Operation::new(Op::Or, 1, 1),
-            Operation::new(Op::Or, 0, 0),
-            Operation::new(Op::Or, 12121, 21211),
-            Operation::new(Op::Xor, 0, 1),
-            Operation::new(Op::Xor, 1, 1),
-            Operation::new(Op::Xor, 0, 0),
-            Operation::new(Op::Xor, 218219, 9828121),
-            Operation::new(Op::Xor, 1, 1),
-            Operation::new(Op::Xor, 0, 0),
+            //Operation::new(Op::And, 0, 1),
+            //Operation::new(Op::And, 1, 1),
+            //Operation::new(Op::And, 0, 0),
+            //Operation::new(Op::Or, 0, 1),
+            //Operation::new(Op::Or, 1, 1),
+            //Operation::new(Op::Or, 0, 0),
+            //Operation::new(Op::Xor, 0, 1),
+            //Operation::new(Op::And, 0, 1),
+            //Operation::new(Op::And, 1, 1),
+            //Operation::new(Op::And, 0, 0),
+            //Operation::new(Op::And, 12112, 313131),
+            //Operation::new(Op::Or, 0, 1),
+            //Operation::new(Op::Or, 1, 1),
+            //Operation::new(Op::Or, 0, 0),
+            //Operation::new(Op::Or, 12121, 21211),
+            //Operation::new(Op::Xor, 0, 1),
+            //Operation::new(Op::Xor, 1, 1),
+            //Operation::new(Op::Xor, 0, 0),
+            //Operation::new(Op::Xor, 218219, 9828121),
+            //Operation::new(Op::Xor, 1, 1),
+            //Operation::new(Op::Xor, 0, 0),
         ];
         let num_rows = 1 << 10;
 

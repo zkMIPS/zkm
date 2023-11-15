@@ -16,7 +16,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::{
     bootstrap_kernel, control_flow, count, decode, jumps, membus, memio, mov, pc, shift,
-    simple_logic, syscall,
+    syscall,
 };
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
@@ -31,16 +31,16 @@ pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // GP channel 2: stack[-3] = virt
     // GP channel 3: stack[-4] = len
     // GP channel 4: pushed = outputs
-    let context = Column::single(COL_MAP.mem_channels[0].value[0]);
-    let segment = Column::single(COL_MAP.mem_channels[1].value[0]);
-    let virt = Column::single(COL_MAP.mem_channels[2].value[0]);
-    let len = Column::single(COL_MAP.mem_channels[3].value[0]);
+    let context = Column::single(COL_MAP.mem_channels[0].value);
+    let segment = Column::single(COL_MAP.mem_channels[1].value);
+    let virt = Column::single(COL_MAP.mem_channels[2].value);
+    let len = Column::single(COL_MAP.mem_channels[3].value);
 
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
 
     let mut cols = vec![context, segment, virt, len, timestamp];
-    cols.extend(COL_MAP.mem_channels[4].value.map(Column::single));
+    cols.extend(vec![COL_MAP.mem_channels[4].value].into_iter().map(Column::single));
     cols
 }
 
@@ -51,9 +51,9 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
 /// Create the vector of Columns corresponding to the two inputs and
 /// one output of a binary operation.
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
-    let mut res = Column::singles(COL_MAP.mem_channels[0].value).collect_vec();
-    res.extend(Column::singles(COL_MAP.mem_channels[1].value));
-    res.extend(Column::singles(COL_MAP.mem_channels[2].value));
+    let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value]).collect_vec();
+    res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value]));
+    res.extend(Column::singles(vec![COL_MAP.mem_channels[2].value]));
     res
 }
 
@@ -144,7 +144,7 @@ pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     ])
     .collect();
 
-    cols.extend(Column::singles(channel_map.value));
+    cols.extend(Column::singles(vec![channel_map.value]));
 
     cols.push(mem_time_and_channel(MEM_GP_CHANNELS_IDX_START + channel));
 
@@ -207,7 +207,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         push0::eval_packed(local_values, next_values, yield_constr);
         */
         shift::eval_packed(local_values, yield_constr);
-        simple_logic::eval_packed(local_values, next_values, yield_constr);
+        //simple_logic::eval_packed(local_values, next_values, yield_constr);
         syscall::eval_packed(local_values, yield_constr);
         /*
         stack::eval_packed(local_values, next_values, yield_constr);
@@ -258,7 +258,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         push0::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         */
         shift::eval_ext_circuit(builder, local_values, yield_constr);
-        simple_logic::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        //simple_logic::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         syscall::eval_ext_circuit(builder, local_values, yield_constr);
         /*
         stack::eval_ext_circuit(builder, local_values, next_values, yield_constr);

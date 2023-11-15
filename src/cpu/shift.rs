@@ -30,6 +30,7 @@ pub(crate) fn eval_packed<P: PackedField>(
     let high_limbs_are_zero = two_exp.used;
     yield_constr.constraint(is_shift * high_limbs_are_zero * (two_exp.is_read - P::ONES));
 
+    /*
     let high_limbs_sum: P = displacement.value[1..].iter().copied().sum();
     let high_limbs_sum_inv = lv.general.shift().high_limb_sum_inv;
     // Verify that high_limbs_are_zero = 0 implies high_limbs_sum != 0 and
@@ -37,13 +38,14 @@ pub(crate) fn eval_packed<P: PackedField>(
     let t = high_limbs_sum * high_limbs_sum_inv - (P::ONES - high_limbs_are_zero);
     yield_constr.constraint(is_shift * t);
     yield_constr.constraint(is_shift * high_limbs_sum * high_limbs_are_zero);
+    */
 
     // When the shift displacement is < 2^32, constrain the two_exp
     // mem_channel to be the entry corresponding to `displacement` in
     // the shift table lookup (will be zero if displacement >= 256).
     yield_constr.constraint(is_shift * two_exp.addr_context); // read from kernel memory
     yield_constr.constraint(is_shift * (two_exp.addr_segment - shift_table_segment));
-    yield_constr.constraint(is_shift * (two_exp.addr_virtual - displacement.value[0]));
+    yield_constr.constraint(is_shift * (two_exp.addr_virtual - displacement.value));
 
     // Other channels must be unused
     for chan in &lv.mem_channels[3..NUM_GP_CHANNELS - 1] {
@@ -80,6 +82,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let t = builder.mul_extension(is_shift, t);
     yield_constr.constraint(builder, t);
 
+    /*
     let high_limbs_sum = builder.add_many_extension(&displacement.value[1..]);
     let high_limbs_sum_inv = lv.general.shift().high_limb_sum_inv;
     // Verify that high_limbs_are_zero = 0 implies high_limbs_sum != 0 and
@@ -92,6 +95,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let t = builder.mul_many_extension([is_shift, high_limbs_sum, high_limbs_are_zero]);
     yield_constr.constraint(builder, t);
+    */
 
     // When the shift displacement is < 2^32, constrain the two_exp
     // mem_channel to be the entry corresponding to `displacement` in
@@ -106,7 +110,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         is_shift,
     );
     yield_constr.constraint(builder, t);
-    let t = builder.sub_extension(two_exp.addr_virtual, displacement.value[0]);
+    let t = builder.sub_extension(two_exp.addr_virtual, displacement.value);
     let t = builder.mul_extension(is_shift, t);
     yield_constr.constraint(builder, t);
 

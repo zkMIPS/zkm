@@ -126,7 +126,7 @@ pub(crate) fn generate_cond_mov_op<F: Field>(
 
     let out = if mov { in0 } else { in2 };
 
-    generate_pinv_diff(0, in1 as u32, 0, &mut row);
+    generate_pinv_diff(in1 as u32, 0, &mut row);
 
     let log_out0 = reg_write_with_log(rd, 3, out, state, &mut row)?;
 
@@ -804,14 +804,14 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSMMAP => {
-            row.mem_channels[2].value[1] = F::from_canonical_u32(1u32);
+            row.mem_channels[0].value = F::from_canonical_u32(1u32);
             let mut sz = a1;
             if sz & 0xFFF != 0 {
-                row.mem_channels[0].value[1] = F::from_canonical_u32(1u32);
+                row.mem_channels[1].value = F::from_canonical_u32(1u32);
                 sz += 0x1000 - sz & 0xFFF;
             };
             if a0 == 0 {
-                row.mem_channels[0].value[2] = F::from_canonical_u32(1u32);
+                row.mem_channels[2].value = F::from_canonical_u32(1u32);
                 let (heap, log_in5) = reg_read_with_log(34, 6, state, &mut row)?;
                 v0 = heap;
                 let heap = heap + sz;
@@ -824,13 +824,13 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSBRK => {
-            row.mem_channels[0].value[3] = F::from_canonical_u32(1u32);
+            row.mem_channels[0].value = F::from_canonical_u32(1u32);
             v0 = 0x40000000;
             Ok(())
         }
         SYSCLONE => {
             // clone (not supported)
-            row.mem_channels[0].value[4] = F::from_canonical_u32(1u32);
+            row.mem_channels[0].value = F::from_canonical_u32(1u32);
             v0 = 1;
             Ok(())
         }
@@ -840,13 +840,13 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSREAD => {
-            row.mem_channels[2].value[2] = F::from_canonical_u32(1u32);
+            row.mem_channels[1].value = F::from_canonical_u32(1u32);
             match a0 {
                 FD_STDIN => {
-                    row.mem_channels[0].value[5] = F::from_canonical_u32(1u32);
+                    row.mem_channels[0].value = F::from_canonical_u32(1u32);
                 } // fdStdin
                 _ => {
-                    row.mem_channels[0].value[6] = F::from_canonical_u32(1u32);
+                    row.mem_channels[0].value = F::from_canonical_u32(1u32);
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -854,15 +854,15 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSWRITE => {
-            row.mem_channels[2].value[3] = F::from_canonical_u32(1u32);
+            row.mem_channels[1].value = F::from_canonical_u32(1u32);
             match a0 {
                 // fdStdout
                 FD_STDOUT | FD_STDERR => {
                     v0 = a2;
-                    row.mem_channels[0].value[7] = F::from_canonical_u32(1u32);
+                    row.mem_channels[0].value = F::from_canonical_u32(1u32);
                 } // fdStdout
                 _ => {
-                    row.mem_channels[1].value[1] = F::from_canonical_u32(1u32);
+                    row.mem_channels[1].value = F::from_canonical_u32(1u32);
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -870,20 +870,20 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSFCNTL => {
-            row.mem_channels[2].value[4] = F::from_canonical_u32(1u32);
+            row.mem_channels[1].value = F::from_canonical_u32(1u32);
             match a0 {
                 FD_STDIN => {
-                    row.mem_channels[1].value[2] = F::from_canonical_u32(1u32);
+                    row.mem_channels[1].value = F::from_canonical_u32(1u32);
                     v0 = 0;
                     ()
                 } // fdStdin
                 FD_STDOUT | FD_STDERR => {
-                    row.mem_channels[1].value[3] = F::from_canonical_u32(1u32);
+                    row.mem_channels[1].value = F::from_canonical_u32(1u32);
                     v0 = 1;
                     ()
                 } // fdStdout / fdStderr
                 _ => {
-                    row.mem_channels[1].value[4] = F::from_canonical_u32(1u32);
+                    row.mem_channels[1].value = F::from_canonical_u32(1u32);
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }

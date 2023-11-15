@@ -17,8 +17,8 @@ pub fn eval_packed<P: PackedField>(
     // rt*(rd-rs)+(1-rt)*(rd-rs)=0
     // Check `mov target register`:
     {
-        let mov_dst_val = lv.mem_channels[2].value[0];
-        let mov_src_val = lv.mem_channels[0].value[0];
+        let mov_dst_val = lv.mem_channels[2].value;
+        let mov_src_val = lv.mem_channels[0].value;
 
         yield_constr.constraint(
             is_zero_mov_filter * (mov_dst_val - mov_src_val)
@@ -42,8 +42,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     // Check `mov target register`:
     {
-        let mov_dst_val = lv.mem_channels[2].value[0];
-        let mov_src_val = lv.mem_channels[0].value[0];
+        let mov_dst_val = lv.mem_channels[2].value;
+        let mov_src_val = lv.mem_channels[0].value;
         let diff_val = builder.sub_extension(mov_dst_val, mov_src_val);
 
         let left = builder.mul_extension(is_zero_mov_filter, diff_val);

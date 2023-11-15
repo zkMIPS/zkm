@@ -19,11 +19,9 @@ pub fn eval_packed<P: PackedField>(
     let input = lv.mem_channels[0].value;
     let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
     let filter = lv.op.not;
-    for (input_limb, output_limb) in input.into_iter().zip(output) {
-        yield_constr.constraint(
-            filter * (output_limb + input_limb - P::Scalar::from_canonical_u64(ALL_1_LIMB)),
-        );
-    }
+    yield_constr.constraint(
+        filter * (output + input - P::Scalar::from_canonical_u64(ALL_1_LIMB)),
+    );
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -34,8 +32,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let input = lv.mem_channels[0].value;
     let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
     let filter = lv.op.not;
-    for (input_limb, output_limb) in input.into_iter().zip(output) {
-        let constr = builder.add_extension(output_limb, input_limb);
+        let constr = builder.add_extension(output, input);
         let constr = builder.arithmetic_extension(
             F::ONE,
             -F::from_canonical_u64(ALL_1_LIMB),
@@ -44,5 +41,4 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
             filter,
         );
         yield_constr.constraint(builder, constr);
-    }
 }

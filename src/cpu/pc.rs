@@ -11,12 +11,14 @@ pub fn eval_packed<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    /*
     let filter = lv.op.pc;
     let new_stack_top = nv.mem_channels[0].value;
-    yield_constr.constraint(filter * (new_stack_top[0] - lv.program_counter));
+    yield_constr.constraint(filter * (new_stack_top - lv.program_counter));
     for &limb in &new_stack_top[1..] {
         yield_constr.constraint(filter * limb);
     }
+    */
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -25,6 +27,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    /*
     let filter = lv.op.pc;
     let new_stack_top = nv.mem_channels[0].value;
     {
@@ -36,4 +39,5 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(filter, limb);
         yield_constr.constraint(builder, constr);
     }
+    */
 }

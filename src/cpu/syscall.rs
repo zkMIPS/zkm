@@ -14,30 +14,30 @@ pub fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let filter = lv.op.syscall; // syscall
-                                // let _sys_num = lv.mem_channels[0].value[0];
-    let a0 = lv.mem_channels[1].value[0];
-    let a1 = lv.mem_channels[2].value[0];
-    let a2 = lv.mem_channels[3].value[0];
+                                // let _sys_num = lv.mem_channels[0].value;
+    let a0 = lv.mem_channels[1].value;
+    let a1 = lv.mem_channels[2].value;
+    let a2 = lv.mem_channels[3].value;
     let v0 = P::ZEROS;
     let v1 = P::ZEROS;
 
     //sysmap
     // is_sysmap|is_sz_mid_not_zero|is_a0_zero is calculated outside and written in the mem_channels.
-    let is_sysmap = lv.mem_channels[2].value[1];
-    let is_sz_mid_not_zero = lv.mem_channels[0].value[1]; //sz & 0xFFF != 0
+    let is_sysmap = lv.mem_channels[2].value;
+    let is_sz_mid_not_zero = lv.mem_channels[0].value; //sz & 0xFFF != 0
     let is_sz_mid_zero = P::ONES - is_sz_mid_not_zero;
     let sz = a1;
     let remain = sz / P::Scalar::from_canonical_u64(1 << 12);
     let remain = remain * P::Scalar::from_canonical_u64(1 << 12);
     let sz_mid = sz - remain; //sz & 0xfff
     let sz_in_sz_mid_not_zero = sz + P::Scalar::from_canonical_u64(256u64) - sz_mid;
-    let is_a0_zero = lv.mem_channels[0].value[2];
-    let heap_in_a0_zero = lv.mem_channels[6].value[0];
+    let is_a0_zero = lv.mem_channels[0].value;
+    let heap_in_a0_zero = lv.mem_channels[6].value;
     let v0_in_a0_zero = heap_in_a0_zero;
     let heap_in_a0_zero_and_in_sz_mid_not_zero = heap_in_a0_zero + sz_in_sz_mid_not_zero; // branch1:sz&fff!=0 & a0==0
-    let result_heap = lv.mem_channels[7].value[0];
-    let result_v0 = lv.mem_channels[4].value[0];
-    let result_v1 = lv.mem_channels[5].value[0];
+    let result_heap = lv.mem_channels[7].value;
+    let result_v0 = lv.mem_channels[4].value;
+    let result_v1 = lv.mem_channels[5].value;
 
     let heap_in_a0_zero_and_not_in_sz_mid_not_zero = heap_in_a0_zero + sz; // branch2: sz&fff==0 &a0 ==0
                                                                            //check:
@@ -80,7 +80,7 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(filter * is_sysmap * (P::ONES - is_a0_zero) * (a0 - result_v0));
 
     //sysbrk
-    let is_sysbrk = lv.mem_channels[0].value[3];
+    let is_sysbrk = lv.mem_channels[0].value;
     let v0_in_sysbrk = P::Scalar::from_canonical_u64(0x40000000u64);
     //check:
     //1 is_syscall
@@ -90,7 +90,7 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(filter * (v1 - result_v1));
 
     //sysclone
-    let is_sysclone = lv.mem_channels[0].value[4];
+    let is_sysclone = lv.mem_channels[0].value;
     let v0_in_sysclone = P::ONES;
     //check:
     //1 is_syscall
@@ -102,9 +102,9 @@ pub fn eval_packed<P: PackedField>(
     // let is_SYSEXITGROUP =sys_num.is_equal_private(P::Scalar::from_canonical_usize(SYSEXITGROUP),Equal);
     // //todo
     //sysread
-    let is_sysread = lv.mem_channels[2].value[2];
-    let a0_is_fd_stdin = lv.mem_channels[0].value[5];
-    let a0_is_not_fd_stdin = lv.mem_channels[0].value[6];
+    let is_sysread = lv.mem_channels[2].value;
+    let a0_is_fd_stdin = lv.mem_channels[0].value;
+    let a0_is_not_fd_stdin = lv.mem_channels[0].value;
     let v0_in_a0_is_not_fd_stdin = P::Scalar::from_canonical_usize(0xFFFFFFFF);
     let v1_in_a0_is_not_fd_stdin = P::Scalar::from_canonical_usize(MIPSEBADF);
     //check:
@@ -127,9 +127,9 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(filter * is_sysread * a0_is_fd_stdin * (v1 - result_v1));
 
     //syswrite
-    let is_syswrite = lv.mem_channels[2].value[3];
-    let a0_is_fd_stdout_or_fd_stderr = lv.mem_channels[0].value[7];
-    let a0_is_not_fd_stderr_and_fd_stderr = lv.mem_channels[1].value[1];
+    let is_syswrite = lv.mem_channels[2].value;
+    let a0_is_fd_stdout_or_fd_stderr = lv.mem_channels[0].value;
+    let a0_is_not_fd_stderr_and_fd_stderr = lv.mem_channels[1].value;
 
     let v0_in_a0_is_not_fd_stdout_and_fd_stderr = P::Scalar::from_canonical_usize(0xFFFFFFFF);
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr = P::Scalar::from_canonical_usize(MIPSEBADF);
@@ -159,12 +159,12 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(filter * is_syswrite * a0_is_fd_stdout_or_fd_stderr * (v1 - result_v1));
 
     //sysfcntl
-    let is_sysfcntl = lv.mem_channels[2].value[4];
-    let a0_is_fd_stdin = lv.mem_channels[1].value[2];
+    let is_sysfcntl = lv.mem_channels[2].value;
+    let a0_is_fd_stdin = lv.mem_channels[1].value;
     let v0_in_a0_is_fd_stdin = P::ZEROS;
-    let a0_is_fd_stdout_or_fd_stderr = lv.mem_channels[1].value[3];
+    let a0_is_fd_stdout_or_fd_stderr = lv.mem_channels[1].value;
     let _v0_in_a0_is_fd_stdout_or_fd_stderr = P::ONES;
-    let a0_is_else = lv.mem_channels[1].value[4];
+    let a0_is_else = lv.mem_channels[1].value;
     let v0_in_a0_is_not_fd_stdout_and_fd_stderr_and_fd_stdin =
         P::Scalar::from_canonical_usize(0xFFFFFFFF);
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr_and_fd_stdin =
@@ -200,16 +200,16 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let filter = lv.op.syscall;
-    // let _sys_num = lv.mem_channels[0].value[0];
-    let a0 = lv.mem_channels[1].value[0];
-    let a1 = lv.mem_channels[2].value[0];
-    let a2 = lv.mem_channels[3].value[0];
+    // let _sys_num = lv.mem_channels[0].value;
+    let a0 = lv.mem_channels[1].value;
+    let a1 = lv.mem_channels[2].value;
+    let a2 = lv.mem_channels[3].value;
     let v0 = builder.zero_extension();
     let v1 = builder.zero_extension();
 
     //sysmap
-    let is_sysmap = lv.mem_channels[2].value[1];
-    let is_sz_mid_not_zero = lv.mem_channels[0].value[1]; //sz & 0xFFF != 0
+    let is_sysmap = lv.mem_channels[2].value;
+    let is_sz_mid_not_zero = lv.mem_channels[0].value; //sz & 0xFFF != 0
     let one_extension = builder.one_extension();
     let is_sz_mid_zero = builder.sub_extension(one_extension, is_sz_mid_not_zero);
     let sz = a1;
@@ -220,15 +220,15 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let u256 = builder.constant_extension(F::Extension::from_canonical_u64(256u64));
     let temp = builder.sub_extension(u256, sz_mid);
     let sz_in_sz_mid_not_zero = builder.add_extension(sz, temp);
-    let is_a0_zero = lv.mem_channels[0].value[2];
-    let heap_in_a0_zero = lv.mem_channels[6].value[0];
+    let is_a0_zero = lv.mem_channels[0].value;
+    let heap_in_a0_zero = lv.mem_channels[6].value;
     let v0_in_a0_zero = heap_in_a0_zero;
     let heap_in_a0_zero_and_in_sz_mid_not_zero =
         builder.add_extension(heap_in_a0_zero, sz_in_sz_mid_not_zero); // branch1:sz&fff!=0 & a0==0
     let heap_in_a0_zero_and_not_in_sz_mid_not_zero = builder.add_extension(heap_in_a0_zero, sz); // branch2: sz&fff==0 &a0 ==0
-    let result_heap = lv.mem_channels[7].value[0];
-    let result_v0 = lv.mem_channels[4].value[0];
-    let result_v1 = lv.mem_channels[5].value[0];
+    let result_heap = lv.mem_channels[7].value;
+    let result_v0 = lv.mem_channels[4].value;
+    let result_v1 = lv.mem_channels[5].value;
     let filter_0 = builder.mul_extension(filter, is_sysmap);
     let constr_1 = builder.mul_extension(filter_0, is_a0_zero);
     let constr_2 = builder.mul_extension(constr_1, is_sz_mid_not_zero);
@@ -252,7 +252,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     //sysbrk
 
-    let is_sysbrk = lv.mem_channels[0].value[3];
+    let is_sysbrk = lv.mem_channels[0].value;
     let v0_in_sysbrk = builder.constant_extension(F::Extension::from_canonical_u64(0x40000000u64));
     let constr_8 = builder.mul_extension(filter, is_sysbrk);
     let constr_9 = builder.sub_extension(v0_in_sysbrk, result_v0);
@@ -263,7 +263,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, constr);
 
     //sysclone
-    let is_sysclone = lv.mem_channels[0].value[4];
+    let is_sysclone = lv.mem_channels[0].value;
     let v0_in_sysclone = builder.one_extension();
     let constr_12 = builder.mul_extension(filter, is_sysclone);
     let constr_13 = builder.sub_extension(v0_in_sysclone, result_v0);
@@ -276,9 +276,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // let is_SYSEXITGROUP =sys_num.is_equal_private(P::Scalar::from_canonical_usize(SYSEXITGROUP),Equal);
     // //todo
     //sysread
-    let is_sysread = lv.mem_channels[2].value[2];
-    let a0_is_fd_stdin = lv.mem_channels[0].value[5];
-    let a0_is_not_fd_stdin = lv.mem_channels[0].value[6];
+    let is_sysread = lv.mem_channels[2].value;
+    let a0_is_fd_stdin = lv.mem_channels[0].value;
+    let a0_is_not_fd_stdin = lv.mem_channels[0].value;
     let v0_in_a0_is_not_fd_stdin =
         builder.constant_extension(F::Extension::from_canonical_usize(0xFFFFFFFF));
     let v1_in_a0_is_not_fd_stdin =
@@ -301,9 +301,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     //syswrite
 
-    let is_syswrite = lv.mem_channels[2].value[3];
-    let a0_is_fd_stdout_or_fd_stderr = lv.mem_channels[0].value[7];
-    let a0_is_not_fd_stderr_and_fd_stderr = lv.mem_channels[1].value[1];
+    let is_syswrite = lv.mem_channels[2].value;
+    let a0_is_fd_stdout_or_fd_stderr = lv.mem_channels[0].value;
+    let a0_is_not_fd_stderr_and_fd_stderr = lv.mem_channels[1].value;
     let v0_in_a0_is_not_fd_stdout_and_fd_stderr =
         builder.constant_extension(F::Extension::from_canonical_usize(0xFFFFFFFF));
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr =
@@ -326,12 +326,12 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     //sysfcntl
 
-    let is_sysfcntl = lv.mem_channels[2].value[4];
-    let a0_is_fd_stdin = lv.mem_channels[1].value[2];
+    let is_sysfcntl = lv.mem_channels[2].value;
+    let a0_is_fd_stdin = lv.mem_channels[1].value;
     let v0_in_a0_is_fd_stdin = builder.zero_extension();
-    let a0_is_fd_stdout_or_fd_stderr = lv.mem_channels[1].value[3];
+    let a0_is_fd_stdout_or_fd_stderr = lv.mem_channels[1].value;
     let v0_in_a0_is_fd_stdout_or_fd_stderr = builder.one_extension();
-    let a0_is_else = lv.mem_channels[1].value[4];
+    let a0_is_else = lv.mem_channels[1].value;
     let v0_in_a0_is_not_fd_stdout_and_fd_stderr_and_fd_stdin =
         builder.constant_extension(F::Extension::from_canonical_usize(0xFFFFFFFF));
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr_and_fd_stdin =

@@ -14,8 +14,6 @@ use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 mod general;
 pub(crate) mod ops;
 
-pub type MemValue<T> = [T; memory::VALUE_LIMBS];
-
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MemoryChannelView<T: Copy> {
@@ -26,7 +24,7 @@ pub struct MemoryChannelView<T: Copy> {
     pub addr_context: T,
     pub addr_segment: T,
     pub addr_virtual: T,
-    pub value: MemValue<T>,
+    pub value: T,
 }
 
 #[repr(C)]

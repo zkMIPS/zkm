@@ -15,7 +15,7 @@ unsigned clz(uint32_t x)
 }
 */
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::columns::{CpuColumnsView, MemValue};
+use crate::cpu::columns::{CpuColumnsView};
 use crate::memory;
 use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
 use plonky2::field::extension::Extendable;
@@ -38,8 +38,8 @@ pub fn eval_packed<P: PackedField>(
 
     let rs_val = lv.mem_channels[0].value;
     let rd_val = lv.mem_channels[1].value;
-    let rs = limb_from_bits_le(rs_val.into_iter());
-    let rd = limb_from_bits_le(rd_val.into_iter());
+    let rs = limb_from_bits_le(vec![rs_val].into_iter());
+    let rd = limb_from_bits_le(vec![rd_val].into_iter());
 
     // CLZ and CLO are differentiated by their first func_bits.
     let clz_filter = filter * (P::ONES - lv.func_bits[0]);
@@ -238,8 +238,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let rs_val = lv.mem_channels[0].value;
     let rd_val = lv.mem_channels[1].value;
-    let rs = limb_from_bits_le_recursive(builder, rs_val.into_iter());
-    let rd = limb_from_bits_le_recursive(builder, rd_val.into_iter());
+    let rs = limb_from_bits_le_recursive(builder, vec![rs_val].into_iter());
+    let rd = limb_from_bits_le_recursive(builder, vec![rd_val].into_iter());
 
     // Check rs Reg
     {
