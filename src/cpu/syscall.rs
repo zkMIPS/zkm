@@ -20,6 +20,24 @@ pub fn eval_packed<P: PackedField>(
     let a2 = lv.mem_channels[3].value[0];
     let v0 = P::ZEROS;
     let v1 = P::ZEROS;
+    let syscall = lv.general.syscall();
+
+    let mut sys_sum = P::ZEROS;
+    for num in syscall.sysnum {
+        sys_sum = sys_sum + num;
+        yield_constr.constraint(filter * num * (P::ONES - num));
+    }
+
+    yield_constr.constraint(filter * (P::ONES - sys_sum));
+
+    let mut a0_sum = P::ZEROS;
+    for a0 in syscall.a0 {
+        a0_sum = a0_sum + a0;
+        yield_constr.constraint(filter * a0 * (P::ONES - a0));
+    }
+    yield_constr.constraint(filter * a0_sum * (P::ONES - a0_sum));
+
+    yield_constr.constraint(filter * syscall.a1 * (P::ONES - syscall.a1));
 
     //sysmap
     // is_sysmap|is_sz_mid_not_zero|is_a0_zero is calculated outside and written in the mem_channels.
@@ -80,7 +98,7 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(filter * is_sysmap * (P::ONES - is_a0_zero) * (a0 - result_v0));
 
     //sysbrk
-    let is_sysbrk = lv.mem_channels[0].value[3];
+    let is_sysbrk = syscall.sysnum[2];
     let v0_in_sysbrk = P::Scalar::from_canonical_u64(0x40000000u64);
     //check:
     //1 is_syscall
@@ -90,7 +108,7 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(filter * (v1 - result_v1));
 
     //sysclone
-    let is_sysclone = lv.mem_channels[0].value[4];
+    let is_sysclone = syscall.sysnum[3];
     let v0_in_sysclone = P::ONES;
     //check:
     //1 is_syscall
@@ -206,6 +224,39 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let a2 = lv.mem_channels[3].value[0];
     let v0 = builder.zero_extension();
     let v1 = builder.zero_extension();
+    let one = builder.one_extension();
+    let syscall = lv.general.syscall();
+
+    let mut sys_sum = builder.zero_extension();
+    for num in syscall.sysnum {
+        sys_sum = builder.add_extension(sys_sum, num); 
+        let constr = builder.sub_extension(one, num);
+        let constr = builder.mul_extension(constr, num);
+        let constr = builder.mul_extension(constr, filter);
+        yield_constr.constraint(builder, constr);
+    }
+
+    let constr = builder.sub_extension(one, sys_sum);
+    let constr = builder.mul_extension(constr, filter);
+    yield_constr.constraint(builder, constr);
+
+    let mut a0_sum = builder.zero_extension();
+    for a0 in syscall.a0 {
+        a0_sum = builder.add_extension(a0_sum, a0); 
+        let constr = builder.sub_extension(one, a0);
+        let constr = builder.mul_extension(constr, a0);
+        let constr = builder.mul_extension(constr, filter);
+        yield_constr.constraint(builder, constr);
+    }
+    let constr = builder.sub_extension(one, a0_sum);
+    let constr = builder.mul_extension(constr, a0_sum);
+    let constr = builder.mul_extension(constr, filter);
+    yield_constr.constraint(builder, constr);
+
+    let constr = builder.sub_extension(one, syscall.a1);
+    let constr = builder.mul_extension(constr, syscall.a1);
+    let constr = builder.mul_extension(constr, filter);
+    yield_constr.constraint(builder, constr);
 
     //sysmap
     let is_sysmap = syscall.sysnum[1];
@@ -252,7 +303,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     //sysbrk
 
-    let is_sysbrk = lv.mem_channels[0].value[3];
+    let is_sysbrk = syscall.sysnum[2];
     let v0_in_sysbrk = builder.constant_extension(F::Extension::from_canonical_u64(0x40000000u64));
     let constr_8 = builder.mul_extension(filter, is_sysbrk);
     let constr_9 = builder.sub_extension(v0_in_sysbrk, result_v0);
@@ -263,7 +314,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, constr);
 
     //sysclone
-    let is_sysclone = lv.mem_channels[0].value[4];
+    let is_sysclone = syscall.sysnum[3];
     let v0_in_sysclone = builder.one_extension();
     let constr_12 = builder.mul_extension(filter, is_sysclone);
     let constr_13 = builder.sub_extension(v0_in_sysclone, result_v0);

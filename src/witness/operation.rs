@@ -830,13 +830,13 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSBRK => {
-            row.mem_channels[0].value[3] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[2] = F::from_canonical_u32(1u32);
             v0 = 0x40000000;
             Ok(())
         }
         SYSCLONE => {
             // clone (not supported)
-            row.mem_channels[0].value[4] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[3] = F::from_canonical_u32(1u32);
             v0 = 1;
             Ok(())
         }
