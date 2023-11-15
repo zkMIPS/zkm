@@ -804,18 +804,19 @@ pub(crate) fn generate_syscall<F: Field>(
 
     let result = match sys_num {
         SYSGETPID => {
+            row.general.syscall_mut().sysnum[0] = F::from_canonical_u32(1u32);
             let _ = load_preimage(state);
             Ok(())
         }
         SYSMMAP => {
-            row.mem_channels[2].value[1] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[1] = F::from_canonical_u32(1u32);
             let mut sz = a1;
             if sz & 0xFFF != 0 {
-                row.mem_channels[0].value[1] = F::from_canonical_u32(1u32);
+                row.general.syscall_mut().a1 = F::from_canonical_u32(1u32);
                 sz += 0x1000 - sz & 0xFFF;
             };
             if a0 == 0 {
-                row.mem_channels[0].value[2] = F::from_canonical_u32(1u32);
+                row.general.syscall_mut().a0[0] = F::from_canonical_u32(1u32);
                 let (heap, log_in5) = reg_read_with_log(34, 6, state, &mut row)?;
                 v0 = heap;
                 let heap = heap + sz;
@@ -823,6 +824,7 @@ pub(crate) fn generate_syscall<F: Field>(
                 state.traces.push_memory(log_in5);
                 state.traces.push_memory(outlog);
             } else {
+                row.general.syscall_mut().a0[2] = F::from_canonical_u32(1u32);
                 v0 = a0;
             };
             Ok(())

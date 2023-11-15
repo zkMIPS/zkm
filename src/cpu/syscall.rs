@@ -23,15 +23,15 @@ pub fn eval_packed<P: PackedField>(
 
     //sysmap
     // is_sysmap|is_sz_mid_not_zero|is_a0_zero is calculated outside and written in the mem_channels.
-    let is_sysmap = lv.mem_channels[2].value[1];
-    let is_sz_mid_not_zero = lv.mem_channels[0].value[1]; //sz & 0xFFF != 0
+    let is_sysmap = syscall.sysnum[1];
+    let is_sz_mid_not_zero = syscall.a1; //sz & 0xFFF != 0
     let is_sz_mid_zero = P::ONES - is_sz_mid_not_zero;
     let sz = a1;
     let remain = sz / P::Scalar::from_canonical_u64(1 << 12);
     let remain = remain * P::Scalar::from_canonical_u64(1 << 12);
     let sz_mid = sz - remain; //sz & 0xfff
     let sz_in_sz_mid_not_zero = sz + P::Scalar::from_canonical_u64(256u64) - sz_mid;
-    let is_a0_zero = lv.mem_channels[0].value[2];
+    let is_a0_zero = syscall.a0[0];
     let heap_in_a0_zero = lv.mem_channels[6].value[0];
     let v0_in_a0_zero = heap_in_a0_zero;
     let heap_in_a0_zero_and_in_sz_mid_not_zero = heap_in_a0_zero + sz_in_sz_mid_not_zero; // branch1:sz&fff!=0 & a0==0
@@ -208,8 +208,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let v1 = builder.zero_extension();
 
     //sysmap
-    let is_sysmap = lv.mem_channels[2].value[1];
-    let is_sz_mid_not_zero = lv.mem_channels[0].value[1]; //sz & 0xFFF != 0
+    let is_sysmap = syscall.sysnum[1];
+    let is_sz_mid_not_zero = syscall.a1; //sz & 0xFFF != 0
     let one_extension = builder.one_extension();
     let is_sz_mid_zero = builder.sub_extension(one_extension, is_sz_mid_not_zero);
     let sz = a1;
@@ -220,7 +220,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let u256 = builder.constant_extension(F::Extension::from_canonical_u64(256u64));
     let temp = builder.sub_extension(u256, sz_mid);
     let sz_in_sz_mid_not_zero = builder.add_extension(sz, temp);
-    let is_a0_zero = lv.mem_channels[0].value[2];
+    let is_a0_zero = syscall.a0[0];
     let heap_in_a0_zero = lv.mem_channels[6].value[0];
     let v0_in_a0_zero = heap_in_a0_zero;
     let heap_in_a0_zero_and_in_sz_mid_not_zero =
