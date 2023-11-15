@@ -14,7 +14,6 @@ use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKin
 use byteorder::{ByteOrder, LittleEndian};
 
 fn to_byte_checked(n: u32) -> u8 {
-    println!("n {n}, {:?}", n.to_le_bytes());
     let res: u8 = n.to_le_bytes()[0];
     assert_eq!(n as u8, res);
     res
