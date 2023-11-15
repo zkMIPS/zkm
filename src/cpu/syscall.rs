@@ -229,7 +229,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let mut sys_sum = builder.zero_extension();
     for num in syscall.sysnum {
-        sys_sum = builder.add_extension(sys_sum, num); 
+        sys_sum = builder.add_extension(sys_sum, num);
         let constr = builder.sub_extension(one, num);
         let constr = builder.mul_extension(constr, num);
         let constr = builder.mul_extension(constr, filter);
@@ -242,7 +242,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let mut a0_sum = builder.zero_extension();
     for a0 in syscall.a0 {
-        a0_sum = builder.add_extension(a0_sum, a0); 
+        a0_sum = builder.add_extension(a0_sum, a0);
         let constr = builder.sub_extension(one, a0);
         let constr = builder.mul_extension(constr, a0);
         let constr = builder.mul_extension(constr, filter);
