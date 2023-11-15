@@ -736,7 +736,9 @@ pub(crate) fn load_preimage<F: Field>(state: &mut GenerationState<F>) -> Result<
 
     let hex_string = hex::encode(&hash_bytes);
     let mut preiamge_path = KERNEL.blockpath.clone();
+    preiamge_path.push_str("0x");
     preiamge_path.push_str(hex_string.as_str());
+    log::debug!("load file {}", preiamge_path);
 
     let content = fs::read(preiamge_path).expect("Read file failed");
 
@@ -749,8 +751,9 @@ pub(crate) fn load_preimage<F: Field>(state: &mut GenerationState<F>) -> Result<
         MemoryAddress::new(0, Segment::Code, 0x31000000),
         state,
         &mut cpu_row,
-        (content.len() as u32).to_be(),
+        content.len() as u32,
     );
+    log::debug!("{:X}: {:X}", 0x31000000, content.len() as u32);
     state.traces.push_memory(mem_op);
 
     let mut map_addr = 0x31000004;
@@ -772,7 +775,7 @@ pub(crate) fn load_preimage<F: Field>(state: &mut GenerationState<F>) -> Result<
             let byte = content.get(offset).context("Invalid block offset")?;
             word |= (*byte as u32) << (j * 8);
         }
-
+        log::debug!("{:X}: {:X}", map_addr, word);
         let mem_op = mem_write_gp_log_and_fill(
             j,
             MemoryAddress::new(0, Segment::Code, map_addr),
@@ -782,6 +785,7 @@ pub(crate) fn load_preimage<F: Field>(state: &mut GenerationState<F>) -> Result<
         );
         state.traces.push_memory(mem_op);
         map_addr += 4;
+        j += 1;
     }
 
     Ok(())
