@@ -120,9 +120,9 @@ pub fn eval_packed<P: PackedField>(
     // let is_SYSEXITGROUP =sys_num.is_equal_private(P::Scalar::from_canonical_usize(SYSEXITGROUP),Equal);
     // //todo
     //sysread
-    let is_sysread = lv.mem_channels[2].value[2];
-    let a0_is_fd_stdin = lv.mem_channels[0].value[5];
-    let a0_is_not_fd_stdin = lv.mem_channels[0].value[6];
+    let is_sysread = syscall.sysnum[5];
+    let a0_is_fd_stdin = syscall.a0[0];
+    let a0_is_not_fd_stdin = syscall.a0[2];
     let v0_in_a0_is_not_fd_stdin = P::Scalar::from_canonical_usize(0xFFFFFFFF);
     let v1_in_a0_is_not_fd_stdin = P::Scalar::from_canonical_usize(MIPSEBADF);
     //check:
@@ -145,9 +145,9 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(filter * is_sysread * a0_is_fd_stdin * (v1 - result_v1));
 
     //syswrite
-    let is_syswrite = lv.mem_channels[2].value[3];
-    let a0_is_fd_stdout_or_fd_stderr = lv.mem_channels[0].value[7];
-    let a0_is_not_fd_stderr_and_fd_stderr = lv.mem_channels[1].value[1];
+    let is_syswrite = syscall.sysnum[6];
+    let a0_is_fd_stdout_or_fd_stderr = syscall.a0[1];
+    let a0_is_not_fd_stderr_and_fd_stderr = syscall.a0[2];
 
     let v0_in_a0_is_not_fd_stdout_and_fd_stderr = P::Scalar::from_canonical_usize(0xFFFFFFFF);
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr = P::Scalar::from_canonical_usize(MIPSEBADF);
@@ -177,12 +177,12 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(filter * is_syswrite * a0_is_fd_stdout_or_fd_stderr * (v1 - result_v1));
 
     //sysfcntl
-    let is_sysfcntl = lv.mem_channels[2].value[4];
-    let a0_is_fd_stdin = lv.mem_channels[1].value[2];
+    let is_sysfcntl = syscall.sysnum[7];
+    let a0_is_fd_stdin = syscall.a0[0];
     let v0_in_a0_is_fd_stdin = P::ZEROS;
-    let a0_is_fd_stdout_or_fd_stderr = lv.mem_channels[1].value[3];
+    let a0_is_fd_stdout_or_fd_stderr = syscall.a0[1];
     let _v0_in_a0_is_fd_stdout_or_fd_stderr = P::ONES;
-    let a0_is_else = lv.mem_channels[1].value[4];
+    let a0_is_else = syscall.a0[2];
     let v0_in_a0_is_not_fd_stdout_and_fd_stderr_and_fd_stdin =
         P::Scalar::from_canonical_usize(0xFFFFFFFF);
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr_and_fd_stdin =
@@ -327,9 +327,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // let is_SYSEXITGROUP =sys_num.is_equal_private(P::Scalar::from_canonical_usize(SYSEXITGROUP),Equal);
     // //todo
     //sysread
-    let is_sysread = lv.mem_channels[2].value[2];
-    let a0_is_fd_stdin = lv.mem_channels[0].value[5];
-    let a0_is_not_fd_stdin = lv.mem_channels[0].value[6];
+    let is_sysread = syscall.sysnum[5];
+    let a0_is_fd_stdin = syscall.a0[0];
+    let a0_is_not_fd_stdin = syscall.a0[2];
     let v0_in_a0_is_not_fd_stdin =
         builder.constant_extension(F::Extension::from_canonical_usize(0xFFFFFFFF));
     let v1_in_a0_is_not_fd_stdin =
@@ -352,9 +352,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     //syswrite
 
-    let is_syswrite = lv.mem_channels[2].value[3];
-    let a0_is_fd_stdout_or_fd_stderr = lv.mem_channels[0].value[7];
-    let a0_is_not_fd_stderr_and_fd_stderr = lv.mem_channels[1].value[1];
+    let is_syswrite = syscall.sysnum[6];
+    let a0_is_fd_stdout_or_fd_stderr = syscall.a0[1];
+    let a0_is_not_fd_stderr_and_fd_stderr = syscall.a0[2];
     let v0_in_a0_is_not_fd_stdout_and_fd_stderr =
         builder.constant_extension(F::Extension::from_canonical_usize(0xFFFFFFFF));
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr =
@@ -377,12 +377,12 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     //sysfcntl
 
-    let is_sysfcntl = lv.mem_channels[2].value[4];
-    let a0_is_fd_stdin = lv.mem_channels[1].value[2];
+    let is_sysfcntl = syscall.sysnum[7];
+    let a0_is_fd_stdin = syscall.a0[0];
     let v0_in_a0_is_fd_stdin = builder.zero_extension();
-    let a0_is_fd_stdout_or_fd_stderr = lv.mem_channels[1].value[3];
+    let a0_is_fd_stdout_or_fd_stderr = syscall.a0[1];
     let v0_in_a0_is_fd_stdout_or_fd_stderr = builder.one_extension();
-    let a0_is_else = lv.mem_channels[1].value[4];
+    let a0_is_else = syscall.a0[2];
     let v0_in_a0_is_not_fd_stdout_and_fd_stderr_and_fd_stdin =
         builder.constant_extension(F::Extension::from_canonical_usize(0xFFFFFFFF));
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr_and_fd_stdin =

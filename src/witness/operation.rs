@@ -841,18 +841,19 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSEXITGROUP => {
+            row.general.syscall_mut().sysnum[4] = F::from_canonical_u32(1u32);
             state.registers.exited = true;
             state.registers.exit_code = a0 as u8;
             Ok(())
         }
         SYSREAD => {
-            row.mem_channels[2].value[2] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[5] = F::from_canonical_u32(1u32);
             match a0 {
                 FD_STDIN => {
-                    row.mem_channels[0].value[5] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[0] = F::from_canonical_u32(1u32);
                 } // fdStdin
                 _ => {
-                    row.mem_channels[0].value[6] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[2] = F::from_canonical_u32(1u32);
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -860,15 +861,15 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSWRITE => {
-            row.mem_channels[2].value[3] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[6] = F::from_canonical_u32(1u32);
             match a0 {
                 // fdStdout
                 FD_STDOUT | FD_STDERR => {
+                    row.general.syscall_mut().a0[1] = F::from_canonical_u32(1u32);
                     v0 = a2;
-                    row.mem_channels[0].value[7] = F::from_canonical_u32(1u32);
                 } // fdStdout
                 _ => {
-                    row.mem_channels[1].value[1] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[2] = F::from_canonical_u32(1u32);
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -876,27 +877,30 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSFCNTL => {
-            row.mem_channels[2].value[4] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[7] = F::from_canonical_u32(1u32);
             match a0 {
                 FD_STDIN => {
-                    row.mem_channels[1].value[2] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[0] = F::from_canonical_u32(1u32);
                     v0 = 0;
                     ()
                 } // fdStdin
                 FD_STDOUT | FD_STDERR => {
-                    row.mem_channels[1].value[3] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[1] = F::from_canonical_u32(1u32);
                     v0 = 1;
                     ()
                 } // fdStdout / fdStderr
                 _ => {
-                    row.mem_channels[1].value[4] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[2] = F::from_canonical_u32(1u32);
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
             };
             Ok(())
         }
-        _ => Ok(()),
+        _ => {
+            row.general.syscall_mut().sysnum[8] = F::from_canonical_u32(1u32);
+            Ok(())
+        }
     };
     let outlog1 = reg_write_with_log(2, 4, v0, state, &mut row)?;
     let outlog2 = reg_write_with_log(7, 5, v1, state, &mut row)?;
