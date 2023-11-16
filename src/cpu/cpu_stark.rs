@@ -269,7 +269,7 @@ mod tests {
 
     #[test]
     fn test_stark_circuit() -> Result<()> {
-        env_logger::init();
+        env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
