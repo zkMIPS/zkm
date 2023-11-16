@@ -1,4 +1,3 @@
-use itertools::izip;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -21,12 +20,7 @@ fn limbs(x: U256) -> [u32; 8] {
 }
 */
 
-pub fn generate_pinv_diff<F: Field>(
-    offset: usize,
-    val0: u32,
-    val1: u32,
-    lv: &mut CpuColumnsView<F>,
-) {
+pub fn generate_pinv_diff<F: Field>(val0: u32, val1: u32, lv: &mut CpuColumnsView<F>) {
     let num_unequal_limbs = if val0 != val1 { 1 } else { 0 };
     let _equal = num_unequal_limbs == 0;
 
@@ -41,8 +35,7 @@ pub fn generate_pinv_diff<F: Field>(
         .unwrap_or(F::ZERO);
     let val0_f = F::from_canonical_u32(val0);
     let val1_f = F::from_canonical_u32(val1);
-    logic.diff_pinv[offset] =
-        (val0_f - val1_f).try_inverse().unwrap_or(F::ZERO) * num_unequal_limbs_inv;
+    logic.diff_pinv = (val0_f - val1_f).try_inverse().unwrap_or(F::ZERO) * num_unequal_limbs_inv;
 }
 
 pub fn eval_packed<P: PackedField>(
@@ -60,34 +53,30 @@ pub fn eval_packed<P: PackedField>(
     let iszero_filter = lv.op.eq_iszero * lv.opcode_bits[0];
     let eq_or_iszero_filter = lv.op.eq_iszero;
 
-    let equal = output[0];
+    let equal = output;
     let unequal = P::ONES - equal;
 
     // Handle `EQ` and `ISZERO`. Most limbs of the output are 0, but the least-significant one is
     // either 0 or 1.
     yield_constr.constraint(eq_or_iszero_filter * equal * unequal);
+    /*
     for &limb in &output[1..] {
         yield_constr.constraint(eq_or_iszero_filter * limb);
     }
+    */
 
     // If `ISZERO`, constrain input1 to be zero, effectively implementing ISZERO(x) as EQ(x, 0).
-    for limb in input1 {
-        yield_constr.constraint(iszero_filter * limb);
-    }
+    yield_constr.constraint(iszero_filter * input1);
 
     // `equal` implies `input0[i] == input1[i]` for all `i`.
-    for (limb0, limb1) in izip!(input0, input1) {
-        let diff = limb0 - limb1;
-        yield_constr.constraint(eq_or_iszero_filter * equal * diff);
-    }
+    let diff = input0 - input1;
+    yield_constr.constraint(eq_or_iszero_filter * equal * diff);
 
     // `input0[i] == input1[i]` for all `i` implies `equal`.
     // If `unequal`, find `diff_pinv` such that `(input0 - input1) @ diff_pinv == 1`, where `@`
     // denotes the dot product (there will be many such `diff_pinv`). This can only be done if
     // `input0 != input1`.
-    let dot: P = izip!(input0, input1, logic.diff_pinv)
-        .map(|(limb0, limb1, diff_pinv_el)| (limb0 - limb1) * diff_pinv_el)
-        .sum();
+    let dot: P = (input0 - input1) * logic.diff_pinv;
     yield_constr.constraint(eq_or_iszero_filter * (dot - unequal));
 
     /*
@@ -124,7 +113,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let iszero_filter = builder.mul_extension(lv.op.eq_iszero, lv.opcode_bits[0]);
     let eq_or_iszero_filter = lv.op.eq_iszero;
 
-    let equal = output[0];
+    let equal = output;
     let unequal = builder.sub_extension(one, equal);
 
     // Handle `EQ` and `ISZERO`. Most limbs of the output are 0, but the least-significant one is
@@ -134,37 +123,32 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(eq_or_iszero_filter, constr);
         yield_constr.constraint(builder, constr);
     }
+    /*
     for &limb in &output[1..] {
         let constr = builder.mul_extension(eq_or_iszero_filter, limb);
         yield_constr.constraint(builder, constr);
     }
+    */
 
     // If `ISZERO`, constrain input1 to be zero, effectively implementing ISZERO(x) as EQ(x, 0).
-    for limb in input1 {
-        let constr = builder.mul_extension(iszero_filter, limb);
-        yield_constr.constraint(builder, constr);
-    }
+    let constr = builder.mul_extension(iszero_filter, input1);
+    yield_constr.constraint(builder, constr);
 
     // `equal` implies `input0[i] == input1[i]` for all `i`.
-    for (limb0, limb1) in izip!(input0, input1) {
-        let diff = builder.sub_extension(limb0, limb1);
-        let constr = builder.mul_extension(equal, diff);
-        let constr = builder.mul_extension(eq_or_iszero_filter, constr);
-        yield_constr.constraint(builder, constr);
-    }
+    let diff = builder.sub_extension(input0, input1);
+    let constr = builder.mul_extension(equal, diff);
+    let constr = builder.mul_extension(eq_or_iszero_filter, constr);
+    yield_constr.constraint(builder, constr);
 
     // `input0[i] == input1[i]` for all `i` implies `equal`.
     // If `unequal`, find `diff_pinv` such that `(input0 - input1) @ diff_pinv == 1`, where `@`
     // denotes the dot product (there will be many such `diff_pinv`). This can only be done if
     // `input0 != input1`.
     {
-        let dot: ExtensionTarget<D> = izip!(input0, input1, logic.diff_pinv).fold(
-            zero,
-            |cumul, (limb0, limb1, diff_pinv_el)| {
-                let diff = builder.sub_extension(limb0, limb1);
-                builder.mul_add_extension(diff, diff_pinv_el, cumul)
-            },
-        );
+        let dot: ExtensionTarget<D> = {
+            let diff = builder.sub_extension(input0, input1);
+            builder.mul_add_extension(diff, logic.diff_pinv, zero)
+        };
         let constr = builder.sub_extension(dot, unequal);
         let constr = builder.mul_extension(eq_or_iszero_filter, constr);
         yield_constr.constraint(builder, constr);

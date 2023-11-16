@@ -126,7 +126,7 @@ pub(crate) fn generate_cond_mov_op<F: Field>(
 
     let out = if mov { in0 } else { in2 };
 
-    generate_pinv_diff(0, in1 as u32, 0, &mut row);
+    generate_pinv_diff(in1 as u32, 0, &mut row);
 
     let log_out0 = reg_write_with_log(rd, 3, out, state, &mut row)?;
 
@@ -1127,12 +1127,6 @@ pub(crate) fn generate_exception<F: Field>(
         state.registers.is_stack_top_read = false;
     }
     */
-
-    row.general.exception_mut().exc_code_bits = [
-        F::from_bool(exc_code & 1 != 0),
-        F::from_bool(exc_code & 2 != 0),
-        F::from_bool(exc_code & 4 != 0),
-    ];
 
     let handler_jumptable_addr = KERNEL.global_labels["exception_jumptable"];
     let handler_addr_addr =

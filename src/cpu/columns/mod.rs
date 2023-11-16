@@ -8,13 +8,11 @@ use plonky2::field::types::Field;
 use crate::cpu::columns::general::CpuGeneralColumnsView;
 use crate::cpu::columns::ops::OpsColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::memory;
+
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
 mod general;
 pub(crate) mod ops;
-
-pub type MemValue<T> = [T; memory::VALUE_LIMBS];
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -26,7 +24,7 @@ pub struct MemoryChannelView<T: Copy> {
     pub addr_context: T,
     pub addr_segment: T,
     pub addr_virtual: T,
-    pub value: MemValue<T>,
+    pub value: T,
 }
 
 #[repr(C)]

@@ -10,9 +10,9 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 
 fn get_addr<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
-    let addr_context = lv.mem_channels[0].value[0];
-    let addr_segment = lv.mem_channels[1].value[0];
-    let addr_virtual = lv.mem_channels[2].value[0];
+    let addr_context = lv.mem_channels[0].value;
+    let addr_segment = lv.mem_channels[1].value;
+    let addr_virtual = lv.mem_channels[2].value;
     (addr_context, addr_segment, addr_virtual)
 }
 
@@ -118,9 +118,7 @@ fn eval_packed_store<P: PackedField>(
     yield_constr.constraint(filter * (store_channel.addr_context - addr_context));
     yield_constr.constraint(filter * (store_channel.addr_segment - addr_segment));
     yield_constr.constraint(filter * (store_channel.addr_virtual - addr_virtual));
-    for (value_limb, store_limb) in izip!(value_channel.value, store_channel.value) {
-        yield_constr.constraint(filter * (value_limb - store_limb));
-    }
+    yield_constr.constraint(filter * (value_channel.value - store_channel.value));
 
     // Disable remaining memory channels, if any.
     for &channel in &lv.mem_channels[5..] {
@@ -208,11 +206,9 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }
-    for (value_limb, store_limb) in izip!(value_channel.value, store_channel.value) {
-        let diff = builder.sub_extension(value_limb, store_limb);
-        let constr = builder.mul_extension(filter, diff);
-        yield_constr.constraint(builder, constr);
-    }
+    let diff = builder.sub_extension(value_channel.value, store_channel.value);
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint(builder, constr);
 
     // Disable remaining memory channels, if any.
     for &channel in &lv.mem_channels[5..] {

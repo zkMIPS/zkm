@@ -1,6 +1,5 @@
 pub(crate) mod outputs;
 pub(crate) mod state;
-// use crate::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, MemsRoot};
 use crate::proof::{MemsRoot, PublicValues};
 use anyhow::anyhow;
 use plonky2::field::extension::Extendable;

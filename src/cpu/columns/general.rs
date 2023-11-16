@@ -6,23 +6,21 @@ use std::mem::{size_of, transmute};
 /// operation is occurring at this row.
 #[derive(Clone, Copy)]
 pub(crate) union CpuGeneralColumnsView<T: Copy> {
-    exception: CpuExceptionView<T>,
     syscall: CpuSyscallView<T>,
     logic: CpuLogicView<T>,
     jumps: CpuJumpsView<T>,
     shift: CpuShiftView<T>,
-    gpr: CpuGPRView<T>,
 }
 
 impl<T: Copy> CpuGeneralColumnsView<T> {
     // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn exception(&self) -> &CpuExceptionView<T> {
-        unsafe { &self.exception }
+    pub(crate) fn syscall(&self) -> &CpuSyscallView<T> {
+        unsafe { &self.syscall }
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn exception_mut(&mut self) -> &mut CpuExceptionView<T> {
-        unsafe { &mut self.exception }
+    pub(crate) fn syscall_mut(&mut self) -> &mut CpuSyscallView<T> {
+        unsafe { &mut self.syscall }
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
@@ -46,16 +44,6 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn syscall(&self) -> &CpuSyscallView<T> {
-        unsafe { &self.syscall }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn syscall_mut(&mut self) -> &mut CpuSyscallView<T> {
-        unsafe { &mut self.syscall }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn shift(&self) -> &CpuShiftView<T> {
         unsafe { &self.shift }
     }
@@ -63,16 +51,6 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn shift_mut(&mut self) -> &mut CpuShiftView<T> {
         unsafe { &mut self.shift }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn gpr(&self) -> &CpuGPRView<T> {
-        unsafe { &self.gpr }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn gpr_mut(&mut self) -> &mut CpuGPRView<T> {
-        unsafe { &mut self.gpr }
     }
 }
 
@@ -106,12 +84,6 @@ impl<T: Copy> BorrowMut<[T; NUM_SHARED_COLUMNS]> for CpuGeneralColumnsView<T> {
 }
 
 #[derive(Copy, Clone)]
-pub(crate) struct CpuExceptionView<T: Copy> {
-    // Exception code as little-endian bits.
-    pub(crate) exc_code_bits: [T; 3],
-}
-
-#[derive(Copy, Clone)]
 pub(crate) struct CpuSyscallView<T: Copy> {
     pub(crate) sysnum: [T; 9],
     pub(crate) a0: [T; 3],
@@ -121,7 +93,7 @@ pub(crate) struct CpuSyscallView<T: Copy> {
 #[derive(Copy, Clone)]
 pub(crate) struct CpuLogicView<T: Copy> {
     // Pseudoinverse of `(input0 - input1)`. Used prove that they are unequal. Assumes 32-bit limbs.
-    pub(crate) diff_pinv: [T; 8],
+    pub(crate) diff_pinv: T,
 }
 
 #[derive(Copy, Clone)]

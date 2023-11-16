@@ -14,10 +14,10 @@ pub fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let filter = lv.op.syscall; // syscall
-                                // let _sys_num = lv.mem_channels[0].value[0];
-    let a0 = lv.mem_channels[1].value[0];
-    let a1 = lv.mem_channels[2].value[0];
-    let a2 = lv.mem_channels[3].value[0];
+                                // let _sys_num = lv.mem_channels[0].value;
+    let a0 = lv.mem_channels[1].value;
+    let a1 = lv.mem_channels[2].value;
+    let a2 = lv.mem_channels[3].value;
     let v0 = P::ZEROS;
     let v1 = P::ZEROS;
     let syscall = lv.general.syscall();
@@ -50,12 +50,12 @@ pub fn eval_packed<P: PackedField>(
     let sz_mid = sz - remain; //sz & 0xfff
     let sz_in_sz_mid_not_zero = sz + P::Scalar::from_canonical_u64(256u64) - sz_mid;
     let is_a0_zero = syscall.a0[0];
-    let heap_in_a0_zero = lv.mem_channels[6].value[0];
+    let heap_in_a0_zero = lv.mem_channels[6].value;
     let v0_in_a0_zero = heap_in_a0_zero;
     let heap_in_a0_zero_and_in_sz_mid_not_zero = heap_in_a0_zero + sz_in_sz_mid_not_zero; // branch1:sz&fff!=0 & a0==0
-    let result_heap = lv.mem_channels[7].value[0];
-    let result_v0 = lv.mem_channels[4].value[0];
-    let result_v1 = lv.mem_channels[5].value[0];
+    let result_heap = lv.mem_channels[7].value;
+    let result_v0 = lv.mem_channels[4].value;
+    let result_v1 = lv.mem_channels[5].value;
 
     let heap_in_a0_zero_and_not_in_sz_mid_not_zero = heap_in_a0_zero + sz; // branch2: sz&fff==0 &a0 ==0
                                                                            //check:
@@ -218,10 +218,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let filter = lv.op.syscall;
-    // let _sys_num = lv.mem_channels[0].value[0];
-    let a0 = lv.mem_channels[1].value[0];
-    let a1 = lv.mem_channels[2].value[0];
-    let a2 = lv.mem_channels[3].value[0];
+    // let _sys_num = lv.mem_channels[0].value;
+    let a0 = lv.mem_channels[1].value;
+    let a1 = lv.mem_channels[2].value;
+    let a2 = lv.mem_channels[3].value;
     let v0 = builder.zero_extension();
     let v1 = builder.zero_extension();
     let one = builder.one_extension();
@@ -272,14 +272,14 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let temp = builder.sub_extension(u256, sz_mid);
     let sz_in_sz_mid_not_zero = builder.add_extension(sz, temp);
     let is_a0_zero = syscall.a0[0];
-    let heap_in_a0_zero = lv.mem_channels[6].value[0];
+    let heap_in_a0_zero = lv.mem_channels[6].value;
     let v0_in_a0_zero = heap_in_a0_zero;
     let heap_in_a0_zero_and_in_sz_mid_not_zero =
         builder.add_extension(heap_in_a0_zero, sz_in_sz_mid_not_zero); // branch1:sz&fff!=0 & a0==0
     let heap_in_a0_zero_and_not_in_sz_mid_not_zero = builder.add_extension(heap_in_a0_zero, sz); // branch2: sz&fff==0 &a0 ==0
-    let result_heap = lv.mem_channels[7].value[0];
-    let result_v0 = lv.mem_channels[4].value[0];
-    let result_v1 = lv.mem_channels[5].value[0];
+    let result_heap = lv.mem_channels[7].value;
+    let result_v0 = lv.mem_channels[4].value;
+    let result_v1 = lv.mem_channels[5].value;
     let filter_0 = builder.mul_extension(filter, is_sysmap);
     let constr_1 = builder.mul_extension(filter_0, is_a0_zero);
     let constr_2 = builder.mul_extension(constr_1, is_sz_mid_not_zero);
