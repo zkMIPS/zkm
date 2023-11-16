@@ -53,10 +53,13 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
 
 /// Create the vector of Columns corresponding to the two inputs and
 /// one output of a binary operation.
+/// FIXME: the column is unchecked. The in0 should starts from column 4 in looked table, and in1
+/// 36, out 68. But the looking table offers in0 77, in1 83, out 89.
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
-    let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value]).collect_vec();
-    res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value]));
-    res.extend(Column::singles(vec![COL_MAP.mem_channels[2].value]));
+    println!("{:?}" , COL_MAP.mem_channels);
+    let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value - 73]).collect_vec();
+    res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value - 47]));
+    res.extend(Column::singles(vec![COL_MAP.mem_channels[2].value - 21]));
     res
 }
 
@@ -194,29 +197,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         */
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
         decode::eval_packed_generic(local_values, yield_constr);
-        /*
-        dup_swap::eval_packed(local_values, next_values, yield_constr);
-        gas::eval_packed(local_values, next_values, yield_constr);
-        halt::eval_packed(local_values, next_values, yield_constr);
-        */
         jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
         memio::eval_packed(local_values, next_values, yield_constr);
-        /*
-        modfp254::eval_packed(local_values, yield_constr);
-        */
         pc::eval_packed(local_values, next_values, yield_constr);
-        /*
-        push0::eval_packed(local_values, next_values, yield_constr);
-        */
         shift::eval_packed(local_values, yield_constr);
-        //simple_logic::eval_packed(local_values, next_values, yield_constr);
         syscall::eval_packed(local_values, yield_constr);
-        /*
-        stack::eval_packed(local_values, next_values, yield_constr);
-        stack_bounds::eval_packed(local_values, yield_constr);
-        syscalls_exceptions::eval_packed(local_values, next_values, yield_constr);
-        */
         mov::eval_packed(local_values, yield_constr);
         count::eval_packed(local_values, yield_constr);
     }
@@ -245,29 +231,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         */
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         decode::eval_ext_circuit(builder, local_values, yield_constr);
-        /*
-        dup_swap::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        gas::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        halt::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        */
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
         memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        /*
-        modfp254::eval_ext_circuit(builder, local_values, yield_constr);
-        */
         pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        /*
-        push0::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        */
         shift::eval_ext_circuit(builder, local_values, yield_constr);
-        //simple_logic::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         syscall::eval_ext_circuit(builder, local_values, yield_constr);
-        /*
-        stack::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        stack_bounds::eval_ext_circuit(builder, local_values, yield_constr);
-        syscalls_exceptions::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        */
         mov::eval_ext_circuit(builder, local_values, yield_constr);
         count::eval_ext_circuit(builder, local_values, yield_constr);
     }
