@@ -565,7 +565,6 @@ fn partial_products<F: Field>(
         } else {
             F::ONE
         };
-        println!("filter: {filter}");
         if filter.is_one() {
             let evals = columns
                 .iter()
