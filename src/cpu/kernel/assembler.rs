@@ -26,17 +26,19 @@ pub const KERNLE_FILE: &str = "test-vectors/hello";
 
 // FIXME: impl the mips vm
 pub(crate) fn combined_kernel() -> Kernel {
-    let mut reader = BufReader::new(File::open("test-vectors/hello").unwrap());
+    let mut reader = BufReader::new(File::open("test-vectors/open_mips_tests/test/bin/j.bin").unwrap());
     let mut code = Vec::new();
     reader.read_to_end(&mut code).unwrap();
     //FIXME: define it as global constant
     let max_mem = 0x80000000;
+    /*
     let mut p: Program = Program::load_elf(&code, max_mem).unwrap();
     let real_blockpath = Program::get_block_path("13284491", "input");
     println!("real block path: {}", real_blockpath);
     let test_blockpath: &str = "test-vectors/0_13284491/input";
     p.load_block(test_blockpath).unwrap();
-
+    */
+    let p: Program = Program::load_bin(&code, max_mem).unwrap();
     let code_hash_bytes = keccak(&code).0;
     let code_hash_be = core::array::from_fn(|i| {
         u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))

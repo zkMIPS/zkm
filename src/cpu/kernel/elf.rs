@@ -198,6 +198,31 @@ impl Program {
 
         Ok(Program { entry, image })
     }
+
+    /// Initialize a MIPS Program from an appropriate ELF file
+    pub fn load_bin(input: &[u8], max_mem: u32) -> Result<Program> {
+        let mut image: BTreeMap<u32, u32> = BTreeMap::new();
+        let vaddr: usize = 0;
+        let offset = 0;
+        for i in (0..input.len()).step_by(WORD_SIZE) {
+            let addr = vaddr.checked_add(i).context("Invalid segment vaddr")?;
+            if addr >= max_mem as usize {
+                bail!("Address [0x{addr:08x}] exceeds maximum address for guest programs [0x{max_mem:08x}]");
+            }
+
+            let mut word = 0;
+            // Don't read past the end of the file.
+            let len = core::cmp::min(input.len() - i, WORD_SIZE);
+            for j in 0..len {
+                let offset = (offset + i + j) as usize;
+                let byte = input.get(offset).context("Invalid segment offset")?;
+                word |= (*byte as u32) << (j * 8);
+            }
+            image.insert(addr as u32, word);
+        }
+        let entry = 0u32;
+        Ok(Program { entry, image })
+    }
 }
 
 #[cfg(test)]

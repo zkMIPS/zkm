@@ -530,7 +530,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_mips_prove_and_verify() {
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
