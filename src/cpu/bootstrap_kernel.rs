@@ -14,7 +14,7 @@ use crate::generation::state::GenerationState;
 
 use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
-use crate::witness::util::{mem_write_gp_log_and_fill};
+use crate::witness::util::mem_write_gp_log_and_fill;
 
 pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>) {
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.

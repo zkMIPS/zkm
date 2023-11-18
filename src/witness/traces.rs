@@ -48,8 +48,8 @@ impl<T: Copy> Traces<T> {
             cpu: vec![],
             logic_ops: vec![],
             memory_ops: vec![],
-       //     keccak_inputs: vec![],
-       //     keccak_sponge_ops: vec![],
+            //     keccak_inputs: vec![],
+            //     keccak_sponge_ops: vec![],
         }
     }
 
@@ -172,8 +172,8 @@ impl<T: Copy> Traces<T> {
             cpu,
             logic_ops,
             memory_ops,
-           // keccak_inputs,
-           // keccak_sponge_ops,
+            // keccak_inputs,
+            // keccak_sponge_ops,
         } = self;
 
         let arithmetic_trace = timed!(

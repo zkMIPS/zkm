@@ -349,14 +349,14 @@ mod tests {
     use crate::cross_table_lookup::{
         cross_table_lookup_data_ex, get_grand_product_challenge_set, CtlCheckVars,
     };
-    use crate::witness::memory::{MemoryAddress, MemoryOp, MemoryOpKind, MemoryChannel};
-    use crate::memory::segments::Segment;
-    use crate::memory::memory_stark::{MemoryStark};
     use crate::logic::{LogicStark, Op, Operation};
+    use crate::memory::memory_stark::MemoryStark;
+    use crate::memory::segments::Segment;
     use crate::prover::prove_single_table;
     use crate::stark::Stark;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
     use crate::verifier::verify_stark_proof_with_challenges;
+    use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
     use anyhow::Result;
     use plonky2::fri::oracle::PolynomialBatch;
     use plonky2::iop::challenger::Challenger;
@@ -447,13 +447,48 @@ mod tests {
             MemoryAddress::new(0, Segment::Code, 8),
         ];
         let mem_ops = vec![
-            MemoryOp::new(MemoryChannel::Code, clock, address[0], MemoryOpKind::Write, 0),
-            MemoryOp::new(MemoryChannel::Code, clock + 1, address[1], MemoryOpKind::Write, 1),
-            MemoryOp::new(MemoryChannel::Code, clock + 2, address[2], MemoryOpKind::Write, 0),
-
-            MemoryOp::new(MemoryChannel::Code, clock + 3, address[0], MemoryOpKind::Read, 0),
-            MemoryOp::new(MemoryChannel::Code, clock + 4, address[1], MemoryOpKind::Read, 1),
-            MemoryOp::new(MemoryChannel::Code, clock + 5, address[2], MemoryOpKind::Read, 0),
+            MemoryOp::new(
+                MemoryChannel::Code,
+                clock,
+                address[0],
+                MemoryOpKind::Write,
+                0,
+            ),
+            MemoryOp::new(
+                MemoryChannel::Code,
+                clock + 1,
+                address[1],
+                MemoryOpKind::Write,
+                1,
+            ),
+            MemoryOp::new(
+                MemoryChannel::Code,
+                clock + 2,
+                address[2],
+                MemoryOpKind::Write,
+                0,
+            ),
+            MemoryOp::new(
+                MemoryChannel::Code,
+                clock + 3,
+                address[0],
+                MemoryOpKind::Read,
+                0,
+            ),
+            MemoryOp::new(
+                MemoryChannel::Code,
+                clock + 4,
+                address[1],
+                MemoryOpKind::Read,
+                1,
+            ),
+            MemoryOp::new(
+                MemoryChannel::Code,
+                clock + 5,
+                address[2],
+                MemoryOpKind::Read,
+                0,
+            ),
         ];
         let cpu_trace_poly_values = mem_stark.generate_trace(mem_ops, &mut timing);
 
