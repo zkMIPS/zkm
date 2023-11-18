@@ -243,6 +243,7 @@ where
         )?
     );
 
+    /*
     let keccak_proof = timed!(
         timing,
         "prove Keccak STARK",
@@ -271,6 +272,7 @@ where
             timing,
         )?
     );
+    */
     let logic_proof = timed!(
         timing,
         "prove logic STARK",
@@ -304,8 +306,8 @@ where
         arithmetic_proof,
         //byte_packing_proof,
         cpu_proof,
-        keccak_proof,
-        keccak_sponge_proof,
+        //keccak_proof,
+        //keccak_sponge_proof,
         logic_proof,
         memory_proof,
     ])

@@ -57,9 +57,9 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
 /// 36, out 68. But the looking table offers in0 77, in1 83, out 89.
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
     println!("{:?}", COL_MAP.mem_channels);
-    let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value - 73]).collect_vec();
-    res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value - 47]));
-    res.extend(Column::singles(vec![COL_MAP.mem_channels[2].value - 21]));
+    let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value]).collect_vec();
+    res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value]));
+    res.extend(Column::singles(vec![COL_MAP.mem_channels[2].value]));
     res
 }
 

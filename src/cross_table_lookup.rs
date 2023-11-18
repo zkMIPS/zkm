@@ -182,6 +182,7 @@ impl<F: Field> Column<F> {
             .sum::<F>()
             + self.constant;
 
+        //log::debug!("lc: {:?}\ntable: {:?}, len = {}, \nrow: {}, res: {}", self, table, table.len(), row, res);
         // If we access the next row at the last row, for sanity, we consider the next row's values to be 0.
         // If CTLs are correctly written, the filter should be 0 in that case anyway.
         if !self.next_row_linear_combination.is_empty() && row < table[0].values.len() - 1 {
@@ -564,6 +565,7 @@ fn partial_products<F: Field>(
         } else {
             F::ONE
         };
+        println!("filter: {filter}");
         if filter.is_one() {
             let evals = columns
                 .iter()
@@ -1055,7 +1057,7 @@ pub(crate) mod testutils {
             Some(Column::single(2)), // f: (0, 1)
         )];
 
-        // select_f * f = trace[looking_col[row]][row] * \sum_{row=0..n, i=0..m} ([trace[looking_col[i]][row] ...]), where n is domain size, m is the looking_col.size,
+        // select_f * f = trace[looking_col[i]][row] * \sum_{row=0..n, i=0..m}, where n is domain size, m is the looking_col.size,
 
         // check select_f * f \in select_t * t
         let cross_tables = CrossTableLookup::new(lookings, looked);

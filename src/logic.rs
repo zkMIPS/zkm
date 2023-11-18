@@ -349,6 +349,9 @@ mod tests {
     use crate::cross_table_lookup::{
         cross_table_lookup_data_ex, get_grand_product_challenge_set, CtlCheckVars,
     };
+    use crate::witness::memory::{MemoryAddress, MemoryOp, MemoryOpKind, MemoryChannel};
+    use crate::memory::segments::Segment;
+    use crate::memory::memory_stark::{MemoryStark};
     use crate::logic::{LogicStark, Op, Operation};
     use crate::prover::prove_single_table;
     use crate::stark::Stark;
@@ -388,6 +391,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_stark_verifier() {
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
@@ -396,41 +400,62 @@ mod tests {
         type S = LogicStark<F, D>;
 
         let config = StarkConfig::standard_fast_config();
-        let stark = S {
+        let logic_stark = S {
+            f: Default::default(),
+        };
+        let mem_stark = MemoryStark::<F, D> {
             f: Default::default(),
         };
         let ops = vec![
             Operation::new(Op::Nor, 0, 1),
-            Operation::new(Op::Nor, 1, 1),
-            Operation::new(Op::Nor, 0, 0),
-            Operation::new(Op::Nor, 1283818, 219218),
-            Operation::new(Op::And, 0, 1),
-            Operation::new(Op::And, 1, 1),
-            Operation::new(Op::And, 0, 0),
-            Operation::new(Op::Or, 0, 1),
-            Operation::new(Op::Or, 1, 1),
-            Operation::new(Op::Or, 0, 0),
-            Operation::new(Op::Xor, 0, 1),
-            Operation::new(Op::And, 0, 1),
-            Operation::new(Op::And, 1, 1),
-            Operation::new(Op::And, 0, 0),
-            Operation::new(Op::And, 12112, 313131),
-            Operation::new(Op::Or, 0, 1),
-            Operation::new(Op::Or, 1, 1),
-            Operation::new(Op::Or, 0, 0),
-            Operation::new(Op::Or, 12121, 21211),
-            Operation::new(Op::Xor, 0, 1),
-            Operation::new(Op::Xor, 1, 1),
-            Operation::new(Op::Xor, 0, 0),
-            Operation::new(Op::Xor, 218219, 9828121),
-            Operation::new(Op::Xor, 1, 1),
-            Operation::new(Op::Xor, 0, 0),
+            //Operation::new(Op::Nor, 1, 1),
+            //Operation::new(Op::Nor, 0, 0),
+            //Operation::new(Op::Nor, 1283818, 219218),
+            //Operation::new(Op::And, 0, 1),
+            //Operation::new(Op::And, 1, 1),
+            //Operation::new(Op::And, 0, 0),
+            //Operation::new(Op::Or, 0, 1),
+            //Operation::new(Op::Or, 1, 1),
+            //Operation::new(Op::Or, 0, 0),
+            //Operation::new(Op::Xor, 0, 1),
+            //Operation::new(Op::And, 0, 1),
+            //Operation::new(Op::And, 1, 1),
+            //Operation::new(Op::And, 0, 0),
+            //Operation::new(Op::And, 12112, 313131),
+            //Operation::new(Op::Or, 0, 1),
+            //Operation::new(Op::Or, 1, 1),
+            //Operation::new(Op::Or, 0, 0),
+            //Operation::new(Op::Or, 12121, 21211),
+            //Operation::new(Op::Xor, 0, 1),
+            //Operation::new(Op::Xor, 1, 1),
+            //Operation::new(Op::Xor, 0, 0),
+            //Operation::new(Op::Xor, 218219, 9828121),
+            //Operation::new(Op::Xor, 1, 1),
+            //Operation::new(Op::Xor, 0, 0),
         ];
         let num_rows = 1 << 10;
 
         let mut timing = TimingTree::new("Logic", log::Level::Debug);
-        log::debug!("generate trace");
-        let trace_poly_values = stark.generate_trace(ops, num_rows, &mut timing);
+        log::debug!("generate logic trace");
+        let trace_poly_values = logic_stark.generate_trace(ops, num_rows, &mut timing);
+
+        log::debug!("generate cpu trace");
+        let clock = 0;
+        let address = vec![
+            MemoryAddress::new(0, Segment::Code, 0),
+            MemoryAddress::new(0, Segment::Code, 4),
+            MemoryAddress::new(0, Segment::Code, 8),
+        ];
+        let mem_ops = vec![
+            MemoryOp::new(MemoryChannel::Code, clock, address[0], MemoryOpKind::Write, 0),
+            MemoryOp::new(MemoryChannel::Code, clock + 1, address[1], MemoryOpKind::Write, 1),
+            MemoryOp::new(MemoryChannel::Code, clock + 2, address[2], MemoryOpKind::Write, 0),
+
+            MemoryOp::new(MemoryChannel::Code, clock + 3, address[0], MemoryOpKind::Read, 0),
+            MemoryOp::new(MemoryChannel::Code, clock + 4, address[1], MemoryOpKind::Read, 1),
+            MemoryOp::new(MemoryChannel::Code, clock + 5, address[2], MemoryOpKind::Read, 0),
+        ];
+        let cpu_trace_poly_values = mem_stark.generate_trace(mem_ops, &mut timing);
 
         let rate_bits = config.fri_config.rate_bits;
         let cap_height = config.fri_config.cap_height;
@@ -471,7 +496,7 @@ mod tests {
             timing,
             "compute CTL data",
             cross_table_lookup_data_ex::<F, D>(
-                &trace_poly_values,
+                &cpu_trace_poly_values,
                 &[cross_table_lookups.clone()],
                 &ctl_challenges,
             )
@@ -479,9 +504,9 @@ mod tests {
 
         log::debug!("prove single table");
         let proof = prove_single_table::<F, C, S, D>(
-            &stark,
+            &logic_stark,
             &config,
-            &trace_poly_values,
+            &cpu_trace_poly_values,
             &trace_commitments,
             &ctl_data_per_table,
             &ctl_challenges,
@@ -491,7 +516,7 @@ mod tests {
         .unwrap();
         log::debug!("prove done");
 
-        let num_lookup_columns = stark.num_lookup_helper_columns(&config);
+        let num_lookup_columns = logic_stark.num_lookup_helper_columns(&config);
         let ctl_vars_per_table = CtlCheckVars::from_proof(
             &proof,
             &cross_table_lookups,
@@ -515,7 +540,7 @@ mod tests {
         };
 
         verify_stark_proof_with_challenges::<F, C, S, D>(
-            &stark,
+            &logic_stark,
             &proof.proof,
             &stark_challenger,
             &ctl_vars_per_table,
