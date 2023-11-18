@@ -540,7 +540,7 @@ mod tests {
 
         let allstark: AllStark<F, D> = AllStark::default();
         let mut config = StarkConfig::standard_fast_config();
-        config.fri_config.rate_bits = 2;
+        config.fri_config.rate_bits = 3;
 
         let input = GenerationInputs {};
 
