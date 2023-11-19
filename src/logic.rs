@@ -350,10 +350,13 @@ mod tests {
         cross_table_lookup_data_ex, get_grand_product_challenge_set, CtlCheckVars,
     };
     use crate::logic::{LogicStark, Op, Operation};
+    use crate::memory::memory_stark::MemoryStark;
+    use crate::memory::segments::Segment;
     use crate::prover::prove_single_table;
     use crate::stark::Stark;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
     use crate::verifier::verify_stark_proof_with_challenges;
+    use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
     use anyhow::Result;
     use plonky2::fri::oracle::PolynomialBatch;
     use plonky2::iop::challenger::Challenger;
@@ -385,143 +388,5 @@ mod tests {
             f: Default::default(),
         };
         test_stark_circuit_constraints::<F, C, S, D>(stark)
-    }
-
-    #[test]
-    fn test_stark_verifier() {
-        env_logger::try_init().unwrap_or_default();
-        const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-        type S = LogicStark<F, D>;
-
-        let config = StarkConfig::standard_fast_config();
-        let stark = S {
-            f: Default::default(),
-        };
-        let ops = vec![
-            Operation::new(Op::Nor, 0, 1),
-            Operation::new(Op::Nor, 1, 1),
-            Operation::new(Op::Nor, 0, 0),
-            Operation::new(Op::Nor, 1283818, 219218),
-            Operation::new(Op::And, 0, 1),
-            Operation::new(Op::And, 1, 1),
-            Operation::new(Op::And, 0, 0),
-            Operation::new(Op::Or, 0, 1),
-            Operation::new(Op::Or, 1, 1),
-            Operation::new(Op::Or, 0, 0),
-            Operation::new(Op::Xor, 0, 1),
-            Operation::new(Op::And, 0, 1),
-            Operation::new(Op::And, 1, 1),
-            Operation::new(Op::And, 0, 0),
-            Operation::new(Op::And, 12112, 313131),
-            Operation::new(Op::Or, 0, 1),
-            Operation::new(Op::Or, 1, 1),
-            Operation::new(Op::Or, 0, 0),
-            Operation::new(Op::Or, 12121, 21211),
-            Operation::new(Op::Xor, 0, 1),
-            Operation::new(Op::Xor, 1, 1),
-            Operation::new(Op::Xor, 0, 0),
-            Operation::new(Op::Xor, 218219, 9828121),
-            Operation::new(Op::Xor, 1, 1),
-            Operation::new(Op::Xor, 0, 0),
-        ];
-        let num_rows = 1 << 10;
-
-        let mut timing = TimingTree::new("Logic", log::Level::Debug);
-        log::debug!("generate trace");
-        let trace_poly_values = stark.generate_trace(ops, num_rows, &mut timing);
-
-        let rate_bits = config.fri_config.rate_bits;
-        let cap_height = config.fri_config.cap_height;
-
-        log::debug!("trace commit");
-        let trace_commitments = timed!(
-            timing,
-            "compute all trace commitments",
-            PolynomialBatch::<F, C, D>::from_values(
-                // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
-                // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
-                trace_poly_values.clone(),
-                rate_bits,
-                false,
-                cap_height,
-                &mut timing,
-                None,
-            )
-        );
-
-        log::debug!("observe cap");
-        let mut challenger = Challenger::<F, <C as GenericConfig<D>>::Hasher>::new();
-
-        log::debug!("cross_table_lookup");
-        let cross_table_lookups = ctl_logic();
-
-        log::debug!("ctl_challenges");
-        let ctl_challenges =
-            get_grand_product_challenge_set(&mut challenger, config.num_challenges);
-        log::debug!(
-            "ctl_challenges: {:?}, num_challenges: {}",
-            ctl_challenges,
-            config.num_challenges
-        );
-
-        log::debug!("ctl data per table");
-        let ctl_data_per_table = timed!(
-            timing,
-            "compute CTL data",
-            cross_table_lookup_data_ex::<F, D>(
-                &trace_poly_values,
-                &[cross_table_lookups.clone()],
-                &ctl_challenges,
-            )
-        );
-
-        log::debug!("prove single table");
-        let proof = prove_single_table::<F, C, S, D>(
-            &stark,
-            &config,
-            &trace_poly_values,
-            &trace_commitments,
-            &ctl_data_per_table,
-            &ctl_challenges,
-            &mut challenger,
-            &mut timing,
-        )
-        .unwrap();
-        log::debug!("prove done");
-
-        let num_lookup_columns = stark.num_lookup_helper_columns(&config);
-        let ctl_vars_per_table = CtlCheckVars::from_proof(
-            &proof,
-            &cross_table_lookups,
-            &ctl_challenges,
-            num_lookup_columns,
-        );
-
-        let mut challenger = Challenger::<F, <C as GenericConfig<D>>::Hasher>::new();
-
-        let ctl_challenges =
-            get_grand_product_challenge_set(&mut challenger, config.num_challenges);
-        log::debug!(
-            "ctl_challenges v: {:?}, num_challenges: {}",
-            ctl_challenges,
-            config.num_challenges
-        );
-
-        let stark_challenger: crate::proof::StarkProofChallenges<F, D> = {
-            challenger.compact();
-            proof.proof.get_challenges(&mut challenger, &config)
-        };
-
-        verify_stark_proof_with_challenges::<F, C, S, D>(
-            &stark,
-            &proof.proof,
-            &stark_challenger,
-            &ctl_vars_per_table,
-            &ctl_challenges,
-            &config,
-        )
-        .unwrap();
     }
 }

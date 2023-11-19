@@ -23,8 +23,8 @@ pub struct TraceCheckpoint {
     pub(self) arithmetic_len: usize,
     //    pub(self) byte_packing_len: usize,
     pub(self) cpu_len: usize,
-    pub(self) keccak_len: usize,
-    pub(self) keccak_sponge_len: usize,
+    //pub(self) keccak_len: usize,
+    //pub(self) keccak_sponge_len: usize,
     pub(self) logic_len: usize,
     pub(self) memory_len: usize,
 }
@@ -36,8 +36,8 @@ pub(crate) struct Traces<T: Copy> {
     pub(crate) cpu: Vec<CpuColumnsView<T>>,
     pub(crate) logic_ops: Vec<logic::Operation>,
     pub(crate) memory_ops: Vec<MemoryOp>,
-    pub(crate) keccak_inputs: Vec<([u64; keccak::keccak_stark::NUM_INPUTS], usize)>,
-    pub(crate) keccak_sponge_ops: Vec<KeccakSpongeOp>,
+    //pub(crate) keccak_inputs: Vec<([u64; keccak::keccak_stark::NUM_INPUTS], usize)>,
+    //pub(crate) keccak_sponge_ops: Vec<KeccakSpongeOp>,
 }
 
 impl<T: Copy> Traces<T> {
@@ -48,8 +48,8 @@ impl<T: Copy> Traces<T> {
             cpu: vec![],
             logic_ops: vec![],
             memory_ops: vec![],
-            keccak_inputs: vec![],
-            keccak_sponge_ops: vec![],
+            //     keccak_inputs: vec![],
+            //     keccak_sponge_ops: vec![],
         }
     }
 
@@ -69,12 +69,14 @@ impl<T: Copy> Traces<T> {
                 .sum(),
             // byte_packing_len: self.byte_packing_ops.iter().map(|op| op.bytes.len()).sum(),
             cpu_len: self.cpu.len(),
+            /*
             keccak_len: self.keccak_inputs.len() * keccak::keccak_stark::NUM_ROUNDS,
             keccak_sponge_len: self
                 .keccak_sponge_ops
                 .iter()
                 .map(|op| op.input.len() / keccak_sponge::columns::KECCAK_RATE_BYTES + 1)
                 .sum(),
+            */
             logic_len: self.logic_ops.len(),
             // This is technically a lower-bound, as we may fill gaps,
             // but this gives a relatively good estimate.
@@ -88,8 +90,8 @@ impl<T: Copy> Traces<T> {
             arithmetic_len: self.arithmetic_ops.len(),
             //         byte_packing_len: self.byte_packing_ops.len(),
             cpu_len: self.cpu.len(),
-            keccak_len: self.keccak_inputs.len(),
-            keccak_sponge_len: self.keccak_sponge_ops.len(),
+            //keccak_len: self.keccak_inputs.len(),
+            //keccak_sponge_len: self.keccak_sponge_ops.len(),
             logic_len: self.logic_ops.len(),
             memory_len: self.memory_ops.len(),
         }
@@ -99,9 +101,9 @@ impl<T: Copy> Traces<T> {
         self.arithmetic_ops.truncate(checkpoint.arithmetic_len);
         //self.byte_packing_ops.truncate(checkpoint.byte_packing_len);
         self.cpu.truncate(checkpoint.cpu_len);
-        self.keccak_inputs.truncate(checkpoint.keccak_len);
-        self.keccak_sponge_ops
-            .truncate(checkpoint.keccak_sponge_len);
+        //self.keccak_inputs.truncate(checkpoint.keccak_len);
+        //self.keccak_sponge_ops
+        //    .truncate(checkpoint.keccak_sponge_len);
         self.logic_ops.truncate(checkpoint.logic_len);
         self.memory_ops.truncate(checkpoint.memory_len);
     }
@@ -130,7 +132,6 @@ impl<T: Copy> Traces<T> {
     pub fn push_byte_packing(&mut self, op: BytePackingOp) {
         self.byte_packing_ops.push(op);
     }
-    */
 
     pub fn push_keccak(&mut self, input: [u64; keccak::keccak_stark::NUM_INPUTS], clock: usize) {
         self.keccak_inputs.push((input, clock));
@@ -149,6 +150,7 @@ impl<T: Copy> Traces<T> {
     pub fn push_keccak_sponge(&mut self, op: KeccakSpongeOp) {
         self.keccak_sponge_ops.push(op);
     }
+    */
 
     pub fn clock(&self) -> usize {
         self.cpu.len()
@@ -170,8 +172,8 @@ impl<T: Copy> Traces<T> {
             cpu,
             logic_ops,
             memory_ops,
-            keccak_inputs,
-            keccak_sponge_ops,
+            // keccak_inputs,
+            // keccak_sponge_ops,
         } = self;
 
         let arithmetic_trace = timed!(
@@ -190,6 +192,7 @@ impl<T: Copy> Traces<T> {
         */
         let cpu_rows = cpu.into_iter().map(|x| x.into()).collect();
         let cpu_trace = trace_rows_to_poly_values(cpu_rows);
+        /*
         let keccak_trace = timed!(
             timing,
             "generate Keccak trace",
@@ -204,6 +207,7 @@ impl<T: Copy> Traces<T> {
                 .keccak_sponge_stark
                 .generate_trace(keccak_sponge_ops, cap_elements, timing)
         );
+        */
         let logic_trace = timed!(
             timing,
             "generate logic trace",
@@ -221,8 +225,8 @@ impl<T: Copy> Traces<T> {
             arithmetic_trace,
             //byte_packing_trace,
             cpu_trace,
-            keccak_trace,
-            keccak_sponge_trace,
+            //keccak_trace,
+            //keccak_sponge_trace,
             logic_trace,
             memory_trace,
         ]

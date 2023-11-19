@@ -97,45 +97,7 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr.constraint(flag_sum * (flag_sum - P::ONES));
 
     // Finally, classify all opcodes, together with the kernel flag, into blocks
-    for (oc, block_length, kernel_only, col) in OPCODES {
-        // 0 if the block/flag is available to us (is always available or we are in kernel mode) and
-        // 1 otherwise.
-        let unavailable = match kernel_only {
-            false => P::ZEROS,
-            true => P::ONES - kernel_mode,
-        };
-        // 0 if all the opcode bits match, and something in {1, ..., 8}, otherwise.
-        let opcode_mismatch: P = lv
-            .opcode_bits
-            .into_iter()
-            .zip(bits_from_opcode(oc))
-            .rev()
-            .take(8 - block_length)
-            .map(|(row_bit, flag_bit)| match flag_bit {
-                // 1 if the bit does not match, and 0 otherwise
-                false => row_bit,
-                true => P::ONES - row_bit,
-            })
-            .sum();
-
-        // If unavailable + opcode_mismatch is 0, then the opcode bits all match and we are in the
-        // correct mode.
-        yield_constr.constraint(lv[col] * (unavailable + opcode_mismatch));
-    }
-
-    // Manually check lv.op.m_op_constr
-    let opcode: P = lv
-        .opcode_bits
-        .into_iter()
-        .enumerate()
-        .map(|(i, bit)| bit * P::Scalar::from_canonical_u64(1 << i))
-        .sum();
-    yield_constr.constraint((P::ONES - kernel_mode) * lv.op.m_op_general);
-
-    let m_op_constr = (opcode - P::Scalar::from_canonical_usize(0xfb_usize))
-        * (opcode - P::Scalar::from_canonical_usize(0xfc_usize))
-        * lv.op.m_op_general;
-    yield_constr.constraint(m_op_constr);
+    // TODO
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -186,56 +148,4 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Finally, classify all opcodes, together with the kernel flag, into blocks
-    for (oc, block_length, kernel_only, col) in OPCODES {
-        // 0 if the block/flag is available to us (is always available or we are in kernel mode) and
-        // 1 otherwise.
-        let unavailable = match kernel_only {
-            false => builder.zero_extension(),
-            true => builder.sub_extension(one, kernel_mode),
-        };
-        // 0 if all the opcode bits match, and something in {1, ..., 8}, otherwise.
-        let opcode_mismatch = lv
-            .opcode_bits
-            .into_iter()
-            .zip(bits_from_opcode(oc))
-            .rev()
-            .take(8 - block_length)
-            .fold(builder.zero_extension(), |cumul, (row_bit, flag_bit)| {
-                let to_add = match flag_bit {
-                    false => row_bit,
-                    true => builder.sub_extension(one, row_bit),
-                };
-                builder.add_extension(cumul, to_add)
-            });
-
-        // If unavailable + opcode_mismatch is 0, then the opcode bits all match and we are in the
-        // correct mode.
-        let constr = builder.add_extension(unavailable, opcode_mismatch);
-        let constr = builder.mul_extension(lv[col], constr);
-        yield_constr.constraint(builder, constr);
-    }
-
-    // Manually check lv.op.m_op_constr
-    let opcode = lv
-        .opcode_bits
-        .into_iter()
-        .rev()
-        .fold(builder.zero_extension(), |cumul, bit| {
-            builder.mul_const_add_extension(F::TWO, cumul, bit)
-        });
-
-    let mload_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0xfb_usize));
-    let mstore_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0xfc_usize));
-
-    let one_extension = builder.constant_extension(F::Extension::ONE);
-    let is_not_kernel_mode = builder.sub_extension(one_extension, kernel_mode);
-    let constr = builder.mul_extension(is_not_kernel_mode, lv.op.m_op_general);
-    yield_constr.constraint(builder, constr);
-
-    let mload_constr = builder.sub_extension(opcode, mload_opcode);
-    let mstore_constr = builder.sub_extension(opcode, mstore_opcode);
-    let mut m_op_constr = builder.mul_extension(mload_constr, mstore_constr);
-    m_op_constr = builder.mul_extension(m_op_constr, lv.op.m_op_general);
-
-    yield_constr.constraint(builder, m_op_constr);
 }

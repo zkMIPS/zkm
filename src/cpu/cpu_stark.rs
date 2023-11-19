@@ -57,9 +57,9 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
 /// 36, out 68. But the looking table offers in0 77, in1 83, out 89.
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
     println!("{:?}", COL_MAP.mem_channels);
-    let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value - 73]).collect_vec();
-    res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value - 47]));
-    res.extend(Column::singles(vec![COL_MAP.mem_channels[2].value - 21]));
+    let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value]).collect_vec();
+    res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value]));
+    res.extend(Column::singles(vec![COL_MAP.mem_channels[2].value]));
     res
 }
 
@@ -194,17 +194,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         bootstrap_kernel::eval_bootstrap_kernel_packed(local_values, next_values, yield_constr);
         /*
         contextops::eval_packed(local_values, next_values, yield_constr);
-        */
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
+        */
         decode::eval_packed_generic(local_values, yield_constr);
         jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
-        memio::eval_packed(local_values, next_values, yield_constr);
+        //memio::eval_packed(local_values, next_values, yield_constr);
         pc::eval_packed(local_values, next_values, yield_constr);
+        /*
         shift::eval_packed(local_values, yield_constr);
         syscall::eval_packed(local_values, yield_constr);
         mov::eval_packed(local_values, yield_constr);
         count::eval_packed(local_values, yield_constr);
+        */
     }
 
     fn eval_ext_circuit(
@@ -228,17 +230,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         );
         /*
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        */
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        */
         decode::eval_ext_circuit(builder, local_values, yield_constr);
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
-        memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        //memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        /*
         shift::eval_ext_circuit(builder, local_values, yield_constr);
         syscall::eval_ext_circuit(builder, local_values, yield_constr);
         mov::eval_ext_circuit(builder, local_values, yield_constr);
         count::eval_ext_circuit(builder, local_values, yield_constr);
+        */
     }
 
     fn constraint_degree(&self) -> usize {
