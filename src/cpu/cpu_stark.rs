@@ -199,7 +199,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         decode::eval_packed_generic(local_values, yield_constr);
         jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
-        memio::eval_packed(local_values, next_values, yield_constr);
+        //memio::eval_packed(local_values, next_values, yield_constr);
         pc::eval_packed(local_values, next_values, yield_constr);
         /*
         shift::eval_packed(local_values, yield_constr);
@@ -235,7 +235,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         decode::eval_ext_circuit(builder, local_values, yield_constr);
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
-        memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        //memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         /*
         shift::eval_ext_circuit(builder, local_values, yield_constr);

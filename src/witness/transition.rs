@@ -42,7 +42,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
     let sa = ((insn >> 6) & 0x1F).to_le_bytes()[0];
     let offset = insn & 0xffff; // as known as imm
     let target = insn & 0x3ffffff;
-    println!(
+    log::debug!(
         "op {}, func {}, rt {}, rs {}, rd {}",
         opcode, func, rt, rs, rd
     );
