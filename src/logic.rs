@@ -124,7 +124,7 @@ pub(crate) struct Operation {
 impl Operation {
     pub(crate) fn new(operator: Op, input0: u32, input1: u32) -> Self {
         let result = operator.result(input0, input1);
-        println!("{:?}: {} {} => {}", operator, input0, input1, result);
+        log::debug!("{:?}: {} {} => {}", operator, input0, input1, result);
         Operation {
             operator,
             input0,
@@ -354,10 +354,15 @@ mod tests {
     use crate::memory::segments::Segment;
     use crate::prover::prove_single_table;
     use crate::stark::Stark;
-    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+    use crate::stark_testing::{
+        test_stark_check_constraints, test_stark_circuit_constraints, test_stark_low_degree,
+    };
     use crate::verifier::verify_stark_proof_with_challenges;
     use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
     use anyhow::Result;
+    use plonky2::field::extension::Extendable;
+    use plonky2::field::extension::FieldExtension;
+    use plonky2::field::types::Field;
     use plonky2::fri::oracle::PolynomialBatch;
     use plonky2::iop::challenger::Challenger;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
@@ -388,5 +393,51 @@ mod tests {
             f: Default::default(),
         };
         test_stark_circuit_constraints::<F, C, S, D>(stark)
+    }
+
+    #[test]
+    fn test_stark_check_constraint() {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = LogicStark<F, D>;
+
+        let stark = S {
+            f: Default::default(),
+        };
+
+        let ops = vec![
+            Operation::new(Op::Nor, 0, 1),
+            Operation::new(Op::Nor, 1, 1),
+            Operation::new(Op::Nor, 0, 0),
+            Operation::new(Op::Nor, 1283818, 219218),
+            Operation::new(Op::And, 0, 1),
+            Operation::new(Op::And, 1, 1),
+            Operation::new(Op::And, 0, 0),
+            Operation::new(Op::Or, 0, 1),
+            Operation::new(Op::Or, 1, 1),
+            Operation::new(Op::Or, 0, 0),
+            Operation::new(Op::Xor, 0, 1),
+            Operation::new(Op::And, 0, 1),
+            Operation::new(Op::And, 1, 1),
+            Operation::new(Op::And, 0, 0),
+            Operation::new(Op::And, 12112, 313131),
+            Operation::new(Op::Or, 0, 1),
+            Operation::new(Op::Or, 1, 1),
+            Operation::new(Op::Or, 0, 0),
+            Operation::new(Op::Or, 12121, 21211),
+            Operation::new(Op::Xor, 0, 1),
+            Operation::new(Op::Xor, 1, 1),
+            Operation::new(Op::Xor, 0, 0),
+            Operation::new(Op::Xor, 218219, 9828121),
+            Operation::new(Op::Xor, 1, 1),
+            Operation::new(Op::Xor, 0, 0),
+        ];
+        let num_rows = 1 << 10;
+        let vals = stark.generate_trace_rows(ops, num_rows);
+
+        for i in 0..(vals.len() - 1) {
+            test_stark_check_constraints::<F, C, S, D>(stark, &vals[i], &vals[i + 1]);
+        }
     }
 }
