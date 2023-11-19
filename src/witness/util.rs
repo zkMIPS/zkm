@@ -46,6 +46,7 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
 ) -> (u32, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::Code, address, state);
 
+    let val = val.to_be();
     let val_func = to_byte_checked(val & 0x3F);
     let val_shamt = to_byte_checked((val >> 6) & 0x1F);
     let val_rd = to_byte_checked((val >> 11) & 0x1F);
