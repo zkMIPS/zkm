@@ -253,10 +253,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use plonky2::field::extension::{Extendable, FieldExtension};
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
+    use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
+    use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
     use crate::cpu::cpu_stark::CpuStark;
-    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+    use crate::cpu::kernel::KERNEL;
+    use crate::generation::generate_traces;
+    use crate::generation::state::GenerationState;
+    use crate::generation::GenerationInputs;
+    use crate::stark_testing::{
+        test_stark_check_constraints, test_stark_circuit_constraints, test_stark_low_degree,
+    };
 
     #[test]
     fn test_stark_degree() -> Result<()> {
@@ -283,5 +292,32 @@ mod tests {
             f: Default::default(),
         };
         test_stark_circuit_constraints::<F, C, S, D>(stark)
+    }
+
+    #[test]
+    fn test_stark_check_memio() {
+        env_logger::try_init().unwrap_or_default();
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = CpuStark<F, D>;
+
+        let stark = S {
+            f: Default::default(),
+        };
+
+        let inputs = GenerationInputs {};
+        let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code, 4).unwrap();
+        generate_bootstrap_kernel::<F>(&mut state);
+
+        let vals: Vec<[F; NUM_CPU_COLUMNS]> = state
+            .traces
+            .cpu
+            .into_iter()
+            .map(|x| x.into())
+            .collect::<Vec<_>>();
+        for i in 0..(vals.len() - 1) {
+            test_stark_check_constraints::<F, C, S, D>(stark, &vals[i], &vals[i + 1]);
+        }
     }
 }
