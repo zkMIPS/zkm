@@ -90,17 +90,14 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     // constraint: is_jump * (next_program_coutner - reg[rs]) == 0
     {
         let reg_dst = lv.mem_channels[0].value;
-        let jump_dest = reg_dst;
-        yield_constr.constraint(is_jump * (nv.program_counter - jump_dest));
+        yield_constr.constraint(is_jump * (nv.program_counter - reg_dst));
     }
 
     // Check `jump target register`:
     // constraint: is_jump *(jump_reg - rs) == 0
     {
         let jump_reg = lv.mem_channels[0].addr_virtual;
-        let mut jump_reg_index = [P::ONES; 5];
-        jump_reg_index.copy_from_slice(&lv.rs_bits);
-        let jump_dst = limb_from_bits_le(jump_reg_index.into_iter());
+        let jump_dst = limb_from_bits_le(lv.rs_bits.into_iter());
         yield_constr.constraint(is_jump * (jump_dst - jump_reg));
     }
 
@@ -189,9 +186,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     // constraint: is_jump *(jump_reg - rs) == 0
     {
         let jump_reg = lv.mem_channels[0].addr_virtual;
-        let mut jump_reg_index = [one_extension; 5];
-        jump_reg_index.copy_from_slice(&lv.rs_bits);
-        let jump_dst = limb_from_bits_le_recursive(builder, jump_reg_index.into_iter());
+        let jump_dst = limb_from_bits_le_recursive(builder, lv.rs_bits.into_iter());
         let constr = builder.sub_extension(jump_dst, jump_reg);
         let constr = builder.mul_extension(constr, is_jump);
         yield_constr.constraint(builder, constr);
@@ -644,7 +639,7 @@ pub fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     eval_packed_exit_kernel(lv, nv, yield_constr);
-    //eval_packed_jump_jumpi(lv, nv, yield_constr);
+    eval_packed_jump_jumpi(lv, nv, yield_constr);
     //eval_packed_branch(lv, nv, yield_constr);
     //eval_packed_condmov(lv, nv, yield_constr);
 }
@@ -656,7 +651,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     eval_ext_circuit_exit_kernel(builder, lv, nv, yield_constr);
-    //eval_ext_circuit_jump_jumpi(builder, lv, nv, yield_constr);
+    eval_ext_circuit_jump_jumpi(builder, lv, nv, yield_constr);
     //eval_ext_circuit_branch(builder, lv, nv, yield_constr);
     //eval_ext_circuit_condmov(builder, lv, nv, yield_constr);
 }

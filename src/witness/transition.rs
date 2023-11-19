@@ -34,8 +34,6 @@ fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColum
 }
 
 fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramError> {
-    // FIXME: use big endian
-    let insn = insn.to_be();
     let opcode = ((insn >> 26) & 0x3F).to_le_bytes()[0];
     let func = (insn & 0x3F).to_le_bytes()[0];
     let rt = ((insn >> 16) & 0x1F).to_le_bytes()[0];
@@ -44,6 +42,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
     let sa = ((insn >> 6) & 0x1F).to_le_bytes()[0];
     let offset = insn & 0xffff; // as known as imm
     let target = insn & 0x3ffffff;
+    println!("op {}, func {}, rt {}, rs {}, rd {}", opcode, func, rt, rs, rd);
     log::debug!(
         "decode: insn {:X}, opcode {:X}, func {:X}",
         insn,
