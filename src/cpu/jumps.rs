@@ -644,9 +644,9 @@ pub fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     eval_packed_exit_kernel(lv, nv, yield_constr);
-    eval_packed_jump_jumpi(lv, nv, yield_constr);
-    eval_packed_branch(lv, nv, yield_constr);
-    eval_packed_condmov(lv, nv, yield_constr);
+    //eval_packed_jump_jumpi(lv, nv, yield_constr);
+    //eval_packed_branch(lv, nv, yield_constr);
+    //eval_packed_condmov(lv, nv, yield_constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -656,7 +656,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     eval_ext_circuit_exit_kernel(builder, lv, nv, yield_constr);
-    eval_ext_circuit_jump_jumpi(builder, lv, nv, yield_constr);
-    eval_ext_circuit_branch(builder, lv, nv, yield_constr);
-    eval_ext_circuit_condmov(builder, lv, nv, yield_constr);
+    //eval_ext_circuit_jump_jumpi(builder, lv, nv, yield_constr);
+    //eval_ext_circuit_branch(builder, lv, nv, yield_constr);
+    //eval_ext_circuit_condmov(builder, lv, nv, yield_constr);
 }
