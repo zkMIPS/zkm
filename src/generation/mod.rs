@@ -71,7 +71,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 }
 
 /// Perform MIPS instruction and transit state
-fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
     state: &mut GenerationState<F>,
 ) -> anyhow::Result<()> {
     let mut step = 0;

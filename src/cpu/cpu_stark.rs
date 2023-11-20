@@ -256,11 +256,12 @@ mod tests {
     use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
     use crate::cpu::cpu_stark::CpuStark;
     use crate::cpu::kernel::KERNEL;
+    use crate::generation::simulate_cpu;
     use crate::generation::state::GenerationState;
     use crate::generation::GenerationInputs;
     use crate::stark_testing::{
-        test_stark_check_constraints, test_stark_circuit_constraints, test_stark_low_degree,
-        test_stark_cpu_check_constraints,
+        test_stark_check_constraints, test_stark_circuit_constraints,
+        test_stark_cpu_check_constraints, test_stark_low_degree,
     };
 
     #[test]
@@ -305,8 +306,10 @@ mod tests {
         let inputs = GenerationInputs {};
         let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code, 40000000).unwrap();
         generate_bootstrap_kernel::<F>(&mut state);
+        simulate_cpu::<F, D>(&mut state).unwrap();
 
         let vals: Vec<[F; NUM_CPU_COLUMNS]> = state
+            .clone()
             .traces
             .cpu
             .into_iter()
@@ -314,7 +317,7 @@ mod tests {
             .collect::<Vec<_>>();
 
         for i in 0..(vals.len() - 1) {
-            println!("val: {:?}", vals[i]);
+            println!("vals: {:?}, cpu column: {:?}", vals[i], state.traces.cpu[i]);
             test_stark_cpu_check_constraints::<F, C, S, D>(stark, &vals[i], &vals[i + 1]);
         }
     }

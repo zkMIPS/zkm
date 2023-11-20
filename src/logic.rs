@@ -113,7 +113,7 @@ impl Op {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Operation {
     operator: Op,
     input0: u32,
