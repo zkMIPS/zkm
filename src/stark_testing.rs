@@ -219,7 +219,7 @@ pub fn test_stark_cpu_check_constraints<
     let alphas = F::rand_vec(1);
     let z_last = F::Extension::rand();
     let lagrange_first = F::Extension::rand();
-    let lagrange_last = F::Extension::rand();
+    let lagrange_last = F::Extension::ZERO;
     let mut consumer = ConstraintConsumer::<F::Extension>::new(
         alphas
             .iter()

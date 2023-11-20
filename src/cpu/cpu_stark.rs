@@ -191,8 +191,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         let next_values: &[P; NUM_CPU_COLUMNS] = vars.get_next_values().try_into().unwrap();
         let next_values: &CpuColumnsView<P> = next_values.borrow();
 
-        /*
         bootstrap_kernel::eval_bootstrap_kernel_packed(local_values, next_values, yield_constr);
+        /*
         contextops::eval_packed(local_values, next_values, yield_constr);
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
         */
@@ -220,13 +220,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
             vars.get_next_values().try_into().unwrap();
         let next_values: &CpuColumnsView<ExtensionTarget<D>> = next_values.borrow();
 
-        /*
         bootstrap_kernel::eval_bootstrap_kernel_ext_circuit(
             builder,
             local_values,
             next_values,
             yield_constr,
         );
+        /*
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         */
@@ -256,7 +256,6 @@ mod tests {
     use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
     use crate::cpu::cpu_stark::CpuStark;
     use crate::cpu::kernel::KERNEL;
-    use crate::generation::generate_traces;
     use crate::generation::state::GenerationState;
     use crate::generation::GenerationInputs;
     use crate::stark_testing::{
@@ -304,7 +303,7 @@ mod tests {
         };
 
         let inputs = GenerationInputs {};
-        let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code, 4).unwrap();
+        let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code, 40000000).unwrap();
         generate_bootstrap_kernel::<F>(&mut state);
 
         let vals: Vec<[F; NUM_CPU_COLUMNS]> = state
@@ -313,8 +312,9 @@ mod tests {
             .into_iter()
             .map(|x| x.into())
             .collect::<Vec<_>>();
+
         for i in 0..(vals.len() - 1) {
-            println!("vals: {:?}", vals[i]);
+            println!("val: {:?}", vals[i]);
             test_stark_cpu_check_constraints::<F, C, S, D>(stark, &vals[i], &vals[i + 1]);
         }
     }
