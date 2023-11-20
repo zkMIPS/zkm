@@ -49,7 +49,7 @@ pub(crate) fn generate_modular_op<F: PrimeField64>(
 
     let mut mod_is_zero = F::ZERO;
     if modulus.is_zero() {
-        if filter == IS_DIV || filter == IS_DIVU {
+        if [IS_DIV, IS_DIVU, IS_SRL, IS_SRLV].contains(&filter) {
             // set modulus = 2^32; the condition above means we know
             // it's zero at this point, so we can just set bit 32.
             modulus.set_bit(32, true);
@@ -118,7 +118,8 @@ pub(crate) fn generate_modular_op<F: PrimeField64>(
 
     nv[MODULAR_MOD_IS_ZERO] = mod_is_zero;
     nv[MODULAR_OUT_AUX_RED].copy_from_slice(&out_aux_red.map(F::from_canonical_i64));
-    nv[MODULAR_DIV_DENOM_IS_ZERO] = mod_is_zero * (lv[IS_DIV] + lv[IS_DIVU]);
+    nv[MODULAR_DIV_DENOM_IS_ZERO] =
+        mod_is_zero * (lv[IS_DIV] + lv[IS_DIVU] + lv[IS_SRL] + lv[IS_SRLV]);
 
     (
         output_limbs.map(F::from_canonical_i64),
@@ -150,9 +151,8 @@ pub(crate) fn generate_div<F: PrimeField64>(
         lv[i] = F::ZERO;
     }
 
-    // TODO: Add more ops(shift?) that use div
     match filter {
-        IS_DIV | IS_DIVU => {
+        IS_DIV | IS_DIVU | IS_SRL | IS_SRLV => {
             debug_assert!(
                 lv[OUTPUT_REGISTER]
                     .iter()
@@ -162,7 +162,7 @@ pub(crate) fn generate_div<F: PrimeField64>(
             );
             lv[AUX_INPUT_REGISTER_0].copy_from_slice(&out);
         }
-        _ => panic!("expected filter to be IS_DIV, or IS_DIVU but it was {filter}"),
+        _ => panic!("expected filter to be IS_DIV, S_DIVU, IS_SRL or SRLV but it was {filter}"),
     };
 }
 
@@ -265,7 +265,7 @@ pub(crate) fn check_reduced<P: PackedField>(
     //
     // and we are given output = out_aux_red when modulus is zero.
     let mut is_less_than = [P::ZEROS; N_LIMBS];
-    is_less_than[0] = P::ONES - mod_is_zero * (lv[IS_DIV] + lv[IS_DIVU]);
+    is_less_than[0] = P::ONES - mod_is_zero * (lv[IS_DIV] + lv[IS_DIVU] + lv[IS_SRL] + lv[IS_SRLV]);
     // NB: output and modulus in lv while out_aux_red and
     // is_less_than (via mod_is_zero) depend on nv, hence the
     // 'is_two_row_op' argument is set to 'true'.
@@ -312,11 +312,12 @@ pub(crate) fn modular_constr_poly<P: PackedField>(
     // modulus = 0.
     modulus[0] += mod_is_zero;
 
-    // Is 1 iff the operation is DIV or DIVU and the denominator is zero.
-    // TODO: shift ops
+    // Is 1 iff the operation is DIV, DIVU, IS_SRL or IS_SRLV and the denominator is zero.
     let div_denom_is_zero = nv[MODULAR_DIV_DENOM_IS_ZERO];
     yield_constr.constraint_transition(
-        filter * (mod_is_zero * (lv[IS_DIV] + lv[IS_DIVU]) - div_denom_is_zero),
+        filter
+            * (mod_is_zero * (lv[IS_DIV] + lv[IS_DIVU] + lv[IS_SRL] + lv[IS_SRLV])
+                - div_denom_is_zero),
     );
 
     // Needed to compensate for adding mod_is_zero to modulus above,
@@ -441,7 +442,8 @@ pub(crate) fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, cons
 
     // Is 1 iff the operation is DIV, DIVU and the denominator is zero.
     let div_denom_is_zero = nv[MODULAR_DIV_DENOM_IS_ZERO];
-    let div_shr_filter = builder.add_extension(lv[IS_DIV], lv[IS_DIVU]);
+    let div_shr_filter =
+        builder.add_many_extension([lv[IS_DIV], lv[IS_DIVU], lv[IS_SRL], lv[IS_SRLV]]);
     let t = builder.mul_sub_extension(mod_is_zero, div_shr_filter, div_denom_is_zero);
     let t = builder.mul_extension(filter, t);
     yield_constr.constraint_transition(builder, t);
@@ -616,8 +618,8 @@ mod tests {
                     .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
 
                 // Reset operation columns, then select one
-                for op in MODULAR_OPS {
-                    lv[op] = F::ZERO;
+                for op in MODULAR_OPS.iter().chain([IS_SRL, IS_SRLV].iter()) {
+                    lv[*op] = F::ZERO;
                 }
                 lv[op_filter] = F::ONE;
 
@@ -666,8 +668,8 @@ mod tests {
                     .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
 
                 // Reset operation columns, then select one
-                for op in MODULAR_OPS {
-                    lv[op] = F::ZERO;
+                for op in MODULAR_OPS.iter().chain([IS_SRL, IS_SRLV].iter()) {
+                    lv[*op] = F::ZERO;
                 }
                 lv[op_filter] = F::ONE;
 
