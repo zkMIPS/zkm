@@ -193,3 +193,45 @@ pub fn test_stark_check_constraints<
         assert_eq!(acc, F::Extension::ZERO);
     }
 }
+
+pub fn test_stark_cpu_check_constraints<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+    const D: usize,
+>(
+    stark: S,
+    lv: &[C::F],
+    nv: &[C::F],
+) {
+    // Compute native constraint evaluation on random values.
+    let vars = S::EvaluationFrame::from_values(
+        &lv.iter()
+            .copied()
+            .map(F::Extension::from_basefield)
+            .collect::<Vec<_>>()[..],
+        &nv.iter()
+            .copied()
+            .map(F::Extension::from_basefield)
+            .collect::<Vec<_>>()[..],
+    );
+
+    let alphas = F::rand_vec(1);
+    let z_last = F::Extension::rand();
+    let lagrange_first = F::Extension::rand();
+    let lagrange_last = F::Extension::rand();
+    let mut consumer = ConstraintConsumer::<F::Extension>::new(
+        alphas
+            .iter()
+            .copied()
+            .map(F::Extension::from_basefield)
+            .collect(),
+        z_last,
+        lagrange_first,
+        lagrange_last,
+    );
+    stark.eval_packed_generic(&vars, &mut consumer);
+    for &acc in &consumer.constraint_accs {
+        assert_eq!(acc, F::Extension::ZERO);
+    }
+}
