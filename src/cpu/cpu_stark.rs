@@ -191,8 +191,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         let next_values: &[P; NUM_CPU_COLUMNS] = vars.get_next_values().try_into().unwrap();
         let next_values: &CpuColumnsView<P> = next_values.borrow();
 
-        bootstrap_kernel::eval_bootstrap_kernel_packed(local_values, next_values, yield_constr);
         /*
+        bootstrap_kernel::eval_bootstrap_kernel_packed(local_values, next_values, yield_constr);
         contextops::eval_packed(local_values, next_values, yield_constr);
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
         */
@@ -220,13 +220,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
             vars.get_next_values().try_into().unwrap();
         let next_values: &CpuColumnsView<ExtensionTarget<D>> = next_values.borrow();
 
+        /*
         bootstrap_kernel::eval_bootstrap_kernel_ext_circuit(
             builder,
             local_values,
             next_values,
             yield_constr,
         );
-        /*
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         */
