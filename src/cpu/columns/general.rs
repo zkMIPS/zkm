@@ -10,6 +10,7 @@ pub(crate) union CpuGeneralColumnsView<T: Copy> {
     logic: CpuLogicView<T>,
     jumps: CpuJumpsView<T>,
     shift: CpuShiftView<T>,
+    io: CpuIOView<T>,
 }
 
 impl<T: Copy> CpuGeneralColumnsView<T> {
@@ -51,6 +52,16 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn shift_mut(&mut self) -> &mut CpuShiftView<T> {
         unsafe { &mut self.shift }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn io(&self) -> &CpuIOView<T> {
+        unsafe { &self.io }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn io_mut(&mut self) -> &mut CpuIOView<T> {
+        unsafe { &mut self.io }
     }
 }
 
@@ -109,11 +120,11 @@ pub(crate) struct CpuShiftView<T: Copy> {
     pub(crate) high_limb_sum_inv: T,
 }
 
+
 #[derive(Copy, Clone)]
-pub(crate) struct CpuGPRView<T: Copy> {
-    // For a shift amount of displacement: [T], this is the inverse of
-    // sum(displacement[1..]) or zero if the sum is zero.
-    pub(crate) regs: [T; 32],
+pub(crate) struct CpuIOView<T: Copy> {
+    pub(crate) rs_and_2: T,
+    pub(crate) rs_and_3: T,
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.

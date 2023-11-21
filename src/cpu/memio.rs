@@ -42,35 +42,48 @@ fn eval_packed_load<P: PackedField>(
 
     // check mem channel segment is register
     let diff = lv.mem_channels[0].addr_segment - P::Scalar::from_canonical_u64(Segment::RegisterFile as u64);
-    println!("diff {:?}", diff);
     yield_constr.constraint(filter * diff);
     let diff = lv.mem_channels[1].addr_segment - P::Scalar::from_canonical_u64(Segment::RegisterFile as u64);
-    println!("diff {:?}", diff);
     yield_constr.constraint(filter * diff);
 
     // check memory is used
     // check is_read is 0/1
 
-    /*
-    let rs_reg = lv.mem_channels[0].value;
-    let rt_reg = lv.mem_channels[1].value;
-    let mem_addr_virt = lv.mem_channels[2].value;
+    let rs = lv.mem_channels[0].value;
+    let rt = lv.mem_channels[1].value;
+    let mem = lv.mem_channels[2].value;
 
     // calculate rs:
     //    let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
     //    let virt = virt_raw & 0xFFFF_FFFC;
     let offset = get_offset(lv);
-    let virt_raw = rs_reg + offset;
-    let virt = virt_raw;
+    let virt_raw = rs + offset;
+    let expected_virt = lv.mem_channels[5].value;
+    let expected_virt_div_4 = lv.mem_channels[6].value;
 
-    yield_constr.constraint(filter * (virt - mem_addr_virt));
-    */
+    let one = P::Scalar::ONES;
+    let two = P::Scalar::from_canonical_u64(2);
+    let three = P::Scalar::from_canonical_u64(3);
+    let four = P::Scalar::from_canonical_u64(4);
+
+    // check expected_virt = 4 * expected_virt_div_4
+    yield_constr.constraint(filter * (expected_virt - expected_virt_div_4 * four));
+
+    // check (virt_raw - expected_virt) in [0, 1, 2, 3]
+    let virt_diff = virt_raw - expected_virt;
+    let virt_constr = virt_diff * (virt_diff - one) * (virt_diff - two) * (virt_diff - three);
+    yield_constr.constraint(filter * virt_constr);
+
+    //
 
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[4..NUM_GP_CHANNELS] {
-//        yield_constr.constraint(filter * channel.used);
+    // Note: SC needs 5 channel
+    /*
+    for &channel in &lv.mem_channels[5..NUM_GP_CHANNELS] {
+        yield_constr.constraint(filter * channel.used);
     }
+    */
 }
 
 fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
@@ -91,10 +104,12 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, constr);
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[4..NUM_GP_CHANNELS] {
- //        let constr = builder.mul_extension(filter, channel.used);
- //       yield_constr.constraint(builder, constr);
+    /*
+    for &channel in &lv.mem_channels[5..NUM_GP_CHANNELS] {
+        let constr = builder.mul_extension(filter, channel.used);
+        yield_constr.constraint(builder, constr);
     }
+    */
 }
 
 fn eval_packed_store<P: PackedField>(
@@ -318,7 +333,7 @@ pub fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     eval_packed_load(lv, nv, yield_constr);
-    eval_packed_store(lv, nv, yield_constr);
+    //eval_packed_store(lv, nv, yield_constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -328,5 +343,5 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     eval_ext_circuit_load(builder, lv, nv, yield_constr);
-    eval_ext_circuit_store(builder, lv, nv, yield_constr);
+    //eval_ext_circuit_store(builder, lv, nv, yield_constr);
 }

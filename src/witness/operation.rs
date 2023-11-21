@@ -1072,6 +1072,16 @@ pub(crate) fn generate_mstore_general<F: Field>(
         state.traces.push_memory(log_out1);
     }
 
+    // aux1: virt
+    // aux2: virt/4
+    let log_aux1 = reg_write_with_log(0, 5, virt as usize, state, &mut row)?;
+    state.traces.push_memory(log_aux1);
+    let log_aux2 = reg_write_with_log(1, 6, (virt/4) as usize, state, &mut row)?;
+    state.traces.push_memory(log_aux2);
+
+    row.general.io_mut().rs_and_2 = F::from_canonical_u32(rs & 2);
+    row.general.io_mut().rs_and_3 = F::from_canonical_u32(rs & 3);
+
     state.traces.push_cpu(row);
     Ok(())
 }
