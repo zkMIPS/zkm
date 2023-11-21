@@ -1,13 +1,29 @@
 use itertools::izip;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
+use plonky2::field::types::Field;
 
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
+
+use crate::memory::segments::Segment;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
+use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
+
+#[inline]
+fn get_offset<P: PackedField>(lv: &CpuColumnsView<P>) -> P {
+    let mut mem_offset = [P::ZEROS; 16];
+    mem_offset[0..6].copy_from_slice(&lv.func_bits); // 6 bits
+    mem_offset[6..11].copy_from_slice(&lv.shamt_bits); // 5 bits
+    mem_offset[11..16].copy_from_slice(&lv.rd_bits); // 5 bits
+    limb_from_bits_le(mem_offset.into_iter())
+}
+
+/// -4
+const GOLDILOCKS_INVERSE_NEG4: u64 = 18446744069414584317;
 
 fn get_addr<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
     let addr_context = lv.mem_channels[0].value;
@@ -21,33 +37,40 @@ fn eval_packed_load<P: PackedField>(
     _nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    // The opcode for MLOAD_GENERAL is 0xfb. If the operation is MLOAD_GENERAL, lv.opcode_bits[0] = 1
-    let filter = lv.op.m_op_general * lv.opcode_bits[0];
+    // If the operation is MLOAD_GENERAL, lv.opcode_bits[5] = 1
+    let filter = lv.op.m_op_general * lv.opcode_bits[5];
 
-    let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
+    // check mem channel segment is register
+    let diff = lv.mem_channels[0].addr_segment - P::Scalar::from_canonical_u64(Segment::RegisterFile as u64);
+    println!("diff {:?}", diff);
+    yield_constr.constraint(filter * diff);
+    let diff = lv.mem_channels[1].addr_segment - P::Scalar::from_canonical_u64(Segment::RegisterFile as u64);
+    println!("diff {:?}", diff);
+    yield_constr.constraint(filter * diff);
 
-    let load_channel = lv.mem_channels[3];
-    yield_constr.constraint(filter * (load_channel.used - P::ONES));
-    yield_constr.constraint(filter * (load_channel.is_read - P::ONES));
-    yield_constr.constraint(filter * (load_channel.addr_context - addr_context));
-    yield_constr.constraint(filter * (load_channel.addr_segment - addr_segment));
-    yield_constr.constraint(filter * (load_channel.addr_virtual - addr_virtual));
+    // check memory is used
+    // check is_read is 0/1
+
+    /*
+    let rs_reg = lv.mem_channels[0].value;
+    let rt_reg = lv.mem_channels[1].value;
+    let mem_addr_virt = lv.mem_channels[2].value;
+
+    // calculate rs:
+    //    let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
+    //    let virt = virt_raw & 0xFFFF_FFFC;
+    let offset = get_offset(lv);
+    let virt_raw = rs_reg + offset;
+    let virt = virt_raw;
+
+    yield_constr.constraint(filter * (virt - mem_addr_virt));
+    */
+
 
     // Disable remaining memory channels, if any.
     for &channel in &lv.mem_channels[4..NUM_GP_CHANNELS] {
-        yield_constr.constraint(filter * channel.used);
+//        yield_constr.constraint(filter * channel.used);
     }
-
-    // Stack constraints
-    /*
-    stack::eval_packed_one(
-        lv,
-        nv,
-        filter,
-        stack::MLOAD_GENERAL_OP.unwrap(),
-        yield_constr,
-    );
-    */
 }
 
 fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
@@ -57,49 +80,21 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let mut filter = lv.op.m_op_general;
-    filter = builder.mul_extension(filter, lv.opcode_bits[0]);
+    filter = builder.mul_extension(filter, lv.opcode_bits[5]);
 
-    let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
+    let diff = builder.add_const_extension(lv.mem_channels[0].addr_segment, - F::from_canonical_u64(Segment::RegisterFile as u64));
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint(builder, constr);
 
-    let load_channel = lv.mem_channels[3];
-    {
-        let constr = builder.mul_sub_extension(filter, load_channel.used, filter);
-        yield_constr.constraint(builder, constr);
-    }
-    {
-        let constr = builder.mul_sub_extension(filter, load_channel.is_read, filter);
-        yield_constr.constraint(builder, constr);
-    }
-    for (channel_field, target) in izip!(
-        [
-            load_channel.addr_context,
-            load_channel.addr_segment,
-            load_channel.addr_virtual,
-        ],
-        [addr_context, addr_segment, addr_virtual]
-    ) {
-        let diff = builder.sub_extension(channel_field, target);
-        let constr = builder.mul_extension(filter, diff);
-        yield_constr.constraint(builder, constr);
-    }
+    let diff = builder.add_const_extension(lv.mem_channels[1].addr_segment, - F::from_canonical_u64(Segment::RegisterFile as u64));
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint(builder, constr);
 
     // Disable remaining memory channels, if any.
     for &channel in &lv.mem_channels[4..NUM_GP_CHANNELS] {
-        let constr = builder.mul_extension(filter, channel.used);
-        yield_constr.constraint(builder, constr);
+ //        let constr = builder.mul_extension(filter, channel.used);
+ //       yield_constr.constraint(builder, constr);
     }
-
-    // Stack constraints
-    /*
-    stack::eval_ext_circuit_one(
-        builder,
-        lv,
-        nv,
-        filter,
-        stack::MLOAD_GENERAL_OP.unwrap(),
-        yield_constr,
-    );
-    */
 }
 
 fn eval_packed_store<P: PackedField>(
