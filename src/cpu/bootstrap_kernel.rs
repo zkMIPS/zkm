@@ -20,7 +20,6 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
     for chunk in &KERNEL.program.image.iter().chunks(NUM_GP_CHANNELS) {
         let mut cpu_row = CpuColumnsView::default();
-        println!("trace: {:?}", state.traces.clock());
         cpu_row.clock = F::from_canonical_usize(state.traces.clock());
         cpu_row.is_bootstrap_kernel = F::ONE;
 
@@ -28,7 +27,6 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         for (channel, (addr, val)) in chunk.enumerate() {
             // FIXMEBoth instruction and memory data are located in
             // code section for MIPS
-            println!("addr: {}", *addr);
             let address = MemoryAddress::new(0, Segment::Code, *addr as usize);
             let write =
                 mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, (*val).to_be());
@@ -91,7 +89,7 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
         yield_constr.constraint(filter * (channel.addr_segment - code_segment));
         /* FIXME
         let delta_virt = channel.addr_virtual + P::from(F::from_canonical_u32(32)) - next_values.mem_channels[i].addr_virtual;
-        println!("virt {:?} {:?} {:?} {:?} {}", channel.addr_virtual, delta_virt, local_values.clock, NUM_GP_CHANNELS, i);
+        log::debug!("virt {:?} {:?} {:?} {:?} {}", channel.addr_virtual, delta_virt, local_values.clock, NUM_GP_CHANNELS, i);
         yield_constr.constraint_transition(filter * delta_virt);
         */
     }

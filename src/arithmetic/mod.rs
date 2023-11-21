@@ -152,7 +152,7 @@ impl BinaryOperator {
 }
 
 /// An enum representing arithmetic operations that can be either binary.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum Operation {
     BinaryOperation {
         operator: BinaryOperator,

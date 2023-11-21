@@ -29,7 +29,7 @@ pub struct TraceCheckpoint {
     pub(self) memory_len: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Traces<T: Copy> {
     pub(crate) arithmetic_ops: Vec<arithmetic::Operation>,
     //    pub(crate) byte_packing_ops: Vec<BytePackingOp>,

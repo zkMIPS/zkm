@@ -15,6 +15,7 @@ pub(crate) struct GenerationStateCheckpoint {
     pub(crate) traces: TraceCheckpoint,
 }
 
+#[derive(Clone)]
 pub(crate) struct GenerationState<F: Field> {
     pub(crate) inputs: GenerationInputs,
     pub(crate) registers: RegistersState,

@@ -44,7 +44,11 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
     let target = insn & 0x3ffffff;
     log::debug!(
         "op {}, func {}, rt {}, rs {}, rd {}",
-        opcode, func, rt, rs, rd
+        opcode,
+        func,
+        rt,
+        rs,
+        rd
     );
     log::debug!(
         "decode: insn {:X}, opcode {:X}, func {:X}",
