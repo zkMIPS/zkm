@@ -286,11 +286,18 @@ pub fn eval_packed_branch<P: PackedField>(
         branch_offset[18..32].copy_from_slice(&[lv.rd_bits[4]; 14]); // lv.insn_bits[15]
 
         let offset_dst = limb_from_bits_le(branch_offset.into_iter());
-        let branch_dst = lv.program_counter +  P::Scalar::from_canonical_u8(4) + offset_dst;
-        yield_constr.constraint(filter * jumps_lv.should_jump * (nv.program_counter - branch_dst) * (nv.program_counter + overflow - branch_dst));
+        let branch_dst = lv.program_counter + P::Scalar::from_canonical_u8(4) + offset_dst;
+        yield_constr.constraint(
+            filter
+                * jumps_lv.should_jump
+                * (nv.program_counter - branch_dst)
+                * (nv.program_counter + overflow - branch_dst),
+        );
 
         let next_inst = lv.program_counter + P::Scalar::from_canonical_u64(8);
-        yield_constr.constraint(filter *(P::ONES - jumps_lv.should_jump) * (nv.program_counter - next_inst));
+        yield_constr.constraint(
+            filter * (P::ONES - jumps_lv.should_jump) * (nv.program_counter - next_inst),
+        );
     }
 
     // Check Aux Reg
@@ -433,7 +440,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
         branch_offset[18..32].copy_from_slice(&[lv.rd_bits[4]; 14]); // lv.insn_bits[15]
         let offset_dst = limb_from_bits_le_recursive(builder, branch_offset.into_iter());
 
-        let base_pc =  builder.add_const_extension(lv.program_counter, F::from_canonical_u64(4));
+        let base_pc = builder.add_const_extension(lv.program_counter, F::from_canonical_u64(4));
         let branch_dst = builder.add_extension(base_pc, offset_dst);
 
         let overflow_target = builder.add_extension(nv.program_counter, overflow);
@@ -450,7 +457,6 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(constr_a, constr_b);
         let constr = builder.mul_extension(constr, filter);
         yield_constr.constraint(builder, constr);
-
     }
 
     // Check Aux Reg
@@ -557,8 +563,8 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
 
         // invert lt/gt if aux3 = 1 (src1 and src2 have different sign bits)
         let inv_aux3 = builder.sub_extension(one_extension, aux3);
-        let inv_lt =  builder.sub_extension(one_extension, lt);
-        let inv_gt =  builder.sub_extension(one_extension, gt);
+        let inv_lt = builder.sub_extension(one_extension, lt);
+        let inv_gt = builder.sub_extension(one_extension, gt);
         let lt_norm = builder.mul_extension(lt, inv_aux3);
         let lt_inv = builder.mul_extension(inv_lt, aux3);
         let lt = builder.add_extension(lt_norm, lt_inv);
