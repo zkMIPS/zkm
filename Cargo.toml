@@ -11,6 +11,8 @@ plonky2 = { git = "https://github.com/0xPolygonZero/plonky2", branch = "main", f
 starky = { git = "https://github.com/0xPolygonZero/plonky2", branch = "main" , features = ["timing"] }
 plonky2_util = { git = "https://github.com/0xPolygonZero/plonky2", branch = "main" }
 plonky2_maybe_rayon = { git = "https://github.com/0xPolygonZero/plonky2", branch = "main" }
+#plonky2_u32 = { version = "0.1.0", default-features = false }
+
 itertools = "0.11.0"
 log = { version = "0.4.14", default-features = false }
 anyhow = { version = "1.0.40", default-features = false }

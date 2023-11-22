@@ -2,16 +2,23 @@ use itertools::izip;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
-
+use plonky2::iop::target::{Target, BoolTarget};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
-
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::memory::segments::Segment;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
+
+/*
+use once_cell::sync::Lazy;
+
+pub static KERNEL: Lazy<Vec<>> = Lazy::new(combined_kernel);
+*/
+
 
 #[inline]
 fn get_offset<P: PackedField>(lv: &CpuColumnsView<P>) -> P {
@@ -22,7 +29,41 @@ fn get_offset<P: PackedField>(lv: &CpuColumnsView<P>) -> P {
     limb_from_bits_le(mem_offset.into_iter())
 }
 
-/// -4
+pub const BASESUM_GATE_START_LIMBS: usize = 1;
+/// Use base-sum algorithm on base B and limb size LS
+fn u32_to_bits<P: PackedField, const LS: usize, const B: usize>(num: P) -> Vec<P> {
+    assert!(LS <= 32);
+    let limb_indices: Vec<usize> = (0..LS).into_iter().map(|i| BASESUM_GATE_START_LIMBS + i).collect();
+    let mut limbs = vec![P::ZEROS; LS];
+    // reduce with power
+    let base = P::Scalar::from_canonical_usize(B);
+    let mut sum = P::ONES;
+    let rs = vec![P::ZEROS; LS];
+    let mut x = num;
+    for i in (0..LS) {
+        sum = sum * base;
+        rs[i] = x % sum;
+        x = x / sum;
+    }
+
+    limbs
+}
+
+/// Convert u32 to bits array with base B.
+pub fn u32_to_bits_target<F: RichField + Extendable<D>, const D: usize, const LS: usize, const B: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    a: &Target, // u32
+) -> Vec<BoolTarget> {
+    assert!(LS <= 32);
+    let mut res = Vec::new();
+    let bit_targets = builder.split_le_base::<B>(*a, LS);
+    for j in (0..LS).rev() {
+        res.push(BoolTarget::new_unsafe(bit_targets[j]));
+    }
+    res
+}
+
+/// Consttant -4
 const GOLDILOCKS_INVERSE_NEG4: u64 = 18446744069414584317;
 
 fn get_addr<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
@@ -87,7 +128,7 @@ fn eval_packed_load<P: PackedField>(
 }
 
 fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     _nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -184,7 +225,7 @@ fn eval_packed_store<P: PackedField>(
 }
 
 fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     _nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -337,7 +378,7 @@ pub fn eval_packed<P: PackedField>(
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
