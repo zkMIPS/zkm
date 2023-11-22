@@ -120,7 +120,6 @@ pub(crate) struct CpuShiftView<T: Copy> {
     pub(crate) high_limb_sum_inv: T,
 }
 
-
 #[derive(Copy, Clone)]
 pub(crate) struct CpuIOView<T: Copy> {
     pub(crate) rs_and_2: T,
