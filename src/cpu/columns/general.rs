@@ -99,8 +99,6 @@ pub(crate) struct CpuSyscallView<T: Copy> {
     pub(crate) sysnum: [T; 11],
     pub(crate) a0: [T; 3],
     pub(crate) a1: T,
-    // pub(crate) a1: [T;2],
-    // pub(crate) sz: [T;2],
 }
 
 #[derive(Copy, Clone)]
@@ -124,8 +122,8 @@ pub(crate) struct CpuShiftView<T: Copy> {
 
 #[derive(Copy, Clone)]
 pub(crate) struct CpuIOView<T: Copy> {
-    pub(crate) rs_and_2: T,
-    pub(crate) rs_and_3: T,
+    pub(crate) diff_inv: T,
+    pub(crate) values: [T; 8],
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.
