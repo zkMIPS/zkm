@@ -21,41 +21,22 @@ pub fn eval_packed<P: PackedField>(
     let v0 = P::ZEROS;
     let v1 = P::ZEROS;
     let syscall = lv.general.syscall();
-
-    let mut sys_sum = P::ZEROS;
-    for num in syscall.sysnum {
-        sys_sum = sys_sum + num;
-        yield_constr.constraint(filter * num * (P::ONES - num));
-    }
-
-    yield_constr.constraint(filter * (P::ONES - sys_sum));
-
-    let mut a0_sum = P::ZEROS;
-    for a0 in syscall.a0 {
-        a0_sum = a0_sum + a0;
-        yield_constr.constraint(filter * a0 * (P::ONES - a0));
-    }
-    yield_constr.constraint(filter * a0_sum * (P::ONES - a0_sum));
-
-    yield_constr.constraint(filter * syscall.a1 * (P::ONES - syscall.a1));
+    let result_v0 = lv.mem_channels[4].value;
+    let result_v1 = lv.mem_channels[5].value;
 
     //sysmap
     // is_sysmap|is_sz_mid_not_zero|is_a0_zero is calculated outside and written in the mem_channels.
     let is_sysmap = syscall.sysnum[1];
     let is_sz_mid_not_zero = syscall.a1; //sz & 0xFFF != 0
-    let is_sz_mid_zero = P::ONES - is_sz_mid_not_zero;
+    let is_sz_mid_zero = syscall.sysnum[10]; //sz & 0xFFF == 0
     let sz = a1;
-    let remain = sz / P::Scalar::from_canonical_u64(1 << 12);
-    let remain = remain * P::Scalar::from_canonical_u64(1 << 12);
-    let sz_mid = sz - remain; //sz & 0xfff
-    let sz_in_sz_mid_not_zero = sz + P::Scalar::from_canonical_u64(256u64) - sz_mid;
+    let sz_in_sz_mid_not_zero = syscall.sysnum[9]; //the value of sz_mid
     let is_a0_zero = syscall.a0[0];
+    let is_a0_not_zero = syscall.a0[1];
     let heap_in_a0_zero = lv.mem_channels[6].value;
     let v0_in_a0_zero = heap_in_a0_zero;
     let heap_in_a0_zero_and_in_sz_mid_not_zero = heap_in_a0_zero + sz_in_sz_mid_not_zero; // branch1:sz&fff!=0 & a0==0
     let result_heap = lv.mem_channels[7].value;
-    let result_v0 = lv.mem_channels[4].value;
-    let result_v1 = lv.mem_channels[5].value;
 
     let heap_in_a0_zero_and_not_in_sz_mid_not_zero = heap_in_a0_zero + sz; // branch2: sz&fff==0 &a0 ==0
                                                                            //check:
@@ -95,7 +76,7 @@ pub fn eval_packed<P: PackedField>(
     //2 sysnum==sysmap
     //3 a0 is not zero
     //4 v0 value is right
-    yield_constr.constraint(filter * is_sysmap * (P::ONES - is_a0_zero) * (a0 - result_v0));
+    yield_constr.constraint(filter * is_sysmap * is_a0_not_zero * (a0 - result_v0));
 
     //sysbrk
     let is_sysbrk = syscall.sysnum[2];
@@ -226,60 +207,24 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let v1 = builder.zero_extension();
     let one = builder.one_extension();
     let syscall = lv.general.syscall();
-
-    let mut sys_sum = builder.zero_extension();
-    for num in syscall.sysnum {
-        sys_sum = builder.add_extension(sys_sum, num);
-        let constr = builder.sub_extension(one, num);
-        let constr = builder.mul_extension(constr, num);
-        let constr = builder.mul_extension(constr, filter);
-        yield_constr.constraint(builder, constr);
-    }
-
-    let constr = builder.sub_extension(one, sys_sum);
-    let constr = builder.mul_extension(constr, filter);
-    yield_constr.constraint(builder, constr);
-
-    let mut a0_sum = builder.zero_extension();
-    for a0 in syscall.a0 {
-        a0_sum = builder.add_extension(a0_sum, a0);
-        let constr = builder.sub_extension(one, a0);
-        let constr = builder.mul_extension(constr, a0);
-        let constr = builder.mul_extension(constr, filter);
-        yield_constr.constraint(builder, constr);
-    }
-    let constr = builder.sub_extension(one, a0_sum);
-    let constr = builder.mul_extension(constr, a0_sum);
-    let constr = builder.mul_extension(constr, filter);
-    yield_constr.constraint(builder, constr);
-
-    let constr = builder.sub_extension(one, syscall.a1);
-    let constr = builder.mul_extension(constr, syscall.a1);
-    let constr = builder.mul_extension(constr, filter);
-    yield_constr.constraint(builder, constr);
+    let result_v0 = lv.mem_channels[4].value;
+    let result_v1 = lv.mem_channels[5].value;
 
     //sysmap
     let is_sysmap = syscall.sysnum[1];
     let is_sz_mid_not_zero = syscall.a1; //sz & 0xFFF != 0
-    let one_extension = builder.one_extension();
-    let is_sz_mid_zero = builder.sub_extension(one_extension, is_sz_mid_not_zero);
+    let is_sz_mid_zero = syscall.sysnum[10]; //sz & 0xFFF == 0
     let sz = a1;
-    let divsor = builder.constant_extension(F::Extension::from_canonical_u64(1 << 12));
-    let remain = builder.div_extension(sz, divsor);
-    let remain = builder.mul_extension(remain, divsor);
-    let sz_mid = builder.sub_extension(sz, remain); //sz & 0xfff
-    let u256 = builder.constant_extension(F::Extension::from_canonical_u64(256u64));
-    let temp = builder.sub_extension(u256, sz_mid);
-    let sz_in_sz_mid_not_zero = builder.add_extension(sz, temp);
+    let sz_in_sz_mid_not_zero = syscall.sysnum[9]; //the value of sz_mid
     let is_a0_zero = syscall.a0[0];
+    let is_a0_not_zero = syscall.a0[1];
     let heap_in_a0_zero = lv.mem_channels[6].value;
     let v0_in_a0_zero = heap_in_a0_zero;
     let heap_in_a0_zero_and_in_sz_mid_not_zero =
         builder.add_extension(heap_in_a0_zero, sz_in_sz_mid_not_zero); // branch1:sz&fff!=0 & a0==0
     let heap_in_a0_zero_and_not_in_sz_mid_not_zero = builder.add_extension(heap_in_a0_zero, sz); // branch2: sz&fff==0 &a0 ==0
     let result_heap = lv.mem_channels[7].value;
-    let result_v0 = lv.mem_channels[4].value;
-    let result_v1 = lv.mem_channels[5].value;
+
     let filter_0 = builder.mul_extension(filter, is_sysmap);
     let constr_1 = builder.mul_extension(filter_0, is_a0_zero);
     let constr_2 = builder.mul_extension(constr_1, is_sz_mid_not_zero);
@@ -295,12 +240,11 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let constr = builder.mul_extension(constr_1, constr_6);
     yield_constr.constraint(builder, constr);
     let constr_7 = builder.sub_extension(a0, result_v0);
-    let constr_8 = builder.sub_extension(one_extension, is_a0_zero);
-    let constr_9 = builder.mul_extension(constr_8, filter_0);
+    let constr_8 = builder.mul_extension(filter_0, is_a0_not_zero);
+    // let constr_9 = builder.mul_extension(constr_8, filter_0);
 
-    let constr = builder.mul_extension(constr_7, constr_9);
+    let constr = builder.mul_extension(constr_7, constr_8);
     yield_constr.constraint(builder, constr);
-
     //sysbrk
 
     let is_sysbrk = syscall.sysnum[2];
