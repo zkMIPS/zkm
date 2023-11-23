@@ -34,13 +34,21 @@ pub const BASESUM_GATE_START_LIMBS: usize = 1;
 /// Use base-sum algorithm on base B and limb size LS
 fn u32_to_bits<P: PackedField, const LS: usize, const B: usize>(sum: P) -> Vec<P> {
     assert!(LS <= 32);
-    let gate_type = BaseSumGate::<B>::new(LS);
-    Vec::new()
+    let limb_indices: Vec<usize> = (0..LS).into_iter().map(|i| BASESUM_GATE_START_LIMBS + i).collect();
+
+    let mut limbs = vec![P::ZEROS; LS];
+
+    let base = P::Scalar::from_canonical_usize(B);
+    let mut tmp = sum;
+    for i in 0..LS {
+        let next =  tmp / base;
+        limbs[i] = tmp - next;
+        tmp = next;
+    }
+    println!("{:?}", limbs);
 
     /*
-    let limb_indices: Vec<usize> = (0..LS).into_iter().map(|i| BASESUM_GATE_START_LIMBS + i).collect();
-    let mut limbs = vec![P::ONES; LS];
-    // reduce with power
+    // Constrain by connect
     let computed_sum = reduce_with_powers(&limbs, P::Scalar::from_canonical_usize(B));
     let mut constraints = vec![computed_sum - sum];
 
@@ -52,9 +60,9 @@ fn u32_to_bits<P: PackedField, const LS: usize, const B: usize>(sum: P) -> Vec<P
             .product(),
         );
     }
+    */
 
     limbs
-    */
 }
 
 /// Convert u32 to bits array with base B.
@@ -405,4 +413,26 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 ) {
     eval_ext_circuit_load(builder, lv, nv, yield_constr);
     //eval_ext_circuit_store(builder, lv, nv, yield_constr);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use plonky2::field::extension::Extendable;
+    use plonky2::field::packed::PackedField;
+    use plonky2::field::types::Field;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+
+    #[test]
+    fn test_u32_to_bits() {
+        env_logger::try_init().unwrap_or_default();
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let num = 1234;
+        let bits = u32_to_bits::<_,32, 2>(F::from_canonical_u64(1234));
+        let num_out = limb_from_bits_le(bits.into_iter());
+        println!("{:?}, {:?}", num, num_out);
+    }
 }
