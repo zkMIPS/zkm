@@ -394,8 +394,14 @@ pub(crate) fn generate_branch<F: Field>(
     let (src1, src1_op) = reg_read_with_log(src1, 0, state, &mut row)?;
     let (src2, src2_op) = reg_read_with_log(src2, 1, state, &mut row)?;
     let should_jump = cond.result(src1 as i32, src2 as i32);
-    reg_write_with_log(0, 2, src1.wrapping_sub(src2), state, &mut row)?;
-    reg_write_with_log(0, 3, src2.wrapping_sub(src1), state, &mut row)?;
+    //println!("jump: {} c0: {}, c1: {}, aux1: {}, aux2: {}", should_jump, src1, src2, src1.wrapping_sub(src2), src2.wrapping_sub(src1));
+    let aux1 = src1.wrapping_sub(src2);
+    let aux2 = src2.wrapping_sub(src1);
+    let aux3 = (src1 ^ src2) & 0x80000000 > 0;
+
+    reg_write_with_log(0, 2, aux1, state, &mut row)?;
+    reg_write_with_log(0, 3, aux2, state, &mut row)?;
+    reg_write_with_log(0, 4, aux3 as usize, state, &mut row)?;
     let pc = state.registers.program_counter as u32;
     if should_jump {
         let target = sign_extend::<16>(target);
@@ -410,7 +416,6 @@ pub(crate) fn generate_branch<F: Field>(
         state.traces.push_cpu(row);
         state.jump_to(next_pc as usize);
     }
-    state.traces.push_cpu(row);
     state.traces.push_memory(src1_op);
     state.traces.push_memory(src2_op);
     Ok(())
