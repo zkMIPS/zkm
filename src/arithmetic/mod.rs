@@ -7,6 +7,7 @@ pub mod mul;
 pub mod mult;
 pub mod shift;
 pub mod slt;
+pub mod sra;
 pub mod utils;
 
 use crate::witness::util::sign_extend;
@@ -55,20 +56,20 @@ impl BinaryOperator {
             BinaryOperator::SUB => (input0.overflowing_sub(input1).0, 0),
             BinaryOperator::SUBU => (input0.overflowing_sub(input1).0, 0),
 
-            BinaryOperator::SLL => (input0.overflowing_shl(input1).0, 0),
-            BinaryOperator::SRL => (input0.overflowing_shr(input1).0, 0),
+            BinaryOperator::SLL => (if input1 > 31 { 0 } else { input0 << input1 }, 0),
+            BinaryOperator::SRL => (if input1 > 31 { 0 } else { input0 >> input1 }, 0),
             BinaryOperator::SRA => {
                 let sin = input0 as i32;
-                let sout = sin >> input1;
+                let sout = if input1 > 31 { 0 } else { sin >> input1 };
                 (sout as u32, 0)
             }
 
-            BinaryOperator::SLLV => (input0.overflowing_shl(input1).0, 0),
-            BinaryOperator::SRLV => (input0.overflowing_shr(input1).0, 0),
+            BinaryOperator::SLLV => (if input1 > 31 { 0 } else { input0 << input1 }, 0),
+            BinaryOperator::SRLV => (if input1 > 31 { 0 } else { input0 >> input1 }, 0),
             BinaryOperator::SRAV => {
                 // same as SRA
                 let sin = input0 as i32;
-                let sout = sin >> input1;
+                let sout = if input1 > 31 { 0 } else { sin >> input1 };
                 (sout as u32, 0)
             }
             BinaryOperator::MUL => (input0.overflowing_mul(input1).0, 0),
@@ -260,6 +261,21 @@ fn binary_op_to_rows<F: PrimeField64>(
             let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
             lui::generate(&mut row, &mut nv, op.row_filter(), input0, result0);
             (row, None)
+        }
+        BinaryOperator::SLL | BinaryOperator::SLLV => {
+            let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
+            shift::generate(&mut row, &mut nv, op.row_filter(), input1, input0, result0);
+            (row, None)
+        }
+        BinaryOperator::SRL | BinaryOperator::SRLV => {
+            let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
+            shift::generate(&mut row, &mut nv, op.row_filter(), input1, input0, result0);
+            (row, Some(nv))
+        }
+        BinaryOperator::SRA | BinaryOperator::SRAV => {
+            let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
+            sra::generate(&mut row, &mut nv, op.row_filter(), input1, input0, result0);
+            (row, Some(nv))
         }
 
         _ => (row, None),
