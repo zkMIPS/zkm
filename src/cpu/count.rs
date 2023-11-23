@@ -23,6 +23,9 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
+const LIMB_SIZE: usize = 32;
+const ALL_1_LIMB: u64 = (1 << LIMB_SIZE) - 1;
+
 const GOLDILOCKS_INVERSE_2EXP16: u64 = 18446462594437939201;
 const GOLDILOCKS_INVERSE_2EXP24: u64 = 18446742969902956801;
 const GOLDILOCKS_INVERSE_2EXP28: u64 = 18446744000695107601;
@@ -41,8 +44,8 @@ pub fn eval_packed<P: PackedField>(
     let rd = limb_from_bits_le(vec![rd_val].into_iter());
 
     // CLZ and CLO are differentiated by their first func_bits.
-    let clz_filter = filter * (P::ONES - lv.func_bits[0]);
-    let clo_filter = filter * lv.func_bits[0];
+    let clz_filter = filter * lv.func_bits[0];
+    let clo_filter = filter * (P::ONES - lv.func_bits[0]);
 
     // Check rs Reg
     // constraint: filter * (rs_reg - rs) == 0
@@ -67,10 +70,75 @@ pub fn eval_packed<P: PackedField>(
 
     // Check CLO
     {
-        // check by clz using !rs
-        let rs = P::ZEROS - rs - P::ONES;
-        eval_packed_clz(clo_filter, rs, rd, yield_constr);
+        eval_packed_clo(clo_filter, rs, rd, yield_constr);
     }
+}
+
+/**
+1.if rs is all one, rd=32
+2.if rs is not all one,check by segment.
+ */
+pub fn eval_packed_clo<P: PackedField>(
+    filter: P,
+    rs: P,
+    rd: P,
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    let all1limb = P::Scalar::from_canonical_u64(4294967295);
+    let limb32 = P::Scalar::from_canonical_u64(32);
+    let limb16 = P::Scalar::from_canonical_u64(16);
+    let limb8 = P::Scalar::from_canonical_u64(8);
+    let limb4 = P::Scalar::from_canonical_u64(4);
+    let limb2 = P::Scalar::from_canonical_u64(2);
+    let is_rs_all1 = all1limb - rs + P::ONES;
+    let fil = is_rs_all1 * (rd - limb32) + (P::ONES - is_rs_all1) * (P::ZEROS - limb32)
+        - is_rs_all1 * rd
+        + limb32;
+    yield_constr.constraint(filter * fil); // if rs=0xffffffff then rd=32
+
+    // check low16 bit
+    let n = P::ONES;
+    let pow16 = P::Scalar::from_canonical_u64(1 << 16);
+    let pow16_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP16);
+    let m = P::Scalar::from_canonical_u64((1 << 16) - 1);
+    let n = n + limb16;
+    let rs = rs * pow16;
+    let low16_filter = (P::ONES - rs * pow16_inv + m) * (n - limb16 - P::ONES);
+    yield_constr.constraint(filter * low16_filter); // if x >> 16 = 0xffff, then n += 16 && x <<= 16
+
+    // check low24
+    let pow24_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP24);
+    let m = P::Scalar::from_canonical_u64((1 << 24) - 1);
+    let pow8 = P::Scalar::from_canonical_u64(1 << 8);
+    let n = n + limb8;
+    let rs = rs * pow8;
+    let low24_filter = (P::ONES - rs * pow24_inv + m) * (n - limb8 - P::ONES);
+    yield_constr.constraint(filter * low16_filter * low24_filter); // if x >> 24 = 0xffffff, then n += 8 && x <<= 8
+
+    // check low28
+    let pow28_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP28);
+    let m = P::Scalar::from_canonical_u64((1 << 28) - 1);
+    let pow4 = P::Scalar::from_canonical_u64(1 << 4);
+    let n = n + limb4;
+    let rs = rs * pow4;
+    let low28_filter = (P::ONES - rs * pow28_inv + m) * (n - limb4 - P::ONES);
+    yield_constr.constraint(filter * low16_filter * low24_filter * low28_filter); // if x >> 28 = 0xfffffff, then n += 4 && x <<= 4
+
+    // check low30
+    let pow30_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP30);
+    let m = P::Scalar::from_canonical_u64((1 << 30) - 1);
+    let pow2 = P::Scalar::from_canonical_u64(1 << 2);
+    let n = n + limb2;
+    let rs = rs * pow2;
+    let low30_filter = (P::ONES - rs * pow30_inv + m) * (n - limb2 - P::ONES);
+    yield_constr.constraint(filter * low16_filter * low24_filter * low28_filter * low30_filter); // if x >> 30 = 0x3fffffff, then n += 2 && x <<= 2
+
+    // check all
+    let pow31_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP31);
+    let n = n - (rs * pow31_inv);
+    // check: n = n - (x >> 31) && n = rd
+    yield_constr
+        .constraint(filter * low16_filter * low24_filter * low28_filter * low30_filter * (n - rd));
 }
 
 /**
@@ -222,6 +290,115 @@ pub fn eval_ext_circuit_clz<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, constr);
 }
 
+pub fn eval_ext_circuit_clo<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    filter: ExtensionTarget<D>,
+    rs: ExtensionTarget<D>,
+    rd: ExtensionTarget<D>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    let zero = builder.zero_extension();
+    let one = builder.one_extension();
+    let all1limb = builder.constant_extension(F::Extension::from_canonical_u64(4294967295));
+    let limb32 = builder.constant_extension(F::Extension::from_canonical_u64(32));
+    let limb16 = builder.constant_extension(F::Extension::from_canonical_u64(16));
+    let limb8 = builder.constant_extension(F::Extension::from_canonical_u64(8));
+    let limb4 = builder.constant_extension(F::Extension::from_canonical_u64(4));
+    let limb2 = builder.constant_extension(F::Extension::from_canonical_u64(2));
+    let is_rs_all1 = builder.sub_extension(all1limb, rs);
+    let is_rs_all1 = builder.add_extension(is_rs_all1, one);
+    let fil_one = builder.sub_extension(rd, limb32);
+    let fil_one = builder.mul_extension(is_rs_all1, fil_one);
+    let fil_two_one = builder.sub_extension(one, is_rs_all1);
+    let fil_two_two = builder.sub_extension(zero, limb32);
+    let fil_two = builder.mul_extension(fil_two_one, fil_two_two);
+    let fil_three = builder.mul_extension(is_rs_all1, rd);
+    let fil = builder.add_extension(fil_one, fil_two);
+    let fil = builder.sub_extension(fil, fil_three);
+    let fil = builder.add_extension(fil, limb32);
+    let constr = builder.mul_extension(filter, fil);
+    yield_constr.constraint(builder, constr);
+
+    let n = one;
+    let pow16 = builder.constant_extension(F::Extension::from_canonical_u64(1 << 16));
+    let pow16_inv =
+        builder.constant_extension(F::Extension::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP16));
+    let m = builder.constant_extension(F::Extension::from_canonical_u64((1 << 16) - 1));
+    let n = builder.add_extension(n, limb16);
+    let rs = builder.mul_extension(rs, pow16);
+    let low16_left_filter = builder.mul_extension(rs, pow16_inv);
+    let low16_left_filter = builder.sub_extension(one, low16_left_filter);
+    let low16_left_filter = builder.add_extension(low16_left_filter, m);
+    let low16_right_filter = builder.sub_extension(n, limb16);
+    let low16_right_filter = builder.sub_extension(low16_right_filter, one);
+    let low16_filter = builder.mul_extension(low16_left_filter, low16_right_filter);
+    let constr = builder.mul_extension(filter, low16_filter);
+    yield_constr.constraint(builder, constr);
+
+    let pow24_inv =
+        builder.constant_extension(F::Extension::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP24));
+    let m = builder.constant_extension(F::Extension::from_canonical_u64((1 << 24) - 1));
+    let pow8 = builder.constant_extension(F::Extension::from_canonical_u64(1 << 8));
+    let n = builder.add_extension(n, limb8);
+    let rs = builder.mul_extension(rs, pow8);
+    let low24_left_filter = builder.mul_extension(rs, pow24_inv);
+    let low24_left_filter = builder.sub_extension(one, low24_left_filter);
+    let low24_left_filter = builder.add_extension(low24_left_filter, m);
+    let low24_right_filter = builder.sub_extension(n, limb8);
+    let low24_right_filter = builder.sub_extension(low24_right_filter, one);
+    let low24_filter = builder.mul_extension(low24_left_filter, low24_right_filter);
+    let constr = builder.mul_extension(filter, low16_filter);
+    let constr = builder.mul_extension(constr, low24_filter);
+    yield_constr.constraint(builder, constr);
+
+    let pow28_inv =
+        builder.constant_extension(F::Extension::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP28));
+    let m = builder.constant_extension(F::Extension::from_canonical_u64((1 << 28) - 1));
+    let pow4 = builder.constant_extension(F::Extension::from_canonical_u64(1 << 4));
+    let n = builder.add_extension(n, limb4);
+    let rs = builder.mul_extension(rs, pow4);
+    let low28_left_filter = builder.mul_extension(rs, pow28_inv);
+    let low28_left_filter = builder.sub_extension(one, low28_left_filter);
+    let low28_left_filter = builder.add_extension(low28_left_filter, m);
+    let low28_right_filter = builder.sub_extension(n, limb4);
+    let low28_right_filter = builder.sub_extension(low28_right_filter, one);
+    let low28_filter = builder.mul_extension(low28_left_filter, low28_right_filter);
+    let constr = builder.mul_extension(filter, low16_filter);
+    let constr = builder.mul_extension(constr, low24_filter);
+    let constr = builder.mul_extension(constr, low28_filter);
+    yield_constr.constraint(builder, constr);
+
+    let pow30_inv =
+        builder.constant_extension(F::Extension::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP30));
+    let m = builder.constant_extension(F::Extension::from_canonical_u64((1 << 30) - 1));
+    let pow2 = builder.constant_extension(F::Extension::from_canonical_u64(1 << 2));
+    let n = builder.add_extension(n, limb2);
+    let rs = builder.mul_extension(rs, pow2);
+    let low30_left_filter = builder.mul_extension(rs, pow30_inv);
+    let low30_left_filter = builder.sub_extension(one, low30_left_filter);
+    let low30_left_filter = builder.add_extension(low30_left_filter, m);
+    let low30_right_filter = builder.sub_extension(n, limb2);
+    let low30_right_filter = builder.sub_extension(low30_right_filter, one);
+    let low30_filter = builder.mul_extension(low30_left_filter, low30_right_filter);
+    let constr = builder.mul_extension(filter, low16_filter);
+    let constr = builder.mul_extension(constr, low24_filter);
+    let constr = builder.mul_extension(constr, low28_filter);
+    let constr = builder.mul_extension(constr, low30_filter);
+    yield_constr.constraint(builder, constr);
+
+    let pow31_inv =
+        builder.constant_extension(F::Extension::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP31));
+    let last_n = builder.mul_extension(rs, pow31_inv);
+    let last_n = builder.sub_extension(n, last_n);
+    let last_constr = builder.sub_extension(last_n, rd);
+    let constr = builder.mul_extension(filter, low16_filter);
+    let constr = builder.mul_extension(constr, low24_filter);
+    let constr = builder.mul_extension(constr, low28_filter);
+    let constr = builder.mul_extension(constr, low30_filter);
+    let constr = builder.mul_extension(constr, last_constr);
+    yield_constr.constraint(builder, constr);
+}
+
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -230,9 +407,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let one = builder.one_extension();
     // CLZ and CLO are differentiated by their first func_bits.
     let filter = lv.op.count_op; // `CLZ` or `CLO`
-    let clz_filter = builder.sub_extension(one, lv.func_bits[0]);
-    let clz_filter = builder.mul_extension(filter, clz_filter);
-    let clo_filter = builder.mul_extension(filter, lv.func_bits[0]);
+    let clz_filter = builder.mul_extension(filter, lv.func_bits[0]);
+    let clo_filter = builder.sub_extension(one, lv.func_bits[0]);
+    let clo_filter = builder.mul_extension(filter, clo_filter);
 
     let rs_val = lv.mem_channels[0].value;
     let rd_val = lv.mem_channels[1].value;
@@ -269,11 +446,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     // Check CLO
     {
-        let one = builder.one_extension();
-        let zero = builder.zero_extension();
-        // check by clz using !rs
-        let rs = builder.sub_extension(zero, rs);
-        let rs = builder.sub_extension(rs, one);
-        eval_ext_circuit_clz(builder, clo_filter, rs, rd, yield_constr);
+        eval_ext_circuit_clo(builder, clo_filter, rs, rd, yield_constr);
     }
 }
