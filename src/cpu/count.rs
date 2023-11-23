@@ -91,7 +91,9 @@ pub fn eval_packed_clo<P: PackedField>(
     let limb4 = P::Scalar::from_canonical_u64(4);
     let limb2 = P::Scalar::from_canonical_u64(2);
     let is_rs_all1 = all1limb - rs + P::ONES;
-    let fil = is_rs_all1*(rd-limb32)+(P::ONES-is_rs_all1)*(P::ZEROS-limb32)-is_rs_all1*rd+limb32;
+    let fil = is_rs_all1 * (rd - limb32) + (P::ONES - is_rs_all1) * (P::ZEROS - limb32)
+        - is_rs_all1 * rd
+        + limb32;
     yield_constr.constraint(filter * fil); // if rs=0xffffffff then rd=32
 
     // check low16 bit
@@ -119,7 +121,7 @@ pub fn eval_packed_clo<P: PackedField>(
     let pow4 = P::Scalar::from_canonical_u64(1 << 4);
     let n = n + limb4;
     let rs = rs * pow4;
-    let low28_filter = (P::ONES - rs * pow28_inv +m) * (n - limb4 - P::ONES);
+    let low28_filter = (P::ONES - rs * pow28_inv + m) * (n - limb4 - P::ONES);
     yield_constr.constraint(filter * low16_filter * low24_filter * low28_filter); // if x >> 28 = 0xfffffff, then n += 4 && x <<= 4
 
     // check low30
@@ -309,20 +311,19 @@ pub fn eval_ext_circuit_clo<F: RichField + Extendable<D>, const D: usize>(
     let fil_one = builder.mul_extension(is_rs_all1, fil_one);
     let fil_two_one = builder.sub_extension(one, is_rs_all1);
     let fil_two_two = builder.sub_extension(zero, limb32);
-    let fil_two = builder.mul_extension(fil_two_one,fil_two_two);
-    let fil_three = builder.mul_extension(is_rs_all1,rd);
+    let fil_two = builder.mul_extension(fil_two_one, fil_two_two);
+    let fil_three = builder.mul_extension(is_rs_all1, rd);
     let fil = builder.add_extension(fil_one, fil_two);
     let fil = builder.sub_extension(fil, fil_three);
     let fil = builder.add_extension(fil, limb32);
-
     let constr = builder.mul_extension(filter, fil);
-    yield_constr.constraint(builder, constr); 
+    yield_constr.constraint(builder, constr);
 
     let n = one;
     let pow16 = builder.constant_extension(F::Extension::from_canonical_u64(1 << 16));
     let pow16_inv =
         builder.constant_extension(F::Extension::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP16));
-    let m = builder.constant_extension(F::Extension::from_canonical_u64((1 << 16) -1));
+    let m = builder.constant_extension(F::Extension::from_canonical_u64((1 << 16) - 1));
     let n = builder.add_extension(n, limb16);
     let rs = builder.mul_extension(rs, pow16);
     let low16_left_filter = builder.mul_extension(rs, pow16_inv);
@@ -336,7 +337,7 @@ pub fn eval_ext_circuit_clo<F: RichField + Extendable<D>, const D: usize>(
 
     let pow24_inv =
         builder.constant_extension(F::Extension::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP24));
-    let m = builder.constant_extension(F::Extension::from_canonical_u64((1 << 24) -1));
+    let m = builder.constant_extension(F::Extension::from_canonical_u64((1 << 24) - 1));
     let pow8 = builder.constant_extension(F::Extension::from_canonical_u64(1 << 8));
     let n = builder.add_extension(n, limb8);
     let rs = builder.mul_extension(rs, pow8);
@@ -352,7 +353,7 @@ pub fn eval_ext_circuit_clo<F: RichField + Extendable<D>, const D: usize>(
 
     let pow28_inv =
         builder.constant_extension(F::Extension::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP28));
-    let m = builder.constant_extension(F::Extension::from_canonical_u64((1 << 28) -1));
+    let m = builder.constant_extension(F::Extension::from_canonical_u64((1 << 28) - 1));
     let pow4 = builder.constant_extension(F::Extension::from_canonical_u64(1 << 4));
     let n = builder.add_extension(n, limb4);
     let rs = builder.mul_extension(rs, pow4);
@@ -369,7 +370,7 @@ pub fn eval_ext_circuit_clo<F: RichField + Extendable<D>, const D: usize>(
 
     let pow30_inv =
         builder.constant_extension(F::Extension::from_canonical_u64(GOLDILOCKS_INVERSE_2EXP30));
-    let m = builder.constant_extension(F::Extension::from_canonical_u64((1 << 30) -1));
+    let m = builder.constant_extension(F::Extension::from_canonical_u64((1 << 30) - 1));
     let pow2 = builder.constant_extension(F::Extension::from_canonical_u64(1 << 2));
     let n = builder.add_extension(n, limb2);
     let rs = builder.mul_extension(rs, pow2);
