@@ -67,7 +67,11 @@ use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Given the two limbs of `left_in` and `right_in`, computes `left_in * right_in`.
-pub(crate) fn generate_mul<F: PrimeField64>(lv: &mut [F], left_in: [i64; 2], right_in: [i64; 2]) {
+pub(crate) fn generate_mul<F: PrimeField64>(
+    lv: &mut [F],
+    left_in: [i64; N_LIMBS],
+    right_in: [i64; N_LIMBS],
+) {
     const MASK: i64 = (1i64 << LIMB_BITS) - 1i64;
 
     // Input and output have 16-bit limbs
