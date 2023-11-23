@@ -138,7 +138,7 @@ fn eval_packed_load<P: PackedField>(
     let virt_constr = virt_diff * (virt_diff - one) * (virt_diff - two) * (virt_diff - three);
     yield_constr.constraint(filter * virt_constr);
 
-    //
+    // verify op
 
     // Disable remaining memory channels, if any.
     // Note: SC needs 5 channel
