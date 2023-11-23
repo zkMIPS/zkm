@@ -22,6 +22,7 @@ use anyhow::{Context, Result};
 
 use hex;
 use std::fs;
+
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -814,7 +815,13 @@ pub(crate) fn generate_syscall<F: Field>(
             if sz & 0xFFF != 0 {
                 row.general.syscall_mut().a1 = F::from_canonical_u32(1u32);
                 sz += 0x1000 - sz & 0xFFF;
-            };
+                row.general.syscall_mut().sysnum[9] = F::from_canonical_usize(sz.clone());
+                //use sysnum[9] to mark sz value
+            } else {
+                row.general.syscall_mut().sysnum[10] = F::from_canonical_u32(1u32);
+                //use sysnum[10] to mark sz&0xfff == 0
+                // row.general.syscall_mut().sysnum[10] = F::from_canonical_usize(sz.clone());//use sysnum[9] to mark sz
+            }
             if a0 == 0 {
                 row.general.syscall_mut().a0[0] = F::from_canonical_u32(1u32);
                 let (heap, log_in5) = reg_read_with_log(34, 6, state, &mut row)?;
