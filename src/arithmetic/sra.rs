@@ -69,6 +69,9 @@ pub fn generate<F: PrimeField64>(
         ((1 << shift) - 1) << ((32 - shift) % 32),
     );
 
+    // shift * shift
+    nv[AUX_INPUT_REGISTER_2.end] = F::from_canonical_u32(shift * shift);
+
     match filter {
         IS_SRA | IS_SRAV => {
             generate_div(
@@ -108,21 +111,22 @@ pub fn eval_packed_generic<P: PackedField>(
     let input_hi = lv[INPUT_REGISTER_1.end - 1];
     yield_constr.constraint_transition(filter * (input_hi + add - sum - is_neg * over_flow));
 
+    // shift_sq == shift * shift
+    let shift_sq = nv[AUX_INPUT_REGISTER_2.end];
+    yield_constr.constraint_transition(filter * (shift_sq - shift[0] * shift[0]));
     // Compute the added number if negative
     let intermediate1 = lv[SRA_EXTRA].to_vec();
     let intermediate2 = nv[SRA_EXTRA].to_vec();
-    let coeffs = sign_extend_poly::<P::Scalar>().coeffs;
+    let mut coeffs = sign_extend_poly::<P::Scalar>().coeffs;
+    coeffs.reverse();
+
     let mut acc = P::ZEROS;
     for (w, j) in intermediate1
         .into_iter()
         .chain(intermediate2.into_iter())
-        .zip(coeffs.iter().rev().chunks(2).into_iter())
+        .zip(coeffs.chunks(2))
     {
-        for coeff in j {
-            acc = acc * shift[0] + *coeff;
-        }
-
-        yield_constr.constraint_transition(filter * (acc - w));
+        yield_constr.constraint_transition(filter * (acc * shift_sq + j[0] * shift[0] + j[1] - w));
         acc = w;
     }
 
@@ -192,6 +196,13 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint_transition(builder, t); //filter * (input_hi + add - sum - is_neg * over_flow
     }
 
+    // shift_sq == shift * shift
+    let shift_sq = nv[AUX_INPUT_REGISTER_2.end];
+    let sq = builder.square_extension(shift[0]);
+    let t0 = builder.sub_extension(shift_sq, sq);
+    let t = builder.mul_extension(filter, t0);
+    yield_constr.constraint_transition(builder, t);
+
     // Compute the added number if negative
     let mut acc = builder.zero_extension();
     {
@@ -202,17 +213,16 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
             .into_iter()
             .map(|c| F::Extension::from(c))
             .map(|c| builder.constant_extension(c))
+            .rev()
             .collect_vec();
 
         for (w, j) in intermediate1
             .into_iter()
             .chain(intermediate2.into_iter())
-            .zip(coeffs.iter().rev().chunks(2).into_iter())
+            .zip(coeffs.chunks(2))
         {
-            for coeff in j {
-                acc = builder.mul_add_extension(acc, shift[0], *coeff);
-            }
-            let t = builder.sub_extension(acc, w);
+            let t0 = builder.wide_arithmetic_extension(acc, shift_sq, j[0], shift[0], j[1]);
+            let t = builder.sub_extension(t0, w);
             let constr = builder.mul_extension(filter, t);
             yield_constr.constraint_transition(builder, constr);
             acc = w;
