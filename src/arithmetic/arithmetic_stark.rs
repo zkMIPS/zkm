@@ -16,7 +16,7 @@ use super::shift;
 use crate::all_stark::Table;
 use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 //use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
-use crate::arithmetic::{addcy, columns, div, lui, mul, mult, slt, Operation};
+use crate::arithmetic::{addcy, columns, div, lui, mul, mult, slt, sra, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
@@ -221,6 +221,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         //modular::eval_packed(lv, nv, yield_constr);
         //byte::eval_packed(lv, yield_constr);
         shift::eval_packed_generic(lv, nv, yield_constr);
+        sra::eval_packed_generic(lv, nv, yield_constr);
     }
 
     fn eval_ext_circuit(
@@ -257,10 +258,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         //modular::eval_ext_circuit(builder, lv, nv, yield_constr);
         //byte::eval_ext_circuit(builder, lv, yield_constr);
         shift::eval_ext_circuit(builder, lv, nv, yield_constr);
+        sra::eval_ext_circuit(builder, lv, nv, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {
-        3
+        4
     }
 
     fn lookups(&self) -> Vec<Lookup> {

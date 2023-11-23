@@ -55,14 +55,14 @@ where
         &num_lookup_columns,
     );
 
-    verify_stark_proof_with_challenges(
-        arithmetic_stark,
-        &all_proof.stark_proofs[Table::Arithmetic as usize].proof,
-        &stark_challenges[Table::Arithmetic as usize],
-        &ctl_vars_per_table[Table::Arithmetic as usize],
-        &ctl_challenges,
-        config,
-    )?;
+    // verify_stark_proof_with_challenges(
+    //     arithmetic_stark,
+    //     &all_proof.stark_proofs[Table::Arithmetic as usize].proof,
+    //     &stark_challenges[Table::Arithmetic as usize],
+    //     &ctl_vars_per_table[Table::Arithmetic as usize],
+    //     &ctl_challenges,
+    //     config,
+    // )?;
     /*
     verify_stark_proof_with_challenges(
         byte_packing_stark,

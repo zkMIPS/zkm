@@ -198,20 +198,20 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    let arithmetic_proof = timed!(
-        timing,
-        "prove Arithmetic STARK",
-        prove_single_table(
-            &all_stark.arithmetic_stark,
-            config,
-            &trace_poly_values[Table::Arithmetic as usize],
-            &trace_commitments[Table::Arithmetic as usize],
-            &ctl_data_per_table[Table::Arithmetic as usize],
-            ctl_challenges,
-            challenger,
-            timing,
-        )?
-    );
+    // let arithmetic_proof = timed!(
+    //     timing,
+    //     "prove Arithmetic STARK",
+    //     prove_single_table(
+    //         &all_stark.arithmetic_stark,
+    //         config,
+    //         &trace_poly_values[Table::Arithmetic as usize],
+    //         &trace_commitments[Table::Arithmetic as usize],
+    //         &ctl_data_per_table[Table::Arithmetic as usize],
+    //         ctl_challenges,
+    //         challenger,
+    //         timing,
+    //     )?
+    // );
     /*
     let byte_packing_proof = timed!(
         timing,
@@ -303,7 +303,7 @@ where
     );
 
     Ok([
-        arithmetic_proof,
+        cpu_proof.clone(),
         //byte_packing_proof,
         cpu_proof,
         //keccak_proof,

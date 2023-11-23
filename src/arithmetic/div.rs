@@ -135,6 +135,7 @@ pub(crate) fn generate_div<F: PrimeField64>(
     filter: usize,
     input_limbs_range: Range<usize>,
     modulus_range: Range<usize>,
+    output_range: Range<usize>,
 ) {
     let input_limbs = read_value_i64_limbs::<N_LIMBS, _>(lv, input_limbs_range);
     let pol_input = pol_extend(input_limbs);
@@ -152,9 +153,9 @@ pub(crate) fn generate_div<F: PrimeField64>(
     }
 
     match filter {
-        IS_DIV | IS_DIVU | IS_SRL | IS_SRLV => {
+        IS_DIV | IS_DIVU | IS_SRL | IS_SRLV | IS_SRA | IS_SRAV => {
             debug_assert!(
-                lv[OUTPUT_REGISTER]
+                lv[output_range]
                     .iter()
                     .zip(&quo_input[..N_LIMBS])
                     .all(|(x, y)| x == y),
@@ -181,7 +182,14 @@ pub(crate) fn generate<F: PrimeField64>(
     u32_to_array(&mut lv[INPUT_REGISTER_1], input1);
     u32_to_array(&mut lv[OUTPUT_REGISTER], result);
 
-    generate_div(lv, nv, filter, INPUT_REGISTER_0, INPUT_REGISTER_1);
+    generate_div(
+        lv,
+        nv,
+        filter,
+        INPUT_REGISTER_0,
+        INPUT_REGISTER_1,
+        OUTPUT_REGISTER,
+    );
 }
 
 /// Convert the base-2^16 representation of a number into a BigInt.
@@ -265,7 +273,9 @@ pub(crate) fn check_reduced<P: PackedField>(
     //
     // and we are given output = out_aux_red when modulus is zero.
     let mut is_less_than = [P::ZEROS; N_LIMBS];
-    is_less_than[0] = P::ONES - mod_is_zero * (lv[IS_DIV] + lv[IS_DIVU] + lv[IS_SRL] + lv[IS_SRLV]);
+    is_less_than[0] = P::ONES
+        - mod_is_zero
+            * (lv[IS_DIV] + lv[IS_DIVU] + lv[IS_SRL] + lv[IS_SRLV] + lv[IS_SRA] + lv[IS_SRAV]);
     // NB: output and modulus in lv while out_aux_red and
     // is_less_than (via mod_is_zero) depend on nv, hence the
     // 'is_two_row_op' argument is set to 'true'.
@@ -316,7 +326,8 @@ pub(crate) fn modular_constr_poly<P: PackedField>(
     let div_denom_is_zero = nv[MODULAR_DIV_DENOM_IS_ZERO];
     yield_constr.constraint_transition(
         filter
-            * (mod_is_zero * (lv[IS_DIV] + lv[IS_DIVU] + lv[IS_SRL] + lv[IS_SRLV])
+            * (mod_is_zero
+                * (lv[IS_DIV] + lv[IS_DIVU] + lv[IS_SRL] + lv[IS_SRLV] + lv[IS_SRA] + lv[IS_SRAV])
                 - div_denom_is_zero),
     );
 
@@ -442,8 +453,14 @@ pub(crate) fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, cons
 
     // Is 1 iff the operation is DIV, DIVU and the denominator is zero.
     let div_denom_is_zero = nv[MODULAR_DIV_DENOM_IS_ZERO];
-    let div_shr_filter =
-        builder.add_many_extension([lv[IS_DIV], lv[IS_DIVU], lv[IS_SRL], lv[IS_SRLV]]);
+    let div_shr_filter = builder.add_many_extension([
+        lv[IS_DIV],
+        lv[IS_DIVU],
+        lv[IS_SRL],
+        lv[IS_SRLV],
+        lv[IS_SRA],
+        lv[IS_SRAV],
+    ]);
     let t = builder.mul_sub_extension(mod_is_zero, div_shr_filter, div_denom_is_zero);
     let t = builder.mul_extension(filter, t);
     yield_constr.constraint_transition(builder, t);
@@ -668,7 +685,10 @@ mod tests {
                     .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
 
                 // Reset operation columns, then select one
-                for op in MODULAR_OPS.iter().chain([IS_SRL, IS_SRLV].iter()) {
+                for op in MODULAR_OPS
+                    .iter()
+                    .chain([IS_SRL, IS_SRLV, IS_SRA, IS_SRAV].iter())
+                {
                     lv[*op] = F::ZERO;
                 }
                 lv[op_filter] = F::ONE;

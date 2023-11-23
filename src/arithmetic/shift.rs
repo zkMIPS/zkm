@@ -71,7 +71,14 @@ pub fn generate<F: PrimeField64>(
         IS_SRL | IS_SRLV => {
             // If the operation is IS_SRL(IS_SRLV), we compute: `input / shifted_displacement` if `shifted_displacement == 0`
             // otherwise, the output is 0. We use the logic in div.rs to achieve that.
-            div::generate_div(lv, nv, filter, INPUT_REGISTER_1, INPUT_REGISTER_2);
+            div::generate_div(
+                lv,
+                nv,
+                filter,
+                INPUT_REGISTER_1,
+                INPUT_REGISTER_2,
+                OUTPUT_REGISTER,
+            );
         }
         _ => panic!("expected filter to be IS_SLL(V), or IS_SRL(V) but it was {filter}"),
     }
@@ -277,7 +284,7 @@ mod tests {
         let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
         let mut nv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
 
-        [IS_SLL, IS_SLLV, IS_SRL, IS_SRLV].map(|filter| lv[filter] = F::ZERO);
+        [IS_SLL, IS_SLLV, IS_SRL, IS_SRLV, IS_SRA, IS_SRAV].map(|filter| lv[filter] = F::ZERO);
         lv[filter] = F::ONE;
 
         if filter == IS_SRL || filter == IS_SRLV {
