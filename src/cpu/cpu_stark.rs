@@ -196,15 +196,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         contextops::eval_packed(local_values, next_values, yield_constr);
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
         */
+        syscall::eval_packed(local_values, yield_constr);
+
+        /*
         decode::eval_packed_generic(local_values, yield_constr);
         jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
         memio::eval_packed(local_values, next_values, yield_constr);
         pc::eval_packed(local_values, next_values, yield_constr);
         shift::eval_packed(local_values, yield_constr);
-        syscall::eval_packed(local_values, yield_constr);
         mov::eval_packed(local_values, yield_constr);
         count::eval_packed(local_values, yield_constr);
+
+         */
     }
 
     fn eval_ext_circuit(
@@ -230,15 +234,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         */
+        /*
         decode::eval_ext_circuit(builder, local_values, yield_constr);
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
         memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         shift::eval_ext_circuit(builder, local_values, yield_constr);
-        syscall::eval_ext_circuit(builder, local_values, yield_constr);
         mov::eval_ext_circuit(builder, local_values, yield_constr);
         count::eval_ext_circuit(builder, local_values, yield_constr);
+
+         */
+        syscall::eval_ext_circuit(builder, local_values, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {
