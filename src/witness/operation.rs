@@ -977,6 +977,20 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     Ok(())
 }
 
+#[inline]
+fn bit_xor<F: Field>(op: logic::Op, x: u32, y: u32,
+    state: &mut GenerationState<F>,
+    row: &mut CpuColumnsView<F>)
+{
+    /*
+    let operation = logic::Operation::new(op, x, y);
+    let out = operation.result;
+    let log_out0 = reg_write_with_log(rd, 2, out as usize, state, &mut row)?;
+    state.traces.push_logic(operation);
+    out
+    */
+}
+
 pub(crate) fn generate_mload_general<F: Field>(
     op: MemOp,
     base: u8,
@@ -996,53 +1010,43 @@ pub(crate) fn generate_mload_general<F: Field>(
     let rs = virt_raw as u32;
     let rt = rt as u32;
 
-    let mut value_channel = vec![0u32; 8];
-    let mut diff = op;
+    let mut diff;
 
     let val = match op {
         MemOp::LH => {
-            diff = op - MemOp::LH as u32;
-            value_channel[0] = rs & 2;
-            value_channel[1] = mem >> 16 - (rs & 2) *  8;
+            diff = op as u32 - MemOp::LH as u32;
             sign_extend::<16>((mem >> (16 - (rs & 2) * 8)) & 0xffff)
         },
         MemOp::LWL => {
-            diff = op - MemOp::LWL as u32;
-            value_channel[0] = rs & 3;
+            diff = op as u32 - MemOp::LWL as u32;
             let val = mem << ((rs & 3) * 8);
             let mask = 0xffFFffFFu32 << ((rs & 3) * 8);
-            value_channel[1] = rt & (!mask);
             (rt & (!mask)) | val
         },
         MemOp::LW => {
-            diff = op - MemOp::LW as u32;
+            diff = op as u32 - MemOp::LW as u32;
             mem
         },
         MemOp::LBU => {
-            diff = op - MemOp::LBU;
-            value_channel[0] = rs & 3;
+            diff = op as u32 - MemOp::LBU as u32;
             (mem >> (24 - (rs & 3) * 8)) & 0xff
         },
         MemOp::LHU => {
-            diff = op - MemOp::LHU as u32;
-            value_channel[0] = rs & 2;
+            diff = op as u32 - MemOp::LHU as u32;
             (mem >> (16 - (rs & 2) * 8)) & 0xffff
         },
         MemOp::LWR => {
-            diff = op - MemOp::LWR as u32;
-            value_channel[0] = rs & 3;
+            diff = op as u32 - MemOp::LWR as u32;
             let val = mem >> (24 - (rs & 3) * 8);
             let mask = 0xffFFffFFu32 >> (24 - (rs & 3) * 8);
-            value_channel[1] = rt & (!mask);
             (rt & (!mask)) | val
         }
         MemOp::LL => {
-            diff = op - MemOp::LL as u32;
+            diff = op as u32 - MemOp::LL as u32;
             mem
         },
         MemOp::LB => {
-            diff = op - MemOp::LB as u32;
-            value_channel[0] = rs & 3;
+            diff = op as u32 - MemOp::LB as u32;
             sign_extend::<8>((mem >> (24 - (rs & 3) * 8)) & 0xff)
         },
         _ => todo!(),
@@ -1065,11 +1069,11 @@ pub(crate) fn generate_mload_general<F: Field>(
     let log_aux3 = reg_write_with_log(2, 6, op as usize, state, &mut row)?;
     state.traces.push_memory(log_aux3);
 
-    row.general.io_mut().values.iter_mut().zip(value_channel).for_each(|(o, i)| { *o = F::from_canonical_u32(i); });
+    let diff = F::from_canonical_u32(diff);
     if let Some(inv) = diff.try_inverse() {
         row.general.io_mut().diff_inv = inv;
     } else {
-        row.general.io_mut().diff_inv = 0;
+        row.general.io_mut().diff_inv = F::ZERO;
     }
 
     state.traces.push_cpu(row);
