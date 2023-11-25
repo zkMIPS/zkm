@@ -205,7 +205,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let a2 = lv.mem_channels[3].value;
     let v0 = builder.zero_extension();
     let v1 = builder.zero_extension();
-    let one = builder.one_extension();
     let syscall = lv.general.syscall();
     let result_v0 = lv.mem_channels[4].value;
     let result_v1 = lv.mem_channels[5].value;

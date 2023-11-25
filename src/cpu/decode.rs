@@ -1,6 +1,6 @@
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
-use plonky2::field::types::Field;
+
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
@@ -46,13 +46,14 @@ const OPCODES: [(u32, usize, bool, usize); 10] = [
 /// List of combined opcodes requiring a special handling.
 /// Each index in the list corresponds to an arbitrary combination
 /// of opcodes defined in evm/src/cpu/columns/ops.rs.
-const COMBINED_OPCODES: [usize; 6] = [
+const COMBINED_OPCODES: [usize; 7] = [
     COL_MAP.op.logic_op,
     COL_MAP.op.binary_op,
     COL_MAP.op.binary_imm_op,
     COL_MAP.op.shift,
     COL_MAP.op.shift_imm,
-    COL_MAP.op.m_op_general,
+    COL_MAP.op.m_op_load,
+    COL_MAP.op.m_op_store,
 ];
 
 /// Break up an opcode (which is 32 bits long) into its 32 bits.
@@ -105,8 +106,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let one = builder.one_extension();
-
     // Note: The constraints below do not need to be restricted to CPU cycles.
 
     // Ensure that the kernel flag is valid (either 0 or 1).

@@ -24,7 +24,8 @@ pub struct OpsColumnsView<T: Copy> {
     pub get_context: T,
     pub set_context: T,
     pub exit_kernel: T,
-    pub m_op_general: T,
+    pub m_op_load: T,
+    pub m_op_store: T,
 
     pub syscall: T,
 }

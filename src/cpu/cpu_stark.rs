@@ -14,9 +14,7 @@ use super::columns::CpuColumnsView;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
-use crate::cpu::{
-    bootstrap_kernel, control_flow, count, decode, jumps, membus, memio, pc, shift, syscall
-};
+use crate::cpu::{bootstrap_kernel, count, decode, jumps, membus, memio, pc, syscall};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
@@ -194,14 +192,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         bootstrap_kernel::eval_bootstrap_kernel_packed(local_values, next_values, yield_constr);
         //contextops::eval_packed(local_values, next_values, yield_constr);
         //control_flow::eval_packed_generic(local_values, next_values, yield_constr);
-        //decode::eval_packed_generic(local_values, yield_constr);
-        //jumps::eval_packed(local_values, next_values, yield_constr);
-        //membus::eval_packed(local_values, yield_constr);
+        decode::eval_packed_generic(local_values, yield_constr);
+        jumps::eval_packed(local_values, next_values, yield_constr);
+        membus::eval_packed(local_values, yield_constr);
         memio::eval_packed(local_values, next_values, yield_constr);
-        //pc::eval_packed(local_values, next_values, yield_constr);
+        pc::eval_packed(local_values, next_values, yield_constr);
         //shift::eval_packed(local_values, yield_constr);
-        //count::eval_packed(local_values, yield_constr);
-        //syscall::eval_packed(local_values, yield_constr);
+        count::eval_packed(local_values, yield_constr);
+        syscall::eval_packed(local_values, yield_constr);
     }
 
     fn eval_ext_circuit(
@@ -225,14 +223,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         );
         //contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         //control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        //decode::eval_ext_circuit(builder, local_values, yield_constr);
-        //jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        //membus::eval_ext_circuit(builder, local_values, yield_constr);
+        decode::eval_ext_circuit(builder, local_values, yield_constr);
+        jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        membus::eval_ext_circuit(builder, local_values, yield_constr);
         memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        //pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         //shift::eval_ext_circuit(builder, local_values, yield_constr);
-        //count::eval_ext_circuit(builder, local_values, yield_constr);
-        //syscall::eval_ext_circuit(builder, local_values, yield_constr);
+        count::eval_ext_circuit(builder, local_values, yield_constr);
+        syscall::eval_ext_circuit(builder, local_values, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {
@@ -243,19 +241,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::field::extension::{Extendable, FieldExtension};
+
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
-    use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
+    use crate::cpu::columns::NUM_CPU_COLUMNS;
     use crate::cpu::cpu_stark::CpuStark;
     use crate::cpu::kernel::KERNEL;
     use crate::generation::simulate_cpu;
     use crate::generation::state::GenerationState;
     use crate::generation::GenerationInputs;
     use crate::stark_testing::{
-        test_stark_check_constraints, test_stark_circuit_constraints,
-        test_stark_cpu_check_constraints, test_stark_low_degree,
+        test_stark_circuit_constraints, test_stark_cpu_check_constraints, test_stark_low_degree,
     };
 
     #[test]
@@ -311,7 +308,10 @@ mod tests {
             .collect::<Vec<_>>();
 
         for i in 0..(vals.len() - 1) {
-            //println!("vals: {:?}, cpu column: {:?}", vals[i], state.traces.cpu[i]);
+            println!(
+                "[] vals: {:?},\ncpu column: {:?}",
+                vals[i], state.traces.cpu[i]
+            );
             test_stark_cpu_check_constraints::<F, C, S, D>(stark, &vals[i], &vals[i + 1]);
         }
     }
