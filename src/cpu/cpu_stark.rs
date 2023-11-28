@@ -14,7 +14,7 @@ use super::columns::CpuColumnsView;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
-use crate::cpu::{bootstrap_kernel, count, decode, jumps, membus, memio, pc, syscall};
+use crate::cpu::{bootstrap_kernel, count, decode, jumps, membus, memio, pc, shift, syscall};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
@@ -197,7 +197,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         membus::eval_packed(local_values, yield_constr);
         memio::eval_packed(local_values, next_values, yield_constr);
         pc::eval_packed(local_values, next_values, yield_constr);
-        //shift::eval_packed(local_values, yield_constr);
+        shift::eval_packed(local_values, yield_constr);
         count::eval_packed(local_values, yield_constr);
         syscall::eval_packed(local_values, yield_constr);
     }
@@ -228,7 +228,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         membus::eval_ext_circuit(builder, local_values, yield_constr);
         memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        //shift::eval_ext_circuit(builder, local_values, yield_constr);
+        shift::eval_ext_circuit(builder, local_values, yield_constr);
         count::eval_ext_circuit(builder, local_values, yield_constr);
         syscall::eval_ext_circuit(builder, local_values, yield_constr);
     }
@@ -283,7 +283,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_stark_check_memio() {
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
@@ -309,10 +308,10 @@ mod tests {
             .collect::<Vec<_>>();
 
         for i in 0..(vals.len() - 1) {
-            println!(
-                "[] vals: {:?},\ncpu column: {:?}",
-                vals[i], state.traces.cpu[i]
-            );
+            // println!(
+            //     "[] vals: {:?},\ncpu column: {:?}",
+            //     vals[i], state.traces.cpu[i]
+            // );
             test_stark_cpu_check_constraints::<F, C, S, D>(stark, &vals[i], &vals[i + 1]);
         }
     }

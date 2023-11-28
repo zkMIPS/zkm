@@ -574,7 +574,7 @@ pub(crate) fn generate_iszero<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_shl<F: Field>(
+pub(crate) fn generate_sll<F: Field>(
     sa: u8,
     rt: u8,
     rd: u8,
@@ -583,11 +583,13 @@ pub(crate) fn generate_shl<F: Field>(
 ) -> Result<(), ProgramError> {
     let (input0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
     let input1 = sa as u32;
-    let operation = arithmetic::Operation::binary(
-        arithmetic::BinaryOperator::SLL,
-        input0 as u32,
-        input1 as u32,
-    );
+
+    let lookup_addr = MemoryAddress::new(0, Segment::ShiftTable, input1 as usize);
+    let (_, read) = mem_read_gp_with_log_and_fill(3, lookup_addr, state, &mut row);
+    state.traces.push_memory(read);
+
+    let operation =
+        arithmetic::Operation::binary(arithmetic::BinaryOperator::SLL, input0 as u32, input1);
     let result = operation.result().0;
 
     state.traces.push_arithmetic(operation);
@@ -599,7 +601,7 @@ pub(crate) fn generate_shl<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_shr<F: Field>(
+pub(crate) fn generate_srl<F: Field>(
     sa: u8,
     rt: u8,
     rd: u8,
@@ -609,11 +611,12 @@ pub(crate) fn generate_shr<F: Field>(
     let (input0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
     let input1 = sa as u32;
 
-    let operation = arithmetic::Operation::binary(
-        arithmetic::BinaryOperator::SRL,
-        input0 as u32,
-        input1 as u32,
-    );
+    let lookup_addr = MemoryAddress::new(0, Segment::ShiftTable, input1 as usize);
+    let (_, read) = mem_read_gp_with_log_and_fill(3, lookup_addr, state, &mut row);
+    state.traces.push_memory(read);
+
+    let operation =
+        arithmetic::Operation::binary(arithmetic::BinaryOperator::SRL, input0 as u32, input1);
     let result = operation.result().0;
 
     state.traces.push_arithmetic(operation);
@@ -633,9 +636,14 @@ pub(crate) fn generate_sra<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
-    let in1 = sa as u32;
+    // let in1 = sa as u32;
 
-    let operation = arithmetic::Operation::binary(arithmetic::BinaryOperator::SRA, in0 as u32, in1);
+    let lookup_addr = MemoryAddress::new(0, Segment::ShiftTable, sa as usize);
+    let (_, read) = mem_read_gp_with_log_and_fill(3, lookup_addr, state, &mut row);
+    state.traces.push_memory(read);
+
+    let operation =
+        arithmetic::Operation::binary(arithmetic::BinaryOperator::SRA, in0 as u32, sa as u32);
     let result = operation.result().0;
 
     state.traces.push_arithmetic(operation);
@@ -646,16 +654,20 @@ pub(crate) fn generate_sra<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_shlv<F: Field>(
+pub(crate) fn generate_sllv<F: Field>(
     rs: u8,
     rt: u8,
     rd: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (input0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
     let (input1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
-    let input0 = in0 & 0x1F;
+
+    let lookup_addr = MemoryAddress::new(0, Segment::ShiftTable, input0);
+    let (_, read) = mem_read_gp_with_log_and_fill(3, lookup_addr, state, &mut row);
+    state.traces.push_memory(read);
+
     let operation = arithmetic::Operation::binary(
         arithmetic::BinaryOperator::SLLV,
         input1 as u32,
@@ -672,16 +684,20 @@ pub(crate) fn generate_shlv<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_shrv<F: Field>(
+pub(crate) fn generate_srlv<F: Field>(
     rs: u8,
     rt: u8,
     rd: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (input0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
     let (input1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
-    let input0 = in0 & 0x1F;
+
+    let lookup_addr = MemoryAddress::new(0, Segment::ShiftTable, input0);
+    let (_, read) = mem_read_gp_with_log_and_fill(3, lookup_addr, state, &mut row);
+    state.traces.push_memory(read);
+
     let operation = arithmetic::Operation::binary(
         arithmetic::BinaryOperator::SRLV,
         input1 as u32,
@@ -698,16 +714,20 @@ pub(crate) fn generate_shrv<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_shrav<F: Field>(
+pub(crate) fn generate_srav<F: Field>(
     rs: u8,
     rt: u8,
     rd: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (input0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
     let (input1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
-    let input0 = in0 & 0x1F;
+    // let input0 = in0 & 0x1F;
+
+    let lookup_addr = MemoryAddress::new(0, Segment::ShiftTable, input0);
+    let (_, read) = mem_read_gp_with_log_and_fill(3, lookup_addr, state, &mut row);
+    state.traces.push_memory(read);
 
     let operation = arithmetic::Operation::binary(
         arithmetic::BinaryOperator::SRAV,
