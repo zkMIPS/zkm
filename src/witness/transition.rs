@@ -200,20 +200,20 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         (0x06, _, _) => Ok(Operation::Branch(BranchCond::LE, rs, 0u8, offset)), // BLEZ
         (0x07, _, _) => Ok(Operation::Branch(BranchCond::GT, rs, 0u8, offset)), // BGTZ
 
+        (0b100000, _, _) => Ok(Operation::MloadGeneral(MemOp::LB, rs, rt, offset)),
         (0b100001, _, _) => Ok(Operation::MloadGeneral(MemOp::LH, rs, rt, offset)),
         (0b100010, _, _) => Ok(Operation::MloadGeneral(MemOp::LWL, rs, rt, offset)),
         (0b100011, _, _) => Ok(Operation::MloadGeneral(MemOp::LW, rs, rt, offset)),
         (0b100100, _, _) => Ok(Operation::MloadGeneral(MemOp::LBU, rs, rt, offset)),
         (0b100101, _, _) => Ok(Operation::MloadGeneral(MemOp::LHU, rs, rt, offset)),
         (0b100110, _, _) => Ok(Operation::MloadGeneral(MemOp::LWR, rs, rt, offset)),
+        (0b110000, _, _) => Ok(Operation::MloadGeneral(MemOp::LL, rs, rt, offset)),
         (0b101000, _, _) => Ok(Operation::MstoreGeneral(MemOp::SB, rs, rt, offset)),
         (0b101001, _, _) => Ok(Operation::MstoreGeneral(MemOp::SH, rs, rt, offset)),
         (0b101010, _, _) => Ok(Operation::MstoreGeneral(MemOp::SWL, rs, rt, offset)),
         (0b101011, _, _) => Ok(Operation::MstoreGeneral(MemOp::SW, rs, rt, offset)),
         (0b101110, _, _) => Ok(Operation::MstoreGeneral(MemOp::SWR, rs, rt, offset)),
-        (0b110000, _, _) => Ok(Operation::MloadGeneral(MemOp::LL, rs, rt, offset)),
         (0b111000, _, _) => Ok(Operation::MstoreGeneral(MemOp::SC, rs, rt, offset)),
-        (0b100000, _, _) => Ok(Operation::MloadGeneral(MemOp::LB, rs, rt, offset)),
 
         (0b001000, _, _) => Ok(Operation::BinaryArithmeticImm(
             arithmetic::BinaryOperator::ADDI,
@@ -305,7 +305,8 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::GetContext => &mut flags.get_context,
         Operation::SetContext => &mut flags.set_context,
         Operation::ExitKernel => &mut flags.exit_kernel,
-        Operation::MloadGeneral(..) | Operation::MstoreGeneral(..) => &mut flags.m_op_general,
+        Operation::MloadGeneral(..) => &mut flags.m_op_load,
+        Operation::MstoreGeneral(..) => &mut flags.m_op_store,
     } = F::ONE;
 }
 

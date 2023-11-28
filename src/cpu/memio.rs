@@ -1,105 +1,651 @@
-use itertools::izip;
 use plonky2::field::extension::Extendable;
-use plonky2::field::packed::PackedField;
 
+use plonky2::field::packed::PackedField;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
+
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
+use crate::memory::segments::Segment;
+use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
 
-fn get_addr<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
-    let addr_context = lv.mem_channels[0].value;
-    let addr_segment = lv.mem_channels[1].value;
-    let addr_virtual = lv.mem_channels[2].value;
-    (addr_context, addr_segment, addr_virtual)
+#[inline]
+fn load_offset<P: PackedField>(lv: &CpuColumnsView<P>) -> P {
+    let mut mem_offset = [P::ZEROS; 32];
+    mem_offset[0..6].copy_from_slice(&lv.func_bits); // 6 bits
+    mem_offset[6..11].copy_from_slice(&lv.shamt_bits); // 5 bits
+    mem_offset[11..16].copy_from_slice(&lv.rd_bits); // 5 bits
+                                                     //mem_offset[16..].copy_from_slice(&[lv.rd_bits[4]; 16]);
+    let mem_offset = sign_extend::<_, 16>(&mem_offset);
+    limb_from_bits_le(mem_offset.into_iter())
 }
+
+#[inline]
+fn load_offset_ext<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
+) -> ExtensionTarget<D> {
+    let mut mem_offset = [builder.zero_extension(); 32];
+    mem_offset[0..6].copy_from_slice(&lv.func_bits); // 6 bits
+    mem_offset[6..11].copy_from_slice(&lv.shamt_bits); // 5 bits
+    mem_offset[11..16].copy_from_slice(&lv.rd_bits); // 5 bits
+                                                     //mem_offset[16..].copy_from_slice(&[lv.rd_bits[4]; 16]);
+    let mem_offset = sign_extend_ext::<_, D, 16>(builder, &mem_offset);
+    limb_from_bits_le_recursive(builder, mem_offset.into_iter())
+}
+
+#[inline]
+fn sign_extend<P: PackedField, const N: usize>(limbs: &[P; 32]) -> [P; 32] {
+    let mut out = [P::ZEROS; 32];
+    for i in 0..N {
+        out[i] = limbs[i];
+    }
+    for i in N..32 {
+        out[i] = limbs[N - 1];
+    }
+    out
+}
+
+#[inline]
+fn sign_extend_ext<F: RichField + Extendable<D>, const D: usize, const N: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    limbs: &[ExtensionTarget<D>; 32],
+) -> [ExtensionTarget<D>; 32] {
+    let mut out = [builder.zero_extension(); 32];
+    for i in 0..N {
+        out[i] = limbs[i];
+    }
+    for i in N..32 {
+        out[i] = limbs[N - 1];
+    }
+    out
+}
+
+/// Constant -4
+const GOLDILOCKS_INVERSE_NEG4: u64 = 18446744069414584317;
 
 fn eval_packed_load<P: PackedField>(
     lv: &CpuColumnsView<P>,
     _nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    // The opcode for MLOAD_GENERAL is 0xfb. If the operation is MLOAD_GENERAL, lv.opcode_bits[0] = 1
-    let filter = lv.op.m_op_general * lv.opcode_bits[0];
+    // If the operation is MLOAD_GENERAL, lv.opcode_bits[5] = 1
+    let filter = lv.op.m_op_load * lv.opcode_bits[5];
 
-    let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
+    // Check mem channel segment is register
+    let diff = lv.mem_channels[0].addr_segment
+        - P::Scalar::from_canonical_u64(Segment::RegisterFile as u64);
+    yield_constr.constraint(filter * diff);
+    let diff = lv.mem_channels[1].addr_segment
+        - P::Scalar::from_canonical_u64(Segment::RegisterFile as u64);
+    yield_constr.constraint(filter * diff);
 
-    let load_channel = lv.mem_channels[3];
-    yield_constr.constraint(filter * (load_channel.used - P::ONES));
-    yield_constr.constraint(filter * (load_channel.is_read - P::ONES));
-    yield_constr.constraint(filter * (load_channel.addr_context - addr_context));
-    yield_constr.constraint(filter * (load_channel.addr_segment - addr_segment));
-    yield_constr.constraint(filter * (load_channel.addr_virtual - addr_virtual));
+    // Check memory is used
+    // Check is_read is 0/1
 
-    // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[4..NUM_GP_CHANNELS] {
-        yield_constr.constraint(filter * channel.used);
+    let rs = lv.mem_channels[0].value;
+    let rt = lv.mem_channels[1].value;
+    let mem = lv.mem_channels[3].value;
+    let rs_limbs = lv.general.io().rs_le;
+    let rt_limbs = lv.general.io().rt_le;
+    let mem_limbs = lv.general.io().mem_le;
+
+    // Calculate rs:
+    //    let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
+    let offset = load_offset(lv);
+    let virt_raw = rs + offset;
+
+    // May raise overflow here since wrapping_add used in simulator
+    let rs_from_bits = limb_from_bits_le(rs_limbs.into_iter());
+    let u32max = P::Scalar::from_canonical_u64(1u64 << 32);
+    yield_constr
+        .constraint(filter * (rs_from_bits - virt_raw) * (rs_from_bits + u32max - virt_raw));
+
+    let rt_from_bits = limb_from_bits_le(rt_limbs.into_iter());
+    yield_constr.constraint(filter * (rt_from_bits - rt));
+
+    // Constrain mem address
+    //    let virt = virt_raw & 0xFFFF_FFFC;
+    let mut tmp = rs_limbs.clone();
+    tmp[0] = P::ZEROS;
+    tmp[1] = P::ZEROS;
+    let virt = limb_from_bits_le(tmp.into_iter());
+
+    let mem_virt = lv.mem_channels[2].addr_virtual;
+    yield_constr.constraint(filter * (virt - mem_virt));
+
+    // Verify op
+    let op_inv = lv.general.io().diff_inv;
+    let op = lv.mem_channels[4].value;
+    yield_constr.constraint(filter * (P::ONES - op * op_inv));
+
+    // Constrain mem value
+    // LH: micro_op[0] * sign_extend::<16>((mem >> (16 - (rs & 2) * 8)) & 0xffff)
+    {
+        // Range value(rs[1]): rs[1] == 1
+        let mut mem_val_1 = [P::ZEROS; 32];
+        mem_val_1[0..16].copy_from_slice(&mem_limbs[0..16]);
+        let mem_val_1 = sign_extend::<_, 16>(&mem_val_1);
+
+        // Range value(rs[1]): rs[1] == 0
+        let mut mem_val_0 = [P::ZEROS; 32];
+        mem_val_0[0..16].copy_from_slice(&mem_limbs[16..32]);
+        let mem_val_0 = sign_extend::<_, 16>(&mut mem_val_0);
+
+        let mem_val_1 = limb_from_bits_le(mem_val_1.into_iter());
+        let mem_val_0 = limb_from_bits_le(mem_val_0.into_iter());
+
+        // Range check
+        let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
+        yield_constr.constraint(filter * lv.general.io().micro_op[0] * sum);
     }
 
-    // Stack constraints
-    /*
-    stack::eval_packed_one(
-        lv,
-        nv,
-        filter,
-        stack::MLOAD_GENERAL_OP.unwrap(),
-        yield_constr,
-    );
-    */
+    // LWL:
+    //    let val = mem << ((rs & 3) * 8);
+    //    let mask = 0xffFFffFFu32 << ((rs & 3) * 8);
+    //    (rt & (!mask)) | val
+    //  Use mem_val_{rs[0]}_{rs[1]} to indicate the mem value for different value on rs' first and
+    //  second bit
+    {
+        let mut mem_val_0_0 = [P::ZEROS; 32];
+        let mut mem_val_0_1 = [P::ZEROS; 32];
+        let mut mem_val_1_0 = [P::ZEROS; 32];
+        let mut mem_val_1_1 = [P::ZEROS; 32];
+
+        mem_val_0_0[0..32].copy_from_slice(&mem_limbs[0..32]);
+
+        mem_val_1_0[0..8].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_1_0[8..].copy_from_slice(&mem_limbs[0..24]);
+
+        mem_val_0_1[0..16].copy_from_slice(&rt_limbs[0..16]);
+        mem_val_0_1[16..].copy_from_slice(&mem_limbs[0..16]);
+
+        mem_val_1_1[0..24].copy_from_slice(&rt_limbs[0..24]);
+        mem_val_1_1[24..].copy_from_slice(&mem_limbs[0..8]);
+
+        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0.into_iter());
+        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0.into_iter());
+        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1.into_iter());
+        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1.into_iter());
+
+        let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
+            + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
+            + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
+            + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
+        yield_constr.constraint(filter * lv.general.io().micro_op[1] * sum);
+    }
+
+    // LW:
+    {
+        let mem_value = limb_from_bits_le(mem_limbs.into_iter());
+        yield_constr.constraint(filter * lv.general.io().micro_op[2] * (mem - mem_value));
+    }
+
+    // LBU: (mem >> (24 - (rs & 3) * 8)) & 0xff
+    {
+        let mut mem_val_0_0 = [P::ZEROS; 32];
+        let mut mem_val_0_1 = [P::ZEROS; 32];
+        let mut mem_val_1_0 = [P::ZEROS; 32];
+        let mut mem_val_1_1 = [P::ZEROS; 32];
+
+        mem_val_0_0[0..8].copy_from_slice(&mem_limbs[24..32]);
+        mem_val_1_0[0..8].copy_from_slice(&mem_limbs[16..24]);
+        mem_val_0_1[0..8].copy_from_slice(&mem_limbs[8..16]);
+        mem_val_1_1[0..8].copy_from_slice(&mem_limbs[0..8]);
+
+        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0.into_iter());
+        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0.into_iter());
+        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1.into_iter());
+        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1.into_iter());
+
+        let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
+            + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
+            + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
+            + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
+        yield_constr.constraint(filter * lv.general.io().micro_op[3] * sum);
+    }
+
+    // LHU: (mem >> (16 - (rs & 2) * 8)) & 0xffff
+    {
+        let mut mem_val_0 = [P::ZEROS; 32];
+        let mut mem_val_1 = [P::ZEROS; 32];
+
+        mem_val_0[0..16].copy_from_slice(&mem_limbs[16..32]);
+        mem_val_1[0..16].copy_from_slice(&mem_limbs[0..16]);
+
+        let mem_val_1 = limb_from_bits_le(mem_val_1.into_iter());
+        let mem_val_0 = limb_from_bits_le(mem_val_0.into_iter());
+
+        let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
+        yield_constr.constraint(filter * lv.general.io().micro_op[4] * sum);
+    }
+
+    // LWR:
+    //     let val = mem >> (24 - (rs & 3) * 8);
+    //     let mask = 0xffFFffFFu32 >> (24 - (rs & 3) * 8);
+    //     (rt & (!mask)) | val
+    {
+        let mut mem_val_0_0 = [P::ZEROS; 32];
+        let mut mem_val_0_1 = [P::ZEROS; 32];
+        let mut mem_val_1_0 = [P::ZEROS; 32];
+        let mut mem_val_1_1 = [P::ZEROS; 32];
+
+        mem_val_0_0[8..].copy_from_slice(&rt_limbs[8..32]);
+        mem_val_0_0[0..8].copy_from_slice(&mem_limbs[24..32]);
+
+        mem_val_1_0[16..].copy_from_slice(&rt_limbs[16..32]);
+        mem_val_1_0[0..16].copy_from_slice(&mem_limbs[16..32]);
+
+        mem_val_0_1[24..].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_0_1[0..24].copy_from_slice(&mem_limbs[8..32]);
+
+        mem_val_1_1[0..32].copy_from_slice(&mem_limbs[..]);
+
+        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0.into_iter());
+        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0.into_iter());
+        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1.into_iter());
+        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1.into_iter());
+
+        let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
+            + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
+            + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
+            + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
+        yield_constr.constraint(filter * lv.general.io().micro_op[5] * sum);
+    }
+
+    // LL:
+    {
+        let mem_value = limb_from_bits_le(mem_limbs.into_iter());
+        yield_constr.constraint(filter * lv.general.io().micro_op[6] * (mem - mem_value));
+    }
+
+    // LB: sign_extend::<8>((mem >> (24 - (rs & 3) * 8)) & 0xff)
+    {
+        let mut mem_val_0_0 = [P::ZEROS; 32];
+        let mut mem_val_0_1 = [P::ZEROS; 32];
+        let mut mem_val_1_0 = [P::ZEROS; 32];
+        let mut mem_val_1_1 = [P::ZEROS; 32];
+
+        mem_val_0_0[0..8].copy_from_slice(&mem_limbs[24..]);
+        mem_val_1_0[0..8].copy_from_slice(&mem_limbs[16..24]);
+        mem_val_0_1[0..8].copy_from_slice(&mem_limbs[8..16]);
+        mem_val_1_1[0..8].copy_from_slice(&mem_limbs[0..8]);
+
+        let mem_val_0_0 = sign_extend::<_, 8>(&mem_val_0_0);
+        let mem_val_1_0 = sign_extend::<_, 8>(&mem_val_1_0);
+        let mem_val_0_1 = sign_extend::<_, 8>(&mem_val_0_1);
+        let mem_val_1_1 = sign_extend::<_, 8>(&mem_val_1_1);
+
+        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0.into_iter());
+        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0.into_iter());
+        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1.into_iter());
+        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1.into_iter());
+
+        let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
+            + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
+            + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
+            + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
+        yield_constr.constraint(filter * lv.general.io().micro_op[7] * sum);
+    }
+
+    // Disable remaining memory channels, if any.
+    // Note: SC needs 5 channel
+    for &channel in &lv.mem_channels[6..NUM_GP_CHANNELS] {
+        yield_constr.constraint(filter * channel.used);
+    }
 }
 
 fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     _nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let mut filter = lv.op.m_op_general;
-    filter = builder.mul_extension(filter, lv.opcode_bits[0]);
+    let zeros = builder.zero_extension();
+    let ones = builder.one_extension();
+    let filter = builder.mul_extension(lv.op.m_op_load, lv.opcode_bits[5]);
 
-    let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
+    // Check mem channel segment is register
+    let diff = builder.add_const_extension(
+        lv.mem_channels[0].addr_segment,
+        -F::from_canonical_u64(Segment::RegisterFile as u64),
+    );
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint(builder, constr);
 
-    let load_channel = lv.mem_channels[3];
+    let diff = builder.add_const_extension(
+        lv.mem_channels[1].addr_segment,
+        -F::from_canonical_u64(Segment::RegisterFile as u64),
+    );
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint(builder, constr);
+
+    let rs = lv.mem_channels[0].value;
+    let rt = lv.mem_channels[1].value;
+    let mem = lv.mem_channels[3].value;
+    let rs_limbs = lv.general.io().rs_le;
+    let rt_limbs = lv.general.io().rt_le;
+    let mem_limbs = lv.general.io().mem_le;
+
+    // Calculate rs:
+    //    let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
+    let offset = load_offset_ext(builder, lv);
+    let virt_raw = builder.add_extension(rs, offset);
+
+    let u32max = F::from_canonical_u64(1u64 << 32);
+    //yield_constr.constraint(filter * (rs_from_bits - virt_raw) * (rs_from_bits + u32max - virt_raw));
+    let rs_from_bits = limb_from_bits_le_recursive(builder, rs_limbs.into_iter());
+    let diff1 = builder.sub_extension(rs_from_bits, virt_raw);
+
+    let diff2 = builder.add_const_extension(rs_from_bits, u32max);
+    let diff2 = builder.sub_extension(diff2, virt_raw);
+
+    let constr = builder.mul_many_extension(&[filter, diff1, diff2]);
+    yield_constr.constraint(builder, constr);
+
+    let rt_from_bits = limb_from_bits_le_recursive(builder, rt_limbs.into_iter());
+    let diff = builder.sub_extension(rt_from_bits, rt);
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint(builder, constr);
+
+    // Constrain mem address
+    //    let virt = virt_raw & 0xFFFF_FFFC;
+    let mut tmp = rs_limbs.clone();
+    tmp[0] = zeros;
+    tmp[1] = zeros;
+    let virt = limb_from_bits_le_recursive(builder, tmp.into_iter());
+
+    let mem_virt = lv.mem_channels[2].addr_virtual;
+    let diff = builder.sub_extension(virt, mem_virt);
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint(builder, constr);
+
+    // Verify op
+    let op_inv = lv.general.io().diff_inv;
+    let op = lv.mem_channels[4].value;
+    let mul = builder.mul_extension(op, op_inv);
+    let diff = builder.sub_extension(ones, mul);
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint(builder, constr);
+
+    // Constrain mem value
+    // LH: micro_op[0] * sign_extend::<16>((mem >> (16 - (rs & 2) * 8)) & 0xffff)
     {
-        let constr = builder.mul_sub_extension(filter, load_channel.used, filter);
-        yield_constr.constraint(builder, constr);
+        // Range value(rs[1]): rs[1] == 1
+        let mut mem_val_1 = [zeros; 32];
+        mem_val_1[0..16].copy_from_slice(&mem_limbs[0..16]);
+        let mem_val_1 = sign_extend_ext::<_, D, 16>(builder, &mem_val_1);
+
+        // Range value(rs[1]): rs[1] == 0
+        let mut mem_val_0 = [zeros; 32];
+        mem_val_0[0..16].copy_from_slice(&mem_limbs[16..32]);
+        let mem_val_0 = sign_extend_ext::<_, D, 16>(builder, &mem_val_0);
+
+        let mem_val_1 = limb_from_bits_le_recursive(builder, mem_val_1.into_iter());
+        let mem_val_0 = limb_from_bits_le_recursive(builder, mem_val_0.into_iter());
+
+        // Range check
+        // let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
+        // yield_constr.constraint(filter * lv.general.io().micro_op[0] * sum);
+        let diff1 = builder.sub_extension(mem, mem_val_1);
+        let diff2 = builder.sub_extension(mem, mem_val_0);
+        let coff2 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let mult2 = builder.mul_extension(diff2, coff2);
+        let sum = builder.arithmetic_extension(F::ONES, F::ONES, rs_limbs[1], diff1, mult2);
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[0], sum]);
+        yield_constr.constraint(builder, mult);
     }
+
+    // LWL:
+    //    let val = mem << ((rs & 3) * 8);
+    //    let mask = 0xffFFffFFu32 << ((rs & 3) * 8);
+    //    (rt & (!mask)) | val
+    //  Use mem_val_{rs[0]}_{rs[1]} to indicate the mem value for different value on rs' first and
+    //  second bit
     {
-        let constr = builder.mul_sub_extension(filter, load_channel.is_read, filter);
-        yield_constr.constraint(builder, constr);
+        let mut mem_val_0_0 = [zeros; 32];
+        let mut mem_val_0_1 = [zeros; 32];
+        let mut mem_val_1_0 = [zeros; 32];
+        let mut mem_val_1_1 = [zeros; 32];
+
+        mem_val_0_0[0..32].copy_from_slice(&mem_limbs[0..32]);
+
+        mem_val_1_0[0..8].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_1_0[8..].copy_from_slice(&mem_limbs[0..24]);
+
+        mem_val_0_1[0..16].copy_from_slice(&rt_limbs[0..16]);
+        mem_val_0_1[16..].copy_from_slice(&mem_limbs[0..16]);
+
+        mem_val_1_1[0..24].copy_from_slice(&rt_limbs[0..24]);
+        mem_val_1_1[24..].copy_from_slice(&mem_limbs[0..8]);
+
+        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0.into_iter());
+        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0.into_iter());
+        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
+        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
+
+        // let sum =
+        //     (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES) +
+        //     (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0] +
+        //     (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES) +
+        //     (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
+        // yield_constr.constraint(filter * lv.general.io().micro_op[1] * sum);
+        let diff1 = builder.sub_extension(mem, mem_val_0_0);
+        let diff2 = builder.sub_extension(mem, mem_val_1_0);
+        let diff3 = builder.sub_extension(mem, mem_val_0_1);
+        let diff4 = builder.sub_extension(mem, mem_val_1_1);
+
+        let coff10 = builder.add_const_extension(rs_limbs[0], -F::ONES);
+        let coff11 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let sum1 = builder.mul_many_extension([diff1, coff10, coff11]);
+
+        let coff21 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let sum2 = builder.mul_many_extension([diff2, coff21, rs_limbs[0]]);
+
+        let coff30 = builder.add_const_extension(rs_limbs[0], -F::ONES);
+        let sum3 = builder.mul_many_extension([diff3, rs_limbs[1], coff30]);
+
+        let sum4 = builder.mul_many_extension([diff4, rs_limbs[1], rs_limbs[0]]);
+
+        let sum = builder.add_many_extension([sum1, sum2, sum3, sum4]);
+
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[1], sum]);
+        yield_constr.constraint(builder, mult);
     }
-    for (channel_field, target) in izip!(
-        [
-            load_channel.addr_context,
-            load_channel.addr_segment,
-            load_channel.addr_virtual,
-        ],
-        [addr_context, addr_segment, addr_virtual]
-    ) {
-        let diff = builder.sub_extension(channel_field, target);
-        let constr = builder.mul_extension(filter, diff);
-        yield_constr.constraint(builder, constr);
+
+    // LW:
+    {
+        let mem_value = limb_from_bits_le_recursive(builder, mem_limbs.into_iter());
+        // yield_constr.constraint(filter * lv.general.io().micro_op[2] * (mem - mem_value));
+        let diff1 = builder.sub_extension(mem, mem_value);
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[2], diff1]);
+        yield_constr.constraint(builder, mult);
+    }
+
+    // LBU: (mem >> (24 - (rs & 3) * 8)) & 0xff
+    {
+        let mut mem_val_0_0 = [zeros; 32];
+        let mut mem_val_0_1 = [zeros; 32];
+        let mut mem_val_1_0 = [zeros; 32];
+        let mut mem_val_1_1 = [zeros; 32];
+
+        mem_val_0_0[0..8].copy_from_slice(&mem_limbs[24..32]);
+        mem_val_1_0[0..8].copy_from_slice(&mem_limbs[16..24]);
+        mem_val_0_1[0..8].copy_from_slice(&mem_limbs[8..16]);
+        mem_val_1_1[0..8].copy_from_slice(&mem_limbs[0..8]);
+
+        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0.into_iter());
+        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0.into_iter());
+        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
+        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
+
+        /*
+        //yield_constr.constraint(filter * lv.general.io().micro_op[3]
+        //    * (mem - mem_val_0_0) * (mem - mem_val_0_1)
+        //    * (mem - mem_val_1_0) * (mem - mem_val_1_1));
+        let diff1 = builder.sub_extension(mem, mem_val_0_0);
+        let diff2 = builder.sub_extension(mem, mem_val_0_1);
+        let diff3 = builder.sub_extension(mem, mem_val_1_0);
+        let diff4 = builder.sub_extension(mem, mem_val_1_1);
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[3], diff1, diff2, diff3, diff4]);
+        yield_constr.constraint(builder, mult);
+        */
+
+        let diff1 = builder.sub_extension(mem, mem_val_0_0);
+        let diff2 = builder.sub_extension(mem, mem_val_1_0);
+        let diff3 = builder.sub_extension(mem, mem_val_0_1);
+        let diff4 = builder.sub_extension(mem, mem_val_1_1);
+
+        let coff10 = builder.add_const_extension(rs_limbs[0], -F::ONES);
+        let coff11 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let sum1 = builder.mul_many_extension([diff1, coff10, coff11]);
+
+        let coff21 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let sum2 = builder.mul_many_extension([diff2, coff21, rs_limbs[0]]);
+
+        let coff30 = builder.add_const_extension(rs_limbs[0], -F::ONES);
+        let sum3 = builder.mul_many_extension([diff3, rs_limbs[1], coff30]);
+
+        let sum4 = builder.mul_many_extension([diff4, rs_limbs[1], rs_limbs[0]]);
+
+        let sum = builder.add_many_extension([sum1, sum2, sum3, sum4]);
+
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[3], sum]);
+        yield_constr.constraint(builder, mult);
+    }
+
+    // LHU: (mem >> (16 - (rs & 2) * 8)) & 0xffff
+    {
+        let mut mem_val_0 = [zeros; 32];
+        let mut mem_val_1 = [zeros; 32];
+
+        mem_val_0[0..16].copy_from_slice(&mem_limbs[16..32]);
+        mem_val_1[0..16].copy_from_slice(&mem_limbs[0..16]);
+
+        let mem_val_1 = limb_from_bits_le_recursive(builder, mem_val_1.into_iter());
+        let mem_val_0 = limb_from_bits_le_recursive(builder, mem_val_0.into_iter());
+
+        let diff1 = builder.sub_extension(mem, mem_val_1);
+        let diff2 = builder.sub_extension(mem, mem_val_0);
+        let coff2 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let mult2 = builder.mul_extension(diff2, coff2);
+        let sum = builder.arithmetic_extension(F::ONES, F::ONES, rs_limbs[1], diff1, mult2);
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[4], sum]);
+        yield_constr.constraint(builder, mult);
+    }
+
+    // LWR:
+    //     let val = mem >> (24 - (rs & 3) * 8);
+    //     let mask = 0xffFFffFFu32 >> (24 - (rs & 3) * 8);
+    //     (rt & (!mask)) | val
+    {
+        let mut mem_val_0_0 = [zeros; 32];
+        let mut mem_val_0_1 = [zeros; 32];
+        let mut mem_val_1_0 = [zeros; 32];
+        let mut mem_val_1_1 = [zeros; 32];
+
+        mem_val_0_0[8..].copy_from_slice(&rt_limbs[8..32]);
+        mem_val_0_0[0..8].copy_from_slice(&mem_limbs[24..32]);
+
+        mem_val_1_0[16..].copy_from_slice(&rt_limbs[16..32]);
+        mem_val_1_0[0..16].copy_from_slice(&mem_limbs[16..32]);
+
+        mem_val_0_1[24..].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_0_1[0..24].copy_from_slice(&mem_limbs[8..32]);
+
+        mem_val_1_1[0..32].copy_from_slice(&mem_limbs[..]);
+
+        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0.into_iter());
+        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0.into_iter());
+        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
+        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
+
+        let diff1 = builder.sub_extension(mem, mem_val_0_0);
+        let diff2 = builder.sub_extension(mem, mem_val_1_0);
+        let diff3 = builder.sub_extension(mem, mem_val_0_1);
+        let diff4 = builder.sub_extension(mem, mem_val_1_1);
+
+        let coff10 = builder.add_const_extension(rs_limbs[0], -F::ONES);
+        let coff11 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let sum1 = builder.mul_many_extension([diff1, coff10, coff11]);
+
+        let coff21 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let sum2 = builder.mul_many_extension([diff2, coff21, rs_limbs[0]]);
+
+        let coff30 = builder.add_const_extension(rs_limbs[0], -F::ONES);
+        let sum3 = builder.mul_many_extension([diff3, rs_limbs[1], coff30]);
+
+        let sum4 = builder.mul_many_extension([diff4, rs_limbs[1], rs_limbs[0]]);
+
+        let sum = builder.add_many_extension([sum1, sum2, sum3, sum4]);
+
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[5], sum]);
+        yield_constr.constraint(builder, mult);
+    }
+
+    // LL:
+    {
+        let mem_value = limb_from_bits_le_recursive(builder, mem_limbs.into_iter());
+        // yield_constr.constraint(filter * lv.general.io().micro_op[6] * (mem - mem_value));
+        let diff1 = builder.sub_extension(mem, mem_value);
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[6], diff1]);
+        yield_constr.constraint(builder, mult);
+    }
+
+    // LB: sign_extend::<8>((mem >> (24 - (rs & 3) * 8)) & 0xff)
+    {
+        let mut mem_val_0_0 = [zeros; 32];
+        let mut mem_val_0_1 = [zeros; 32];
+        let mut mem_val_1_0 = [zeros; 32];
+        let mut mem_val_1_1 = [zeros; 32];
+
+        mem_val_0_0[0..8].copy_from_slice(&mem_limbs[24..]);
+        mem_val_1_0[0..8].copy_from_slice(&mem_limbs[16..24]);
+        mem_val_0_1[0..8].copy_from_slice(&mem_limbs[8..16]);
+        mem_val_1_1[0..8].copy_from_slice(&mem_limbs[0..8]);
+
+        let mem_val_0_0 = sign_extend_ext::<_, D, 8>(builder, &mem_val_0_0);
+        let mem_val_1_0 = sign_extend_ext::<_, D, 8>(builder, &mem_val_1_0);
+        let mem_val_0_1 = sign_extend_ext::<_, D, 8>(builder, &mem_val_0_1);
+        let mem_val_1_1 = sign_extend_ext::<_, D, 8>(builder, &mem_val_1_1);
+
+        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0.into_iter());
+        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0.into_iter());
+        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
+        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
+
+        let diff1 = builder.sub_extension(mem, mem_val_0_0);
+        let diff2 = builder.sub_extension(mem, mem_val_1_0);
+        let diff3 = builder.sub_extension(mem, mem_val_0_1);
+        let diff4 = builder.sub_extension(mem, mem_val_1_1);
+
+        let coff10 = builder.add_const_extension(rs_limbs[0], -F::ONES);
+        let coff11 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let sum1 = builder.mul_many_extension([diff1, coff10, coff11]);
+
+        let coff21 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let sum2 = builder.mul_many_extension([diff2, coff21, rs_limbs[0]]);
+
+        let coff30 = builder.add_const_extension(rs_limbs[0], -F::ONES);
+        let sum3 = builder.mul_many_extension([diff3, rs_limbs[1], coff30]);
+
+        let sum4 = builder.mul_many_extension([diff4, rs_limbs[1], rs_limbs[0]]);
+
+        let sum = builder.add_many_extension([sum1, sum2, sum3, sum4]);
+
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[7], sum]);
+        yield_constr.constraint(builder, mult);
     }
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[4..NUM_GP_CHANNELS] {
+    for &channel in &lv.mem_channels[6..NUM_GP_CHANNELS] {
         let constr = builder.mul_extension(filter, channel.used);
         yield_constr.constraint(builder, constr);
     }
-
-    // Stack constraints
-    /*
-    stack::eval_ext_circuit_one(
-        builder,
-        lv,
-        nv,
-        filter,
-        stack::MLOAD_GENERAL_OP.unwrap(),
-        yield_constr,
-    );
-    */
 }
 
 fn eval_packed_store<P: PackedField>(
@@ -107,214 +653,476 @@ fn eval_packed_store<P: PackedField>(
     _nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let filter = lv.op.m_op_general * (lv.opcode_bits[0] - P::ONES);
+    let filter = lv.op.m_op_store * lv.opcode_bits[5];
 
-    let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
+    // Check mem channel segment is register
+    let diff = lv.mem_channels[0].addr_segment
+        - P::Scalar::from_canonical_u64(Segment::RegisterFile as u64);
+    yield_constr.constraint(filter * diff);
+    let diff = lv.mem_channels[1].addr_segment
+        - P::Scalar::from_canonical_u64(Segment::RegisterFile as u64);
+    yield_constr.constraint(filter * diff);
 
-    let value_channel = lv.mem_channels[3];
-    let store_channel = lv.mem_channels[4];
-    yield_constr.constraint(filter * (store_channel.used - P::ONES));
-    yield_constr.constraint(filter * store_channel.is_read);
-    yield_constr.constraint(filter * (store_channel.addr_context - addr_context));
-    yield_constr.constraint(filter * (store_channel.addr_segment - addr_segment));
-    yield_constr.constraint(filter * (store_channel.addr_virtual - addr_virtual));
-    yield_constr.constraint(filter * (value_channel.value - store_channel.value));
+    // Check memory is used
+    // Check is_read is 0/1
+
+    let rs = lv.mem_channels[0].value;
+    let rt = lv.mem_channels[1].value;
+    let mem = lv.mem_channels[3].value;
+    let rs_limbs = lv.general.io().rs_le;
+    let rt_limbs = lv.general.io().rt_le;
+    let mem_limbs = lv.general.io().mem_le;
+
+    // Calculate rs:
+    //    let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
+    let offset = load_offset(lv);
+    let virt_raw = rs + offset;
+
+    let rs_from_bits = limb_from_bits_le(rs_limbs.into_iter());
+    let u32max = P::Scalar::from_canonical_u64(1u64 << 32);
+    yield_constr
+        .constraint(filter * (rs_from_bits - virt_raw) * (rs_from_bits + u32max - virt_raw));
+
+    let rt_from_bits = limb_from_bits_le(rt_limbs.into_iter());
+    yield_constr.constraint(filter * (rt_from_bits - rt));
+
+    // Constrain mem address
+    //    let virt = virt_raw & 0xFFFF_FFFC;
+    let mut tmp = rs_limbs.clone();
+    tmp[0] = P::ZEROS;
+    tmp[1] = P::ZEROS;
+    let virt = limb_from_bits_le(tmp.into_iter());
+
+    let mem_virt = lv.mem_channels[2].addr_virtual;
+    yield_constr.constraint(filter * (virt - mem_virt));
+
+    // Verify op
+    let op_inv = lv.general.io().diff_inv;
+    let op = lv.mem_channels[5].value;
+    yield_constr.constraint(filter * (P::ONES - op * op_inv));
+
+    // Constrain mem value
+    // SB:
+    //    let val = (rt & 0xff) << (24 - (rs & 3) * 8);
+    //    let mask = 0xffFFffFFu32 ^ (0xff << (24 - (rs & 3) * 8));
+    //    (mem & mask) | val
+    {
+        let mut mem_val_0_0 = [P::ZEROS; 32];
+        let mut mem_val_1_0 = [P::ZEROS; 32];
+        let mut mem_val_0_1 = [P::ZEROS; 32];
+        let mut mem_val_1_1 = [P::ZEROS; 32];
+
+        // rs[0] = 0, rs[1] = 0
+        mem_val_0_0[24..].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_0_0[0..24].copy_from_slice(&mem_limbs[0..24]);
+        // rs[0] = 1, rs[1] = 0
+        mem_val_1_0[24..].copy_from_slice(&mem_limbs[24..]);
+        mem_val_1_0[16..24].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_1_0[0..16].copy_from_slice(&mem_limbs[0..16]);
+        // rs[0] = 0, rs[1] = 1
+        mem_val_0_1[16..].copy_from_slice(&mem_limbs[16..]);
+        mem_val_0_1[8..16].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_0_1[0..8].copy_from_slice(&mem_limbs[0..8]);
+        // rs[0] = 1, rs[1] = 1
+        mem_val_1_1[0..8].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_1_1[8..].copy_from_slice(&mem_limbs[8..]);
+
+        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0.into_iter());
+        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0.into_iter());
+        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1.into_iter());
+        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1.into_iter());
+
+        let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
+            + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
+            + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
+            + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
+        yield_constr.constraint(filter * lv.general.io().micro_op[0] * sum);
+    }
+
+    // SH
+    //    let val = (rt & 0xffff) << (16 - (rs & 2) * 8);
+    //    let mask = 0xffFFffFFu32 ^ (0xffff << (16 - (rs & 2) * 8));
+    //    (mem & mask) | val
+    {
+        let mut mem_val_0 = [P::ZEROS; 32];
+        let mut mem_val_1 = [P::ZEROS; 32];
+
+        mem_val_0[16..].copy_from_slice(&rt_limbs[0..16]);
+        mem_val_0[0..16].copy_from_slice(&mem_limbs[0..16]);
+
+        mem_val_1[0..16].copy_from_slice(&rt_limbs[0..16]);
+        mem_val_1[16..].copy_from_slice(&mem_limbs[16..]);
+
+        let mem_val_1 = limb_from_bits_le(mem_val_1.into_iter());
+        let mem_val_0 = limb_from_bits_le(mem_val_0.into_iter());
+
+        let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
+        yield_constr.constraint(filter * lv.general.io().micro_op[1] * sum);
+    }
+
+    // SWL
+    //    let val = rt >> ((rs & 3) * 8);
+    //    let mask = 0xffFFffFFu32 >> ((rs & 3) * 8);
+    //    (mem & (!mask)) | val
+    {
+        let mut mem_val_0_0 = [P::ZEROS; 32];
+        let mut mem_val_1_0 = [P::ZEROS; 32];
+        let mut mem_val_0_1 = [P::ZEROS; 32];
+        let mut mem_val_1_1 = [P::ZEROS; 32];
+
+        // rs[0] = 0, rs[1] = 0
+        mem_val_0_0[..].copy_from_slice(&rt_limbs[..]);
+        // rs[0] = 1, rs[1] = 0
+        mem_val_1_0[0..24].copy_from_slice(&rt_limbs[8..]);
+        mem_val_1_0[24..].copy_from_slice(&mem_limbs[24..]);
+        // rs[0] = 0, rs[1] = 1
+        mem_val_0_1[0..16].copy_from_slice(&rt_limbs[16..]);
+        mem_val_0_1[16..].copy_from_slice(&mem_limbs[16..]);
+        // rs[0] = 1, rs[1] = 1
+        mem_val_1_1[0..8].copy_from_slice(&rt_limbs[24..]);
+        mem_val_1_1[8..].copy_from_slice(&mem_limbs[8..]);
+
+        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0.into_iter());
+        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0.into_iter());
+        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1.into_iter());
+        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1.into_iter());
+
+        let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
+            + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
+            + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
+            + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
+        yield_constr.constraint(filter * lv.general.io().micro_op[2] * sum);
+    }
+
+    // SW
+    {
+        let rt_value = limb_from_bits_le(rt_limbs.into_iter());
+        yield_constr.constraint(filter * lv.general.io().micro_op[3] * (mem - rt_value));
+    }
+
+    // SWR
+    //    let val = rt << (24 - (rs & 3) * 8);
+    //    let mask = 0xffFFffFFu32 << (24 - (rs & 3) * 8);
+    //    (mem & (!mask)) | val
+    {
+        let mut mem_val_0_0 = [P::ZEROS; 32];
+        let mut mem_val_1_0 = [P::ZEROS; 32];
+        let mut mem_val_0_1 = [P::ZEROS; 32];
+        let mut mem_val_1_1 = [P::ZEROS; 32];
+
+        // rs[0] = 0, rs[1] = 0
+        mem_val_0_0[24..].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_0_0[0..24].copy_from_slice(&mem_limbs[0..24]);
+        // rs[0] = 1, rs[1] = 0
+        mem_val_1_0[16..].copy_from_slice(&rt_limbs[0..16]);
+        mem_val_1_0[0..16].copy_from_slice(&mem_limbs[0..16]);
+        // rs[0] = 0, rs[1] = 1
+        mem_val_0_1[8..].copy_from_slice(&rt_limbs[0..24]);
+        mem_val_0_1[0..8].copy_from_slice(&mem_limbs[0..8]);
+        // rs[0] = 1, rs[1] = 1
+        mem_val_1_1[..].copy_from_slice(&rt_limbs[..]);
+
+        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0.into_iter());
+        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0.into_iter());
+        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1.into_iter());
+        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1.into_iter());
+
+        let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
+            + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
+            + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
+            + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
+        yield_constr.constraint(filter * lv.general.io().micro_op[4] * sum);
+    }
+
+    // SC:
+    //  TODO: write back rt register
+    {
+        let rt_value = limb_from_bits_le(rt_limbs.into_iter());
+        yield_constr.constraint(filter * lv.general.io().micro_op[5] * (mem - rt_value));
+    }
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[5..] {
+    for &channel in &lv.mem_channels[6..] {
         yield_constr.constraint(filter * channel.used);
     }
-
-    // Stack constraints.
-    // Pops.
-    /*
-    for i in 1..4 {
-        let channel = lv.mem_channels[i];
-
-        yield_constr.constraint(filter * (channel.used - P::ONES));
-        yield_constr.constraint(filter * (channel.is_read - P::ONES));
-
-        yield_constr.constraint(filter * (channel.addr_context - lv.context));
-        yield_constr.constraint(
-            filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
-        );
-        // Remember that the first read (`i == 1`) is for the second stack element at `stack[stack_len - 1]`.
-        let addr_virtual = lv.stack_len - P::Scalar::from_canonical_usize(i + 1);
-        yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
-    }
-    // Constrain `stack_inv_aux`.
-    let len_diff = lv.stack_len - P::Scalar::from_canonical_usize(4);
-    yield_constr.constraint(
-        lv.op.m_op_general
-            * (len_diff * lv.general.stack().stack_inv - lv.general.stack().stack_inv_aux),
-    );
-    // If stack_len != 4 and MSTORE, read new top of the stack in nv.mem_channels[0].
-    let top_read_channel = nv.mem_channels[0];
-    let is_top_read = lv.general.stack().stack_inv_aux * (P::ONES - lv.opcode_bits[0]);
-    // Constrain `stack_inv_aux_2`. It contains `stack_inv_aux * opcode_bits[0]`.
-    yield_constr
-        .constraint(lv.op.m_op_general * (lv.general.stack().stack_inv_aux_2 - is_top_read));
-    let new_filter = lv.op.m_op_general * lv.general.stack().stack_inv_aux_2;
-    yield_constr.constraint_transition(new_filter * (top_read_channel.used - P::ONES));
-    yield_constr.constraint_transition(new_filter * (top_read_channel.is_read - P::ONES));
-    yield_constr.constraint_transition(new_filter * (top_read_channel.addr_context - nv.context));
-    yield_constr.constraint_transition(
-        new_filter
-            * (top_read_channel.addr_segment
-                - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
-    );
-    let addr_virtual = nv.stack_len - P::ONES;
-    yield_constr.constraint_transition(new_filter * (top_read_channel.addr_virtual - addr_virtual));
-    // If stack_len == 4 or MLOAD, disable the channel.
-    yield_constr.constraint(
-        lv.op.m_op_general * (lv.general.stack().stack_inv_aux - P::ONES) * top_read_channel.used,
-    );
-    yield_constr.constraint(lv.op.m_op_general * lv.opcode_bits[0] * top_read_channel.used);
-    */
 }
 
 fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     _nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let filter =
-        builder.mul_sub_extension(lv.op.m_op_general, lv.opcode_bits[0], lv.op.m_op_general);
+    let zeros = builder.zero_extension();
+    let ones = builder.one_extension();
+    let filter = builder.mul_extension(lv.op.m_op_store, lv.opcode_bits[5]);
 
-    let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
-
-    let value_channel = lv.mem_channels[3];
-    let store_channel = lv.mem_channels[4];
-    {
-        let constr = builder.mul_sub_extension(filter, store_channel.used, filter);
-        yield_constr.constraint(builder, constr);
-    }
-    {
-        let constr = builder.mul_extension(filter, store_channel.is_read);
-        yield_constr.constraint(builder, constr);
-    }
-    for (channel_field, target) in izip!(
-        [
-            store_channel.addr_context,
-            store_channel.addr_segment,
-            store_channel.addr_virtual,
-        ],
-        [addr_context, addr_segment, addr_virtual]
-    ) {
-        let diff = builder.sub_extension(channel_field, target);
-        let constr = builder.mul_extension(filter, diff);
-        yield_constr.constraint(builder, constr);
-    }
-    let diff = builder.sub_extension(value_channel.value, store_channel.value);
+    // Check mem channel segment is register
+    let diff = builder.add_const_extension(
+        lv.mem_channels[0].addr_segment,
+        -F::from_canonical_u64(Segment::RegisterFile as u64),
+    );
     let constr = builder.mul_extension(filter, diff);
     yield_constr.constraint(builder, constr);
 
+    let diff = builder.add_const_extension(
+        lv.mem_channels[1].addr_segment,
+        -F::from_canonical_u64(Segment::RegisterFile as u64),
+    );
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint(builder, constr);
+
+    let rs = lv.mem_channels[0].value;
+    let rt = lv.mem_channels[1].value;
+    let mem = lv.mem_channels[3].value;
+    let rs_limbs = lv.general.io().rs_le;
+    let rt_limbs = lv.general.io().rt_le;
+    let mem_limbs = lv.general.io().mem_le;
+
+    // Calculate rs:
+    //    let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
+    let offset = load_offset_ext(builder, lv);
+    let virt_raw = builder.add_extension(rs, offset);
+
+    let u32max = F::from_canonical_u64(1u64 << 32);
+    //yield_constr.constraint(filter * (rs_from_bits - virt_raw) * (rs_from_bits + u32max - virt_raw));
+    let rs_from_bits = limb_from_bits_le_recursive(builder, rs_limbs.into_iter());
+    let diff1 = builder.sub_extension(rs_from_bits, virt_raw);
+
+    let diff2 = builder.add_const_extension(rs_from_bits, u32max);
+    let diff2 = builder.sub_extension(diff2, virt_raw);
+
+    let constr = builder.mul_many_extension(&[filter, diff1, diff2]);
+    yield_constr.constraint(builder, constr);
+
+    let rt_from_bits = limb_from_bits_le_recursive(builder, rt_limbs.into_iter());
+    let diff = builder.sub_extension(rt_from_bits, rt);
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint(builder, constr);
+
+    // Constrain mem address
+    //    let virt = virt_raw & 0xFFFF_FFFC;
+    let mut tmp = rs_limbs.clone();
+    tmp[0] = zeros;
+    tmp[1] = zeros;
+    let virt = limb_from_bits_le_recursive(builder, tmp.into_iter());
+
+    let mem_virt = lv.mem_channels[2].addr_virtual;
+    let diff = builder.sub_extension(virt, mem_virt);
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint(builder, constr);
+
+    // Verify op
+    let op_inv = lv.general.io().diff_inv;
+    let op = lv.mem_channels[5].value;
+    let mul = builder.mul_extension(op, op_inv);
+    let diff = builder.sub_extension(ones, mul);
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint(builder, constr);
+
+    // Constrain mem value
+    // SB:
+    //    let val = (rt & 0xff) << (24 - (rs & 3) * 8);
+    //    let mask = 0xffFFffFFu32 ^ (0xff << (24 - (rs & 3) * 8));
+    //    (mem & mask) | val
+    {
+        let mut mem_val_0_0 = [zeros; 32];
+        let mut mem_val_1_0 = [zeros; 32];
+        let mut mem_val_0_1 = [zeros; 32];
+        let mut mem_val_1_1 = [zeros; 32];
+
+        // rs[0] = 0, rs[1] = 0
+        mem_val_0_0[24..].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_0_0[0..24].copy_from_slice(&mem_limbs[0..24]);
+        // rs[0] = 1, rs[1] = 0
+        mem_val_1_0[24..].copy_from_slice(&mem_limbs[24..]);
+        mem_val_1_0[16..24].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_1_0[0..16].copy_from_slice(&mem_limbs[0..16]);
+        // rs[0] = 0, rs[1] = 1
+        mem_val_0_1[16..].copy_from_slice(&mem_limbs[16..]);
+        mem_val_0_1[8..16].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_0_1[0..8].copy_from_slice(&mem_limbs[0..8]);
+        // rs[0] = 1, rs[1] = 1
+        mem_val_1_1[0..8].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_1_1[8..].copy_from_slice(&mem_limbs[8..]);
+
+        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0.into_iter());
+        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0.into_iter());
+        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
+        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
+
+        let diff1 = builder.sub_extension(mem, mem_val_0_0);
+        let diff2 = builder.sub_extension(mem, mem_val_1_0);
+        let diff3 = builder.sub_extension(mem, mem_val_0_1);
+        let diff4 = builder.sub_extension(mem, mem_val_1_1);
+
+        let coff10 = builder.add_const_extension(rs_limbs[0], -F::ONES);
+        let coff11 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let sum1 = builder.mul_many_extension([diff1, coff10, coff11]);
+
+        let coff21 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let sum2 = builder.mul_many_extension([diff2, coff21, rs_limbs[0]]);
+
+        let coff30 = builder.add_const_extension(rs_limbs[0], -F::ONES);
+        let sum3 = builder.mul_many_extension([diff3, rs_limbs[1], coff30]);
+
+        let sum4 = builder.mul_many_extension([diff4, rs_limbs[1], rs_limbs[0]]);
+
+        let sum = builder.add_many_extension([sum1, sum2, sum3, sum4]);
+
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[0], sum]);
+        yield_constr.constraint(builder, mult);
+    }
+
+    // SH
+    //    let val = (rt & 0xffff) << (16 - (rs & 2) * 8);
+    //    let mask = 0xffFFffFFu32 ^ (0xffff << (16 - (rs & 2) * 8));
+    //    (mem & mask) | val
+    {
+        let mut mem_val_0 = [zeros; 32];
+        let mut mem_val_1 = [zeros; 32];
+
+        mem_val_0[16..].copy_from_slice(&rt_limbs[0..16]);
+        mem_val_0[0..16].copy_from_slice(&mem_limbs[0..16]);
+
+        mem_val_1[0..16].copy_from_slice(&rt_limbs[0..16]);
+        mem_val_1[16..].copy_from_slice(&mem_limbs[16..]);
+
+        let mem_val_1 = limb_from_bits_le_recursive(builder, mem_val_1.into_iter());
+        let mem_val_0 = limb_from_bits_le_recursive(builder, mem_val_0.into_iter());
+
+        let diff1 = builder.sub_extension(mem, mem_val_1);
+        let diff2 = builder.sub_extension(mem, mem_val_0);
+        let coff2 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let mult2 = builder.mul_extension(diff2, coff2);
+        let sum = builder.arithmetic_extension(F::ONES, F::ONES, rs_limbs[1], diff1, mult2);
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[1], sum]);
+        yield_constr.constraint(builder, mult);
+    }
+
+    // SWL
+    //    let val = rt >> ((rs & 3) * 8);
+    //    let mask = 0xffFFffFFu32 >> ((rs & 3) * 8);
+    //    (mem & (!mask)) | val
+    {
+        let mut mem_val_0_0 = [zeros; 32];
+        let mut mem_val_1_0 = [zeros; 32];
+        let mut mem_val_0_1 = [zeros; 32];
+        let mut mem_val_1_1 = [zeros; 32];
+
+        // rs[0] = 0, rs[1] = 0
+        mem_val_0_0[..].copy_from_slice(&rt_limbs[..]);
+        // rs[0] = 1, rs[1] = 0
+        mem_val_1_0[0..24].copy_from_slice(&rt_limbs[8..]);
+        mem_val_1_0[24..].copy_from_slice(&mem_limbs[24..]);
+        // rs[0] = 0, rs[1] = 1
+        mem_val_0_1[0..16].copy_from_slice(&rt_limbs[16..]);
+        mem_val_0_1[16..].copy_from_slice(&mem_limbs[16..]);
+        // rs[0] = 1, rs[1] = 1
+        mem_val_1_1[0..8].copy_from_slice(&rt_limbs[24..]);
+        mem_val_1_1[8..].copy_from_slice(&mem_limbs[8..]);
+
+        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0.into_iter());
+        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0.into_iter());
+        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
+        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
+
+        let diff1 = builder.sub_extension(mem, mem_val_0_0);
+        let diff2 = builder.sub_extension(mem, mem_val_1_0);
+        let diff3 = builder.sub_extension(mem, mem_val_0_1);
+        let diff4 = builder.sub_extension(mem, mem_val_1_1);
+
+        let coff10 = builder.add_const_extension(rs_limbs[0], -F::ONES);
+        let coff11 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let sum1 = builder.mul_many_extension([diff1, coff10, coff11]);
+
+        let coff21 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let sum2 = builder.mul_many_extension([diff2, coff21, rs_limbs[0]]);
+
+        let coff30 = builder.add_const_extension(rs_limbs[0], -F::ONES);
+        let sum3 = builder.mul_many_extension([diff3, rs_limbs[1], coff30]);
+
+        let sum4 = builder.mul_many_extension([diff4, rs_limbs[1], rs_limbs[0]]);
+
+        let sum = builder.add_many_extension([sum1, sum2, sum3, sum4]);
+
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[2], sum]);
+        yield_constr.constraint(builder, mult);
+    }
+
+    // SW
+    {
+        let rt_value = limb_from_bits_le_recursive(builder, rt_limbs.into_iter());
+        //yield_constr.constraint(filter * lv.general.io().micro_op[3] * (mem - rt_value));
+        let diff1 = builder.sub_extension(mem, rt_value);
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[3], diff1]);
+        yield_constr.constraint(builder, mult);
+    }
+
+    // SWR
+    //    let val = rt << (24 - (rs & 3) * 8);
+    //    let mask = 0xffFFffFFu32 << (24 - (rs & 3) * 8);
+    //    (mem & (!mask)) | val
+    {
+        let mut mem_val_0_0 = [zeros; 32];
+        let mut mem_val_1_0 = [zeros; 32];
+        let mut mem_val_0_1 = [zeros; 32];
+        let mut mem_val_1_1 = [zeros; 32];
+
+        // rs[0] = 0, rs[1] = 0
+        mem_val_0_0[24..].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_0_0[0..24].copy_from_slice(&mem_limbs[0..24]);
+        // rs[0] = 1, rs[1] = 0
+        mem_val_1_0[16..].copy_from_slice(&rt_limbs[0..16]);
+        mem_val_1_0[0..16].copy_from_slice(&mem_limbs[0..16]);
+        // rs[0] = 0, rs[1] = 1
+        mem_val_0_1[8..].copy_from_slice(&rt_limbs[0..24]);
+        mem_val_0_1[0..8].copy_from_slice(&mem_limbs[0..8]);
+        // rs[0] = 1, rs[1] = 1
+        mem_val_1_1[..].copy_from_slice(&rt_limbs[..]);
+
+        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0.into_iter());
+        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0.into_iter());
+        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
+        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
+
+        let diff1 = builder.sub_extension(mem, mem_val_0_0);
+        let diff2 = builder.sub_extension(mem, mem_val_1_0);
+        let diff3 = builder.sub_extension(mem, mem_val_0_1);
+        let diff4 = builder.sub_extension(mem, mem_val_1_1);
+
+        let coff10 = builder.add_const_extension(rs_limbs[0], -F::ONES);
+        let coff11 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let sum1 = builder.mul_many_extension([diff1, coff10, coff11]);
+
+        let coff21 = builder.add_const_extension(rs_limbs[1], -F::ONES);
+        let sum2 = builder.mul_many_extension([diff2, coff21, rs_limbs[0]]);
+
+        let coff30 = builder.add_const_extension(rs_limbs[0], -F::ONES);
+        let sum3 = builder.mul_many_extension([diff3, rs_limbs[1], coff30]);
+
+        let sum4 = builder.mul_many_extension([diff4, rs_limbs[1], rs_limbs[0]]);
+
+        let sum = builder.add_many_extension([sum1, sum2, sum3, sum4]);
+
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[4], sum]);
+        yield_constr.constraint(builder, mult);
+    }
+
+    // SC
+    {
+        let rt_value = limb_from_bits_le_recursive(builder, rt_limbs.into_iter());
+        //yield_constr.constraint(filter * lv.general.io().micro_op[5] * (mem - rt_value));
+        let diff1 = builder.sub_extension(mem, rt_value);
+        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[5], diff1]);
+        yield_constr.constraint(builder, mult);
+    }
+
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[5..] {
+    for &channel in &lv.mem_channels[6..] {
         let constr = builder.mul_extension(filter, channel.used);
         yield_constr.constraint(builder, constr);
     }
-
-    // Stack constraints
-    // Pops.
-    /*
-    for i in 1..4 {
-        let channel = lv.mem_channels[i];
-
-        {
-            let constr = builder.mul_sub_extension(filter, channel.used, filter);
-            yield_constr.constraint(builder, constr);
-        }
-        {
-            let constr = builder.mul_sub_extension(filter, channel.is_read, filter);
-            yield_constr.constraint(builder, constr);
-        }
-        {
-            let diff = builder.sub_extension(channel.addr_context, lv.context);
-            let constr = builder.mul_extension(filter, diff);
-            yield_constr.constraint(builder, constr);
-        }
-        {
-            let diff = builder.add_const_extension(
-                channel.addr_segment,
-                -F::from_canonical_u64(Segment::Stack as u64),
-            );
-            let constr = builder.mul_extension(filter, diff);
-            yield_constr.constraint(builder, constr);
-        }
-        // Remember that the first read (`i == 1`) is for the second stack element at `stack[stack_len - 1]`.
-        let addr_virtual =
-            builder.add_const_extension(lv.stack_len, -F::from_canonical_usize(i + 1));
-        let diff = builder.sub_extension(channel.addr_virtual, addr_virtual);
-        let constr = builder.mul_extension(filter, diff);
-        yield_constr.constraint(builder, constr);
-    }
-    // Constrain `stack_inv_aux`.
-    {
-        let len_diff = builder.add_const_extension(lv.stack_len, -F::from_canonical_usize(4));
-        let diff = builder.mul_sub_extension(
-            len_diff,
-            lv.general.stack().stack_inv,
-            lv.general.stack().stack_inv_aux,
-        );
-        let constr = builder.mul_extension(lv.op.m_op_general, diff);
-        yield_constr.constraint(builder, constr);
-    }
-    // If stack_len != 4 and MSTORE, read new top of the stack in nv.mem_channels[0].
-    let top_read_channel = nv.mem_channels[0];
-    let is_top_read = builder.mul_extension(lv.general.stack().stack_inv_aux, lv.opcode_bits[0]);
-    let is_top_read = builder.sub_extension(lv.general.stack().stack_inv_aux, is_top_read);
-    // Constrain `stack_inv_aux_2`. It contains `stack_inv_aux * opcode_bits[0]`.
-    {
-        let diff = builder.sub_extension(lv.general.stack().stack_inv_aux_2, is_top_read);
-        let constr = builder.mul_extension(lv.op.m_op_general, diff);
-        yield_constr.constraint(builder, constr);
-    }
-    let new_filter = builder.mul_extension(lv.op.m_op_general, lv.general.stack().stack_inv_aux_2);
-    {
-        let constr = builder.mul_sub_extension(new_filter, top_read_channel.used, new_filter);
-        yield_constr.constraint_transition(builder, constr);
-    }
-    {
-        let constr = builder.mul_sub_extension(new_filter, top_read_channel.is_read, new_filter);
-        yield_constr.constraint_transition(builder, constr);
-    }
-    {
-        let diff = builder.sub_extension(top_read_channel.addr_context, nv.context);
-        let constr = builder.mul_extension(new_filter, diff);
-        yield_constr.constraint_transition(builder, constr);
-    }
-    {
-        let diff = builder.add_const_extension(
-            top_read_channel.addr_segment,
-            -F::from_canonical_u64(Segment::Stack as u64),
-        );
-        let constr = builder.mul_extension(new_filter, diff);
-        yield_constr.constraint_transition(builder, constr);
-    }
-    {
-        let addr_virtual = builder.add_const_extension(nv.stack_len, -F::ONE);
-        let diff = builder.sub_extension(top_read_channel.addr_virtual, addr_virtual);
-        let constr = builder.mul_extension(new_filter, diff);
-        yield_constr.constraint_transition(builder, constr);
-    }
-    // If stack_len == 4 or MLOAD, disable the channel.
-    {
-        let diff = builder.mul_sub_extension(
-            lv.op.m_op_general,
-            lv.general.stack().stack_inv_aux,
-            lv.op.m_op_general,
-        );
-        let constr = builder.mul_extension(diff, top_read_channel.used);
-        yield_constr.constraint(builder, constr);
-    }
-    {
-        let mul = builder.mul_extension(lv.op.m_op_general, lv.opcode_bits[0]);
-        let constr = builder.mul_extension(mul, top_read_channel.used);
-        yield_constr.constraint(builder, constr);
-    }
-    */
 }
 
 pub fn eval_packed<P: PackedField>(
@@ -327,7 +1135,7 @@ pub fn eval_packed<P: PackedField>(
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,

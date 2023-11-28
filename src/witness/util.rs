@@ -1,16 +1,12 @@
 use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::kernel::keccak_util::keccakf_u8s;
-use crate::cpu::membus::NUM_CHANNELS;
+
 use crate::generation::state::GenerationState;
-use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_WIDTH_BYTES};
-use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
-use crate::logic;
+
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
-use byteorder::{ByteOrder, LittleEndian};
 
 fn to_byte_checked(n: u32) -> u8 {
     let res: u8 = n.to_le_bytes()[0];

@@ -344,30 +344,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
 
 #[cfg(test)]
 mod tests {
-    use crate::all_stark::ctl_logic;
-    use crate::config::StarkConfig;
-    use crate::cross_table_lookup::{
-        cross_table_lookup_data_ex, get_grand_product_challenge_set, CtlCheckVars,
-    };
+
     use crate::logic::{LogicStark, Op, Operation};
-    use crate::memory::memory_stark::MemoryStark;
-    use crate::memory::segments::Segment;
-    use crate::prover::prove_single_table;
-    use crate::stark::Stark;
+
     use crate::stark_testing::{
         test_stark_check_constraints, test_stark_circuit_constraints, test_stark_low_degree,
     };
-    use crate::verifier::verify_stark_proof_with_challenges;
-    use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
+
     use anyhow::Result;
-    use plonky2::field::extension::Extendable;
-    use plonky2::field::extension::FieldExtension;
-    use plonky2::field::types::Field;
-    use plonky2::fri::oracle::PolynomialBatch;
-    use plonky2::iop::challenger::Challenger;
+
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::timed;
-    use plonky2::util::timing::TimingTree;
 
     #[test]
     fn test_stark_degree() -> Result<()> {

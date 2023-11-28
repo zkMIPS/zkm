@@ -10,11 +10,7 @@ use crate::cpu::cpu_stark;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
-use crate::keccak::keccak_stark;
-use crate::keccak::keccak_stark::KeccakStark;
-use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
-use crate::keccak_sponge::keccak_sponge_stark;
-use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
+
 use crate::logic;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark;
