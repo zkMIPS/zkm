@@ -240,7 +240,7 @@ fn eval_packed_load<P: PackedField>(
         mem_val_1_0[16..].copy_from_slice(&rt_limbs[16..32]);
         mem_val_1_0[0..16].copy_from_slice(&mem_limbs[16..32]);
 
-        mem_val_0_1[24..].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_0_1[24..].copy_from_slice(&rt_limbs[24..32]);
         mem_val_0_1[0..24].copy_from_slice(&mem_limbs[8..32]);
 
         mem_val_1_1[0..32].copy_from_slice(&mem_limbs[..]);
@@ -554,7 +554,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         mem_val_1_0[16..].copy_from_slice(&rt_limbs[16..32]);
         mem_val_1_0[0..16].copy_from_slice(&mem_limbs[16..32]);
 
-        mem_val_0_1[24..].copy_from_slice(&rt_limbs[0..8]);
+        mem_val_0_1[24..].copy_from_slice(&rt_limbs[24..32]);
         mem_val_0_1[0..24].copy_from_slice(&mem_limbs[8..32]);
 
         mem_val_1_1[0..32].copy_from_slice(&mem_limbs[..]);
@@ -564,6 +564,11 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
         let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
 
+        //let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
+        //    + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
+        //    + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
+        //    + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
+        //yield_constr.constraint(filter * lv.general.io().micro_op[5] * sum);
         let diff1 = builder.sub_extension(mem, mem_val_0_0);
         let diff2 = builder.sub_extension(mem, mem_val_1_0);
         let diff3 = builder.sub_extension(mem, mem_val_0_1);
