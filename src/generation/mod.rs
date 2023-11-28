@@ -41,7 +41,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Decode the trace record
     // 1. Decode instruction and fill in cpu columns
     // 2. Decode memory and fill in memory columns
-    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code, 400000).unwrap();
+    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code, 20000000).unwrap();
     generate_bootstrap_kernel::<F>(&mut state);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
@@ -98,6 +98,7 @@ pub(crate) fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
                 }
             }
             log::info!("CPU trace padded to {} cycles", state.traces.clock());
+            println!("CPU trace {} padded to {} cycles", step, state.traces.clock());
 
             return Ok(());
         }

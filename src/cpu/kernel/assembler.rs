@@ -26,7 +26,7 @@ pub const KERNLE_FILE: &str = "test-vectors/hello";
 
 // FIXME: impl the mips vm
 pub(crate) fn combined_kernel() -> Kernel {
-    let mut reader = BufReader::new(File::open("test-vectors/hello").unwrap());
+    let mut reader = BufReader::new(File::open("test-vectors/minigeth").unwrap());
     let mut code = Vec::new();
     reader.read_to_end(&mut code).unwrap();
     //FIXME: define it as global constant
