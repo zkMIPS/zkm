@@ -291,10 +291,10 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryLogicImm(_, _, _, _) => &mut flags.logic_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLL, ..)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRL, ..)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRA, ..) => &mut flags.shift,
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRA, ..) => &mut flags.shift_imm,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLLV, ..)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRLV, ..)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRAV, ..) => &mut flags.shift_imm,
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRAV, ..) => &mut flags.shift,
         Operation::BinaryArithmetic(..) => &mut flags.binary_op,
         Operation::BinaryArithmeticImm(..) => &mut flags.binary_imm_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
@@ -371,23 +371,23 @@ fn perform_op<F: Field>(
         }
 
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLL, sa, rt, rd) => {
-            generate_shl(sa, rt, rd, state, row)?
+            generate_sll(sa, rt, rd, state, row)?
         }
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRL, sa, rt, rd) => {
-            generate_shr(sa, rt, rd, state, row)?
+            generate_srl(sa, rt, rd, state, row)?
         }
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRA, sa, rt, rd) => {
             generate_sra(sa, rt, rd, state, row)?
         }
 
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLLV, rs, rt, rd) => {
-            generate_shlv(rs, rt, rd, state, row)?
+            generate_sllv(rs, rt, rd, state, row)?
         }
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRLV, rs, rt, rd) => {
-            generate_shrv(rs, rt, rd, state, row)?
+            generate_srlv(rs, rt, rd, state, row)?
         }
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRAV, rs, rt, rd) => {
-            generate_shrav(rs, rt, rd, state, row)?
+            generate_srav(rs, rt, rd, state, row)?
         }
 
         Operation::BinaryArithmetic(op, rs, rt, rd) => {

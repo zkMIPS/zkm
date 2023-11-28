@@ -1,4 +1,5 @@
 use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
+use itertools::Itertools;
 
 #[derive(Clone, Copy, Debug)]
 pub enum MemoryChannel {
@@ -133,6 +134,12 @@ impl MemoryState {
         let code_u32s = kernel_code.iter().map(|&x| x.into()).collect();
         let mut result = Self::default();
         result.contexts[0].segments[Segment::Code as usize].content = code_u32s;
+
+        // shift table. maybe a better way could be used.
+        let mut shift_u32s = (0..32).map(|i| (1u32 << i).to_be()).collect_vec();
+        shift_u32s.resize(1 << 32, 0);
+        result.contexts[0].segments[Segment::ShiftTable as usize].content = shift_u32s;
+
         result
     }
 
