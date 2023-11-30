@@ -14,7 +14,7 @@ use super::columns::CpuColumnsView;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
-use crate::cpu::{bootstrap_kernel, count, decode, jumps, membus, memio, pc, shift, syscall};
+use crate::cpu::{bootstrap_kernel, count, decode, jumps, membus, memio, shift, syscall};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
@@ -191,12 +191,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
 
         bootstrap_kernel::eval_bootstrap_kernel_packed(local_values, next_values, yield_constr);
         //contextops::eval_packed(local_values, next_values, yield_constr);
-        //control_flow::eval_packed_generic(local_values, next_values, yield_constr);
         decode::eval_packed_generic(local_values, yield_constr);
         jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
         memio::eval_packed(local_values, next_values, yield_constr);
-        pc::eval_packed(local_values, next_values, yield_constr);
         shift::eval_packed(local_values, yield_constr);
         count::eval_packed(local_values, yield_constr);
         syscall::eval_packed(local_values, yield_constr);
@@ -222,19 +220,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
             yield_constr,
         );
         //contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        //control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         decode::eval_ext_circuit(builder, local_values, yield_constr);
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
         memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         shift::eval_ext_circuit(builder, local_values, yield_constr);
         count::eval_ext_circuit(builder, local_values, yield_constr);
         syscall::eval_ext_circuit(builder, local_values, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {
-        8
+        7
     }
 }
 

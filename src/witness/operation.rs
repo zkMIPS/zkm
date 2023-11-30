@@ -1,24 +1,14 @@
-// use keccak_hash::keccak;
-use plonky2::field::types::Field;
-
 use super::util::*;
-// use crate::arithmetic::BinaryOperator;
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
-// use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::KERNEL;
-// use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
+use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-// use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
 use crate::witness::errors::ProgramError;
-// use crate::witness::errors::ProgramError::MemoryError;
 use crate::witness::memory::MemoryAddress;
-// use crate::witness::operation::MemoryChannel::GeneralPurpose;
-use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::{arithmetic, logic};
 use anyhow::{Context, Result};
+use plonky2::field::types::Field;
 
 use hex;
 use std::fs;
@@ -46,6 +36,24 @@ impl BranchCond {
             BranchCond::LT => input0 < input1,
         }
     }
+}
+
+pub fn generate_pinv_diff<F: Field>(val0: u32, val1: u32, lv: &mut CpuColumnsView<F>) {
+    let num_unequal_limbs = if val0 != val1 { 1 } else { 0 };
+    let _equal = num_unequal_limbs == 0;
+
+    // Form `diff_pinv`.
+    // Let `diff = val0 - val1`. Consider `x[i] = diff[i]^-1` if `diff[i] != 0` and 0 otherwise.
+    // Then `diff @ x = num_unequal_limbs`, where `@` denotes the dot product. We set
+    // `diff_pinv = num_unequal_limbs^-1 * x` if `num_unequal_limbs != 0` and 0 otherwise. We have
+    // `diff @ diff_pinv = 1 - equal` as desired.
+    let logic = lv.general.logic_mut();
+    let num_unequal_limbs_inv = F::from_canonical_usize(num_unequal_limbs)
+        .try_inverse()
+        .unwrap_or(F::ZERO);
+    let val0_f = F::from_canonical_u32(val0);
+    let val1_f = F::from_canonical_u32(val1);
+    logic.diff_pinv = (val0_f - val1_f).try_inverse().unwrap_or(F::ZERO) * num_unequal_limbs_inv;
 }
 
 pub(crate) const SYSGETPID: usize = 4020;
@@ -84,10 +92,7 @@ pub(crate) enum MemOp {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Operation {
-    Iszero,
-    Not,
     Syscall,
-    Eq,
     BinaryLogic(logic::Op, u8, u8, u8),
     BinaryLogicImm(logic::Op, u8, u8, u32),
     BinaryArithmetic(arithmetic::BinaryOperator, u8, u8, u8),
@@ -102,7 +107,6 @@ pub(crate) enum Operation {
     Pc,
     GetContext,
     SetContext,
-    ExitKernel,
     MloadGeneral(MemOp, u8, u8, u32),
     MstoreGeneral(MemOp, u8, u8, u32),
 }
@@ -540,40 +544,6 @@ pub(crate) fn generate_set_context<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_not<F: Field>(
-    _state: &mut GenerationState<F>,
-    _row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    let [(x, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
-    let result = !x;
-    push_no_write(state, &mut row, result, Some(NUM_GP_CHANNELS - 1));
-
-    state.traces.push_cpu(row);
-    */
-    Ok(())
-}
-
-pub(crate) fn generate_iszero<F: Field>(
-    _state: &mut GenerationState<F>,
-    _row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    let [(x, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
-    let is_zero = x.is_zero();
-    let result = {
-        let t: u64 = is_zero.into();
-        t.into()
-    };
-
-    generate_pinv_diff(x, 0, &mut row);
-
-    push_no_write(state, &mut row, result, None);
-    state.traces.push_cpu(row);
-    */
-    Ok(())
-}
-
 pub(crate) fn generate_sll<F: Field>(
     sa: u8,
     rt: u8,
@@ -946,57 +916,6 @@ pub(crate) fn generate_syscall<F: Field>(
     result
 }
 
-pub(crate) fn generate_eq<F: Field>(
-    _state: &mut GenerationState<F>,
-    _row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    let [(in0, _), (in1, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
-    let eq = in0 == in1;
-    // let result = U256::from(u64::from(eq));
-    let result = u32::from(eq);
-
-    generate_pinv_diff(in0, in1, &mut row);
-
-    push_no_write(state, &mut row, result, None);
-    state.traces.push_memory(log_in1);
-    state.traces.push_cpu(row);
-    */
-    Ok(())
-}
-
-// FIXME: unused?
-pub(crate) fn generate_exit_kernel<F: Field>(
-    _state: &mut GenerationState<F>,
-    _row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    let [(kexit_info, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
-    let kexit_info_u64 = kexit_info.0[0];
-    let program_counter = kexit_info_u64 as u32 as usize;
-    let is_kernel_mode_val = (kexit_info_u64 >> 32) as u32;
-    assert!(is_kernel_mode_val == 0 || is_kernel_mode_val == 1);
-    let is_kernel_mode = is_kernel_mode_val != 0;
-    let gas_used_val = kexit_info.0[3];
-    if TryInto::<u64>::try_into(gas_used_val).is_err() {
-        return Err(ProgramError::GasLimitError);
-    }
-
-    state.registers.program_counter = program_counter;
-    state.registers.is_kernel = is_kernel_mode;
-    // state.registers.gas_used = gas_used_val;
-    log::debug!(
-        "Exiting to {}, is_kernel={}",
-        program_counter,
-        is_kernel_mode
-    );
-
-    state.traces.push_cpu(row);
-    */
-
-    Ok(())
-}
-
 pub(crate) fn generate_mload_general<F: Field>(
     op: MemOp,
     base: u8,
@@ -1227,107 +1146,5 @@ pub(crate) fn generate_mstore_general<F: Field>(
     }
 
     state.traces.push_cpu(row);
-    Ok(())
-}
-
-pub(crate) fn generate_exception<F: Field>(
-    exc_code: u8,
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    if TryInto::<u64>::try_into(state.registers.gas_used).is_err() {
-        return Err(ProgramError::GasLimitError);
-    }
-
-    row.op.exception = F::ONE;
-
-    let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
-    let diff = row.stack_len - disallowed_len;
-    if let Some(inv) = diff.try_inverse() {
-        row.stack_len_bounds_aux = inv;
-    } else {
-        // This is a stack overflow that should have been caught earlier.
-        return Err(ProgramError::InterpreterError);
-    }
-
-    if let Some(inv) = row.stack_len.try_inverse() {
-        row.general.stack_mut().stack_inv = inv;
-        row.general.stack_mut().stack_inv_aux = F::ONE;
-    }
-
-    if state.registers.is_stack_top_read {
-        let channel = &mut row.mem_channels[0];
-        channel.used = F::ONE;
-        channel.is_read = F::ONE;
-        channel.addr_context = F::from_canonical_usize(state.registers.context);
-        channel.addr_segment = F::from_canonical_usize(Segment::Stack as usize);
-        channel.addr_virtual = F::from_canonical_usize(state.registers.stack_len - 1);
-
-        let address = MemoryAddress {
-            context: state.registers.context,
-            segment: Segment::Stack as usize,
-            virt: state.registers.stack_len - 1,
-        };
-
-        let mem_op = MemoryOp::new(
-            GeneralPurpose(0),
-            state.traces.clock(),
-            address,
-            MemoryOpKind::Read,
-            state.registers.stack_top,
-        );
-        state.traces.push_memory(mem_op);
-        state.registers.is_stack_top_read = false;
-    }
-    */
-
-    let handler_jumptable_addr = KERNEL.global_labels["exception_jumptable"];
-    let handler_addr_addr =
-        handler_jumptable_addr + (exc_code as usize) * (BYTES_PER_OFFSET as usize);
-    assert_eq!(BYTES_PER_OFFSET, 3, "Code below assumes 3 bytes per offset");
-    let (handler_addr0, log_in0) = mem_read_gp_with_log_and_fill(
-        1,
-        MemoryAddress::new(0, Segment::Code, handler_addr_addr),
-        state,
-        &mut row,
-    );
-    let (handler_addr1, log_in1) = mem_read_gp_with_log_and_fill(
-        2,
-        MemoryAddress::new(0, Segment::Code, handler_addr_addr + 1),
-        state,
-        &mut row,
-    );
-    let (handler_addr2, log_in2) = mem_read_gp_with_log_and_fill(
-        3,
-        MemoryAddress::new(0, Segment::Code, handler_addr_addr + 2),
-        state,
-        &mut row,
-    );
-
-    let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
-    let new_program_counter = handler_addr;
-
-    let _exc_info = state.registers.program_counter as u32;
-    // U256::from(state.registers.program_counter) + (U256::from(state.registers.gas_used) << 192);
-
-    // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
-    // can't incorrectly trigger a stack overflow. However, note that we have to do it _after_ we
-    // make `exc_info`, which should contain the old values.
-    state.registers.program_counter = new_program_counter as usize;
-    state.registers.is_kernel = true;
-
-    //push_with_write(state, &mut row, exc_info)?;
-
-    log::debug!(
-        "Exception to {}",
-        KERNEL.offset_name(new_program_counter as usize)
-    );
-
-    state.traces.push_memory(log_in0);
-    state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
-    state.traces.push_cpu(row);
-
     Ok(())
 }
