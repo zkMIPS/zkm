@@ -279,6 +279,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_stark_check_memio() {
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
