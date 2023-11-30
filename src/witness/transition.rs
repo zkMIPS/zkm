@@ -282,8 +282,6 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
 fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
     let flags = &mut row.op;
     *match op {
-        Operation::Iszero | Operation::Eq => &mut flags.eq_iszero,
-        Operation::Not => &mut flags.not,
         Operation::Syscall => &mut flags.syscall,
         Operation::CondMov(_, _, _, _) => &mut flags.condmov_op,
         Operation::Count(_, _, _) => &mut flags.count_op,
@@ -304,7 +302,6 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Pc => &mut flags.pc,
         Operation::GetContext => &mut flags.get_context,
         Operation::SetContext => &mut flags.set_context,
-        Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::MloadGeneral(..) => &mut flags.m_op_load,
         Operation::MstoreGeneral(..) => &mut flags.m_op_store,
     } = F::ONE;
@@ -317,10 +314,7 @@ fn perform_op<F: Field>(
 ) -> Result<(), ProgramError> {
     log::debug!("perform_op {:?}", op);
     match op {
-        Operation::Iszero => generate_iszero(state, row)?,
-        Operation::Not => generate_not(state, row)?,
         Operation::Syscall => generate_syscall(state, row)?,
-        Operation::Eq => generate_eq(state, row)?,
         Operation::CondMov(cond, rs, rt, rd) => generate_cond_mov_op(cond, rs, rt, rd, state, row)?,
         Operation::Count(ones, rs, rd) => generate_count_op(ones, rs, rd, state, row)?,
         Operation::BinaryLogic(binary_logic_op, rs, rt, rd) => {
@@ -412,11 +406,9 @@ fn perform_op<F: Field>(
         }
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
-        Operation::ExitKernel => generate_exit_kernel(state, row)?,
     };
 
     state.registers.program_counter += match op {
-        Operation::ExitKernel => 0,
         Operation::Jump(_, _) => 0,
         Operation::Jumpi(_, _) => 0,
         Operation::Branch(_, _, _, _) => 0,
@@ -578,12 +570,9 @@ fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> 
         ProgramError::StackOverflow => 5,
         _ => bail!("TODO: figure out what to do with this..."),
     };
+    log::debug!("handle_error: {:?}", exc_code);
 
     let checkpoint = state.checkpoint();
-
-    let (row, _) = base_row(state);
-    generate_exception(exc_code, state, row)
-        .map_err(|_| anyhow::Error::msg("error handling errored..."))?;
 
     state
         .memory
