@@ -54,12 +54,22 @@ use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Given the two limbs of `input0` and `input1`, computes `input0 * input1`.
-pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], input0: u32, input1: u32) {
-    // TODO: It would probably be clearer/cleaner to read the U32
-    // into an [i64;N] and then copy that to the lv table.
+pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], filter: usize, input0: u32, input1: u32) {
     u32_to_array(&mut lv[INPUT_REGISTER_0], input0);
     u32_to_array(&mut lv[INPUT_REGISTER_1], input1);
 
+    let left_in = read_value_i64_limbs(lv, INPUT_REGISTER_0);
+    let right_in = read_value_i64_limbs(lv, INPUT_REGISTER_1);
+
+    if filter == IS_MULT {
+        generate_mult(lv, input0, input1);
+    } else if filter == IS_MULTU {
+        generate_multu(lv, left_in, right_in);
+    } else {
+        panic!()
+    }
+}
+pub(crate) fn generate_mult<F: PrimeField64>(lv: &mut [F], input0: u32, input1: u32) {
     let is_input0_neg = (input0 as i32) < 0;
     let is_input1_neg = (input1 as i32) < 0;
     lv[INPUT_REGISTER_2].clone_from_slice(&[is_input0_neg, is_input1_neg].map(F::from_bool));
@@ -80,6 +90,28 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], input0: u32, input1: u32) 
 
     let left_in = sign_extend(is_input0_neg, INPUT_REGISTER_0);
     let right_in = sign_extend(is_input1_neg, INPUT_REGISTER_1);
+
+    generate_mult_helper(lv, left_in, right_in);
+}
+
+pub(crate) fn generate_multu<F: PrimeField64>(
+    lv: &mut [F],
+    input0: [i64; N_LIMBS],
+    input1: [i64; N_LIMBS],
+) {
+    let mut left_in = [0; 2 * N_LIMBS];
+    left_in[..N_LIMBS].clone_from_slice(&input0);
+    let mut right_in = [0; 2 * N_LIMBS];
+    right_in[..N_LIMBS].clone_from_slice(&input1);
+
+    generate_mult_helper(lv, left_in, right_in);
+}
+
+pub(crate) fn generate_mult_helper<F: PrimeField64>(
+    lv: &mut [F],
+    left_in: [i64; 2 * N_LIMBS],
+    right_in: [i64; 2 * N_LIMBS],
+) {
     const MASK: i64 = (1i64 << LIMB_BITS) - 1i64;
 
     // Input and output have 16-bit limbs
@@ -115,7 +147,6 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], input0: u32, input1: u32) 
     aux_limbs[2 * N_LIMBS - 1] = -cy;
 
     for c in aux_limbs.iter_mut() {
-        // TODO: check constant.
         *c += AUX_COEFF_ABS_MAX;
     }
 
@@ -125,19 +156,45 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], input0: u32, input1: u32) 
     lv[MULT_AUX_HI].copy_from_slice(&aux_limbs.map(|c| F::from_canonical_u16((c >> 16) as u16)));
 }
 
-pub(crate) fn eval_packed_generic_mult<P: PackedField>(
+pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
-    filter: P,
-    left_in_limbs: [P; N_LIMBS],
-    right_in_limbs: [P; N_LIMBS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
+    let input1_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
+
     let output_limbs_lo = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER_LO);
     let output_limbs_hi = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER_HI);
     let mut output_limbs = [P::ZEROS; 2 * N_LIMBS];
     output_limbs[..N_LIMBS].copy_from_slice(&output_limbs_lo);
     output_limbs[N_LIMBS..].copy_from_slice(&output_limbs_hi);
 
+    eval_packed_generic_mult(
+        lv,
+        lv[IS_MULT],
+        input0_limbs,
+        input1_limbs,
+        output_limbs,
+        yield_constr,
+    );
+    eval_packed_generic_multu(
+        lv,
+        lv[IS_MULTU],
+        input0_limbs,
+        input1_limbs,
+        output_limbs,
+        yield_constr,
+    );
+}
+
+pub(crate) fn eval_packed_generic_mult<P: PackedField>(
+    lv: &[P; NUM_ARITH_COLUMNS],
+    filter: P,
+    left_in_limbs: [P; N_LIMBS],
+    right_in_limbs: [P; N_LIMBS],
+    output_limbs: [P; 2 * N_LIMBS],
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
 
     let sign_extend = |is_neg_idx: usize,
@@ -173,6 +230,58 @@ pub(crate) fn eval_packed_generic_mult<P: PackedField>(
         &right_in_limbs,
         yield_constr,
     );
+
+    eval_packed_generic_mult_helper(
+        lv,
+        filter,
+        left_in_limbs,
+        right_in_limbs,
+        output_limbs,
+        yield_constr,
+    );
+}
+
+pub(crate) fn eval_packed_generic_multu<P: PackedField>(
+    lv: &[P; NUM_ARITH_COLUMNS],
+    filter: P,
+    left_in_limbs: [P; N_LIMBS],
+    right_in_limbs: [P; N_LIMBS],
+    output_limbs: [P; 2 * N_LIMBS],
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    let left_in_limbs = {
+        let mut limbs = [P::ZEROS; 2 * N_LIMBS];
+        limbs[..N_LIMBS].clone_from_slice(&left_in_limbs);
+
+        limbs
+    };
+
+    let right_in_limbs = {
+        let mut limbs = [P::ZEROS; 2 * N_LIMBS];
+        limbs[..N_LIMBS].clone_from_slice(&right_in_limbs);
+
+        limbs
+    };
+
+    eval_packed_generic_mult_helper(
+        lv,
+        filter,
+        left_in_limbs,
+        right_in_limbs,
+        output_limbs,
+        yield_constr,
+    );
+}
+
+pub(crate) fn eval_packed_generic_mult_helper<P: PackedField>(
+    lv: &[P; NUM_ARITH_COLUMNS],
+    filter: P,
+    left_in_limbs: [P; 2 * N_LIMBS],
+    right_in_limbs: [P; 2 * N_LIMBS],
+    output_limbs: [P; 2 * N_LIMBS],
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
 
     let aux_limbs = {
         // MUL_AUX_INPUT was offset by 2^20 in generation, so we undo
@@ -217,30 +326,15 @@ pub(crate) fn eval_packed_generic_mult<P: PackedField>(
     }
 }
 
-pub fn eval_packed_generic<P: PackedField>(
-    lv: &[P; NUM_ARITH_COLUMNS],
-    yield_constr: &mut ConstraintConsumer<P>,
-) {
-    let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
-    let input1_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
-
-    eval_packed_generic_mult(lv, lv[IS_MULT], input0_limbs, input1_limbs, yield_constr);
-}
-
 pub(crate) fn eval_ext_mult_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     filter: ExtensionTarget<D>,
     left_in_limbs: [ExtensionTarget<D>; N_LIMBS],
     right_in_limbs: [ExtensionTarget<D>; N_LIMBS],
+    output_limbs: [ExtensionTarget<D>; 2 * N_LIMBS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let output_limbs_lo = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER_LO);
-    let output_limbs_hi = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER_HI);
-    let mut output_limbs = [ExtensionTarget::default(); 2 * N_LIMBS];
-    output_limbs[..N_LIMBS].copy_from_slice(&output_limbs_lo);
-    output_limbs[N_LIMBS..].copy_from_slice(&output_limbs_hi);
-
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << LIMB_BITS));
     let one = builder.one_extension();
 
@@ -291,6 +385,60 @@ pub(crate) fn eval_ext_mult_circuit<F: RichField + Extendable<D>, const D: usize
         yield_constr,
     );
 
+    eval_ext_mult_helper_circuit(
+        builder,
+        lv,
+        filter,
+        left_in_limbs,
+        right_in_limbs,
+        output_limbs,
+        yield_constr,
+    );
+}
+
+pub(crate) fn eval_ext_multu_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
+    filter: ExtensionTarget<D>,
+    left_in_limbs: [ExtensionTarget<D>; N_LIMBS],
+    right_in_limbs: [ExtensionTarget<D>; N_LIMBS],
+    output_limbs: [ExtensionTarget<D>; 2 * N_LIMBS],
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    let left_in_limbs = {
+        let mut limbs = [builder.zero_extension(); 2 * N_LIMBS];
+        limbs[..N_LIMBS].clone_from_slice(&left_in_limbs);
+
+        limbs
+    };
+
+    let right_in_limbs = {
+        let mut limbs = [builder.zero_extension(); 2 * N_LIMBS];
+        limbs[..N_LIMBS].clone_from_slice(&right_in_limbs);
+
+        limbs
+    };
+
+    eval_ext_mult_helper_circuit(
+        builder,
+        lv,
+        filter,
+        left_in_limbs,
+        right_in_limbs,
+        output_limbs,
+        yield_constr,
+    );
+}
+pub(crate) fn eval_ext_mult_helper_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
+    filter: ExtensionTarget<D>,
+    left_in_limbs: [ExtensionTarget<D>; 2 * N_LIMBS],
+    right_in_limbs: [ExtensionTarget<D>; 2 * N_LIMBS],
+    output_limbs: [ExtensionTarget<D>; 2 * N_LIMBS],
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << LIMB_BITS));
     let aux_limbs = {
         let offset =
             builder.constant_extension(F::Extension::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
@@ -325,12 +473,29 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
     let input1_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
 
+    let output_limbs_lo = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER_LO);
+    let output_limbs_hi = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER_HI);
+    let mut output_limbs = [ExtensionTarget::default(); 2 * N_LIMBS];
+    output_limbs[..N_LIMBS].copy_from_slice(&output_limbs_lo);
+    output_limbs[N_LIMBS..].copy_from_slice(&output_limbs_hi);
+
     eval_ext_mult_circuit(
         builder,
         lv,
         lv[IS_MULT],
         input0_limbs,
         input1_limbs,
+        output_limbs,
+        yield_constr,
+    );
+
+    eval_ext_multu_circuit(
+        builder,
+        lv,
+        lv[IS_MULTU],
+        input0_limbs,
+        input1_limbs,
+        output_limbs,
         yield_constr,
     );
 }
@@ -347,6 +512,7 @@ mod tests {
     use crate::constraint_consumer::ConstraintConsumer;
 
     const N_RND_TESTS: usize = 100000;
+    const OPS: [usize; 2] = [IS_MULT, IS_MULTU];
     #[test]
     fn generate_eval_consistency_not_mult() {
         type F = GoldilocksField;
@@ -354,9 +520,10 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
         let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
 
-        // if `IS_MULT == 0`, then the constraints should be met even
+        // if `IS_MULT and IS_MULTU == 0`, then the constraints should be met even
         // if all values are garbage.
         lv[IS_MULT] = F::ZERO;
+        lv[IS_MULTU] = F::ZERO;
 
         let mut constraint_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -377,29 +544,32 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
         let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
 
-        // set `IS_MULT == 1` and ensure all constraints are satisfied.
-        lv[IS_MULT] = F::ONE;
-
-        for _i in 0..N_RND_TESTS {
-            // set inputs to random values
-            for (ai, bi) in INPUT_REGISTER_0.zip(INPUT_REGISTER_1) {
-                lv[ai] = F::from_canonical_u16(rng.gen());
-                lv[bi] = F::from_canonical_u16(rng.gen());
+        for op_filter in OPS {
+            for op in OPS {
+                lv[op] = F::ZEROS;
             }
+            lv[op_filter] = F::ONES;
+            for _i in 0..N_RND_TESTS {
+                // set inputs to random values
+                for (ai, bi) in INPUT_REGISTER_0.zip(INPUT_REGISTER_1) {
+                    lv[ai] = F::from_canonical_u16(rng.gen());
+                    lv[bi] = F::from_canonical_u16(rng.gen());
+                }
 
-            let left_in = rng.gen::<u32>();
-            let right_in = rng.gen::<u32>();
-            generate(&mut lv, left_in, right_in);
+                let left_in = rng.gen::<u32>();
+                let right_in = rng.gen::<u32>();
+                generate(&mut lv, op_filter, left_in, right_in);
 
-            let mut constraint_consumer = ConstraintConsumer::new(
-                vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
-                GoldilocksField::ONE,
-                GoldilocksField::ONE,
-                GoldilocksField::ONE,
-            );
-            eval_packed_generic(&lv, &mut constraint_consumer);
-            for &acc in &constraint_consumer.constraint_accs {
-                assert_eq!(acc, GoldilocksField::ZERO);
+                let mut constraint_consumer = ConstraintConsumer::new(
+                    vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+                    GoldilocksField::ONE,
+                    GoldilocksField::ONE,
+                    GoldilocksField::ONE,
+                );
+                eval_packed_generic(&lv, &mut constraint_consumer);
+                for &acc in &constraint_consumer.constraint_accs {
+                    assert_eq!(acc, GoldilocksField::ZERO);
+                }
             }
         }
     }
