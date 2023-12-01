@@ -63,13 +63,17 @@ pub(crate) fn generate_div<F: PrimeField64>(
     nv[MODULAR_DIV_DENOM_IS_ZERO + 1] = F::from_canonical_u32((input0 >> 16) ^ 0x8000);
     // 1 if neg otherwise 0.
     nv[MODULAR_DIV_DENOM_IS_ZERO + 2] = F::from_bool(is_neg);
+    // 0 in input_lo == 0, otherwise 1
+    nv[MODULAR_DIV_DENOM_IS_ZERO + 3] = F::from_bool(input0 & 0xffff > 0);
     // 1 if result is 0
-    nv[MODULAR_DIV_DENOM_IS_ZERO + 3] = F::from_bool(result == 0);
+    nv[MODULAR_DIV_DENOM_IS_ZERO + 4] = F::from_bool(result == 0);
     // result^{-1} if result != 0, otherwise 0
     let result_limbs_sum: F = lv[OUTPUT_REGISTER].iter().cloned().sum();
     lv[RC_FREQUENCIES + 1] = result_limbs_sum.try_inverse().unwrap_or(F::ZERO);
     // is_neg && result !=0
-    nv[MODULAR_DIV_DENOM_IS_ZERO + 4] = F::from_bool(result != 0 && is_neg);
+    nv[MODULAR_DIV_DENOM_IS_ZERO + 5] = F::from_bool(result != 0 && is_neg);
+    // 0 in result_lo == 0, otherwise 1
+    nv[MODULAR_DIV_DENOM_IS_ZERO + 6] = F::from_bool(result & 0xffff > 0);
 
     u32_to_array(
         &mut lv[INPUT_REGISTER_2],
@@ -475,28 +479,14 @@ pub(crate) fn eval_packed_div<P: PackedField>(
     // let input: [P; N_LIMBS] = read_value(lv, INPUT_REGISTER_0);
     yield_constr.constraint_transition(filter * (input_hi + add - sum - is_neg * over_flow));
 
-    // check if quot == 0
-    // quot == 0 <=> quot_limbs_sum == 0
-    let is_quot_zero = nv[MODULAR_DIV_DENOM_IS_ZERO + 3];
-    let aux_quot = lv[RC_FREQUENCIES + 1];
-    let quot_limbs_sum: P = OUTPUT_REGISTER.map(|i| lv[i]).sum();
-    yield_constr.constraint_transition(filter * quot_limbs_sum * is_quot_zero);
-    yield_constr
-        .constraint_transition(filter * (P::ONES - quot_limbs_sum * aux_quot - is_quot_zero));
+    // input_lo_borrow
+    let input_lo_borrow = nv[MODULAR_DIV_DENOM_IS_ZERO + 3];
+    yield_constr.constraint_transition(filter * input_lo_borrow * (P::ONES - input_lo_borrow));
 
-    let is_quot_inv = nv[MODULAR_DIV_DENOM_IS_ZERO + 4];
-    yield_constr.constraint_transition(filter * is_quot_inv * (P::ONES - is_quot_inv));
-    // !is_quot_zero && is_neg
-    yield_constr.constraint_transition(filter * (is_neg * (P::ONES - is_quot_zero) - is_quot_inv));
-
-    let cst = [
-        P::Scalar::from_canonical_u64(1 << LIMB_BITS),
-        P::Scalar::from_canonical_u64((1 << LIMB_BITS) - 1),
+    let neg_inputs = vec![
+        input_lo_borrow * over_flow - lv[INPUT_REGISTER_0.start],
+        over_flow - lv[INPUT_REGISTER_0.start + 1] - input_lo_borrow,
     ];
-    let neg_inputs = INPUT_REGISTER_0
-        .zip(cst)
-        .map(|(idx, c)| c - lv[idx])
-        .collect_vec();
 
     for ((i, j), neg_input) in INPUT_REGISTER_0.zip(INPUT_REGISTER_2).zip(neg_inputs) {
         yield_constr.constraint_transition(
@@ -504,10 +494,29 @@ pub(crate) fn eval_packed_div<P: PackedField>(
         );
     }
 
-    let neg_quots = OUTPUT_REGISTER
-        .zip(cst)
-        .map(|(idx, c)| c - lv[idx])
-        .collect_vec();
+    // check if quot == 0
+    // quot == 0 <=> quot_limbs_sum == 0
+    let is_quot_zero = nv[MODULAR_DIV_DENOM_IS_ZERO + 4];
+    let aux_quot = lv[RC_FREQUENCIES + 1];
+    let quot_limbs_sum: P = OUTPUT_REGISTER.map(|i| lv[i]).sum();
+    yield_constr.constraint_transition(filter * quot_limbs_sum * is_quot_zero);
+    yield_constr
+        .constraint_transition(filter * (P::ONES - quot_limbs_sum * aux_quot - is_quot_zero));
+
+    let is_quot_inv = nv[MODULAR_DIV_DENOM_IS_ZERO + 5];
+    yield_constr.constraint_transition(filter * is_quot_inv * (P::ONES - is_quot_inv));
+    // !is_quot_zero && is_neg
+    yield_constr.constraint_transition(filter * (is_neg * (P::ONES - is_quot_zero) - is_quot_inv));
+
+    // result_lo_borrow
+    let result_lo_borrow = nv[MODULAR_DIV_DENOM_IS_ZERO + 6];
+    yield_constr.constraint_transition(filter * result_lo_borrow * (P::ONES - result_lo_borrow));
+
+    let neg_quots = vec![
+        result_lo_borrow * over_flow - lv[OUTPUT_REGISTER.start],
+        over_flow - lv[OUTPUT_REGISTER.start + 1] - result_lo_borrow,
+    ];
+
     for ((i, j), neg_quot) in OUTPUT_REGISTER
         .zip(MODULAR_QUO_INPUT.end..MODULAR_QUO_INPUT.end + 2)
         .zip(neg_quots)
@@ -759,9 +768,34 @@ pub(crate) fn eval_div_ext_circuit<F: RichField + Extendable<D>, const D: usize>
         yield_constr.constraint_transition(builder, t); //filter * (input_hi + add - sum - is_neg * over_flow
     }
 
+    // input_lo_borrow
+    let input_lo_borrow = nv[MODULAR_DIV_DENOM_IS_ZERO + 3];
+    let t0 = builder.sub_extension(one, input_lo_borrow);
+    let t = builder.mul_many_extension([filter, input_lo_borrow, t0]);
+    yield_constr.constraint_transition(builder, t);
+
+    let neg_inputs = {
+        let lo = builder.mul_extension(input_lo_borrow, over_flow);
+        let lo = builder.sub_extension(lo, lv[INPUT_REGISTER_0.start]);
+        let hi = builder.sub_extension(over_flow, lv[INPUT_REGISTER_0.start + 1]);
+        let hi = builder.sub_extension(hi, input_lo_borrow);
+
+        [lo, hi]
+    };
+
+    for ((i, j), neg_input) in INPUT_REGISTER_0.zip(INPUT_REGISTER_2).zip(neg_inputs) {
+        let t0 = builder.mul_extension(is_neg, neg_input);
+        let t1 = builder.sub_extension(one, is_neg);
+        let t2 = builder.mul_extension(t1, lv[i]);
+        let t3 = builder.sub_extension(t2, lv[j]);
+        let t4 = builder.add_extension(t0, t3);
+        let t = builder.mul_extension(filter, t4);
+        yield_constr.constraint_transition(builder, t);
+    }
+
     // check if quot == 0
     // quot == 0 <=> quot_limbs_sum == 0
-    let is_quot_zero = nv[MODULAR_DIV_DENOM_IS_ZERO + 3];
+    let is_quot_zero = nv[MODULAR_DIV_DENOM_IS_ZERO + 4];
     let aux_quot = lv[RC_FREQUENCIES + 1];
     let quot_limbs = OUTPUT_REGISTER.map(|i| lv[i]).collect_vec();
     let quot_limbs_sum = builder.add_many_extension(quot_limbs);
@@ -773,7 +807,7 @@ pub(crate) fn eval_div_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     let t3 = builder.mul_extension(filter, t2);
     yield_constr.constraint_transition(builder, t3);
 
-    let is_quot_inv = nv[MODULAR_DIV_DENOM_IS_ZERO + 4];
+    let is_quot_inv = nv[MODULAR_DIV_DENOM_IS_ZERO + 5];
     let t0 = builder.sub_extension(one, is_quot_inv);
     let t1 = builder.mul_many_extension([filter, is_quot_inv, t0]);
     yield_constr.constraint_transition(builder, t1);
@@ -784,28 +818,21 @@ pub(crate) fn eval_div_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     let t = builder.mul_extension(filter, t2);
     yield_constr.constraint_transition(builder, t);
 
-    let cst = [
-        builder.constant_extension(F::Extension::from_canonical_u64(1 << LIMB_BITS)),
-        builder.constant_extension(F::Extension::from_canonical_u64((1 << LIMB_BITS) - 1)),
-    ];
-    let neg_inputs = INPUT_REGISTER_0
-        .zip(cst)
-        .map(|(idx, c)| builder.sub_extension(c, lv[idx]))
-        .collect_vec();
-    let neg_quots = OUTPUT_REGISTER
-        .zip(cst)
-        .map(|(idx, c)| builder.sub_extension(c, lv[idx]))
-        .collect_vec();
+    // result_lo_borrow
+    let result_lo_borrow = nv[MODULAR_DIV_DENOM_IS_ZERO + 6];
+    let t0 = builder.sub_extension(one, result_lo_borrow);
+    let t = builder.mul_many_extension([filter, result_lo_borrow, t0]);
+    yield_constr.constraint_transition(builder, t);
 
-    for ((i, j), neg_input) in INPUT_REGISTER_0.zip(INPUT_REGISTER_2).zip(neg_inputs) {
-        let t0 = builder.mul_extension(is_neg, neg_input);
-        let t1 = builder.sub_extension(one, is_neg);
-        let t2 = builder.mul_extension(t1, lv[i]);
-        let t3 = builder.sub_extension(t2, lv[j]);
-        let t4 = builder.add_extension(t0, t3);
-        let t = builder.mul_extension(filter, t4);
-        yield_constr.constraint_transition(builder, t);
-    }
+    let neg_quots = {
+        let lo = builder.mul_extension(result_lo_borrow, over_flow);
+        let lo = builder.sub_extension(lo, lv[OUTPUT_REGISTER.start]);
+        let hi = builder.sub_extension(over_flow, lv[OUTPUT_REGISTER.start + 1]);
+        let hi = builder.sub_extension(hi, result_lo_borrow);
+
+        [lo, hi]
+    };
+
     for ((i, j), neg_quot) in OUTPUT_REGISTER
         .zip(MODULAR_QUO_INPUT.end..MODULAR_QUO_INPUT.end + 2)
         .zip(neg_quots)
@@ -887,7 +914,10 @@ mod tests {
                     .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
 
                 // Reset operation columns, then select one
-                for op in MODULAR_OPS.iter().chain([IS_SRL, IS_SRLV].iter()) {
+                for op in MODULAR_OPS
+                    .iter()
+                    .chain([IS_SRL, IS_SRLV, IS_SRA, IS_SRAV].iter())
+                {
                     lv[*op] = F::ZERO;
                 }
                 lv[op_filter] = F::ONE;
