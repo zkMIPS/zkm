@@ -17,7 +17,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::arithmetic::columns::*;
 use crate::arithmetic::div::{
-    eval_ext_circuit_divmod_helper, eval_packed_divmod_helper, generate_div,
+    eval_ext_circuit_divmod_helper, eval_packed_div_helper, generate_divu_helper,
 };
 use crate::arithmetic::utils::{read_value, u32_to_array};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -74,7 +74,7 @@ pub fn generate<F: PrimeField64>(
 
     match filter {
         IS_SRA | IS_SRAV => {
-            generate_div(
+            generate_divu_helper(
                 lv,
                 nv,
                 filter,
@@ -136,7 +136,7 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr.constraint_transition(filter * (acc_hi * over_flow + acc_lo - acc));
 
     // check input >> shift == lv[AUX_INPUT_REGISTER_2]
-    eval_packed_divmod_helper(
+    eval_packed_div_helper(
         lv,
         nv,
         yield_constr,

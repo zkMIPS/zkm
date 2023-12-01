@@ -71,7 +71,7 @@ pub fn generate<F: PrimeField64>(
         IS_SRL | IS_SRLV => {
             // If the operation is IS_SRL(IS_SRLV), we compute: `input / shifted_displacement` if `shifted_displacement == 0`
             // otherwise, the output is 0. We use the logic in div.rs to achieve that.
-            div::generate_div(
+            div::generate_divu_helper(
                 lv,
                 nv,
                 filter,
@@ -111,7 +111,7 @@ fn eval_packed_srl<P: PackedField>(
     let quo_range = OUTPUT_REGISTER;
     let rem_range = AUX_INPUT_REGISTER_0;
 
-    div::eval_packed_divmod_helper(
+    div::eval_packed_div_helper(
         lv,
         nv,
         yield_constr,
