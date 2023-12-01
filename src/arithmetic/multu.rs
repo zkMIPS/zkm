@@ -1,6 +1,6 @@
-//! Support for the MIPS MULT instruction.
+//! Support for the MIPS MULTU instruction.
 //!
-//! This crate verifies an MIPS MULT instruction, which takes two
+//! This crate verifies an MIPS MULTU instruction, which takes two
 //! 32-bit inputs A and B, and produces two 32-bit output H and L satisfying
 //!
 //!    (H,L)=A*B
@@ -53,33 +53,16 @@ use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-/// Given the two limbs of `input0` and `input1`, computes `input0 * input1`.
-pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], input0: u32, input1: u32) {
-    // TODO: It would probably be clearer/cleaner to read the U32
-    // into an [i64;N] and then copy that to the lv table.
-    u32_to_array(&mut lv[INPUT_REGISTER_0], input0);
-    u32_to_array(&mut lv[INPUT_REGISTER_1], input1);
-
-    let is_input0_neg = (input0 as i32) < 0;
-    let is_input1_neg = (input1 as i32) < 0;
-    lv[INPUT_REGISTER_2].clone_from_slice(&[is_input0_neg, is_input1_neg].map(F::from_bool));
-
-    lv[MULT_AUX_HI.end] = F::from_canonical_u32((input0 >> LIMB_BITS) ^ 0x8000);
-    lv[MULT_AUX_HI.end + 1] = F::from_canonical_u32((input1 >> LIMB_BITS) ^ 0x8000);
-
-    let sign_extend = |is_neg, range| {
-        let input = read_value_i64_limbs::<N_LIMBS, _>(lv, range);
-        let pad = [if is_neg { u16::MAX as i64 } else { 0 }; N_LIMBS];
-
-        let mut result = [0; 2 * N_LIMBS];
-        result[..N_LIMBS].clone_from_slice(&input);
-        result[N_LIMBS..].clone_from_slice(&pad);
-
-        result
-    };
-
-    let left_in = sign_extend(is_input0_neg, INPUT_REGISTER_0);
-    let right_in = sign_extend(is_input1_neg, INPUT_REGISTER_1);
+/// Given the two limbs of `left_in` and `right_in`, computes `left_in * right_in`.
+pub(crate) fn generate_multu<F: PrimeField64>(
+    lv: &mut [F],
+    input0: [i64; N_LIMBS],
+    input1: [i64; N_LIMBS],
+) {
+    let mut left_in = [0; 2 * N_LIMBS];
+    left_in[..N_LIMBS].clone_from_slice(&input0);
+    let mut right_in = [0; 2 * N_LIMBS];
+    right_in[..N_LIMBS].clone_from_slice(&input1);
     const MASK: i64 = (1i64 << LIMB_BITS) - 1i64;
 
     // Input and output have 16-bit limbs
@@ -115,7 +98,6 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], input0: u32, input1: u32) 
     aux_limbs[2 * N_LIMBS - 1] = -cy;
 
     for c in aux_limbs.iter_mut() {
-        // TODO: check constant.
         *c += AUX_COEFF_ABS_MAX;
     }
 
@@ -125,7 +107,19 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], input0: u32, input1: u32) 
     lv[MULT_AUX_HI].copy_from_slice(&aux_limbs.map(|c| F::from_canonical_u16((c >> 16) as u16)));
 }
 
-pub(crate) fn eval_packed_generic_mult<P: PackedField>(
+pub fn generate<F: PrimeField64>(lv: &mut [F], left_in: u32, right_in: u32) {
+    // TODO: It would probably be clearer/cleaner to read the U32
+    // into an [i64;N] and then copy that to the lv table.
+    u32_to_array(&mut lv[INPUT_REGISTER_0], left_in);
+    u32_to_array(&mut lv[INPUT_REGISTER_1], right_in);
+
+    let input0 = read_value_i64_limbs(lv, INPUT_REGISTER_0);
+    let input1 = read_value_i64_limbs(lv, INPUT_REGISTER_1);
+
+    generate_multu(lv, input0, input1);
+}
+
+pub(crate) fn eval_packed_generic_multu<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     filter: P,
     left_in_limbs: [P; N_LIMBS],
@@ -138,41 +132,21 @@ pub(crate) fn eval_packed_generic_mult<P: PackedField>(
     output_limbs[..N_LIMBS].copy_from_slice(&output_limbs_lo);
     output_limbs[N_LIMBS..].copy_from_slice(&output_limbs_hi);
 
-    let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
+    let left_in_limbs = {
+        let mut limbs = [P::ZEROS; 2 * N_LIMBS];
+        limbs[..N_LIMBS].clone_from_slice(&left_in_limbs);
 
-    let sign_extend = |is_neg_idx: usize,
-                       sum_idx: usize,
-                       input: &[P; N_LIMBS],
-                       yield_constr: &mut ConstraintConsumer<P>| {
-        let is_neg = lv[is_neg_idx];
-        yield_constr.constraint(filter * is_neg * (P::ONES - is_neg));
-
-        let add = P::Scalar::from_canonical_u64(1 << (LIMB_BITS - 1));
-        let sum = lv[sum_idx];
-        let input_hi = input[N_LIMBS - 1];
-        yield_constr.constraint(filter * (input_hi + add - sum - is_neg * base));
-
-        // Let's begin to extend
-        let mut result = [P::ZEROS; 2 * N_LIMBS];
-        let pad = [is_neg * P::Scalar::from_canonical_u16(u16::MAX); N_LIMBS];
-        result[..N_LIMBS].clone_from_slice(input);
-        result[N_LIMBS..].clone_from_slice(&pad);
-
-        result
+        limbs
     };
-    let left_in_limbs = sign_extend(
-        INPUT_REGISTER_2.start,
-        MULT_AUX_HI.end,
-        &left_in_limbs,
-        yield_constr,
-    );
 
-    let right_in_limbs = sign_extend(
-        INPUT_REGISTER_2.start + 1,
-        MULT_AUX_HI.end + 1,
-        &right_in_limbs,
-        yield_constr,
-    );
+    let right_in_limbs = {
+        let mut limbs = [P::ZEROS; 2 * N_LIMBS];
+        limbs[..N_LIMBS].clone_from_slice(&right_in_limbs);
+
+        limbs
+    };
+
+    let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
 
     let aux_limbs = {
         // MUL_AUX_INPUT was offset by 2^20 in generation, so we undo
@@ -224,10 +198,10 @@ pub fn eval_packed_generic<P: PackedField>(
     let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
     let input1_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
 
-    eval_packed_generic_mult(lv, lv[IS_MULT], input0_limbs, input1_limbs, yield_constr);
+    eval_packed_generic_multu(lv, lv[IS_MULTU], input0_limbs, input1_limbs, yield_constr);
 }
 
-pub(crate) fn eval_ext_mult_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_multu_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     filter: ExtensionTarget<D>,
@@ -241,56 +215,21 @@ pub(crate) fn eval_ext_mult_circuit<F: RichField + Extendable<D>, const D: usize
     output_limbs[..N_LIMBS].copy_from_slice(&output_limbs_lo);
     output_limbs[N_LIMBS..].copy_from_slice(&output_limbs_hi);
 
-    let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << LIMB_BITS));
-    let one = builder.one_extension();
+    let left_in_limbs = {
+        let mut limbs = [builder.zero_extension(); 2 * N_LIMBS];
+        limbs[..N_LIMBS].clone_from_slice(&left_in_limbs);
 
-    let sign_extend = |builder: &mut CircuitBuilder<F, D>,
-                       is_neg_idx: usize,
-                       sum_idx: usize,
-                       input: &[ExtensionTarget<D>; N_LIMBS],
-                       yield_constr: &mut RecursiveConstraintConsumer<F, D>| {
-        let is_neg = lv[is_neg_idx];
-        let t0 = builder.sub_extension(one, is_neg);
-        let t = builder.mul_many_extension([filter, is_neg, t0]);
-        yield_constr.constraint(builder, t);
-
-        let add =
-            builder.constant_extension(F::Extension::from_canonical_u64(1 << (LIMB_BITS - 1)));
-        let sum = lv[sum_idx];
-        let input_hi = input[N_LIMBS - 1];
-        let t0 = builder.add_extension(input_hi, add);
-        let t1 = builder.sub_extension(t0, sum);
-        let t2 = builder.mul_extension(is_neg, base);
-        let t3 = builder.sub_extension(t1, t2);
-        let t = builder.mul_extension(filter, t3);
-
-        yield_constr.constraint(builder, t);
-
-        // Let's begin to extend
-        let mut result = [ExtensionTarget::default(); 2 * N_LIMBS];
-        let u16_max = builder.constant_extension(F::Extension::from_canonical_u16(u16::MAX));
-        let pad = builder.mul_extension(is_neg, u16_max);
-
-        result[..N_LIMBS].clone_from_slice(input);
-        result[N_LIMBS..].clone_from_slice(&[pad; N_LIMBS]);
-
-        result
+        limbs
     };
-    let left_in_limbs = sign_extend(
-        builder,
-        INPUT_REGISTER_2.start,
-        MULT_AUX_HI.end,
-        &left_in_limbs,
-        yield_constr,
-    );
-    let right_in_limbs = sign_extend(
-        builder,
-        INPUT_REGISTER_2.start + 1,
-        MULT_AUX_HI.end + 1,
-        &right_in_limbs,
-        yield_constr,
-    );
 
+    let right_in_limbs = {
+        let mut limbs = [builder.zero_extension(); 2 * N_LIMBS];
+        limbs[..N_LIMBS].clone_from_slice(&right_in_limbs);
+
+        limbs
+    };
+
+    let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << LIMB_BITS));
     let aux_limbs = {
         let offset =
             builder.constant_extension(F::Extension::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
@@ -325,10 +264,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
     let input1_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
 
-    eval_ext_mult_circuit(
+    eval_ext_multu_circuit(
         builder,
         lv,
-        lv[IS_MULT],
+        lv[IS_MULTU],
         input0_limbs,
         input1_limbs,
         yield_constr,
@@ -348,15 +287,15 @@ mod tests {
 
     const N_RND_TESTS: usize = 100000;
     #[test]
-    fn generate_eval_consistency_not_mult() {
+    fn generate_eval_consistency_not_multu() {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
         let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
 
-        // if `IS_MULT == 0`, then the constraints should be met even
+        // if `IS_MULTU == 0`, then the constraints should be met even
         // if all values are garbage.
-        lv[IS_MULT] = F::ZERO;
+        lv[IS_MULTU] = F::ZERO;
 
         let mut constraint_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -371,14 +310,14 @@ mod tests {
     }
 
     #[test]
-    fn generate_eval_consistency_mult() {
+    fn generate_eval_consistency_multu() {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
         let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
 
-        // set `IS_MULT == 1` and ensure all constraints are satisfied.
-        lv[IS_MULT] = F::ONE;
+        // set `IS_MULTU == 1` and ensure all constraints are satisfied.
+        lv[IS_MULTU] = F::ONE;
 
         for _i in 0..N_RND_TESTS {
             // set inputs to random values

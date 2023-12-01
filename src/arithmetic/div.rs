@@ -58,9 +58,9 @@ pub(crate) fn generate_div<F: PrimeField64>(
     _input1: u32,
     result: u32,
 ) {
-    let is_neg = input0 >= 1 << 31;
+    let is_neg = (input0 as i32) < 0;
     // (input0_high_16 + 2^15) % 2^16
-    nv[MODULAR_DIV_DENOM_IS_ZERO + 1] = F::from_canonical_u32((input0 >> 16) ^ 0x8000);
+    nv[MODULAR_DIV_DENOM_IS_ZERO + 1] = F::from_canonical_u32((input0 >> LIMB_BITS) ^ 0x8000);
     // 1 if neg otherwise 0.
     nv[MODULAR_DIV_DENOM_IS_ZERO + 2] = F::from_bool(is_neg);
     // 0 in input_lo == 0, otherwise 1
@@ -922,7 +922,7 @@ mod tests {
                 }
                 lv[op_filter] = F::ONE;
 
-                let input0 = rng.gen();
+                let input0 = 0xffff0000u32;
                 let mut input1: u32 = rng.gen_range(0..0x80000000);
                 if i > N_RND_TESTS / 2 {
                     input1 &= 0xffff;

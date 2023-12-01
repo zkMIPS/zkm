@@ -5,6 +5,7 @@ pub mod div;
 pub mod lui;
 pub mod mul;
 pub mod mult;
+pub mod multu;
 pub mod shift;
 pub mod slt;
 pub mod sra;
@@ -248,8 +249,12 @@ fn binary_op_to_rows<F: PrimeField64>(
             slt::generate(&mut row, op.row_filter(), input0, input1, result0);
             (row, None)
         }
-        BinaryOperator::MULT | BinaryOperator::MULTU => {
+        BinaryOperator::MULT => {
             mult::generate(&mut row, input0, input1);
+            (row, None)
+        }
+        BinaryOperator::MULTU => {
+            multu::generate(&mut row, input0, input1);
             (row, None)
         }
         BinaryOperator::DIV | BinaryOperator::DIVU => {
