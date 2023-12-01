@@ -1,6 +1,6 @@
-//! Support for the MIPS MULT instruction.
+//! Support for the MIPS MULT/MULTU instruction.
 //!
-//! This crate verifies an MIPS MULT instruction, which takes two
+//! This crate verifies an MIPS MULT/MULTU instruction, which takes two
 //! 32-bit inputs A and B, and produces two 32-bit output H and L satisfying
 //!
 //!    (H,L)=A*B
@@ -19,13 +19,13 @@
 //! (so A = a(β)) and similarly for b(x), h(x) and l(x). Then A*B = (H,L)
 //! if and only if  the polynomial
 //!
-//!    a(x) * b(x) - h(x) * x^2 - l(x)
+//!    a(x) * b(x) - [h,l](x)
 //!
 //! is zero when evaluated at x = β, i.e. it is divisible by (x - β);
 //! equivalently, there exists a polynomial s (representing the
 //! carries from the long multiplication) such that
 //!
-//!    a(x) * b(x) - h(x) * x^2 - l(x)  - (x - β) * s(x) == 0
+//!    a(x) * b(x) - [h,l](x)  - (x - β) * s(x) == 0
 //!
 //! In the code below, this "constraint polynomial" is constructed in
 //! the variable `constr_poly`. It must be identically zero for the
@@ -38,10 +38,7 @@
 //!   h(x) = \sum_{i=0}^{N-1} output0[i] * x^i
 //!   l(x) = \sum_{i=0}^{N-1} output1[i] * x^i
 //!   s(x) = \sum_i^{2N-2} aux[i] * x^i
-//!
-//! Because A, B and C are 32-bit numbers, the degrees of a, b, h and l
-//! are (at most) 1. Thus deg(s) <= 2; On the other hand, the coefficients
-//! of s(x) can be as large as 17 bits.
+
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::{Field, PrimeField64};
@@ -299,13 +296,12 @@ pub(crate) fn eval_packed_generic_mult_helper<P: PackedField>(
     // must be identically zero for this multiplication to be
     // verified.
     //
-    // These two lines set constr_poly to the polynomial a(x)b(x) - h(x) * x^2 - l(x),
+    // These two lines set constr_poly to the polynomial a(x)b(x) - [h,l](x),
     // where a, b, h and l are the polynomials
     //
     //   a(x) = \sum_i input0_limbs[i] * x^i
     //   b(x) = \sum_i input1_limbs[i] * x^i
-    //   l(x) = \sum_i output0_limbs[i] * x^i
-    //   h(x) = \sum_i output1_limbs[i] * x^i
+    //   [h,l](x) = \sum_i output_limbs[i] * x^i
     //
     // This polynomial should equal (x - β)*s(x) where s is
     //
@@ -318,7 +314,7 @@ pub(crate) fn eval_packed_generic_mult_helper<P: PackedField>(
     pol_sub_assign(&mut constr_poly, &pol_adjoin_root(aux_limbs, base));
 
     // At this point constr_poly holds the coefficients of the
-    // polynomial a(x)b(x) - h(x) * x^2 - l(x) - (x - β)*s(x). The
+    // polynomial a(x)b(x) - [h,l](x) - (x - β)*s(x). The
     // multiplication is valid if and only if all of those
     // coefficients are zero.
     for &c in &constr_poly {
@@ -549,14 +545,17 @@ mod tests {
                 lv[op] = F::ZEROS;
             }
             lv[op_filter] = F::ONES;
-            for _i in 0..N_RND_TESTS {
+            for i in 0..N_RND_TESTS {
                 // set inputs to random values
                 for (ai, bi) in INPUT_REGISTER_0.zip(INPUT_REGISTER_1) {
                     lv[ai] = F::from_canonical_u16(rng.gen());
                     lv[bi] = F::from_canonical_u16(rng.gen());
                 }
 
-                let left_in = rng.gen::<u32>();
+                let mut left_in = rng.gen::<u32>();
+                if i > N_RND_TESTS / 2 {
+                    left_in |= 0x80000000;
+                }
                 let right_in = rng.gen::<u32>();
                 generate(&mut lv, op_filter, left_in, right_in);
 
