@@ -335,6 +335,12 @@ mod tests {
         let div1 = Operation::binary(BinaryOperator::DIV, -128i32 as u32, 13);
         // 3526433982 / 14202 == 248305
         let divu = Operation::binary(BinaryOperator::DIVU, 3526433982, 14202);
+        // 123 * 456 == 56088
+        let mult0 = Operation::binary(BinaryOperator::MULT, 123, 456);
+        // -123 * 456 == -56088
+        let mult1 = Operation::binary(BinaryOperator::MULT, -123i32 as u32, 456);
+        // 123 * 456 == 56088
+        let multu = Operation::binary(BinaryOperator::MULTU, 123, 456);
 
         // 128 < 13 == 0
         //let lt1 = Operation::binary(BinaryOperator::Lt, 128, 13);
@@ -346,7 +352,7 @@ mod tests {
         // byte(30, 0xABCD) = 0xAB
         // let byte = Operation::binary(BinaryOperator::Byte, U256::from(30), U256::from(0xABCD));
 
-        let ops: Vec<Operation> = vec![add, mul, div0, div1, divu];
+        let ops: Vec<Operation> = vec![add, mul, div0, div1, divu, mult0, mult1, multu];
 
         let pols = stark.generate_trace(ops);
 
@@ -366,6 +372,9 @@ mod tests {
             (2, [9, 0]),
             (4, [65527, 65535]),
             (6, [51697, 3]),
+            (8, [56088, 0]),
+            (9, [9448, 65535]),
+            (10, [56088, 0]),
         ];
 
         for (row, expected) in expected_output {
