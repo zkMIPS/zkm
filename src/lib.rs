@@ -4,6 +4,7 @@ pub(crate) mod arithmetic;
 pub(crate) mod config;
 pub(crate) mod constraint_consumer;
 pub(crate) mod recursive_verifier;
+//pub(crate) mod fixed_recursive_verifier;
 pub(crate) mod cpu;
 pub(crate) mod cross_table_lookup;
 pub(crate) mod evaluation_frame;
