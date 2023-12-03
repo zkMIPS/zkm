@@ -60,8 +60,8 @@ pub fn generate<F: PrimeField64>(
     // set aux data in lv[SRA_EXTRA] and nv[SRA_EXTRA]
     // We do not check if shift < 32.
     let aux_data = eval_aux_sign_extend(F::from_canonical_u32(shift));
-    lv[SRA_EXTRA].copy_from_slice(&aux_data[..8]);
-    nv[SRA_EXTRA].copy_from_slice(&aux_data[8..]);
+    lv[AUX_EXTRA].copy_from_slice(&aux_data[..8]);
+    nv[AUX_EXTRA].copy_from_slice(&aux_data[8..]);
 
     // This equals to nv[SRA_EXTRA.end-1]
     u32_to_array(
@@ -81,6 +81,7 @@ pub fn generate<F: PrimeField64>(
                 INPUT_REGISTER_1,
                 INPUT_REGISTER_2,
                 AUX_INPUT_REGISTER_2,
+                None,
             );
         }
         _ => panic!("expected filter to be IS_SRA(V), but it was {filter}"),
@@ -115,8 +116,8 @@ pub fn eval_packed_generic<P: PackedField>(
     let shift_sq = nv[AUX_INPUT_REGISTER_2.end];
     yield_constr.constraint_transition(filter * (shift_sq - shift[0] * shift[0]));
     // Compute the added number if negative
-    let intermediate1 = lv[SRA_EXTRA].to_vec();
-    let intermediate2 = nv[SRA_EXTRA].to_vec();
+    let intermediate1 = lv[AUX_EXTRA].to_vec();
+    let intermediate2 = nv[AUX_EXTRA].to_vec();
     let mut coeffs = sign_extend_poly::<P::Scalar>().coeffs;
     coeffs.reverse();
 
@@ -206,8 +207,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // Compute the added number if negative
     let mut acc = builder.zero_extension();
     {
-        let intermediate1 = lv[SRA_EXTRA].to_vec();
-        let intermediate2 = nv[SRA_EXTRA].to_vec();
+        let intermediate1 = lv[AUX_EXTRA].to_vec();
+        let intermediate2 = nv[AUX_EXTRA].to_vec();
         let coeffs = sign_extend_poly::<F>()
             .coeffs
             .into_iter()

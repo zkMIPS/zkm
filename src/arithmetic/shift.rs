@@ -78,6 +78,7 @@ pub fn generate<F: PrimeField64>(
                 INPUT_REGISTER_1,
                 INPUT_REGISTER_2,
                 OUTPUT_REGISTER,
+                None,
             );
         }
         _ => panic!("expected filter to be IS_SLL(V), or IS_SRL(V) but it was {filter}"),

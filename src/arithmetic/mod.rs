@@ -253,7 +253,15 @@ fn binary_op_to_rows<F: PrimeField64>(
         }
         BinaryOperator::DIV | BinaryOperator::DIVU => {
             let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
-            div::generate(&mut row, &mut nv, op.row_filter(), input0, input1, result0);
+            div::generate(
+                &mut row,
+                &mut nv,
+                op.row_filter(),
+                input0,
+                input1,
+                result0,
+                result1,
+            );
             (row, Some(nv))
         }
         BinaryOperator::LUI => {
