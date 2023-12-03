@@ -305,10 +305,10 @@ mod tests {
             .collect::<Vec<_>>();
 
         for i in 0..(vals.len() - 1) {
-            // println!(
-            //     "[] vals: {:?},\ncpu column: {:?}",
-            //     vals[i], state.traces.cpu[i]
-            // );
+            log::debug!(
+                "[] vals: {:?},\ncpu column: {:?}",
+                vals[i], state.traces.cpu[i]
+            );
             test_stark_cpu_check_constraints::<F, C, S, D>(stark, &vals[i], &vals[i + 1]);
         }
     }

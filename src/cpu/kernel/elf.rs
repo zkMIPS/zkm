@@ -210,6 +210,7 @@ mod test {
 
     #[test]
     fn load_and_check_mips_elf() {
+        env_logger::try_init().unwrap_or_default();
         let mut reader = BufReader::new(File::open("test-vectors/hello").unwrap());
         let mut buffer = Vec::new();
         reader.read_to_end(&mut buffer).unwrap();
@@ -224,11 +225,11 @@ mod test {
 
         p.image.iter().for_each(|(k, v)| {
             if *k > INIT_SP && *k < INIT_SP + 50 {
-                println!("{:X}: {:X}", k, v.to_be());
+                log::debug!("{:X}: {:X}", k, v.to_be());
             }
 
             if *k > 0x30000000 && *k < 0x30000020 {
-                println!("{:X}: {:X}", k, v.to_be());
+                log::debug!("{:X}: {:X}", k, v.to_be());
             }
         })
     }

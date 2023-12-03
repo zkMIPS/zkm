@@ -63,16 +63,7 @@ where
         &ctl_challenges,
         config,
     )?;
-    /*
-    verify_stark_proof_with_challenges(
-        byte_packing_stark,
-        &all_proof.stark_proofs[Table::BytePacking as usize].proof,
-        &stark_challenges[Table::BytePacking as usize],
-        &ctl_vars_per_table[Table::BytePacking as usize],
-        &ctl_challenges,
-        config,
-    )?;
-    */
+
     verify_stark_proof_with_challenges(
         cpu_stark,
         &all_proof.stark_proofs[Table::Cpu as usize].proof,
@@ -504,6 +495,11 @@ mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Sample;
+    use plonky2::plonk::circuit_builder::CircuitBuilder;
+    use plonky2::plonk::circuit_data::CircuitConfig;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::util::timing::TimingTree;
+    use plonky2::iop::witness::PartialWitness;
 
     use super::verify_proof;
     use crate::all_stark::AllStark;
@@ -513,8 +509,7 @@ mod tests {
     use crate::proof;
     use crate::prover::prove;
     use crate::verifier::eval_l_0_and_l_last;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::util::timing::TimingTree;
+    use crate::recursive_verifier::*;
 
     #[test]
     fn test_eval_l_0_and_l_last() {
@@ -549,5 +544,21 @@ mod tests {
         let allproof: proof::AllProof<GoldilocksField, C, D> =
             prove(&allstark, &config, input, &mut timing).unwrap();
         verify_proof(&allstark, allproof, &config).unwrap();
+
+        // proof recursion
+        let circuit_config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
+        let mut pw = PartialWitness::new();
+        let degree_bits = inner_proof.proof.recover_degree_bits(inner_config);
+        let pt = add_virtual_stark_proof_with_pis(&mut builder, stark, inner_config, degree_bits);
+        set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof);
+
+        verify_stark_proof_circuit::<F, C, S, D>(&mut builder, stark, pt, inner_config);
+
+        builder.print_gate_counts(0);
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
     }
 }
