@@ -198,14 +198,18 @@ where
     res
 }
 
-pub(crate) fn pol_mul_lo_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn pol_mul_lo_ext_circuit<
+    F: RichField + Extendable<D>,
+    const D: usize,
+    const N: usize,
+>(
     builder: &mut CircuitBuilder<F, D>,
-    a: [ExtensionTarget<D>; N_LIMBS],
-    b: [ExtensionTarget<D>; N_LIMBS],
-) -> [ExtensionTarget<D>; N_LIMBS] {
+    a: [ExtensionTarget<D>; N],
+    b: [ExtensionTarget<D>; N],
+) -> [ExtensionTarget<D>; N] {
     let zero = builder.zero_extension();
-    let mut res = [zero; N_LIMBS];
-    for deg in 0..N_LIMBS {
+    let mut res = [zero; N];
+    for deg in 0..N {
         for i in 0..=deg {
             let j = deg - i;
             res[deg] = builder.mul_add_extension(a[i], b[j], res[deg]);

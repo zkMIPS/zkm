@@ -55,7 +55,7 @@ pub(crate) const START_SHARED_COLS: usize = IS_LUI + 1;
 /// two rows, the first with 6 * N_LIMBS columns and the second with
 /// 5 * N_LIMBS columns. (There are hence N_LIMBS "wasted columns" in
 /// the second row.)
-pub(crate) const NUM_SHARED_COLS: usize = 9 * N_LIMBS - 2;
+pub(crate) const NUM_SHARED_COLS: usize = 9 * N_LIMBS + 2;
 pub(crate) const SHARED_COLS: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + NUM_SHARED_COLS;
 
 pub(crate) const INPUT_REGISTER_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LIMBS;
@@ -116,16 +116,15 @@ pub(crate) const MODULAR_DIV_DENOM_IS_ZERO: usize = AUX_REGISTER_2.end;
 pub(crate) const RANGE_COUNTER: usize = START_SHARED_COLS + NUM_SHARED_COLS;
 /// The frequencies column used in logUp.
 pub(crate) const RC_FREQUENCIES: usize = RANGE_COUNTER + 1;
-// These counter columns only used in SRA(V), and do not check range
-pub(crate) const SRA_EXTRA: Range<usize> = RC_FREQUENCIES + 1..RC_FREQUENCIES + 9;
+// These counter columns only used in SRA(V) and DIV, and do not check range
+pub(crate) const AUX_EXTRA: Range<usize> = RC_FREQUENCIES + 1..RC_FREQUENCIES + 9;
 
 pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS + 10;
 
-// These counters are only be used in mult/multu
-// OUTPUT_REGISTER_1 store LO and  OUTPUT_REGISTER_2 store HI
-pub(crate) const OUTPUT_REGISTER_1: Range<usize> = OUTPUT_REGISTER;
-pub(crate) const OUTPUT_REGISTER_2: Range<usize> =
+// These counters are only be used in mul and div that use LO and HI.
+pub(crate) const OUTPUT_REGISTER_LO: Range<usize> = OUTPUT_REGISTER;
+pub(crate) const OUTPUT_REGISTER_HI: Range<usize> =
     OUTPUT_REGISTER.end..OUTPUT_REGISTER.end + N_LIMBS;
 pub(crate) const MULT_AUX_LO: Range<usize> =
-    OUTPUT_REGISTER_2.end..OUTPUT_REGISTER_2.end + 2 * N_LIMBS - 1;
-pub(crate) const MULT_AUX_HI: Range<usize> = MULT_AUX_LO.end..MULT_AUX_LO.end + 2 * N_LIMBS - 1;
+    OUTPUT_REGISTER_HI.end..OUTPUT_REGISTER_HI.end + 2 * N_LIMBS;
+pub(crate) const MULT_AUX_HI: Range<usize> = MULT_AUX_LO.end..MULT_AUX_LO.end + 2 * N_LIMBS;

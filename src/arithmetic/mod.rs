@@ -11,7 +11,6 @@ pub mod sra;
 pub mod utils;
 
 use crate::witness::util::sign_extend;
-use crate::witness::util::u32_from_u64;
 use plonky2::field::types::PrimeField64;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -109,18 +108,18 @@ impl BinaryOperator {
             }
 
             BinaryOperator::MULT => {
-                let out = (input0 as i64).wrapping_mul(input1 as i64) as u64;
-                u32_from_u64(out)
+                let out = (((input0 as i32) as i64) * ((input1 as i32) as i64)) as u64;
+                (out as u32, (out >> 32) as u32) // lo,hi
             }
             BinaryOperator::MULTU => {
                 let out = input0 as u64 * input1 as u64;
-                u32_from_u64(out)
+                (out as u32, (out >> 32) as u32) //lo,hi
             }
             BinaryOperator::DIV => (
-                ((input0 as i32) % (input1 as i32)) as u32,
-                ((input0 as i32) / (input1 as i32)) as u32,
+                ((input0 as i32) / (input1 as i32)) as u32, // lo
+                ((input0 as i32) % (input1 as i32)) as u32, // hi
             ),
-            BinaryOperator::DIVU => (input0 % input1, input0 / input1),
+            BinaryOperator::DIVU => (input0 / input1, input0 % input1), //lo,hi
         }
     }
 
@@ -249,12 +248,20 @@ fn binary_op_to_rows<F: PrimeField64>(
             (row, None)
         }
         BinaryOperator::MULT | BinaryOperator::MULTU => {
-            mult::generate(&mut row, input0, input1);
+            mult::generate(&mut row, op.row_filter(), input0, input1);
             (row, None)
         }
         BinaryOperator::DIV | BinaryOperator::DIVU => {
             let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
-            div::generate(&mut row, &mut nv, op.row_filter(), input0, input1, result1);
+            div::generate(
+                &mut row,
+                &mut nv,
+                op.row_filter(),
+                input0,
+                input1,
+                result0,
+                result1,
+            );
             (row, Some(nv))
         }
         BinaryOperator::LUI => {

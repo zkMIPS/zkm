@@ -341,7 +341,3 @@ fn xor_into_sponge<F: Field>(
     }
 }
 */
-
-pub(crate) fn u32_from_u64(v: u64) -> (u32, u32) {
-    ((v >> 32) as u32, v as u32)
-}
