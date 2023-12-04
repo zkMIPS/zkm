@@ -671,10 +671,10 @@ fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
     )
 }
 
-/*
 pub(crate) fn add_virtual_public_values<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> PublicValuesTarget {
+    /*
     let trie_roots_before = add_virtual_trie_roots(builder);
     let trie_roots_after = add_virtual_trie_roots(builder);
     let block_metadata = add_virtual_block_metadata(builder);
@@ -687,7 +687,12 @@ pub(crate) fn add_virtual_public_values<F: RichField + Extendable<D>, const D: u
         block_hashes,
         extra_block_data,
     }
+    */
+    let zero = builder.zero();
+    PublicValuesTarget::from_public_inputs(&[zero, zero])
 }
+
+/*
 
 pub(crate) fn add_virtual_trie_roots<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
@@ -839,7 +844,6 @@ pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: 
     set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);
 }
 
-/*
 pub(crate) fn set_public_value_targets<F, W, const D: usize>(
     witness: &mut W,
     public_values_target: &PublicValuesTarget,
@@ -849,6 +853,7 @@ where
     F: RichField + Extendable<D>,
     W: Witness<F>,
 {
+    /*
     set_trie_roots_target(
         witness,
         &public_values_target.trie_roots_before,
@@ -874,9 +879,11 @@ where
         &public_values_target.extra_block_data,
         &public_values.extra_block_data,
     )?;
+    */
 
     Ok(())
 }
+/*
 
 pub(crate) fn set_trie_roots_target<F, W, const D: usize>(
     witness: &mut W,

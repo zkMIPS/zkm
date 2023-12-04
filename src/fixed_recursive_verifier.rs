@@ -2,7 +2,7 @@ use core::mem::{self, MaybeUninit};
 use std::collections::BTreeMap;
 use std::ops::Range;
 
-use eth_trie_utils::partial_trie::{HashedPartialTrie, Node, PartialTrie};
+//use eth_trie_utils::partial_trie::{HashedPartialTrie, Node, PartialTrie};
 use hashbrown::HashMap;
 use itertools::{zip_eq, Itertools};
 use plonky2::field::extension::Extendable;
@@ -34,19 +34,24 @@ use crate::cross_table_lookup::{
     GrandProductChallengeSet,
 };
 use crate::generation::GenerationInputs;
-use crate::get_challenges::observe_public_values_target;
+//use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
-    BlockHashesTarget, BlockMetadataTarget, ExtraBlockDataTarget, PublicValues, PublicValuesTarget,
-    StarkProofWithMetadata, TrieRootsTarget,
+    //BlockHashesTarget, BlockMetadataTarget, ExtraBlockDataTarget,
+    PublicValues, PublicValuesTarget,
+    StarkProofWithMetadata,
+    //TrieRootsTarget,
 };
 use crate::prover::prove;
 use crate::recursive_verifier::{
-    add_common_recursion_gates, add_virtual_public_values,
-    get_memory_extra_looking_products_circuit, recursive_stark_circuit, set_public_value_targets,
+    add_common_recursion_gates,
+    add_virtual_public_values,
+    //get_memory_extra_looking_products_circuit,
+    recursive_stark_circuit,
+    set_public_value_targets,
     PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
-use crate::util::h256_limbs;
+//use crate::util::h256_limbs;
 
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
 const THRESHOLD_DEGREE_BITS: usize = 13;
@@ -367,6 +372,7 @@ where
             &all_stark.cross_table_lookups,
             stark_config,
         );
+        /*
         let byte_packing = RecursiveCircuitsForTable::new(
             Table::BytePacking,
             &all_stark.byte_packing_stark,
@@ -374,6 +380,7 @@ where
             &all_stark.cross_table_lookups,
             stark_config,
         );
+        */
         let cpu = RecursiveCircuitsForTable::new(
             Table::Cpu,
             &all_stark.cpu_stark,
@@ -381,6 +388,7 @@ where
             &all_stark.cross_table_lookups,
             stark_config,
         );
+        /*
         let keccak = RecursiveCircuitsForTable::new(
             Table::Keccak,
             &all_stark.keccak_stark,
@@ -395,6 +403,7 @@ where
             &all_stark.cross_table_lookups,
             stark_config,
         );
+        */
         let logic = RecursiveCircuitsForTable::new(
             Table::Logic,
             &all_stark.logic_stark,
@@ -412,10 +421,10 @@ where
 
         let by_table = [
             arithmetic,
-            byte_packing,
+         //   byte_packing,
             cpu,
-            keccak,
-            keccak_sponge,
+         //   keccak,
+         //   keccak_sponge,
             logic,
             memory,
         ];
@@ -458,7 +467,7 @@ where
             }
         }
 
-        observe_public_values_target::<F, C, D>(&mut challenger, &public_values);
+        //observe_public_values_target::<F, C, D>(&mut challenger, &public_values);
 
         let ctl_challenges = get_grand_product_challenge_set_target(
             &mut builder,
@@ -499,6 +508,7 @@ where
             vec![vec![builder.one(); stark_config.num_challenges]; NUM_TABLES];
 
         // Memory
+        /*
         extra_looking_products[Table::Memory as usize] = (0..stark_config.num_challenges)
             .map(|c| {
                 get_memory_extra_looking_products_circuit(
@@ -508,6 +518,7 @@ where
                 )
             })
             .collect_vec();
+            */
 
         // Verify the CTL checks.
         verify_cross_table_lookups_circuit::<F, D>(
@@ -575,6 +586,7 @@ where
         let lhs_public_values = lhs.public_values(&mut builder);
         let rhs_public_values = rhs.public_values(&mut builder);
         // Connect all block hash values
+        /*
         BlockHashesTarget::connect(
             &mut builder,
             public_values.block_hashes,
@@ -621,6 +633,7 @@ where
             &lhs_public_values.extra_block_data,
             &rhs_public_values.extra_block_data,
         );
+        */
 
         // Pad to match the root circuit's degree.
         while log2_ceil(builder.num_gates()) < root.circuit.common.degree_bits() {
@@ -637,6 +650,7 @@ where
         }
     }
 
+    /*
     fn connect_extra_public_values(
         builder: &mut CircuitBuilder<F, D>,
         pvs: &ExtraBlockDataTarget,
@@ -688,6 +702,7 @@ where
             builder.connect(limb0, limb1);
         }
     }
+    */
 
     fn add_agg_child(
         builder: &mut CircuitBuilder<F, D>,
@@ -728,13 +743,13 @@ where
         let agg_root_proof = builder.add_virtual_proof_with_pis(&agg.circuit.common);
 
         // Connect block hashes
-        Self::connect_block_hashes(&mut builder, &parent_block_proof, &agg_root_proof);
+        //Self::connect_block_hashes(&mut builder, &parent_block_proof, &agg_root_proof);
 
         let parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
         let agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
 
         // Make connections between block proofs, and check initial and final block values.
-        Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
+        //Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
 
         let cyclic_vk = builder.add_verifier_data_public_inputs();
         builder
@@ -760,6 +775,7 @@ where
     }
 
     /// Connect the 256 block hashes between two blocks
+    /*
     pub fn connect_block_hashes(
         builder: &mut CircuitBuilder<F, D>,
         lhs: &ProofWithPublicInputsTarget<D>,
@@ -900,6 +916,7 @@ where
             builder.connect(x.trie_roots_before.receipts_root[i], limb_target);
         }
     }
+    */
 
     /// Create a proof for each STARK, then combine them, eventually culminating in a root proof.
     pub fn prove_root(
@@ -1010,6 +1027,7 @@ where
         )
     }
 
+    /*
     pub fn prove_block(
         &self,
         opt_parent_block_proof: Option<&ProofWithPublicInputs<F, C, D>>,
@@ -1077,6 +1095,7 @@ where
         let block_proof = self.block.circuit.prove(block_inputs)?;
         Ok((block_proof, public_values))
     }
+    */
 
     pub fn verify_block(&self, block_proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
         self.block.circuit.verify(block_proof.clone())?;
