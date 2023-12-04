@@ -277,7 +277,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::field::types::{Field, PrimeField64};
+    use itertools::Itertools;
+    use plonky2::field::types::PrimeField64;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
@@ -326,14 +327,20 @@ mod tests {
 
         // 123 + 456 == 579
         let add = Operation::binary(BinaryOperator::ADD, 123, 456);
-        // (123 * 456) % 1007 == 703
-        //let mulmod = Operation::ternary(TernaryOperator::MulMod, 123, 456, 1007);
-        // (1234 + 567) % 1007 == 794
-        //let addmod = Operation::ternary(TernaryOperator::AddMod, 1234, 567, 1007);
         // 123 * 456 == 56088
-        let mul = Operation::binary(BinaryOperator::MULT, 123, 456);
+        let mul = Operation::binary(BinaryOperator::MUL, 123, 456);
         // 128 / 13 == 9
-        //let div = Operation::binary(BinaryOperator::DIV, 128, 13);
+        let div0 = Operation::binary(BinaryOperator::DIV, 128, 13);
+        // -128 / 13 == -9
+        let div1 = Operation::binary(BinaryOperator::DIV, -128i32 as u32, 13);
+        // 3526433982 / 14202 == 248305
+        let divu = Operation::binary(BinaryOperator::DIVU, 3526433982, 14202);
+        // 123 * 456 == 56088
+        let mult0 = Operation::binary(BinaryOperator::MULT, 123, 456);
+        // -123 * 456 == -56088
+        let mult1 = Operation::binary(BinaryOperator::MULT, -123i32 as u32, 456);
+        // 123 * 456 == 56088
+        let multu = Operation::binary(BinaryOperator::MULTU, 123, 456);
 
         // 128 < 13 == 0
         //let lt1 = Operation::binary(BinaryOperator::Lt, 128, 13);
@@ -342,14 +349,10 @@ mod tests {
         // 128 < 128 == 0
         //let lt3 = Operation::binary(BinaryOperator::Lt, 128, 128);
 
-        // 128 % 13 == 11
-        // let modop = Operation::binary(BinaryOperator::Mod, 128, 13);
-
         // byte(30, 0xABCD) = 0xAB
         // let byte = Operation::binary(BinaryOperator::Byte, U256::from(30), U256::from(0xABCD));
 
-        //let ops: Vec<Operation> = vec![add, mulmod, addmod, mul, modop, lt1, lt2, lt3, div];
-        let ops: Vec<Operation> = vec![add, mul];
+        let ops: Vec<Operation> = vec![add, mul, div0, div1, divu, mult0, mult1, multu];
 
         let pols = stark.generate_trace(ops);
 
@@ -364,22 +367,26 @@ mod tests {
         // Each operation has a single word answer that we can check
         let expected_output = [
             // Row (some ops take two rows), expected
-            (0, 579), // ADD_OUTPUT
-            (1, 56088),
+            (0, [579u64, 0]), // ADD_OUTPUT
+            (1, [56088, 0]),
+            (2, [9, 0]),
+            (4, [65527, 65535]),
+            (6, [51697, 3]),
+            (8, [56088, 0]),
+            (9, [9448, 65535]),
+            (10, [56088, 0]),
         ];
 
         for (row, expected) in expected_output {
-            // First register should match expected value...
-            let first = OUTPUT_REGISTER.start;
-            let out = pols[first].values[row].to_canonical_u64();
-            assert_eq!(
-                out, expected,
-                "expected column {} on row {} to be {} but it was {}",
-                first, row, expected, out,
-            );
-            // ...other registers should be zero
-            let rest = OUTPUT_REGISTER.start + 1..OUTPUT_REGISTER.end;
-            assert!(pols[rest].iter().all(|v| v.values[row] == F::ZERO));
+            // OUTPUT registers should match expected value...
+            for (expected, col) in expected.into_iter().zip_eq(OUTPUT_REGISTER) {
+                let out = pols[col].values[row].to_canonical_u64();
+                assert_eq!(
+                    out, expected,
+                    "expected column {} on row {} to be {} but it was {}",
+                    col, row, expected, out,
+                );
+            }
         }
     }
 
