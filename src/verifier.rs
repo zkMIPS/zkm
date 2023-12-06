@@ -557,7 +557,7 @@ mod tests {
             row = row + 1;
             count_bytes = count_bytes + proof_str.len();
         }
-        println!("row:{} count_bytes:{} ", row, count_bytes);
+        println!("total row:{} total proof bytes:{} ", row, count_bytes);
 
         verify_proof(&allstark, allproof, &config).unwrap();
     }
