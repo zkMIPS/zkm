@@ -21,7 +21,6 @@ use crate::proof::{
 };
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
-use log::{debug, error, log_enabled, info, Level};
 
 pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     all_stark: &AllStark<F, D>,
