@@ -2,7 +2,7 @@ use std::any::type_name;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-
+use once_cell::sync::Lazy;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packable::Packable;
 use plonky2::field::packed::PackedField;
@@ -22,7 +22,7 @@ use plonky2_util::{log2_ceil, log2_strict};
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-//use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::KERNEL;
 use crate::cross_table_lookup::{
     cross_table_lookup_data, get_grand_product_challenge_set, CtlCheckVars, CtlData,
     GrandProductChallengeSet,
@@ -63,7 +63,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    //timed!(timing, "build kernel", Lazy::force(&KERNEL));
+    timed!(timing, "build kernel", Lazy::force(&KERNEL));
     let (traces, public_values, outputs) = timed!(
         timing,
         "generate all traces",
@@ -212,22 +212,6 @@ where
             timing,
         )?
     );
-    /*
-    let byte_packing_proof = timed!(
-        timing,
-        "prove byte packing STARK",
-        prove_single_table(
-            &all_stark.byte_packing_stark,
-            config,
-            &trace_poly_values[Table::BytePacking as usize],
-            &trace_commitments[Table::BytePacking as usize],
-            &ctl_data_per_table[Table::BytePacking as usize],
-            ctl_challenges,
-            challenger,
-            timing,
-        )?
-    );
-    */
     let cpu_proof = timed!(
         timing,
         "prove CPU STARK",
@@ -350,7 +334,6 @@ where
             .collect::<Vec<_>>()
     });
     let lookups = stark.lookups();
-    log::debug!("lookup len: {:?}", lookups.len());
     let lookup_helper_columns = timed!(
         timing,
         "compute lookup helper columns",
