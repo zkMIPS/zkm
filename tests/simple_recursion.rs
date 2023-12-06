@@ -29,7 +29,8 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     let inputs_first = GenerationInputs {};
 
     let all_stark = AllStark::<F, D>::default();
-    let config = StarkConfig::standard_fast_config();
+    let mut config = StarkConfig::standard_fast_config();
+    config.fri_config.rate_bits = 3;
     // Preprocess all circuits.
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
