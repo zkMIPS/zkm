@@ -21,6 +21,7 @@ use crate::proof::{
 };
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
+use log::{debug, error, log_enabled, info, Level};
 
 pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     all_stark: &AllStark<F, D>,
@@ -532,7 +533,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    // #[ignore]
     fn test_mips_prove_and_verify() {
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
@@ -548,6 +549,16 @@ mod tests {
         let mut timing = TimingTree::new("prove", log::Level::Debug);
         let allproof: proof::AllProof<GoldilocksField, C, D> =
             prove(&allstark, &config, input, &mut timing).unwrap();
+        let mut count_bytes = 0;
+        let mut row = 0;
+        for proof in allproof.stark_proofs {
+            let proof_str = serde_json::to_string(&proof.proof).unwrap();
+            println!("row:{} proof bytes:{}", row, proof_bytes.len());
+            row = row + 1;
+            count_bytes = count_bytes + proof_bytes.len();
+        }
+        println!("count_bytes {} ", count_bytes);
+
         verify_proof(&allstark, allproof, &config).unwrap();
     }
 }

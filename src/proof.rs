@@ -13,7 +13,9 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 use plonky2_maybe_rayon::*;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
+// use serde::ser::{Error, Ok};
+use serde::ser::{Serialize as SerSerialize, Serializer as SerSerializer, SerializeStruct};
 
 use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
@@ -25,6 +27,12 @@ pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     pub stark_proofs: [StarkProofWithMetadata<F, C, D>; NUM_TABLES],
     pub(crate) ctl_challenges: GrandProductChallengeSet<F>,
     pub public_values: PublicValues,
+}
+
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> Serialize for AllProof<F, C, D> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        todo!()
+    }
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
@@ -159,7 +167,7 @@ impl MemRootsTarget {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
     pub trace_cap: MerkleCap<F, C::Hasher>,
@@ -171,6 +179,18 @@ pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     pub openings: StarkOpeningSet<F, D>,
     /// A batch FRI argument for all openings.
     pub opening_proof: FriProof<F, C::Hasher, D>,
+}
+
+// impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> Serialize for StarkProof<F, C, D> {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+//         todo!()
+//     }
+// }
+
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> Serialize for StarkProofWithMetadata<F, C, D> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        todo!()
+    }
 }
 
 /// A `StarkProof` along with some metadata about the initial Fiat-Shamir state, which is used when
@@ -264,7 +284,7 @@ pub(crate) struct StarkProofChallengesTarget<const D: usize> {
 }
 
 /// Purported values of each polynomial at the challenge point.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     /// Openings of trace polynomials at `zeta`.
     pub local_values: Vec<F::Extension>,
