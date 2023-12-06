@@ -495,11 +495,11 @@ mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Sample;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
+    
+    
+    
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
-    use plonky2::iop::witness::PartialWitness;
 
     use super::verify_proof;
     use crate::all_stark::AllStark;
@@ -508,8 +508,8 @@ mod tests {
 
     use crate::proof;
     use crate::prover::prove;
+    
     use crate::verifier::eval_l_0_and_l_last;
-    use crate::recursive_verifier::*;
 
     #[test]
     fn test_eval_l_0_and_l_last() {

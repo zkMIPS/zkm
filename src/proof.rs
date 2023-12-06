@@ -436,4 +436,3 @@ pub struct StarkProofWithPublicInputs<
     // TODO: Maybe make it generic over a `S: Stark` and replace with `[F; S::PUBLIC_INPUTS]`.
     pub public_inputs: Vec<F>,
 }
-

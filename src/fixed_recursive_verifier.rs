@@ -37,7 +37,8 @@ use crate::generation::GenerationInputs;
 //use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
     //BlockHashesTarget, BlockMetadataTarget, ExtraBlockDataTarget,
-    PublicValues, PublicValuesTarget,
+    PublicValues,
+    PublicValuesTarget,
     StarkProofWithMetadata,
     //TrieRootsTarget,
 };
@@ -48,7 +49,9 @@ use crate::recursive_verifier::{
     //get_memory_extra_looking_products_circuit,
     recursive_stark_circuit,
     set_public_value_targets,
-    PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
+    PlonkWrapperCircuit,
+    PublicInputs,
+    StarkWrapperCircuit,
 };
 use crate::stark::Stark;
 //use crate::util::h256_limbs;
@@ -420,13 +423,10 @@ where
         );
 
         let by_table = [
-            arithmetic,
-         //   byte_packing,
-            cpu,
-         //   keccak,
-         //   keccak_sponge,
-            logic,
-            memory,
+            arithmetic, //   byte_packing,
+            cpu, //   keccak,
+            //   keccak_sponge,
+            logic, memory,
         ];
         let root = Self::create_root_circuit(&by_table, stark_config);
         let aggregation = Self::create_aggregation_circuit(&root);
@@ -504,7 +504,7 @@ where
 
         // Extra products to add to the looked last value.
         // Only necessary for the Memory values.
-        let mut extra_looking_products =
+        let extra_looking_products =
             vec![vec![builder.one(); stark_config.num_challenges]; NUM_TABLES];
 
         // Memory
@@ -583,8 +583,8 @@ where
         let lhs = Self::add_agg_child(&mut builder, root);
         let rhs = Self::add_agg_child(&mut builder, root);
 
-        let lhs_public_values = lhs.public_values(&mut builder);
-        let rhs_public_values = rhs.public_values(&mut builder);
+        let _lhs_public_values = lhs.public_values(&mut builder);
+        let _rhs_public_values = rhs.public_values(&mut builder);
         // Connect all block hash values
         /*
         BlockHashesTarget::connect(
@@ -745,8 +745,8 @@ where
         // Connect block hashes
         //Self::connect_block_hashes(&mut builder, &parent_block_proof, &agg_root_proof);
 
-        let parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
-        let agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
+        let _parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
+        let _agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
 
         // Make connections between block proofs, and check initial and final block values.
         //Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
@@ -1027,7 +1027,6 @@ where
         )
     }
 
-    /*
     pub fn prove_block(
         &self,
         opt_parent_block_proof: Option<&ProofWithPublicInputs<F, C, D>>,
@@ -1046,32 +1045,11 @@ where
         } else {
             // Initialize genesis_state_trie, state_root_after and the block number for correct connection between blocks.
             // Initialize `state_root_after`.
-            let state_trie_root_after_keys = 24..32;
-            let mut nonzero_pis = HashMap::new();
-            for (key, &value) in state_trie_root_after_keys
-                .zip_eq(&h256_limbs::<F>(public_values.trie_roots_before.state_root))
-            {
-                nonzero_pis.insert(key, value);
-            }
-
-            // Initialize the genesis state trie digest.
-            let genesis_state_trie_keys = TrieRootsTarget::SIZE * 2
-                + BlockMetadataTarget::SIZE
-                + BlockHashesTarget::BLOCK_HASHES_SIZE
-                ..TrieRootsTarget::SIZE * 2
-                    + BlockMetadataTarget::SIZE
-                    + BlockHashesTarget::BLOCK_HASHES_SIZE
-                    + 8;
-            for (key, &value) in genesis_state_trie_keys.zip_eq(&h256_limbs::<F>(
-                public_values.extra_block_data.genesis_state_trie_root,
-            )) {
-                nonzero_pis.insert(key, value);
-            }
+            let _state_trie_root_after_keys = 24..32;
+            let nonzero_pis = HashMap::new();
 
             // Initialize the block number.
-            let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
-            nonzero_pis.insert(block_number_key, F::NEG_ONE);
-
+            // FIXME
             block_inputs.set_proof_with_pis_target(
                 &self.block.parent_block_proof,
                 &cyclic_base_proof(
@@ -1095,7 +1073,6 @@ where
         let block_proof = self.block.circuit.prove(block_inputs)?;
         Ok((block_proof, public_values))
     }
-    */
 
     pub fn verify_block(&self, block_proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
         self.block.circuit.verify(block_proof.clone())?;

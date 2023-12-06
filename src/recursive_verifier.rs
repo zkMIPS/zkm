@@ -33,9 +33,12 @@ use crate::cross_table_lookup::{
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVarsTarget;
-use crate::memory::segments::Segment;
+
 use crate::memory::VALUE_LIMBS;
-use crate::proof::{StarkProofTarget, StarkProofWithMetadata, StarkProofChallengesTarget, PublicValues, PublicValuesTarget, StarkProof, StarkOpeningSetTarget};
+use crate::proof::{
+    PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
+    StarkProofChallengesTarget, StarkProofTarget, StarkProofWithMetadata,
+};
 /*
 use crate::proof::{
     BlockHashes, BlockHashesTarget, BlockMetadata, BlockMetadataTarget, ExtraBlockData,
@@ -845,9 +848,9 @@ pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: 
 }
 
 pub(crate) fn set_public_value_targets<F, W, const D: usize>(
-    witness: &mut W,
-    public_values_target: &PublicValuesTarget,
-    public_values: &PublicValues,
+    _witness: &mut W,
+    _public_values_target: &PublicValuesTarget,
+    _public_values: &PublicValues,
 ) -> Result<(), ProgramError>
 where
     F: RichField + Extendable<D>,
