@@ -551,7 +551,7 @@ mod tests {
             prove(&allstark, &config, input, &mut timing).unwrap();
         let mut count_bytes = 0;
         let mut row = 0;
-        for proof in allproof.stark_proofs {
+        for proof in allproof.stark_proofs.clone() {
             let proof_str = serde_json::to_string(&proof.proof).unwrap();
             println!("row:{} proof bytes:{}", row, proof_str.len());
             row = row + 1;
