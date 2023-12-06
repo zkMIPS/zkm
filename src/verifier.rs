@@ -553,11 +553,11 @@ mod tests {
         let mut row = 0;
         for proof in allproof.stark_proofs {
             let proof_str = serde_json::to_string(&proof.proof).unwrap();
-            println!("row:{} proof bytes:{}", row, proof_bytes.len());
+            println!("row:{} proof bytes:{}", row, proof_str.len());
             row = row + 1;
-            count_bytes = count_bytes + proof_bytes.len();
+            count_bytes = count_bytes + proof_str.len();
         }
-        println!("count_bytes {} ", count_bytes);
+        println!("row:{} count_bytes:{} ", row, count_bytes);
 
         verify_proof(&allstark, allproof, &config).unwrap();
     }
