@@ -533,7 +533,7 @@ mod tests {
     }
 
     #[test]
-    // #[ignore]
+    #[ignore]
     fn test_mips_prove_and_verify() {
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
@@ -557,7 +557,7 @@ mod tests {
             row = row + 1;
             count_bytes = count_bytes + proof_str.len();
         }
-        println!("total row:{} total proof bytes:{} ", row, count_bytes);
+        println!("total proof bytes:{}KB", count_bytes / 1024);
 
         verify_proof(&allstark, allproof, &config).unwrap();
     }
