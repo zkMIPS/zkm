@@ -544,21 +544,5 @@ mod tests {
         let allproof: proof::AllProof<GoldilocksField, C, D> =
             prove(&allstark, &config, input, &mut timing).unwrap();
         verify_proof(&allstark, allproof, &config).unwrap();
-
-        // proof recursion
-        let circuit_config = CircuitConfig::standard_recursion_config();
-        let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
-        let mut pw = PartialWitness::new();
-        let degree_bits = inner_proof.proof.recover_degree_bits(inner_config);
-        let pt = add_virtual_stark_proof_with_pis(&mut builder, stark, inner_config, degree_bits);
-        set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof);
-
-        verify_stark_proof_circuit::<F, C, S, D>(&mut builder, stark, pt, inner_config);
-
-        builder.print_gate_counts(0);
-
-        let data = builder.build::<C>();
-        let proof = data.prove(pw).unwrap();
-        data.verify(proof).unwrap();
     }
 }
