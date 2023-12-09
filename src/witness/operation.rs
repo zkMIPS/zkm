@@ -285,7 +285,7 @@ pub(crate) fn generate_binary_arithmetic_hilo_op<F: Field>(
     };
     */
     let operation = arithmetic::Operation::binary(operator, in0 as u32, in1 as u32);
-    let (hi, lo) = operation.result();
+    let (lo, hi) = operation.result();
 
     let log_out0 = reg_write_with_log(32, 2, lo as usize, state, &mut row)?;
     let log_out1 = reg_write_with_log(33, 3, hi as usize, state, &mut row)?;
