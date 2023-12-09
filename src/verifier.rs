@@ -495,9 +495,9 @@ mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Sample;
-    
-    
-    
+
+
+
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
 
@@ -508,7 +508,7 @@ mod tests {
 
     use crate::proof;
     use crate::prover::prove;
-    
+
     use crate::verifier::eval_l_0_and_l_last;
 
     #[test]
@@ -527,7 +527,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_mips_prove_and_verify() {
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
