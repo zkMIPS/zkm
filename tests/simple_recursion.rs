@@ -1,17 +1,11 @@
 #![allow(clippy::upper_case_acronyms)]
-
-
-
 use std::time::Duration;
-
-
 
 use mips_circuits::all_stark::AllStark;
 use mips_circuits::config::StarkConfig;
 use mips_circuits::fixed_recursive_verifier::AllRecursiveCircuits;
 use mips_circuits::generation::GenerationInputs;
 use mips_circuits::proof::{MemsRoot, PublicValues};
-
 
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;

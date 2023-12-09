@@ -742,6 +742,7 @@ where
         let parent_block_proof = builder.add_virtual_proof_with_pis(&expected_common_data);
         let agg_root_proof = builder.add_virtual_proof_with_pis(&agg.circuit.common);
 
+        // FIXME
         // Connect block hashes
         //Self::connect_block_hashes(&mut builder, &parent_block_proof, &agg_root_proof);
 
