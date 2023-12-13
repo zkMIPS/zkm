@@ -973,12 +973,14 @@ where
             anyhow::Error::msg("Invalid conversion when setting public values targets.")
         })?;
 
+        println!("prove root");
         let root_proof = self.root.circuit.prove(root_inputs)?;
 
         Ok((root_proof, all_proof.public_values))
     }
 
     pub fn verify_root(&self, agg_proof: ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
+        println!("verify root");
         self.root.circuit.verify(agg_proof)
     }
 
