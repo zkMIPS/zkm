@@ -30,7 +30,7 @@ use crate::cross_table_lookup::{
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::generation::outputs::GenerationOutputs;
 use crate::generation::{generate_traces, GenerationInputs};
-//use crate::get_challenges::observe_public_values;
+use crate::get_challenges::observe_public_values;
 use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
@@ -135,10 +135,8 @@ where
         challenger.observe_cap(cap);
     }
 
-    /*
     observe_public_values::<F, C, D>(&mut challenger, &public_values)
         .map_err(|_| anyhow::Error::msg("Invalid conversion of public values."))?;
-    */
 
     let ctl_challenges = get_grand_product_challenge_set(&mut challenger, config.num_challenges);
     let ctl_data_per_table = timed!(
