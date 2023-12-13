@@ -284,7 +284,7 @@ where
     for j in 0..VALUE_LIMBS {
         row[j + 4] = F::from_canonical_u32((val >> (j * 32)));
     }
-    row[12] = F::ONE; // timestamp
+    row[5] = F::ONE; // timestamp
     running_product * challenge.combine(row.iter())
 }
 
