@@ -33,7 +33,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     );
 
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
-    let (root_proof_first, _first_public_values) =
+    let (root_proof_first, first_public_values) =
         all_circuits.prove_root(&all_stark, &config, inputs_first, &mut timing)?;
 
     timing.filter(Duration::from_millis(100)).print();
@@ -42,7 +42,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     let inputs = GenerationInputs {};
 
     let mut timing = TimingTree::new("prove root second", log::Level::Info);
-    let (root_proof, _public_values) =
+    let (root_proof, public_values) =
         all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
 

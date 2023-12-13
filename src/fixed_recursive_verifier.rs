@@ -33,6 +33,7 @@ use crate::cross_table_lookup::{
     get_grand_product_challenge_set_target, verify_cross_table_lookups_circuit, CrossTableLookup,
     GrandProductChallengeSet,
 };
+use crate::verifier::verify_proof;
 use crate::generation::GenerationInputs;
 //use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
@@ -928,6 +929,7 @@ where
         timing: &mut TimingTree,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let all_proof = prove::<F, C, D>(all_stark, config, generation_inputs, timing)?;
+        verify_proof(&all_stark, all_proof.clone(), &config).unwrap();
         let mut root_inputs = PartialWitness::new();
 
         for table in 0..NUM_TABLES {
