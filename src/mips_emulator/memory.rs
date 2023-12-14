@@ -171,7 +171,7 @@ impl Memory {
         }
 
         if addr as usize >= MAX_MEMORY {
-            panic!("access out of memory: {:x?}", addr);
+            log::warn!("access out of memory: {:x?}", addr);
         }
 
         let page_index = addr >> PAGE_ADDR_SIZE;
