@@ -289,14 +289,13 @@ impl State {
 
     pub fn sync_registers(&mut self) {
         for i in 0..32 {
-            self.memory
-                .set_memory(i << 2, self.registers[i as usize].to_be());
+            self.memory.set_memory(i << 2, self.registers[i as usize]);
         }
 
-        self.memory.set_memory(32 << 2, self.lo.to_be());
-        self.memory.set_memory(33 << 2, self.hi.to_be());
-        self.memory.set_memory(34 << 2, self.heap.to_be());
-        self.memory.set_memory(35 << 2, self.pc.to_be());
+        self.memory.set_memory(32 << 2, self.lo);
+        self.memory.set_memory(33 << 2, self.hi);
+        self.memory.set_memory(34 << 2, self.heap);
+        self.memory.set_memory(35 << 2, self.pc);
     }
 }
 
@@ -918,7 +917,6 @@ impl InstrumentedState {
     }
 
     pub fn split_segment(&mut self, proof: bool) {
-        self.state.sync_registers();
         let image_id = self.state.memory.compute_image_id(self.state.pc);
 
         let image = self.state.memory.get_input_image();
@@ -941,6 +939,7 @@ impl InstrumentedState {
 
         self.pre_pc = self.state.pc;
         self.pre_image_id = image_id;
+        self.state.sync_registers();
     }
 }
 

@@ -1,16 +1,17 @@
 extern crate alloc;
+use crate::mips_emulator::state::Segment;
 use alloc::collections::BTreeMap;
-use serde::{Deserialize, Serialize};
-use std::fs::File;
 use anyhow::{anyhow, bail, Context, Result};
 use elf::{endian::BigEndian, file::Class, ElfBytes};
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
+use std::fs::File;
+use std::io::BufReader;
+
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
 pub const INIT_SP: u32 = 0x7fffd000;
 pub const PAGE_SIZE: u32 = 4096;
-
-use crate::mips_emulator::state::Segment;
 
 /// A MIPS program
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -20,6 +21,11 @@ pub struct Program {
 
     /// The initial memory image
     pub image: BTreeMap<u32, u32>,
+
+    pub gprs: [usize; 32],
+    pub lo: usize,
+    pub hi: usize,
+    pub heap: usize,
 }
 
 impl Program {
@@ -198,19 +204,59 @@ impl Program {
         image.insert(sp + 4 * 11, 0x44572234u32.to_be());
         image.insert(sp + 4 * 12, 0x90032dd2u32.to_be());
 
-        Ok(Program { entry, image })
+        let mut gprs = [0; 32];
+        gprs[29] = INIT_SP as usize;
+
+        let lo = 0;
+        let hi = 0;
+        let heap = 0x20000000;
+
+        Ok(Program {
+            entry,
+            image,
+            gprs,
+            lo,
+            hi,
+            heap,
+        })
     }
 
     pub fn load_segment(segment_id: u32) -> Result<Program> {
         let mut name = String::from("output/segment");
         name.push_str(&segment_id.to_string());
-        //println!("file {}", name);
+        println!("file {}", name);
         let f = File::open(name).unwrap();
-        let segment: Segment = serde_json::from_reader(f).unwrap();
+        let reader = BufReader::new(f);
+
+        let segment: Segment = serde_json::from_reader(reader).unwrap();
+
         let entry = segment.pc;
         let image = segment.mem_image;
-        
-        Ok(Program { entry, image })
+
+        let mut gprs: [usize; 32] = [0; 32];
+
+        for i in 0..32 {
+            let data = image.get(&((i << 2) as u32)).unwrap();
+            gprs[i] = data.to_be() as usize;
+        }
+
+        let lo: usize = image.get(&((32 << 2) as u32)).unwrap().to_be() as usize;
+        let hi: usize = image.get(&((33 << 2) as u32)).unwrap().to_be() as usize;
+        let heap: usize = image.get(&((34 << 2) as u32)).unwrap().to_be() as usize;
+        let pc: usize = image.get(&((35 << 2) as u32)).unwrap().to_be() as usize;
+
+        println!(
+            "load segment {} {:?} {:?} {} {} {} {}",
+            segment.pc, segment.image_id, gprs, lo, hi, heap, pc
+        );
+        Ok(Program {
+            entry,
+            image,
+            gprs,
+            lo,
+            hi,
+            heap,
+        })
     }
 }
 
