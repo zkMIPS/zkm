@@ -288,7 +288,6 @@ impl State {
     }
 
     pub fn sync_registers(&mut self) {
-        let _ = self.memory.get_memory(0); // add to rtrace
         for i in 0..32 {
             self.memory.set_memory(i << 2, self.registers[i as usize]);
         }
@@ -297,6 +296,9 @@ impl State {
         self.memory.set_memory(33 << 2, self.hi);
         self.memory.set_memory(34 << 2, self.heap);
         self.memory.set_memory(35 << 2, self.pc);
+    }
+    pub fn load_registers(&mut self) {
+        let _ = self.memory.get_memory(0);
     }
 }
 
@@ -919,7 +921,7 @@ impl InstrumentedState {
 
     pub fn split_segment(&mut self, proof: bool) {
         let image_id = self.state.memory.compute_image_id(self.state.pc);
-
+        self.state.sync_registers();
         let image = self.state.memory.get_input_image();
 
         if proof {
@@ -940,7 +942,7 @@ impl InstrumentedState {
 
         self.pre_pc = self.state.pc;
         self.pre_image_id = image_id;
-        self.state.sync_registers();
+        let _ = self.state.load_registers(); // add to rtraceq
     }
 }
 
