@@ -1,7 +1,7 @@
 extern crate alloc;
 use alloc::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
-
+use std::fs::File;
 use anyhow::{anyhow, bail, Context, Result};
 use elf::{endian::BigEndian, file::Class, ElfBytes};
 use std::env;
@@ -9,6 +9,8 @@ use std::fs;
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
 pub const INIT_SP: u32 = 0x7fffd000;
 pub const PAGE_SIZE: u32 = 4096;
+
+use crate::mips_emulator::state::Segment;
 
 /// A MIPS program
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -196,6 +198,18 @@ impl Program {
         image.insert(sp + 4 * 11, 0x44572234u32.to_be());
         image.insert(sp + 4 * 12, 0x90032dd2u32.to_be());
 
+        Ok(Program { entry, image })
+    }
+
+    pub fn load_segment(segment_id: u32) -> Result<Program> {
+        let mut name = String::from("output/segment");
+        name.push_str(&segment_id.to_string());
+        //println!("file {}", name);
+        let f = File::open(name).unwrap();
+        let segment: Segment = serde_json::from_reader(f).unwrap();
+        let entry = segment.pc;
+        let image = segment.mem_image;
+        
         Ok(Program { entry, image })
     }
 }
