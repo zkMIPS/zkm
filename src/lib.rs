@@ -13,6 +13,7 @@ pub(crate) mod keccak_sponge;
 pub(crate) mod logic;
 pub(crate) mod lookup;
 pub(crate) mod memory;
+pub mod mips_emulator;
 pub(crate) mod proof;
 pub(crate) mod prover;
 pub(crate) mod stark;
