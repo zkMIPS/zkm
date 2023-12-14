@@ -6,7 +6,11 @@ use elf::endian::AnyEndian;
 use hex;
 use log::{debug, warn};
 use rand::{thread_rng, Rng};
+use serde::{Deserialize, Serialize};
+use serde_json::to_writer;
+use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
+use std::fs::File;
 use std::io::{stderr, stdout, Write};
 use std::{env, fs};
 
@@ -14,6 +18,14 @@ pub const FD_STDIN: u32 = 0;
 pub const FD_STDOUT: u32 = 1;
 pub const FD_STDERR: u32 = 2;
 pub const MIPS_EBADF: u32 = 9;
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+pub struct Segment {
+    pub mem_image: BTreeMap<u32, u32>,
+    pub pc: u32,
+    pub segment_id: u32,
+    pub image_id: [u8; 32],
+}
 
 pub struct State {
     pub memory: Box<Memory>,
@@ -298,6 +310,7 @@ pub struct InstrumentedState {
     /// writer for stderr
     stderr_writer: Box<dyn Write>,
 
+    pre_segment_id: u32,
     pre_pc: u32,
     pre_image_id: [u8; 32],
     block_path: String,
@@ -318,6 +331,7 @@ impl InstrumentedState {
             block_path: block_path,
             pre_pc: 0u32,
             pre_image_id: [0u8; 32],
+            pre_segment_id: 0u32,
         });
         is
     }
@@ -908,10 +922,22 @@ impl InstrumentedState {
         self.state.sync_registers();
         let image_id = self.state.memory.compute_image_id(self.state.pc);
 
-        let _image = self.state.memory.get_input_image();
+        let image = self.state.memory.get_input_image();
 
         if proof {
-            // TODO send pre_pc, image, pre_image_id to proof system
+            let segment = Segment {
+                mem_image: image,
+                segment_id: self.pre_segment_id,
+                pc: self.pre_pc,
+                image_id: image_id,
+            };
+            //let serialized = serde_json::to_string(&segment).unwrap();
+            let mut name = String::from("output/segment");
+            name.push_str(&self.pre_segment_id.to_string());
+            //println!("file {}", name);
+            let f = File::create(name).unwrap();
+            serde_json::to_writer(f, &segment).unwrap();
+            self.pre_segment_id += 1;
         }
 
         self.pre_pc = self.state.pc;

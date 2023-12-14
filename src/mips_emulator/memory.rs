@@ -1,9 +1,9 @@
 use std::cell::RefCell;
 
-use crate::mips_emulator::page::{CachedPage, Page, PAGE_ADDR_MASK, PAGE_ADDR_SIZE, PAGE_SIZE};
+use crate::mips_emulator::page::{CachedPage, PAGE_ADDR_MASK, PAGE_ADDR_SIZE, PAGE_SIZE};
 use keccak_hash::keccak;
 use lazy_static::lazy_static;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::io::Read;
 use std::rc::Rc;
 
@@ -52,7 +52,7 @@ lazy_static! {
 #[derive(Debug)]
 pub struct Memory {
     /// page index -> cached page
-    pages: HashMap<u32, Rc<RefCell<CachedPage>>>,
+    pages: BTreeMap<u32, Rc<RefCell<CachedPage>>>,
 
     // two caches: we often read instructions from one page, and do memory things with another page.
     // this prevents map lookups each instruction
@@ -63,27 +63,27 @@ pub struct Memory {
     addr: u32,
     count: u32,
 
-    rtrace: HashMap<u32, Page>,
-    wtrace: [HashMap<u32, Rc<RefCell<CachedPage>>>; 3],
+    rtrace: BTreeMap<u32, [u8; PAGE_SIZE]>,
+    wtrace: [BTreeMap<u32, Rc<RefCell<CachedPage>>>; 3],
 }
 
 pub fn hash_cached_page(page: &Rc<RefCell<CachedPage>>) -> [u8; 32] {
-    let data = page.borrow().data.clone();
-    hash_page(data.get_data())
+    let data = page.borrow().data;
+    hash_page(&data)
 }
 
 impl Memory {
     pub fn new() -> Self {
         Self {
-            pages: HashMap::new(),
+            pages: BTreeMap::new(),
 
             last_page_keys: Default::default(), // default to invalid keys, to not match any pages
             last_page: Default::default(),
 
             addr: 0,
             count: 0,
-            rtrace: HashMap::new(),
-            wtrace: [HashMap::new(), HashMap::new(), HashMap::new()],
+            rtrace: BTreeMap::new(),
+            wtrace: [BTreeMap::new(), BTreeMap::new(), BTreeMap::new()],
         }
     }
 
@@ -294,33 +294,21 @@ impl Memory {
     pub fn compute_image_id(&mut self, pc: u32) -> [u8; 32] {
         // MAIN MEMORY   0 .. 0x80000000
         for (page_index, cached_page) in self.wtrace[0].clone().iter() {
-            let _ = self.set_hash_range(
-                *page_index,
-                hash_page(cached_page.borrow().data.get_data()),
-                0,
-            );
+            let _ = self.set_hash_range(*page_index, hash_page(&cached_page.borrow().data), 0);
         }
 
         self.wtrace[0].clear();
 
         // L1 HASH PAGES  0x80000000.. 0x81000000
         for (page_index, cached_page) in self.wtrace[1].clone().iter() {
-            let _ = self.set_hash_range(
-                *page_index,
-                hash_page(cached_page.borrow().data.get_data()),
-                1,
-            );
+            let _ = self.set_hash_range(*page_index, hash_page(&cached_page.borrow().data), 1);
         }
 
         self.wtrace[1].clear();
 
         // L2 HASH PAGES  0x81000000.. 0x81020000
         for (page_index, cached_page) in self.wtrace[2].clone().iter() {
-            let _ = self.set_hash_range(
-                *page_index,
-                hash_page(cached_page.borrow().data.get_data()),
-                2,
-            );
+            let _ = self.set_hash_range(*page_index, hash_page(&cached_page.borrow().data), 2);
         }
 
         self.wtrace[2].clear();
@@ -331,7 +319,7 @@ impl Memory {
             None => {
                 panic!("compute image ID fail")
             }
-            Some(page) => hash_page(page.borrow().data.get_data()),
+            Some(page) => hash_page(&page.borrow().data),
         };
 
         let mut final_data = [0u8; 36];
@@ -354,7 +342,7 @@ impl Memory {
                     None => {
                         panic!("compute image ID fail")
                     }
-                    Some(page) => hash_page(page.borrow().data.get_data()),
+                    Some(page) => hash_page(&page.borrow().data),
                 };
 
                 let mut final_data = [0u8; 36];
@@ -367,7 +355,7 @@ impl Memory {
                     log::error!("image_id not match {:?} {:?}", image_id, real_image_id);
                 }
             } else {
-                let hash = hash_page(cached_page.borrow().data.get_data());
+                let hash = hash_page(&cached_page.borrow().data);
                 let hash_addr = (page_index << 5) + MAX_MEMORY as u32;
                 let mut saved_hash = [0u8; 32];
                 saved_hash[0..4].copy_from_slice(&self.get_memory(hash_addr).to_be_bytes());
@@ -391,8 +379,17 @@ impl Memory {
         }
     }
 
-    pub fn get_input_image(&mut self) -> HashMap<u32, Page> {
-        let image = self.rtrace.clone();
+    pub fn get_input_image(&mut self) -> BTreeMap<u32, u32> {
+        let mut image = BTreeMap::<u32, u32>::new();
+        for (page_index, cached_page) in self.rtrace.iter() {
+            let addr = page_index << 12;
+            for i in 0..(PAGE_SIZE / 4) {
+                let mut bytes = [0u8; 4];
+                bytes.copy_from_slice(&cached_page[i << 2..(i << 2) + 4]);
+                image.insert(addr + (i << 2) as u32, u32::from_le_bytes(bytes));
+            }
+        }
+
         self.rtrace.clear();
         image
     }

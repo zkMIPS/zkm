@@ -69,7 +69,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_execute_minigeth() {
         let path = PathBuf::from("./test-vectors/minigeth");
         let data = fs::read(path).expect("could not read file");
@@ -114,7 +113,7 @@ mod tests {
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
         instrumented_state.split_segment(false);
-        let mut segment_step = 500000;
+        let mut segment_step = 200000;
         loop {
             if instrumented_state.state.exited {
                 break;
