@@ -288,6 +288,7 @@ impl State {
     }
 
     pub fn sync_registers(&mut self) {
+        let _ = self.memory.get_memory(0); // add to rtrace
         for i in 0..32 {
             self.memory.set_memory(i << 2, self.registers[i as usize]);
         }
