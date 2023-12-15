@@ -136,7 +136,10 @@ impl Memory {
 
         let page_index = addr >> PAGE_ADDR_SIZE;
         match self.page_lookup(page_index) {
-            None => 0u32,
+            None => {
+                self.rtrace.insert(page_index, [0u8; PAGE_SIZE]);
+                0u32
+            },
             Some(cached_page) => {
                 let cached_page = cached_page.borrow();
                 // lookup in page
@@ -161,6 +164,7 @@ impl Memory {
         let cached_page = Rc::new(RefCell::new(CachedPage::new()));
         self.pages.insert(page_index, cached_page.clone());
 
+        self.rtrace.insert(page_index, cached_page.borrow().data.clone());
         cached_page
     }
 

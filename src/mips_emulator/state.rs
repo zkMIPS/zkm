@@ -923,8 +923,8 @@ impl InstrumentedState {
     }
 
     pub fn split_segment(&mut self, proof: bool) {
-        let image_id = self.state.memory.compute_image_id(self.state.pc);
         self.state.sync_registers();
+        let image_id = self.state.memory.compute_image_id(self.state.pc);
         let image = self.state.memory.get_input_image();
 
         if proof {
