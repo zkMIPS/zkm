@@ -809,7 +809,7 @@ pub(crate) fn generate_syscall<F: Field>(
             let mut sz = a1;
             if sz & 0xFFF != 0 {
                 row.general.syscall_mut().a1 = F::from_canonical_u32(1u32);
-                sz += 0x1000 - sz & 0xFFF;
+                sz += 0x1000 - (sz & 0xFFF);
                 row.general.syscall_mut().sysnum[9] = F::from_canonical_usize(sz.clone());
                 //use sysnum[9] to mark sz value
             } else {
