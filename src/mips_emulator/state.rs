@@ -18,6 +18,8 @@ pub const FD_STDOUT: u32 = 1;
 pub const FD_STDERR: u32 = 2;
 pub const MIPS_EBADF: u32 = 9;
 
+pub const SEGMENT_STEPS: usize = 200000;
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Segment {
     pub mem_image: BTreeMap<u32, u32>,
@@ -497,20 +499,20 @@ impl InstrumentedState {
         };
 
         let prev_pc = self.state.pc;
-        self.state.pc = self.state.next_pc; // execute the delay slot first
         if should_branch {
             // then continue with the instruction the branch jumps to.
-            self.state.next_pc =
+            self.state.pc =
                 (prev_pc as u64 + 4u64 + (sign_extension(insn & 0xFFFF, 16) << 2) as u64) as u32;
         } else {
-            self.state.next_pc = self.state.next_pc + 4;
+            self.state.pc = self.state.next_pc + 4;
         }
+        self.state.next_pc = self.state.pc + 4;
     }
 
     fn handle_jump(&mut self, link_reg: u32, dest: u32) {
         let prev_pc = self.state.pc;
-        self.state.pc = self.state.next_pc;
-        self.state.next_pc = dest;
+        self.state.pc = dest;
+        self.state.next_pc = dest + 4;
 
         if link_reg != 0 {
             // set the link-register to the instr after the delay slot instruction.

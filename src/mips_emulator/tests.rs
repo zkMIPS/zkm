@@ -6,6 +6,7 @@ mod tests {
         path::{Path, PathBuf},
     };
 
+    use crate::mips_emulator::state::SEGMENT_STEPS;
     use crate::mips_emulator::state::{InstrumentedState, State};
 
     const END_ADDR: u32 = 0xa7ef00d0;
@@ -79,12 +80,12 @@ mod tests {
         state.patch_go(&file);
         state.patch_stack();
 
-        let block_path = state.get_block_path("13284469");
+        let block_path = state.get_block_path("13284491");
         state.load_input(block_path.clone());
 
         let mut instrumented_state = InstrumentedState::new(state, block_path.clone());
         instrumented_state.split_segment(false);
-        let mut segment_step = 200000;
+        let mut segment_step = SEGMENT_STEPS;
         loop {
             if instrumented_state.state.exited {
                 break;
@@ -92,7 +93,7 @@ mod tests {
             instrumented_state.step();
             segment_step -= 1;
             if segment_step == 0 {
-                segment_step = 200000;
+                segment_step = SEGMENT_STEPS;
                 instrumented_state.split_segment(true);
             }
         }
@@ -113,7 +114,7 @@ mod tests {
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
         instrumented_state.split_segment(false);
-        let mut segment_step = 200000;
+        let mut segment_step = SEGMENT_STEPS;
         loop {
             if instrumented_state.state.exited {
                 break;
@@ -121,7 +122,7 @@ mod tests {
             instrumented_state.step();
             segment_step -= 1;
             if segment_step == 0 {
-                segment_step = 500000;
+                segment_step = SEGMENT_STEPS;
                 instrumented_state.split_segment(true);
             }
         }
