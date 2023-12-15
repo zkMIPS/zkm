@@ -26,6 +26,7 @@ pub struct Program {
     pub lo: usize,
     pub hi: usize,
     pub heap: usize,
+    pub end_pc: usize,
 }
 
 impl Program {
@@ -210,6 +211,7 @@ impl Program {
         let lo = 0;
         let hi = 0;
         let heap = 0x20000000;
+        let end_pc = 0;
 
         Ok(Program {
             entry,
@@ -218,6 +220,7 @@ impl Program {
             lo,
             hi,
             heap,
+            end_pc,
         })
     }
 
@@ -232,6 +235,7 @@ impl Program {
 
         let entry = segment.pc;
         let image = segment.mem_image;
+        let end_pc = segment.end_pc as usize;
 
         let mut gprs: [usize; 32] = [0; 32];
 
@@ -246,8 +250,8 @@ impl Program {
         let pc: usize = image.get(&((35 << 2) as u32)).unwrap().to_be() as usize;
 
         println!(
-            "load segment {} {:?} {:?} {} {} {} {}",
-            segment.pc, segment.image_id, gprs, lo, hi, heap, pc
+            "load segment pc: {} image: {:?} gprs: {:?} lo: {} hi: {} heap:{} range: ({} -> {})",
+            segment.pc, segment.image_id, gprs, lo, hi, heap, pc, end_pc
         );
         Ok(Program {
             entry,
@@ -256,6 +260,7 @@ impl Program {
             lo,
             hi,
             heap,
+            end_pc,
         })
     }
 }

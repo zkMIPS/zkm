@@ -24,6 +24,7 @@ pub struct Segment {
     pub pc: u32,
     pub segment_id: u32,
     pub image_id: [u8; 32],
+    pub end_pc: u32,
 }
 
 pub struct State {
@@ -930,6 +931,7 @@ impl InstrumentedState {
                 segment_id: self.pre_segment_id,
                 pc: self.pre_pc,
                 image_id: image_id,
+                end_pc: self.state.pc,
             };
             //let serialized = serde_json::to_string(&segment).unwrap();
             let mut name = String::from("output/segment");
