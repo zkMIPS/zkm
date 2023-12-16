@@ -1,17 +1,11 @@
 #![allow(clippy::upper_case_acronyms)]
-
-
-
 use std::time::Duration;
-
-
 
 use mips_circuits::all_stark::AllStark;
 use mips_circuits::config::StarkConfig;
 use mips_circuits::fixed_recursive_verifier::AllRecursiveCircuits;
 use mips_circuits::generation::GenerationInputs;
 use mips_circuits::proof::{MemsRoot, PublicValues};
-
 
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
@@ -34,12 +28,12 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     // Preprocess all circuits.
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[16..17, 11..13, 17..19, 14..15],
+        &[16..20, 17..22, 12..20, 19..22],
         &config,
     );
 
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
-    let (root_proof_first, _first_public_values) =
+    let (root_proof_first, first_public_values) =
         all_circuits.prove_root(&all_stark, &config, inputs_first, &mut timing)?;
 
     timing.filter(Duration::from_millis(100)).print();
@@ -48,7 +42,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     let inputs = GenerationInputs {};
 
     let mut timing = TimingTree::new("prove root second", log::Level::Info);
-    let (root_proof, _public_values) =
+    let (root_proof, public_values) =
         all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
 

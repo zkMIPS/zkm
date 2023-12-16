@@ -33,6 +33,7 @@ use crate::cross_table_lookup::{
     get_grand_product_challenge_set_target, verify_cross_table_lookups_circuit, CrossTableLookup,
     GrandProductChallengeSet,
 };
+//use crate::verifier::verify_proof;
 use crate::generation::GenerationInputs;
 //use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
@@ -40,7 +41,7 @@ use crate::proof::{
     PublicValues,
     PublicValuesTarget,
     StarkProofWithMetadata,
-    //TrieRootsTarget,
+    MemRootsTarget,
 };
 use crate::prover::prove;
 use crate::recursive_verifier::{
@@ -583,8 +584,8 @@ where
         let lhs = Self::add_agg_child(&mut builder, root);
         let rhs = Self::add_agg_child(&mut builder, root);
 
-        let _lhs_public_values = lhs.public_values(&mut builder);
-        let _rhs_public_values = rhs.public_values(&mut builder);
+        let lhs_public_values = lhs.public_values(&mut builder);
+        let rhs_public_values = rhs.public_values(&mut builder);
         // Connect all block hash values
         /*
         BlockHashesTarget::connect(
@@ -608,25 +609,27 @@ where
             public_values.block_metadata,
             rhs_public_values.block_metadata,
         );
+        */
         // Connect aggregation `trie_roots_before` with lhs `trie_roots_before`.
-        TrieRootsTarget::connect(
+        MemRootsTarget::connect(
             &mut builder,
-            public_values.trie_roots_before,
-            lhs_public_values.trie_roots_before,
+            public_values.roots_before,
+            lhs_public_values.roots_before,
         );
         // Connect aggregation `trie_roots_after` with rhs `trie_roots_after`.
-        TrieRootsTarget::connect(
+        MemRootsTarget::connect(
             &mut builder,
-            public_values.trie_roots_after,
-            rhs_public_values.trie_roots_after,
+            public_values.roots_after,
+            rhs_public_values.roots_after,
         );
         // Connect lhs `trie_roots_after` with rhs `trie_roots_before`.
-        TrieRootsTarget::connect(
+        MemRootsTarget::connect(
             &mut builder,
-            lhs_public_values.trie_roots_after,
-            rhs_public_values.trie_roots_before,
+            lhs_public_values.roots_after,
+            rhs_public_values.roots_before,
         );
 
+        /*
         Self::connect_extra_public_values(
             &mut builder,
             &public_values.extra_block_data,
@@ -928,6 +931,7 @@ where
         timing: &mut TimingTree,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let all_proof = prove::<F, C, D>(all_stark, config, generation_inputs, timing)?;
+        //verify_proof(&all_stark, all_proof.clone(), &config).unwrap();
         let mut root_inputs = PartialWitness::new();
 
         for table in 0..NUM_TABLES {
@@ -971,12 +975,14 @@ where
             anyhow::Error::msg("Invalid conversion when setting public values targets.")
         })?;
 
+        println!("prove root");
         let root_proof = self.root.circuit.prove(root_inputs)?;
 
         Ok((root_proof, all_proof.public_values))
     }
 
     pub fn verify_root(&self, agg_proof: ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
+        println!("verify root");
         self.root.circuit.verify(agg_proof)
     }
 

@@ -54,7 +54,7 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
 /// FIXME: the column is unchecked. The in0 should starts from column 4 in looked table, and in1
 /// 36, out 68. But the looking table offers in0 77, in1 83, out 89.
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
-    println!("{:?}", COL_MAP.mem_channels);
+    log::debug!("{:?}", COL_MAP.mem_channels);
     let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value]).collect_vec();
     res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value]));
     res.extend(Column::singles(vec![COL_MAP.mem_channels[2].value]));
