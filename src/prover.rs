@@ -352,7 +352,6 @@ where
         })
     );
     let num_lookup_columns = lookup_helper_columns.as_ref().map(|v| v.len()).unwrap_or(0);
-    log::debug!("num_lookup_columns: {:?}", num_lookup_columns);
 
     let auxiliary_polys = match lookup_helper_columns {
         None => ctl_data.z_polys(),
