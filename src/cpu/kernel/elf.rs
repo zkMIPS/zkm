@@ -251,7 +251,14 @@ impl Program {
 
         log::debug!(
             "load segment pc: {} image: {:?} gprs: {:?} lo: {} hi: {} heap:{} range: ({} -> {})",
-            segment.pc, segment.image_id, gprs, lo, hi, heap, pc, end_pc
+            segment.pc,
+            segment.image_id,
+            gprs,
+            lo,
+            hi,
+            heap,
+            pc,
+            end_pc
         );
         Ok(Program {
             entry,
