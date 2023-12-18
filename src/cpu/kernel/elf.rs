@@ -227,7 +227,7 @@ impl Program {
     pub fn load_segment(segment_id: u32) -> Result<Program> {
         let mut name = String::from("output/segment");
         name.push_str(&segment_id.to_string());
-        println!("file {}", name);
+        log::debug!("file {}", name);
         let f = File::open(name).unwrap();
         let reader = BufReader::new(f);
 
@@ -249,7 +249,7 @@ impl Program {
         let heap: usize = image.get(&((34 << 2) as u32)).unwrap().to_be() as usize;
         let pc: usize = image.get(&((35 << 2) as u32)).unwrap().to_be() as usize;
 
-        println!(
+        log::debug!(
             "load segment pc: {} image: {:?} gprs: {:?} lo: {} hi: {} heap:{} range: ({} -> {})",
             segment.pc, segment.image_id, gprs, lo, hi, heap, pc, end_pc
         );
