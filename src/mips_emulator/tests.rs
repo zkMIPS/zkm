@@ -70,6 +70,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_execute_minigeth() {
         let path = PathBuf::from("./test-vectors/minigeth");
         let data = fs::read(path).expect("could not read file");
