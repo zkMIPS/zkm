@@ -55,6 +55,29 @@ pub(crate) fn combined_kernel() -> Kernel {
     }
 }
 
+pub(crate) fn segment_kernel() -> Kernel {
+    let code = Vec::new();
+
+    let p: Program = Program::load_segment(0).unwrap();
+
+    let code_hash_bytes = keccak(&code).0;
+    let code_hash_be = core::array::from_fn(|i| {
+        u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
+    });
+    let code_hash = code_hash_be.map(u32::from_be);
+    log::debug!("code_hash: {:?}", code_hash);
+    let blockpath = Program::get_block_path("13284491", "");
+
+    Kernel {
+        program: p,
+        code,
+        code_hash,
+        ordered_labels: vec![],
+        global_labels: HashMap::new(),
+        blockpath,
+    }
+}
+
 impl Kernel {
     /// Get a string representation of the current offset for debugging purposes.
     pub(crate) fn offset_name(&self, offset: usize) -> String {
@@ -81,3 +104,4 @@ impl Kernel {
 pub(crate) const BYTES_PER_OFFSET: u8 = 3;
 
 pub static KERNEL: Lazy<Kernel> = Lazy::new(combined_kernel);
+//pub static KERNEL: Lazy<Kernel> = Lazy::new(segment_kernel);
