@@ -23,6 +23,7 @@ pub mod util;
 pub mod vanishing_poly;
 pub mod verifier;
 pub mod witness;
+pub mod mips_emulator;
 
 //#[macro_use]
 extern crate prettytable;
