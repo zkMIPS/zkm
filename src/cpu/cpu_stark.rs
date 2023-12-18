@@ -95,9 +95,7 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
         columns,
         Some(Column::sum([
             COL_MAP.op.binary_op,
-            COL_MAP.op.binary_imm_op,
             COL_MAP.op.shift,
-            COL_MAP.op.shift_imm,
         ])),
     )
 }
