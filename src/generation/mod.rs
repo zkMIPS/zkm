@@ -16,8 +16,8 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::KERNEL;
 use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
+use crate::mips_emulator::state::SEGMENT_STEPS;
 use crate::witness::transition::transition;
-
 /// Inputs needed for trace generation. Wrap the trace record.
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct GenerationInputs {
@@ -41,7 +41,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Decode the trace record
     // 1. Decode instruction and fill in cpu columns
     // 2. Decode memory and fill in memory columns
-    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code, 400000).unwrap();
+    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code, SEGMENT_STEPS).unwrap();
     generate_bootstrap_kernel::<F>(&mut state);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
@@ -89,6 +89,15 @@ pub(crate) fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
             row.context = F::from_canonical_usize(state.registers.context);
             row.program_counter = F::from_canonical_usize(pc);
             row.is_kernel_mode = F::ONE;
+
+            if step == state.step && pc != KERNEL.program.end_pc {
+                log::error!(
+                    "Segment split {} error at {:X} expected: {:X}",
+                    step,
+                    pc,
+                    KERNEL.program.end_pc
+                )
+            }
 
             loop {
                 state.traces.push_cpu(row);
