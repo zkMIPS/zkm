@@ -151,25 +151,25 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             rd,
         )), // DIVU: (hi, lo) = rt / rs
         (0b000000, 0b010000, _) => Ok(Operation::BinaryArithmetic(
-            arithmetic::BinaryOperator::ADD,
+            arithmetic::BinaryOperator::MFHI,
             33,
             0,
             rd,
         )), // MFHI: rd = hi
         (0b000000, 0b010001, _) => Ok(Operation::BinaryArithmetic(
-            arithmetic::BinaryOperator::ADD,
+            arithmetic::BinaryOperator::MTHI,
             rs,
             0,
             33,
         )), // MTHI: hi = rs
         (0b000000, 0b010010, _) => Ok(Operation::BinaryArithmetic(
-            arithmetic::BinaryOperator::ADD,
+            arithmetic::BinaryOperator::MFLO,
             32,
             0,
             rd,
         )), // MFLO: rd = lo
         (0b000000, 0b010011, _) => Ok(Operation::BinaryArithmetic(
-            arithmetic::BinaryOperator::ADD,
+            arithmetic::BinaryOperator::MTLO,
             rs,
             0,
             32,
