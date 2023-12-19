@@ -64,7 +64,7 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // the CTL will enforce that the reconstructed opcode value
     // from the opcode bits matches.
     // FIXME: opcode = op + 2^6 * func
-    const COMBINED_OPS: [(usize, u32); 22] = [
+    const COMBINED_OPS: [(usize, u32); 26] = [
         (columns::IS_ADD, 0b000000 + 0b100000 * (1 << 6)),
         (columns::IS_ADDU, 0b000000 + 0b100001 * (1 << 6)),
         (columns::IS_ADDI, 0b001000 + 0b000000 * (1 << 6)),
@@ -87,6 +87,10 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         (columns::IS_SLTI, 0b001010 + 0b000000 * (1 << 6)),
         (columns::IS_SLTIU, 0b001011 + 0b000000 * (1 << 6)),
         (columns::IS_LUI, 0b001111 + 0b000000 * (1 << 6)),
+        (columns::IS_MFHI, 0b000000 + 0b010000 * (1 << 6)),
+        (columns::IS_MTHI, 0b000000 + 0b010001 * (1 << 6)),
+        (columns::IS_MFLO, 0b000000 + 0b010010 * (1 << 6)),
+        (columns::IS_MTLO, 0b000000 + 0b010011 * (1 << 6)),
     ];
 
     const REGISTER_MAP: [Range<usize>; 3] = [
