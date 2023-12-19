@@ -131,7 +131,6 @@ where
 }
 
 /// Computes the extra product to multiply to the looked value. It contains memory operations not in the CPU trace:
-/// - block metadata writes before kernel bootstrapping,
 /// - trie roots writes before kernel bootstrapping.
 pub(crate) fn get_memory_extra_looking_products<F, const D: usize>(
     public_values: &PublicValues,
@@ -142,124 +141,21 @@ where
 {
     let mut prod = F::ONE;
 
-    // Add metadata and tries writes.
+    // Add metadata and state root writes.
     let fields = [
-        /*
-        (
-            GlobalMetadata::BlockBeneficiary,
-            U256::from_big_endian(&public_values.block_metadata.block_beneficiary.0),
-        ),
-        (
-            GlobalMetadata::BlockTimestamp,
-            public_values.block_metadata.block_timestamp,
-        ),
-        (
-            GlobalMetadata::BlockNumber,
-            public_values.block_metadata.block_number,
-        ),
-        (
-            GlobalMetadata::BlockRandom,
-            public_values.block_metadata.block_random.into_uint(),
-        ),
-        (
-            GlobalMetadata::BlockDifficulty,
-            public_values.block_metadata.block_difficulty,
-        ),
-        (
-            GlobalMetadata::BlockGasLimit,
-            public_values.block_metadata.block_gaslimit,
-        ),
-        (
-            GlobalMetadata::BlockChainId,
-            public_values.block_metadata.block_chain_id,
-        ),
-        (
-            GlobalMetadata::BlockBaseFee,
-            public_values.block_metadata.block_base_fee,
-        ),
-        (
-            GlobalMetadata::BlockCurrentHash,
-            h2u(public_values.block_hashes.cur_hash),
-        ),
-        (
-            GlobalMetadata::BlockGasUsed,
-            public_values.block_metadata.block_gas_used,
-        ),
-        (
-            GlobalMetadata::TxnNumberBefore,
-            public_values.extra_block_data.txn_number_before,
-        ),
-        (
-            GlobalMetadata::TxnNumberAfter,
-            public_values.extra_block_data.txn_number_after,
-        ),
-        (
-            GlobalMetadata::BlockGasUsedBefore,
-            public_values.extra_block_data.gas_used_before,
-        ),
-        (
-            GlobalMetadata::BlockGasUsedAfter,
-            public_values.extra_block_data.gas_used_after,
-        ),
-        */
         (
             GlobalMetadata::StateTrieRootDigestBefore,
             public_values.roots_before.root,
         ),
-        /*
-        (
-            GlobalMetadata::TransactionTrieRootDigestBefore,
-            h2u(public_values.trie_roots_before.transactions_root),
-        ),
-        (
-            GlobalMetadata::ReceiptTrieRootDigestBefore,
-            h2u(public_values.trie_roots_before.receipts_root),
-        ),
-        */
         (
             GlobalMetadata::StateTrieRootDigestAfter,
             public_values.roots_after.root,
         ),
-        /*
-        (
-            GlobalMetadata::TransactionTrieRootDigestAfter,
-            h2u(public_values.trie_roots_after.transactions_root),
-        ),
-        (
-            GlobalMetadata::ReceiptTrieRootDigestAfter,
-            h2u(public_values.trie_roots_after.receipts_root),
-        ),
-        */
     ];
 
     let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);
 
     fields.map(|(field, val)| prod = add_data_write(challenge, segment, prod, field as usize, val));
-
-    // Add block bloom writes.
-    /*
-    let bloom_segment = F::from_canonical_u32(Segment::GlobalBlockBloom as u32);
-    for index in 0..8 {
-        let val = public_values.block_metadata.block_bloom[index];
-        prod = add_data_write(challenge, bloom_segment, prod, index, val);
-    }
-
-    for index in 0..8 {
-        let val = public_values.extra_block_data.block_bloom_before[index];
-        prod = add_data_write(challenge, bloom_segment, prod, index + 8, val);
-    }
-    for index in 0..8 {
-        let val = public_values.extra_block_data.block_bloom_after[index];
-        prod = add_data_write(challenge, bloom_segment, prod, index + 16, val);
-    }
-
-    // Add Blockhashes writes.
-    let block_hashes_segment = F::from_canonical_u32(Segment::BlockHashes as u32);
-    for index in 0..256 {
-        let val = h2u(public_values.block_hashes.prev_hashes[index]);
-        prod = add_data_write(challenge, block_hashes_segment, prod, index, val);
-    }
-    */
 
     prod
 }
