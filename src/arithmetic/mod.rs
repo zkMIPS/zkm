@@ -245,7 +245,12 @@ fn binary_op_to_rows<F: PrimeField64>(
     row[op.row_filter()] = F::ONE;
 
     match op {
-        BinaryOperator::ADD | BinaryOperator::SUB | BinaryOperator::ADDI => {
+        BinaryOperator::ADD
+        | BinaryOperator::SUB
+        | BinaryOperator::ADDI
+        | BinaryOperator::ADDIU
+        | BinaryOperator::ADDU
+        | BinaryOperator::SUBU => {
             addcy::generate(&mut row, op.row_filter(), input0, input1);
             (row, None)
         }
@@ -305,6 +310,6 @@ fn binary_op_to_rows<F: PrimeField64>(
             (row, None)
         }
 
-        _ => (row, None),
+        _ => panic!("{:?}", op),
     }
 }

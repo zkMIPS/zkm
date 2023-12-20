@@ -37,11 +37,11 @@ use crate::cross_table_lookup::{
 use crate::generation::GenerationInputs;
 //use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
+    MemRootsTarget,
     //BlockHashesTarget, BlockMetadataTarget, ExtraBlockDataTarget,
     PublicValues,
     PublicValuesTarget,
     StarkProofWithMetadata,
-    MemRootsTarget,
 };
 use crate::prover::prove;
 use crate::recursive_verifier::{
@@ -425,7 +425,7 @@ where
 
         let by_table = [
             arithmetic, //   byte_packing,
-            cpu, //   keccak,
+            cpu,        //   keccak,
             //   keccak_sponge,
             logic, memory,
         ];

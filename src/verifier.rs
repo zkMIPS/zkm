@@ -1,22 +1,24 @@
-use std::any::type_name;
-use itertools::Itertools;
+use crate::all_stark::{AllStark, Table, NUM_TABLES};
+use crate::config::StarkConfig;
+use crate::constraint_consumer::ConstraintConsumer;
+use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
+use crate::cross_table_lookup::{
+    verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge, GrandProductChallengeSet,
+};
+use crate::evaluation_frame::StarkEvaluationFrame;
+use crate::lookup::LookupCheckVars;
+use crate::memory::segments::Segment;
+use crate::memory::VALUE_LIMBS;
+use crate::proof::PublicValues;
 use anyhow::{ensure, Result};
+use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
-use crate::memory::VALUE_LIMBS;
-use crate::all_stark::{AllStark, Table, NUM_TABLES};
-use crate::config::StarkConfig;
-use crate::constraint_consumer::ConstraintConsumer;
-use crate::proof::PublicValues;
-use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cross_table_lookup::{CtlCheckVars, GrandProductChallengeSet, verify_cross_table_lookups, GrandProductChallenge};
-use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::lookup::LookupCheckVars;
-use crate::memory::segments::Segment;
+use std::any::type_name;
 
 use crate::proof::{
     AllProof, AllProofChallenges, StarkOpeningSet, StarkProof, StarkProofChallenges,
@@ -395,8 +397,6 @@ mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Sample;
-
-
 
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;

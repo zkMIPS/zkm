@@ -14,8 +14,8 @@ impl GlobalMetadata {
     pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
             Self::StateTrieRoot,
-             Self::StateTrieRootDigestBefore,
-             Self::StateTrieRootDigestAfter,
+            Self::StateTrieRootDigestBefore,
+            Self::StateTrieRootDigestAfter,
         ]
     }
 

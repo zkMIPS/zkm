@@ -174,8 +174,8 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             0,
             32,
         )), // MTLO: lo = rs
-        (0b000000, 0b001111, _) => Ok(Operation::BinaryArithmetic(
-            arithmetic::BinaryOperator::ADD,
+        (0b000000, 0b001111, _) => Ok(Operation::BinaryArithmeticImm(
+            arithmetic::BinaryOperator::ADDI,
             0,
             0,
             0,
@@ -286,7 +286,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::CondMov(_, _, _, _) => &mut flags.condmov_op,
         Operation::Count(_, _, _) => &mut flags.count_op,
         Operation::BinaryLogic(_, _, _, _) => &mut flags.logic_op,
-        Operation::BinaryLogicImm(_, _, _, _) => &mut flags.logic_op,
+        Operation::BinaryLogicImm(_, _, _, _) => &mut flags.logic_imm_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLL, ..)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRL, ..)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRA, ..) => &mut flags.shift_imm,

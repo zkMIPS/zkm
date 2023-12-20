@@ -454,7 +454,6 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
     cross_table_lookups: &[CrossTableLookup<F>],
     ctl_challenges: &GrandProductChallengeSet<F>,
 ) -> [CtlData<F>; NUM_TABLES] {
-    println!("cross_table_lookup_data");
     let mut ctl_data_per_table = [0; NUM_TABLES].map(|_| CtlData::default());
     for CrossTableLookup {
         looking_tables,
@@ -463,7 +462,6 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
     {
         log::debug!("Processing CTL for {:?}", looked_table.table);
         for &challenge in &ctl_challenges.challenges {
-            println!("lookup challenge: {:?}", challenge);
             let zs_looking = looking_tables.iter().map(|table| {
                 partial_products(
                     &trace_poly_values[table.table as usize],
@@ -1000,7 +998,7 @@ pub(crate) mod testutils {
         let looked = TableWithColumns::<F>::new(
             Table::Arithmetic,
             looked_col,
-            Some(Column::single(2)), // t: (1, 0)
+            Some(Column::single(3)), // t: (1, 0)
         );
 
         let lookings = vec![TableWithColumns::<F>::new(

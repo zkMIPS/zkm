@@ -172,6 +172,24 @@ impl<T: Copy> Traces<T> {
             // keccak_sponge_ops,
         } = self;
 
+        /*
+        let invalids = [1801];
+        for v in invalids {
+            println!("arith row @{v}: {:?}", arithmetic_ops[v]);
+        }
+        */
+        let invalids = [21054, 22768, 70561];
+        for v in invalids {
+            println!("[][][][][]cpu row @{v}: {:?}", cpu[v]);
+        }
+        /*
+        [(Logic, 12761), (Logic, 16832)]
+        let invalids = [12761, 16832];
+        for v in invalids {
+            println!("cpu row @{v}: {:?}", logic_ops[v]);
+        }
+        */
+
         let arithmetic_trace = timed!(
             timing,
             "generate arithmetic trace",
@@ -185,8 +203,9 @@ impl<T: Copy> Traces<T> {
                 .byte_packing_stark
                 .generate_trace(byte_packing_ops, cap_elements, timing)
         );
+        63), (Arithmetic, 24179)
         */
-        let cpu_rows = cpu.into_iter().map(|x| x.into()).collect();
+        let cpu_rows: Vec<_> = cpu.into_iter().map(|x| x.into()).collect();
         let cpu_trace = trace_rows_to_poly_values(cpu_rows);
         /*
         let keccak_trace = timed!(

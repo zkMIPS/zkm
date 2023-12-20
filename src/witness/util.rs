@@ -151,7 +151,7 @@ pub(crate) fn reg_write_with_log<F: Field>(
     let channel = &mut row.mem_channels[channel];
     assert_eq!(channel.used, F::ZERO);
     channel.used = F::ONE;
-    channel.is_read = F::ONE;
+    channel.is_read = F::ZERO;
     channel.addr_context = F::from_canonical_usize(address.context);
     channel.addr_segment = F::from_canonical_usize(address.segment);
     channel.addr_virtual = F::from_canonical_usize(address.virt);

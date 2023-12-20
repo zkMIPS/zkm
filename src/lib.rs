@@ -14,6 +14,7 @@ pub mod keccak_sponge;
 pub mod logic;
 pub mod lookup;
 pub mod memory;
+pub mod mips_emulator;
 pub mod proof;
 pub mod prover;
 pub mod recursive_verifier;
@@ -23,7 +24,6 @@ pub mod util;
 pub mod vanishing_poly;
 pub mod verifier;
 pub mod witness;
-pub mod mips_emulator;
 
 //#[macro_use]
 extern crate prettytable;

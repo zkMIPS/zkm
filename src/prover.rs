@@ -123,7 +123,7 @@ where
         check_ctls(
             &trace_poly_values,
             &all_stark.cross_table_lookups,
-           // &get_memory_extra_looking_values(&public_values),
+            // &get_memory_extra_looking_values(&public_values),
         );
     }
 

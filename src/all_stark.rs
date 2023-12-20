@@ -1,6 +1,7 @@
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use std::iter;
 
 use crate::arithmetic::arithmetic_stark;
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
@@ -171,7 +172,7 @@ pub(crate) fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
-    let _cpu_memory_code_read = TableWithColumns::new(
+    let cpu_memory_code_read = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_code_memory::<F>(),
         Some(cpu_stark::ctl_filter_code_memory()),
@@ -196,7 +197,9 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         .chain(keccak_sponge_reads)
         .collect();
     */
-    let all_lookers = cpu_memory_gp_ops.collect();
+    let all_lookers = iter::once(cpu_memory_code_read)
+        .chain(cpu_memory_gp_ops)
+        .collect();
     let memory_looked = TableWithColumns::new(
         Table::Memory,
         memory_stark::ctl_data(),
