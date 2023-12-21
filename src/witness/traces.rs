@@ -121,6 +121,11 @@ impl<T: Copy> Traces<T> {
     }
 
     pub fn push_memory(&mut self, op: MemoryOp) {
+        /*
+        if op.address.virt == 674224 {
+            panic!("{:?}", op);
+        }
+        */
         self.memory_ops.push(op);
     }
 
@@ -171,24 +176,6 @@ impl<T: Copy> Traces<T> {
             // keccak_inputs,
             // keccak_sponge_ops,
         } = self;
-
-        /*
-        let invalids = [1801];
-        for v in invalids {
-            println!("arith row @{v}: {:?}", arithmetic_ops[v]);
-        }
-        */
-        let invalids = [21054, 22768, 70561];
-        for v in invalids {
-            println!("[][][][][]cpu row @{v}: {:?}", cpu[v]);
-        }
-        /*
-        [(Logic, 12761), (Logic, 16832)]
-        let invalids = [12761, 16832];
-        for v in invalids {
-            println!("cpu row @{v}: {:?}", logic_ops[v]);
-        }
-        */
 
         let arithmetic_trace = timed!(
             timing,

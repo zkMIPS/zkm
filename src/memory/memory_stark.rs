@@ -31,8 +31,9 @@ use crate::witness::memory::{MemoryAddress, MemoryOp};
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res =
         Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL]).collect_vec();
-    res.extend(Column::singles((0..VALUE_LIMBS).map(value_limb)));
-    res.push(Column::single(TIMESTAMP));
+    // FIXME: big endian issue
+    //res.extend(Column::singles((0..VALUE_LIMBS).map(value_limb)));
+    //res.push(Column::single(TIMESTAMP));
     res
 }
 

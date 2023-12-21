@@ -57,6 +57,18 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
     row.rd_bits = to_bits_le::<F, 5>(val_rd);
     row.shamt_bits = to_bits_le::<F, 5>(val_shamt);
 
+    /*
+    // FIXME: hold last channel for code read
+    let channel = &mut row.mem_channels[7];
+    assert_eq!(channel.used, F::ZERO);
+    channel.used = F::ONE;
+    channel.is_read = F::ONE;
+    channel.addr_context = F::from_canonical_usize(address.context);
+    channel.addr_segment = F::from_canonical_usize(address.segment);
+    channel.addr_virtual = F::from_canonical_usize(address.virt);
+    channel.value = F::from_canonical_u32(val);
+    */
+
     (val, op)
 }
 

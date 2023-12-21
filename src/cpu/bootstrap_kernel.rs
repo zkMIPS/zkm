@@ -30,10 +30,6 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
             let address = MemoryAddress::new(0, Segment::Code, *addr as usize);
             let write =
                 mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, (*val).to_be());
-            //log::debug!(
-            //    "init memory: v: {}, addr: {:?}, val : {}",
-            //    *addr, address, *val
-            //);
             state.traces.push_memory(write);
         }
 
@@ -44,6 +40,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     final_cpu_row.clock = F::from_canonical_usize(state.traces.clock());
     final_cpu_row.is_bootstrap_kernel = F::ONE;
     final_cpu_row.is_keccak_sponge = F::ONE;
+    /*
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
     final_cpu_row.mem_channels[0].value = F::ZERO; // context
     final_cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize); // segment
@@ -53,14 +50,12 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     // FIXME: store all the hash
     final_cpu_row.mem_channels[4].value = KERNEL.code_hash.map(F::from_canonical_u32)[0];
     //final_cpu_row.mem_channels[4].value.reverse();
-    /*
     keccak_sponge_log(
         state,
         MemoryAddress::new(0, Segment::Code, 0),
         KERNEL.code.clone(),
     );
     */
-    state.traces.push_cpu(final_cpu_row);
     state.traces.push_cpu(final_cpu_row);
 
     state.memory.apply_ops(&state.traces.memory_ops);

@@ -143,7 +143,8 @@ where
 {
     let mut prod = F::ONE;
 
-    // Add metadata and state root writes.
+    /*
+    // Add metadata and state root writes. Skip due to not enabling
     let fields = [
         (
             GlobalMetadata::StateTrieRootDigestBefore,
@@ -158,6 +159,7 @@ where
     let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);
 
     fields.map(|(field, val)| prod = add_data_write(challenge, segment, prod, field as usize, val));
+    */
 
     prod
 }

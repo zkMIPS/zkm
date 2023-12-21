@@ -403,9 +403,9 @@ pub(crate) fn generate_branch<F: Field>(
     let aux2 = src2.wrapping_sub(src1);
     let aux3 = (src1 ^ src2) & 0x80000000 > 0;
 
-    reg_write_with_log(0, 2, aux1, state, &mut row)?;
-    reg_write_with_log(0, 3, aux2, state, &mut row)?;
-    reg_write_with_log(0, 4, aux3 as usize, state, &mut row)?;
+    let log_out0 = reg_write_with_log(0, 2, aux1, state, &mut row)?;
+    let log_out1 = reg_write_with_log(0, 3, aux2, state, &mut row)?;
+    let log_out2 = reg_write_with_log(0, 4, aux3 as usize, state, &mut row)?;
     let pc = state.registers.program_counter as u32;
     if should_jump {
         let target = sign_extend::<16>(target);
@@ -422,6 +422,9 @@ pub(crate) fn generate_branch<F: Field>(
     }
     state.traces.push_memory(src1_op);
     state.traces.push_memory(src2_op);
+    state.traces.push_memory(log_out0);
+    state.traces.push_memory(log_out1);
+    state.traces.push_memory(log_out2);
     Ok(())
 }
 
