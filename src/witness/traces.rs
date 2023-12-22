@@ -172,9 +172,6 @@ impl<T: Copy> Traces<T> {
             // keccak_sponge_ops,
         } = self;
 
-        for i in [55872, 148614] {
-            println!("cpu@{i}: {:?}", cpu[i]);
-        }
         let arithmetic_trace = timed!(
             timing,
             "generate arithmetic trace",
