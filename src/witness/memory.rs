@@ -66,6 +66,7 @@ pub enum MemoryOpKind {
 #[derive(Clone, Copy, Debug)]
 pub struct MemoryOp {
     /// true if this is an actual memory operation, or false if it's a padding row.
+    /// NOTE: Skip the 0 register since we always read 0 from it, but may write anything in
     pub filter: bool,
     pub timestamp: usize,
     pub address: MemoryAddress,

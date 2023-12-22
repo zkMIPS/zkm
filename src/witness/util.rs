@@ -151,17 +151,27 @@ pub(crate) fn reg_write_with_log<F: Field>(
     log::debug!("write reg {} : {:X} ({})", index, value, value);
 
     let address = MemoryAddress::new(0, Segment::RegisterFile, index as usize);
-    let op = MemoryOp::new(
+
+    // trick: skip 0 register check since we can write anything in, but read 0 out only.
+    let mut used = F::ONE;
+    let mut filter = true;
+    if index == 0 {
+        used = F::ZERO;
+        filter = false;
+    }
+
+    let mut op = MemoryOp::new(
         MemoryChannel::GeneralPurpose(channel),
         state.traces.clock(),
         address,
         MemoryOpKind::Write,
         value as u32,
     );
+    op.filter = filter;
 
     let channel = &mut row.mem_channels[channel];
     assert_eq!(channel.used, F::ZERO);
-    channel.used = F::ONE;
+    channel.used = used;
     channel.is_read = F::ZERO;
     channel.addr_context = F::from_canonical_usize(address.context);
     channel.addr_segment = F::from_canonical_usize(address.segment);
@@ -235,14 +245,9 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     address: MemoryAddress,
     state: &GenerationState<F>,
     row: &mut CpuColumnsView<F>,
-    val: u32,  // LE
+    val: u32, // LE
 ) -> MemoryOp {
-    let op = mem_write_log(
-        MemoryChannel::GeneralPurpose(n),
-        address,
-        state,
-        val,
-    );
+    let op = mem_write_log(MemoryChannel::GeneralPurpose(n), address, state, val);
 
     let channel = &mut row.mem_channels[n];
     assert_eq!(channel.used, F::ZERO);
@@ -260,7 +265,7 @@ pub(crate) fn mem_write_log<F: Field>(
     channel: MemoryChannel,
     address: MemoryAddress,
     state: &GenerationState<F>,
-    val: u32,   // LE
+    val: u32, // LE
 ) -> MemoryOp {
     MemoryOp::new(
         channel,
