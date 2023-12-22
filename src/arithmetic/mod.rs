@@ -2,6 +2,7 @@ pub mod addcy;
 pub mod arithmetic_stark;
 pub mod columns;
 pub mod div;
+pub mod lo_hi;
 pub mod lui;
 pub mod mul;
 pub mod mult;
@@ -37,6 +38,10 @@ pub(crate) enum BinaryOperator {
     SLTI,
     SLTIU,
     LUI,
+    MFHI,
+    MTHI,
+    MFLO,
+    MTLO,
 }
 
 impl BinaryOperator {
@@ -120,6 +125,10 @@ impl BinaryOperator {
                 ((input0 as i32) % (input1 as i32)) as u32, // hi
             ),
             BinaryOperator::DIVU => (input0 / input1, input0 % input1), //lo,hi
+            BinaryOperator::MFHI
+            | BinaryOperator::MTHI
+            | BinaryOperator::MFLO
+            | BinaryOperator::MTLO => (input0, 0),
         }
     }
 
@@ -147,6 +156,10 @@ impl BinaryOperator {
             BinaryOperator::SLTU => columns::IS_SLTU,
             BinaryOperator::SLT => columns::IS_SLT,
             BinaryOperator::LUI => columns::IS_LUI,
+            BinaryOperator::MFHI => columns::IS_MFHI,
+            BinaryOperator::MTHI => columns::IS_MTHI,
+            BinaryOperator::MFLO => columns::IS_MFLO,
+            BinaryOperator::MTLO => columns::IS_MTLO,
         }
     }
 }
@@ -232,7 +245,12 @@ fn binary_op_to_rows<F: PrimeField64>(
     row[op.row_filter()] = F::ONE;
 
     match op {
-        BinaryOperator::ADD | BinaryOperator::SUB | BinaryOperator::ADDI => {
+        BinaryOperator::ADD
+        | BinaryOperator::SUB
+        | BinaryOperator::ADDI
+        | BinaryOperator::ADDIU
+        | BinaryOperator::ADDU
+        | BinaryOperator::SUBU => {
             addcy::generate(&mut row, op.row_filter(), input0, input1);
             (row, None)
         }
@@ -284,7 +302,12 @@ fn binary_op_to_rows<F: PrimeField64>(
             sra::generate(&mut row, &mut nv, op.row_filter(), input1, input0, result0);
             (row, Some(nv))
         }
-
-        _ => (row, None),
+        BinaryOperator::MFHI
+        | BinaryOperator::MTHI
+        | BinaryOperator::MFLO
+        | BinaryOperator::MTLO => {
+            lo_hi::generate(&mut row, op.row_filter(), input0, result0);
+            (row, None)
+        }
     }
 }

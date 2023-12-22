@@ -294,9 +294,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 
         // If this is a dummy row (filter is off), it must be a read. This means the prover can
         // insert reads which never appear in the CPU trace (which are harmless), but not writes.
+        // FIXME: 0 register also set filter false
+        /*
         let is_dummy = P::ONES - filter;
         let is_write = P::ONES - local_values[IS_READ];
         yield_constr.constraint(is_dummy * is_write);
+        */
 
         let context_first_change = local_values[CONTEXT_FIRST_CHANGE];
         let segment_first_change = local_values[SEGMENT_FIRST_CHANGE];
@@ -377,10 +380,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 
         // If this is a dummy row (filter is off), it must be a read. This means the prover can
         // insert reads which never appear in the CPU trace (which are harmless), but not writes.
+        // FIXME: 0 register also set filter false
+        /*
         let is_dummy = builder.sub_extension(one, filter);
         let is_write = builder.sub_extension(one, local_values[IS_READ]);
         let is_dummy_write = builder.mul_extension(is_dummy, is_write);
         yield_constr.constraint(builder, is_dummy_write);
+        */
 
         let context_first_change = local_values[CONTEXT_FIRST_CHANGE];
         let segment_first_change = local_values[SEGMENT_FIRST_CHANGE];

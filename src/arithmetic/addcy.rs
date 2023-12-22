@@ -38,10 +38,16 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], filter: usize, left_in: u3
             u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], cy as u32);
             u32_to_array(&mut lv[OUTPUT_REGISTER], result);
         }
-        IS_SUB => {
+        IS_SUB | IS_SUBU => {
             let (diff, cy) = left_in.overflowing_sub(right_in);
             u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], cy as u32);
             u32_to_array(&mut lv[OUTPUT_REGISTER], diff);
+        }
+        IS_ADDU | IS_ADDIU => {
+            // FIXME: add constraints
+            let (result, cy) = left_in.overflowing_add(right_in);
+            u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], cy as u32);
+            u32_to_array(&mut lv[OUTPUT_REGISTER], result);
         }
         _ => panic!("unexpected operation filter"),
     };

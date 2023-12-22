@@ -34,14 +34,14 @@ pub(crate) fn generate<F: PrimeField64>(
             }
 
             u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], diff);
-            u32_to_array(&mut lv[AUX_INPUT_REGISTER_1], rd);
-            u32_to_array(&mut lv[OUTPUT_REGISTER], cy_val);
+            u32_to_array(&mut lv[AUX_INPUT_REGISTER_1], cy_val);
+            u32_to_array(&mut lv[OUTPUT_REGISTER], rd);
         }
         IS_SLTU | IS_SLTIU => {
             let (diff, cy) = left_in.overflowing_sub(right_in);
             u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], diff);
-            u32_to_array(&mut lv[AUX_INPUT_REGISTER_1], rd);
-            u32_to_array(&mut lv[OUTPUT_REGISTER], cy as u32);
+            u32_to_array(&mut lv[AUX_INPUT_REGISTER_1], cy as u32);
+            u32_to_array(&mut lv[OUTPUT_REGISTER], rd);
         }
         _ => panic!("unexpected operation filter"),
     };
@@ -65,7 +65,7 @@ pub fn eval_packed_generic<P: PackedField>(
     let aux = &lv[AUX_INPUT_REGISTER_0];
     let rd = &lv[AUX_INPUT_REGISTER_1];
 
-    eval_packed_generic_slt(yield_constr, is_lt, is_sign, in1, aux, in0, out, rd);
+    eval_packed_generic_slt(yield_constr, is_lt, is_sign, in1, aux, in0, rd, out);
 }
 
 pub(crate) fn eval_packed_generic_slt<P: PackedField>(
@@ -137,8 +137,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         in1,
         aux,
         in0,
-        out,
         rd,
+        out,
     );
 }
 

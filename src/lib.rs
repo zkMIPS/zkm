@@ -1,27 +1,31 @@
 #![allow(dead_code)]
-pub(crate) mod all_stark;
-pub(crate) mod arithmetic;
-pub(crate) mod config;
-pub(crate) mod constraint_consumer;
-pub(crate) mod cpu;
-pub(crate) mod cross_table_lookup;
-pub(crate) mod evaluation_frame;
-pub(crate) mod generation;
-pub(crate) mod get_challenges;
-pub(crate) mod keccak;
-pub(crate) mod keccak_sponge;
-pub(crate) mod logic;
-pub(crate) mod lookup;
-pub(crate) mod memory;
-pub(crate) mod mips_emulator;
-pub(crate) mod proof;
-pub(crate) mod prover;
-pub(crate) mod stark;
-pub(crate) mod stark_testing;
-pub(crate) mod util;
-pub(crate) mod vanishing_poly;
-pub(crate) mod verifier;
-pub(crate) mod witness;
+pub mod all_stark;
+pub mod arithmetic;
+pub mod config;
+pub mod constraint_consumer;
+pub mod cpu;
+pub mod cross_table_lookup;
+pub mod evaluation_frame;
+pub mod fixed_recursive_verifier;
+pub mod generation;
+pub mod get_challenges;
+pub mod keccak;
+pub mod keccak_sponge;
+pub mod logic;
+pub mod lookup;
+pub mod memory;
+pub mod mips_emulator;
+pub mod proof;
+pub mod prover;
+pub mod recursive_verifier;
+pub mod stark;
+pub mod stark_testing;
+pub mod util;
+pub mod vanishing_poly;
+pub mod verifier;
+pub mod witness;
 
 //#[macro_use]
 extern crate prettytable;
+
+extern crate alloc;

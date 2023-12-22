@@ -16,7 +16,7 @@ use super::shift;
 use crate::all_stark::Table;
 use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 //use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
-use crate::arithmetic::{addcy, columns, div, lui, mul, mult, slt, sra, Operation};
+use crate::arithmetic::{addcy, columns, div, lo_hi, lui, mul, mult, slt, sra, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
@@ -55,6 +55,7 @@ fn cpu_arith_data_link<F: Field>(
             res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
         }
     }
+
     res
 }
 
@@ -64,28 +65,33 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // the CTL will enforce that the reconstructed opcode value
     // from the opcode bits matches.
     // FIXME: opcode = op + 2^6 * func
-    const COMBINED_OPS: [(usize, u32); 21] = [
+    const COMBINED_OPS: [(usize, u32); 18] = [
         (columns::IS_ADD, 0b000000 + 0b100000 * (1 << 6)),
         (columns::IS_ADDU, 0b000000 + 0b100001 * (1 << 6)),
-        (columns::IS_ADDI, 0b001000 + 0b000000 * (1 << 6)),
-        (columns::IS_ADDIU, 0b001001 + 0b000000 * (1 << 6)),
+        //(columns::IS_ADDI, 0b001000 + 0b000000 * (1 << 6)),
+        //(columns::IS_ADDIU, 0b001001 + 0b000000 * (1 << 6)),
         (columns::IS_SUB, 0b000000 + 0b100010 * (1 << 6)),
         (columns::IS_SUBU, 0b000000 + 0b100011 * (1 << 6)),
         (columns::IS_MULT, 0b000000 + 0b011000 * (1 << 6)),
         (columns::IS_MULTU, 0b000000 + 0b011001 * (1 << 6)),
+        (columns::IS_MUL, 0b011100 + 0b000010 * (1 << 6)),
         (columns::IS_DIV, 0b000000 + 0b011010 * (1 << 6)),
         (columns::IS_DIVU, 0b000000 + 0b011011 * (1 << 6)),
         (columns::IS_SLLV, 0b000000 + 0b000100 * (1 << 6)),
         (columns::IS_SRLV, 0b000000 + 0b000110 * (1 << 6)),
         (columns::IS_SRAV, 0b000000 + 0b000111 * (1 << 6)),
-        (columns::IS_SLL, 0b000000 + 0b000000 * (1 << 6)),
-        (columns::IS_SRL, 0b000000 + 0b000010 * (1 << 6)),
-        (columns::IS_SRA, 0b000000 + 0b000011 * (1 << 6)),
+        //(columns::IS_SLL, 0b000000 + 0b000000 * (1 << 6)),
+        //(columns::IS_SRL, 0b000000 + 0b000010 * (1 << 6)),
+        //(columns::IS_SRA, 0b000000 + 0b000011 * (1 << 6)),
         (columns::IS_SLT, 0b000000 + 0b101010 * (1 << 6)),
         (columns::IS_SLTU, 0b000000 + 0b101011 * (1 << 6)),
-        (columns::IS_SLTI, 0b001010 + 0b000000 * (1 << 6)),
-        (columns::IS_SLTIU, 0b001011 + 0b000000 * (1 << 6)),
-        (columns::IS_LUI, 0b001111 + 0b000000 * (1 << 6)),
+        // (columns::IS_SLTI, 0b001010 + 0b000000 * (1 << 6)),
+        // (columns::IS_SLTIU, 0b001011 + 0b000000 * (1 << 6)),
+        // (columns::IS_LUI, 0b001111 + 0b000000 * (1 << 6)),
+        (columns::IS_MFHI, 0b000000 + 0b010000 * (1 << 6)),
+        (columns::IS_MTHI, 0b000000 + 0b010001 * (1 << 6)),
+        (columns::IS_MFLO, 0b000000 + 0b010010 * (1 << 6)),
+        (columns::IS_MTLO, 0b000000 + 0b010011 * (1 << 6)),
     ];
 
     const REGISTER_MAP: [Range<usize>; 3] = [
@@ -222,6 +228,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         //byte::eval_packed(lv, yield_constr);
         shift::eval_packed_generic(lv, nv, yield_constr);
         sra::eval_packed_generic(lv, nv, yield_constr);
+        lo_hi::eval_packed_generic(lv, yield_constr);
     }
 
     fn eval_ext_circuit(
@@ -259,6 +266,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         //byte::eval_ext_circuit(builder, lv, yield_constr);
         shift::eval_ext_circuit(builder, lv, nv, yield_constr);
         sra::eval_ext_circuit(builder, lv, nv, yield_constr);
+        lo_hi::eval_ext_circuit(builder, lv, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {

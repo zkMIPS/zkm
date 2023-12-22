@@ -2,7 +2,7 @@ use std::any::type_name;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-
+use once_cell::sync::Lazy;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packable::Packable;
 use plonky2::field::packed::PackedField;
@@ -22,7 +22,7 @@ use plonky2_util::{log2_ceil, log2_strict};
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-//use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::KERNEL;
 use crate::cross_table_lookup::{
     cross_table_lookup_data, get_grand_product_challenge_set, CtlCheckVars, CtlData,
     GrandProductChallengeSet,
@@ -30,11 +30,14 @@ use crate::cross_table_lookup::{
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::generation::outputs::GenerationOutputs;
 use crate::generation::{generate_traces, GenerationInputs};
-//use crate::get_challenges::observe_public_values;
+use crate::get_challenges::observe_public_values;
 use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
+
+#[cfg(test)]
+use crate::cross_table_lookup::testutils::check_ctls;
 
 /// Generate traces, then create all STARK proofs.
 pub fn prove<F, C, const D: usize>(
@@ -63,7 +66,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    //timed!(timing, "build kernel", Lazy::force(&KERNEL));
+    timed!(timing, "build kernel", Lazy::force(&KERNEL));
     let (traces, public_values, outputs) = timed!(
         timing,
         "generate all traces",
@@ -115,16 +118,14 @@ where
 
     log::debug!("trace_commitments: {}", trace_commitments.len());
 
-    /*
     #[cfg(test)]
     {
         check_ctls(
             &trace_poly_values,
             &all_stark.cross_table_lookups,
-            &get_memory_extra_looking_values(&public_values),
+            // &get_memory_extra_looking_values(&public_values),
         );
     }
-    */
 
     let trace_caps = trace_commitments
         .iter()
@@ -135,10 +136,8 @@ where
         challenger.observe_cap(cap);
     }
 
-    /*
     observe_public_values::<F, C, D>(&mut challenger, &public_values)
         .map_err(|_| anyhow::Error::msg("Invalid conversion of public values."))?;
-    */
 
     let ctl_challenges = get_grand_product_challenge_set(&mut challenger, config.num_challenges);
     let ctl_data_per_table = timed!(
@@ -212,22 +211,6 @@ where
             timing,
         )?
     );
-    /*
-    let byte_packing_proof = timed!(
-        timing,
-        "prove byte packing STARK",
-        prove_single_table(
-            &all_stark.byte_packing_stark,
-            config,
-            &trace_poly_values[Table::BytePacking as usize],
-            &trace_commitments[Table::BytePacking as usize],
-            &ctl_data_per_table[Table::BytePacking as usize],
-            ctl_challenges,
-            challenger,
-            timing,
-        )?
-    );
-    */
     let cpu_proof = timed!(
         timing,
         "prove CPU STARK",
@@ -350,7 +333,6 @@ where
             .collect::<Vec<_>>()
     });
     let lookups = stark.lookups();
-    log::debug!("lookup len: {:?}", lookups.len());
     let lookup_helper_columns = timed!(
         timing,
         "compute lookup helper columns",
@@ -370,7 +352,6 @@ where
         })
     );
     let num_lookup_columns = lookup_helper_columns.as_ref().map(|v| v.len()).unwrap_or(0);
-    log::debug!("num_lookup_columns: {:?}", num_lookup_columns);
 
     let auxiliary_polys = match lookup_helper_columns {
         None => ctl_data.z_polys(),

@@ -2,8 +2,8 @@ use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
 
+use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
-
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
@@ -42,7 +42,6 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
 ) -> (u32, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::Code, address, state);
 
-    let val = val.to_be();
     let val_func = to_byte_checked(val & 0x3F);
     let val_shamt = to_byte_checked((val >> 6) & 0x1F);
     let val_rd = to_byte_checked((val >> 11) & 0x1F);
@@ -56,6 +55,18 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
     row.rt_bits = to_bits_le::<F, 5>(val_rt);
     row.rd_bits = to_bits_le::<F, 5>(val_rd);
     row.shamt_bits = to_bits_le::<F, 5>(val_shamt);
+
+    /*
+    // FIXME: hold last channel for code read
+     */
+    let channel = &mut row.mem_channels[NUM_GP_CHANNELS - 1];
+    assert_eq!(channel.used, F::ZERO);
+    channel.used = F::ONE;
+    channel.is_read = F::ONE;
+    channel.addr_context = F::from_canonical_usize(address.context);
+    channel.addr_segment = F::from_canonical_usize(address.segment);
+    channel.addr_virtual = F::from_canonical_usize(address.virt);
+    channel.value = F::from_canonical_u32(val);
 
     (val, op)
 }
@@ -140,18 +151,28 @@ pub(crate) fn reg_write_with_log<F: Field>(
     log::debug!("write reg {} : {:X} ({})", index, value, value);
 
     let address = MemoryAddress::new(0, Segment::RegisterFile, index as usize);
-    let op = MemoryOp::new(
+
+    // trick: skip 0 register check since we can write anything in, but read 0 out only.
+    let mut used = F::ONE;
+    let mut filter = true;
+    if index == 0 {
+        used = F::ZERO;
+        filter = false;
+    }
+
+    let mut op = MemoryOp::new(
         MemoryChannel::GeneralPurpose(channel),
         state.traces.clock(),
         address,
         MemoryOpKind::Write,
         value as u32,
     );
+    op.filter = filter;
 
     let channel = &mut row.mem_channels[channel];
     assert_eq!(channel.used, F::ZERO);
-    channel.used = F::ONE;
-    channel.is_read = F::ONE;
+    channel.used = used;
+    channel.is_read = F::ZERO;
     channel.addr_context = F::from_canonical_usize(address.context);
     channel.addr_segment = F::from_canonical_usize(address.segment);
     channel.addr_virtual = F::from_canonical_usize(address.virt);
@@ -164,7 +185,7 @@ pub(crate) fn mem_read_with_log<F: Field>(
     address: MemoryAddress,
     state: &GenerationState<F>,
 ) -> (u32, MemoryOp) {
-    let val = state.memory.get(address);
+    let val = state.memory.get(address).to_be();
     let op = MemoryOp::new(
         channel,
         state.traces.clock(),
@@ -208,7 +229,6 @@ pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
 ) -> (u32, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::GeneralPurpose(n), address, state);
 
-    let val = val.to_be();
     let channel = &mut row.mem_channels[n];
     assert_eq!(channel.used, F::ZERO);
     channel.used = F::ONE;
@@ -225,14 +245,9 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     address: MemoryAddress,
     state: &GenerationState<F>,
     row: &mut CpuColumnsView<F>,
-    val: u32,
+    val: u32, // LE
 ) -> MemoryOp {
-    let op = mem_write_log(
-        MemoryChannel::GeneralPurpose(n),
-        address,
-        state,
-        val.to_be(),
-    );
+    let op = mem_write_log(MemoryChannel::GeneralPurpose(n), address, state, val);
 
     let channel = &mut row.mem_channels[n];
     assert_eq!(channel.used, F::ZERO);
@@ -250,7 +265,7 @@ pub(crate) fn mem_write_log<F: Field>(
     channel: MemoryChannel,
     address: MemoryAddress,
     state: &GenerationState<F>,
-    val: u32,
+    val: u32, // LE
 ) -> MemoryOp {
     MemoryOp::new(
         channel,

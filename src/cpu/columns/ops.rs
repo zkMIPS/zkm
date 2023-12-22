@@ -11,6 +11,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub binary_imm_op: T, // Combines ADDI, ADDIU
     pub eq_iszero: T,     // Combines EQ and ISZERO flags.
     pub logic_op: T,      // Combines AND, OR, XOR, Nor flags.
+    pub logic_imm_op: T,  // Combines ANDI, ORI, XORI flags.
     pub condmov_op: T,
     pub count_op: T,
     pub not: T,

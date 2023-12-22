@@ -15,7 +15,7 @@ use crate::memory::segments::Segment;
 impl MemoryChannel {
     pub fn index(&self) -> usize {
         match *self {
-            Code => 0,
+            Code => NUM_CHANNELS - 1,
             GeneralPurpose(n) => {
                 assert!(n < NUM_GP_CHANNELS);
                 n + 1
@@ -66,6 +66,7 @@ pub enum MemoryOpKind {
 #[derive(Clone, Copy, Debug)]
 pub struct MemoryOp {
     /// true if this is an actual memory operation, or false if it's a padding row.
+    /// NOTE: Skip the 0 register since we always read 0 from it, but may write anything in
     pub filter: bool,
     pub timestamp: usize,
     pub address: MemoryAddress,
@@ -152,7 +153,7 @@ impl MemoryState {
                 ..
             } = op;
             if kind == MemoryOpKind::Write {
-                self.set(address, value);
+                self.set(address, value.to_be());
             }
         }
     }

@@ -54,7 +54,7 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
 /// FIXME: the column is unchecked. The in0 should starts from column 4 in looked table, and in1
 /// 36, out 68. But the looking table offers in0 77, in1 83, out 89.
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
-    println!("{:?}", COL_MAP.mem_channels);
+    log::debug!("{:?}", COL_MAP.mem_channels);
     let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value]).collect_vec();
     res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value]));
     res.extend(Column::singles(vec![COL_MAP.mem_channels[2].value]));
@@ -93,12 +93,7 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Cpu,
         columns,
-        Some(Column::sum([
-            COL_MAP.op.binary_op,
-            COL_MAP.op.binary_imm_op,
-            COL_MAP.op.shift,
-            COL_MAP.op.shift_imm,
-        ])),
+        Some(Column::sum([COL_MAP.op.binary_op, COL_MAP.op.shift])),
     )
 }
 
@@ -238,8 +233,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
 mod tests {
     use anyhow::Result;
 
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-
     use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
     use crate::cpu::columns::NUM_CPU_COLUMNS;
     use crate::cpu::cpu_stark::CpuStark;
@@ -250,6 +243,8 @@ mod tests {
     use crate::stark_testing::{
         test_stark_circuit_constraints, test_stark_cpu_check_constraints, test_stark_low_degree,
     };
+    use plonky2::field::types::Field;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn test_stark_degree() -> Result<()> {
@@ -305,10 +300,19 @@ mod tests {
             .collect::<Vec<_>>();
 
         for i in 0..(vals.len() - 1) {
-            // println!(
-            //     "[] vals: {:?},\ncpu column: {:?}",
-            //     vals[i], state.traces.cpu[i]
-            // );
+            log::debug!(
+                "[{i}] vals: {:?},\ncpu column: {:?}",
+                vals[i],
+                state.traces.cpu[i]
+            );
+            assert!(
+                state.traces.cpu[i].op.binary_op == F::ZERO
+                    || state.traces.cpu[i].op.binary_op == F::ONE
+            );
+            assert!(
+                state.traces.cpu[i].mem_channels[0].is_read == F::ZERO
+                    || state.traces.cpu[i].mem_channels[0].is_read == F::ONE
+            );
             test_stark_cpu_check_constraints::<F, C, S, D>(stark, &vals[i], &vals[i + 1]);
         }
     }

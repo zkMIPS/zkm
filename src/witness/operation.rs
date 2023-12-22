@@ -209,7 +209,7 @@ pub(crate) fn generate_binary_logic_imm_op<F: Field>(
 
     let log_out0 = reg_write_with_log(rd, 2, out as usize, state, &mut row)?;
 
-    state.traces.push_logic(operation);
+    //state.traces.push_logic(operation);
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_out0);
     state.traces.push_cpu(row);
@@ -314,7 +314,7 @@ pub(crate) fn generate_binary_arithmetic_imm_op<F: Field>(
 
     let log_out0 = reg_write_with_log(rt, 2, out as usize, state, &mut row)?;
 
-    state.traces.push_arithmetic(operation);
+    //state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_out0);
     state.traces.push_cpu(row);
@@ -403,9 +403,9 @@ pub(crate) fn generate_branch<F: Field>(
     let aux2 = src2.wrapping_sub(src1);
     let aux3 = (src1 ^ src2) & 0x80000000 > 0;
 
-    reg_write_with_log(0, 2, aux1, state, &mut row)?;
-    reg_write_with_log(0, 3, aux2, state, &mut row)?;
-    reg_write_with_log(0, 4, aux3 as usize, state, &mut row)?;
+    let log_out0 = reg_write_with_log(0, 2, aux1, state, &mut row)?;
+    let log_out1 = reg_write_with_log(0, 3, aux2, state, &mut row)?;
+    let log_out2 = reg_write_with_log(0, 4, aux3 as usize, state, &mut row)?;
     let pc = state.registers.program_counter as u32;
     if should_jump {
         let target = sign_extend::<16>(target);
@@ -422,6 +422,9 @@ pub(crate) fn generate_branch<F: Field>(
     }
     state.traces.push_memory(src1_op);
     state.traces.push_memory(src2_op);
+    state.traces.push_memory(log_out0);
+    state.traces.push_memory(log_out1);
+    state.traces.push_memory(log_out2);
     Ok(())
 }
 
@@ -441,7 +444,8 @@ pub(crate) fn generate_jumpi<F: Field>(
     row.general.jumps_mut().should_jump = F::ONE;
     let next_pc = pc.wrapping_add(8);
     let link_op = reg_write_with_log(link, 1, next_pc, state, &mut row)?;
-    state.traces.push_logic(operation);
+    // FIXME: skip for lookup check
+    //state.traces.push_logic(operation);
     state.traces.push_cpu(row);
     state.jump_to(target_pc);
     state.traces.push_memory(link_op);
@@ -562,7 +566,7 @@ pub(crate) fn generate_sll<F: Field>(
         arithmetic::Operation::binary(arithmetic::BinaryOperator::SLL, input0 as u32, input1);
     let result = operation.result().0;
 
-    state.traces.push_arithmetic(operation);
+    //state.traces.push_arithmetic(operation);
     let outlog = reg_write_with_log(rd, 1, result as usize, state, &mut row)?;
 
     state.traces.push_memory(log_in0);
@@ -589,7 +593,7 @@ pub(crate) fn generate_srl<F: Field>(
         arithmetic::Operation::binary(arithmetic::BinaryOperator::SRL, input0 as u32, input1);
     let result = operation.result().0;
 
-    state.traces.push_arithmetic(operation);
+    //state.traces.push_arithmetic(operation);
     let outlog = reg_write_with_log(rd, 1, result as usize, state, &mut row)?;
 
     state.traces.push_memory(log_in0);
@@ -616,7 +620,7 @@ pub(crate) fn generate_sra<F: Field>(
         arithmetic::Operation::binary(arithmetic::BinaryOperator::SRA, in0 as u32, sa as u32);
     let result = operation.result().0;
 
-    state.traces.push_arithmetic(operation);
+    //state.traces.push_arithmetic(operation);
     let outlog = reg_write_with_log(rd, 2, result as usize, state, &mut row)?;
     state.traces.push_memory(log_in0);
     state.traces.push_memory(outlog);

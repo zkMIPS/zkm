@@ -9,27 +9,28 @@ use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cross_table_lookup::get_grand_product_challenge_set;
 use crate::proof::*;
-//use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::witness::errors::ProgramError;
 
-/*
 fn observe_root<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
-    root: H256,
+    root: u32,
 ) {
+    /*
     for limb in root.into_uint().0.into_iter() {
         challenger.observe_element(F::from_canonical_u32(limb as u32));
         challenger.observe_element(F::from_canonical_u32((limb >> 32) as u32));
     }
+    */
+    challenger.observe_element(F::from_canonical_u32(root));
 }
 
 fn observe_trie_roots<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
-    trie_roots: &TrieRoots,
+    trie_roots: &MemsRoot,
 ) {
-    observe_root::<F, C, D>(challenger, trie_roots.state_root);
-    observe_root::<F, C, D>(challenger, trie_roots.transactions_root);
-    observe_root::<F, C, D>(challenger, trie_roots.receipts_root);
+    observe_root::<F, C, D>(challenger, trie_roots.root);
+    //observe_root::<F, C, D>(challenger, trie_roots.transactions_root);
+    //observe_root::<F, C, D>(challenger, trie_roots.receipts_root);
 }
 
 fn observe_trie_roots_target<
@@ -38,15 +39,16 @@ fn observe_trie_roots_target<
     const D: usize,
 >(
     challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
-    trie_roots: &TrieRootsTarget,
+    trie_roots: &MemRootsTarget,
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
-    challenger.observe_elements(&trie_roots.state_root);
-    challenger.observe_elements(&trie_roots.transactions_root);
-    challenger.observe_elements(&trie_roots.receipts_root);
+    challenger.observe_elements(&[trie_roots.root]);
+    //challenger.observe_elements(&trie_roots.transactions_root);
+    //challenger.observe_elements(&trie_roots.receipts_root);
 }
 
+/*
 fn observe_block_metadata<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -174,6 +176,7 @@ fn observe_block_hashes_target<
     challenger.observe_elements(&block_hashes.prev_hashes);
     challenger.observe_elements(&block_hashes.cur_hash);
 }
+*/
 
 pub(crate) fn observe_public_values<
     F: RichField + Extendable<D>,
@@ -183,11 +186,12 @@ pub(crate) fn observe_public_values<
     challenger: &mut Challenger<F, C::Hasher>,
     public_values: &PublicValues,
 ) -> Result<(), ProgramError> {
-    observe_trie_roots::<F, C, D>(challenger, &public_values.trie_roots_before);
-    observe_trie_roots::<F, C, D>(challenger, &public_values.trie_roots_after);
-    observe_block_metadata::<F, C, D>(challenger, &public_values.block_metadata)?;
-    observe_block_hashes::<F, C, D>(challenger, &public_values.block_hashes);
-    observe_extra_block_data::<F, C, D>(challenger, &public_values.extra_block_data)
+    observe_trie_roots::<F, C, D>(challenger, &public_values.roots_before);
+    observe_trie_roots::<F, C, D>(challenger, &public_values.roots_after);
+    Ok(())
+    //observe_block_metadata::<F, C, D>(challenger, &public_values.block_metadata)?;
+    //observe_block_hashes::<F, C, D>(challenger, &public_values.block_hashes);
+    //observe_extra_block_data::<F, C, D>(challenger, &public_values.extra_block_data)
 }
 
 pub(crate) fn observe_public_values_target<
@@ -200,13 +204,12 @@ pub(crate) fn observe_public_values_target<
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
-    observe_trie_roots_target::<F, C, D>(challenger, &public_values.trie_roots_before);
-    observe_trie_roots_target::<F, C, D>(challenger, &public_values.trie_roots_after);
-    observe_block_metadata_target::<F, C, D>(challenger, &public_values.block_metadata);
-    observe_block_hashes_target::<F, C, D>(challenger, &public_values.block_hashes);
-    observe_extra_block_data_target::<F, C, D>(challenger, &public_values.extra_block_data);
+    observe_trie_roots_target::<F, C, D>(challenger, &public_values.roots_before);
+    observe_trie_roots_target::<F, C, D>(challenger, &public_values.roots_after);
+    //observe_block_metadata_target::<F, C, D>(challenger, &public_values.block_metadata);
+    //observe_block_hashes_target::<F, C, D>(challenger, &public_values.block_hashes);
+    //observe_extra_block_data_target::<F, C, D>(challenger, &public_values.extra_block_data);
 }
-*/
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
@@ -220,7 +223,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
             challenger.observe_cap(&proof.proof.trace_cap);
         }
 
-        //observe_public_values::<F, C, D>(&mut challenger, &self.public_values)?;
+        observe_public_values::<F, C, D>(&mut challenger, &self.public_values)?;
 
         let ctl_challenges =
             get_grand_product_challenge_set(&mut challenger, config.num_challenges);
@@ -248,7 +251,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
             challenger.observe_cap(&proof.proof.trace_cap);
         }
 
-        //observe_public_values::<F, C, D>(&mut challenger, &self.public_values);
+        observe_public_values::<F, C, D>(&mut challenger, &self.public_values);
 
         let ctl_challenges =
             get_grand_product_challenge_set(&mut challenger, config.num_challenges);

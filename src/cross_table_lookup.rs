@@ -182,7 +182,6 @@ impl<F: Field> Column<F> {
             .sum::<F>()
             + self.constant;
 
-        //log::debug!("lc: {:?}\ntable: {:?}, len = {}, \nrow: {}, res: {}", self, table, table.len(), row, res);
         // If we access the next row at the last row, for sanity, we consider the next row's values to be 0.
         // If CTLs are correctly written, the filter should be 0 in that case anyway.
         if !self.next_row_linear_combination.is_empty() && row < table[0].values.len() - 1 {
@@ -495,52 +494,6 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                     columns: looked_table.columns.clone(),
                     filter_column: looked_table.filter_column.clone(),
                 });
-        }
-    }
-    ctl_data_per_table
-}
-
-pub(crate) fn cross_table_lookup_data_ex<F: RichField, const D: usize>(
-    trace_poly_values: &Vec<PolynomialValues<F>>,
-    cross_table_lookups: &[CrossTableLookup<F>],
-    ctl_challenges: &GrandProductChallengeSet<F>,
-) -> CtlData<F> {
-    let mut ctl_data_per_table = CtlData::default();
-    for CrossTableLookup {
-        looking_tables,
-        looked_table,
-    } in cross_table_lookups
-    {
-        log::debug!("Processing CTL for {:?}", looked_table.table);
-        for &challenge in &ctl_challenges.challenges {
-            let zs_looking = looking_tables.iter().map(|table| {
-                partial_products(
-                    &trace_poly_values,
-                    &table.columns,
-                    &table.filter_column,
-                    challenge,
-                )
-            });
-            let z_looked = partial_products(
-                &trace_poly_values,
-                &looked_table.columns,
-                &looked_table.filter_column,
-                challenge,
-            );
-            for (table, z) in looking_tables.iter().zip(zs_looking) {
-                ctl_data_per_table.zs_columns.push(CtlZData {
-                    z,
-                    challenge,
-                    columns: table.columns.clone(),
-                    filter_column: table.filter_column.clone(),
-                });
-            }
-            ctl_data_per_table.zs_columns.push(CtlZData {
-                z: z_looked,
-                challenge,
-                columns: looked_table.columns.clone(),
-                filter_column: looked_table.filter_column.clone(),
-            });
         }
     }
     ctl_data_per_table
@@ -980,12 +933,14 @@ pub(crate) mod testutils {
     ) {
         let trace = &trace_poly_values[table.table as usize];
         for i in 0..trace[0].len() {
+            // Eval at filter column: \sum trace[lc.column].values[i] * lc.value
             let filter = if let Some(column) = &table.filter_column {
                 column.eval_table(trace, i)
             } else {
                 F::ONE
             };
             if filter.is_one() {
+                // Evaluate at columns \sum trace[lc.column][row] * lc.value
                 let row = table
                     .columns
                     .iter()

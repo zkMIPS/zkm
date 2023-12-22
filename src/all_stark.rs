@@ -196,7 +196,8 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         .chain(keccak_sponge_reads)
         .collect();
     */
-    let all_lookers = cpu_memory_gp_ops.collect();
+    //let all_lookers = iter::once(cpu_memory_code_read)
+    let all_lookers = [].into_iter().chain(cpu_memory_gp_ops).collect();
     let memory_looked = TableWithColumns::new(
         Table::Memory,
         memory_stark::ctl_data(),

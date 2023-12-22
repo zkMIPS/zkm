@@ -294,7 +294,7 @@ fn eval_packed_load<P: PackedField>(
 
     // Disable remaining memory channels, if any.
     // Note: SC needs 5 channel
-    for &channel in &lv.mem_channels[6..NUM_GP_CHANNELS] {
+    for &channel in &lv.mem_channels[6..(NUM_GP_CHANNELS - 1)] {
         yield_constr.constraint(filter * channel.used);
     }
 }
@@ -647,7 +647,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[6..NUM_GP_CHANNELS] {
+    for &channel in &lv.mem_channels[6..(NUM_GP_CHANNELS - 1)] {
         let constr = builder.mul_extension(filter, channel.used);
         yield_constr.constraint(builder, constr);
     }
@@ -847,7 +847,7 @@ fn eval_packed_store<P: PackedField>(
     }
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[6..] {
+    for &channel in &lv.mem_channels[6..(NUM_GP_CHANNELS - 1)] {
         yield_constr.constraint(filter * channel.used);
     }
 }
@@ -1124,7 +1124,8 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[6..] {
+    // Skip last since it's used by reading code
+    for &channel in &lv.mem_channels[6..(NUM_GP_CHANNELS - 1)] {
         let constr = builder.mul_extension(filter, channel.used);
         yield_constr.constraint(builder, constr);
     }

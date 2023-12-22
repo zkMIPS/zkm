@@ -13,7 +13,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 use plonky2_maybe_rayon::*;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
@@ -419,4 +419,20 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
             batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
         }
     }
+}
+
+pub struct StarkProofWithPublicInputsTarget<const D: usize> {
+    pub proof: StarkProofTarget<D>,
+    pub public_inputs: Vec<Target>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StarkProofWithPublicInputs<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+> {
+    pub proof: StarkProof<F, C, D>,
+    // TODO: Maybe make it generic over a `S: Stark` and replace with `[F; S::PUBLIC_INPUTS]`.
+    pub public_inputs: Vec<F>,
 }

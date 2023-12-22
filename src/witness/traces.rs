@@ -185,8 +185,9 @@ impl<T: Copy> Traces<T> {
                 .byte_packing_stark
                 .generate_trace(byte_packing_ops, cap_elements, timing)
         );
+        63), (Arithmetic, 24179)
         */
-        let cpu_rows = cpu.into_iter().map(|x| x.into()).collect();
+        let cpu_rows: Vec<_> = cpu.into_iter().map(|x| x.into()).collect();
         let cpu_trace = trace_rows_to_poly_values(cpu_rows);
         /*
         let keccak_trace = timed!(
