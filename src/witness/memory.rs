@@ -15,7 +15,7 @@ use crate::memory::segments::Segment;
 impl MemoryChannel {
     pub fn index(&self) -> usize {
         match *self {
-            Code => 0,
+            Code => NUM_CHANNELS,
             GeneralPurpose(n) => {
                 assert!(n < NUM_GP_CHANNELS);
                 n + 1
