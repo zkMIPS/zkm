@@ -86,7 +86,7 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     base[COL_MAP.opcode_bits.len()..].copy_from_slice(&COL_MAP.func_bits[..]);
     let mut columns = vec![Column::le_bits(base)];
     // FIXME: mismatch lookup on operands
-    //columns.extend(ctl_data_binops());
+    columns.extend(ctl_data_binops());
 
     // Create the CPU Table whose columns are those with the two
     // inputs and one output of the ternary operations listed in `ops`

@@ -45,7 +45,6 @@ fn cpu_arith_data_link<F: Field>(
     // The inner for loop below assumes N_LIMBS is even.
     const_assert!(columns::N_LIMBS % 2 == 0);
 
-    /*
     for reg_cols in regs {
         // Loop below assumes we're operating on a "register" of N_LIMBS columns.
         debug_assert_eq!(reg_cols.len(), columns::N_LIMBS);
@@ -56,7 +55,7 @@ fn cpu_arith_data_link<F: Field>(
             res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
         }
     }
-    */
+
     res
 }
 
