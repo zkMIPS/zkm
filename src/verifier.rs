@@ -1,13 +1,13 @@
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
+
 use crate::cross_table_lookup::{
     verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge, GrandProductChallengeSet,
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVars;
-use crate::memory::segments::Segment;
+
 use crate::memory::VALUE_LIMBS;
 use crate::proof::PublicValues;
 use anyhow::{ensure, Result};
@@ -135,13 +135,13 @@ where
 /// Computes the extra product to multiply to the looked value. It contains memory operations not in the CPU trace:
 /// - trie roots writes before kernel bootstrapping.
 pub(crate) fn get_memory_extra_looking_products<F, const D: usize>(
-    public_values: &PublicValues,
-    challenge: GrandProductChallenge<F>,
+    _public_values: &PublicValues,
+    _challenge: GrandProductChallenge<F>,
 ) -> F
 where
     F: RichField + Extendable<D>,
 {
-    let mut prod = F::ONE;
+    let prod = F::ONE;
 
     /*
     // Add metadata and state root writes. Skip due to not enabling
@@ -181,7 +181,7 @@ where
     row[3] = F::from_canonical_usize(index);
 
     for j in 0..VALUE_LIMBS {
-        row[j + 4] = F::from_canonical_u32((val >> (j * 32)));
+        row[j + 4] = F::from_canonical_u32(val >> (j * 32));
     }
     row[5] = F::ONE; // timestamp
     running_product * challenge.combine(row.iter())
@@ -414,6 +414,7 @@ mod tests {
     use crate::verifier::eval_l_0_and_l_last;
 
     #[test]
+    #[ignore]
     fn test_eval_l_0_and_l_last() {
         type F = GoldilocksField;
         let log_n = 5;

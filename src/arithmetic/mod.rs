@@ -309,7 +309,5 @@ fn binary_op_to_rows<F: PrimeField64>(
             lo_hi::generate(&mut row, op.row_filter(), input0, result0);
             (row, None)
         }
-
-        _ => panic!("{:?}", op),
     }
 }
