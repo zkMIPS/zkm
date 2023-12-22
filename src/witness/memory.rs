@@ -152,7 +152,7 @@ impl MemoryState {
                 ..
             } = op;
             if kind == MemoryOpKind::Write {
-                self.set(address, value);
+                self.set(address, value.to_be());
             }
         }
     }

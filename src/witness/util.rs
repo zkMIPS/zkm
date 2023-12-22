@@ -42,7 +42,6 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
 ) -> (u32, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::Code, address, state);
 
-    let val = val.to_be();
     let val_func = to_byte_checked(val & 0x3F);
     let val_shamt = to_byte_checked((val >> 6) & 0x1F);
     let val_rd = to_byte_checked((val >> 11) & 0x1F);
@@ -176,7 +175,7 @@ pub(crate) fn mem_read_with_log<F: Field>(
     address: MemoryAddress,
     state: &GenerationState<F>,
 ) -> (u32, MemoryOp) {
-    let val = state.memory.get(address);
+    let val = state.memory.get(address).to_be();
     let op = MemoryOp::new(
         channel,
         state.traces.clock(),
@@ -220,7 +219,6 @@ pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
 ) -> (u32, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::GeneralPurpose(n), address, state);
 
-    let val = val.to_be();
     let channel = &mut row.mem_channels[n];
     assert_eq!(channel.used, F::ZERO);
     channel.used = F::ONE;
@@ -237,13 +235,13 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     address: MemoryAddress,
     state: &GenerationState<F>,
     row: &mut CpuColumnsView<F>,
-    val: u32,
+    val: u32,  // LE
 ) -> MemoryOp {
     let op = mem_write_log(
         MemoryChannel::GeneralPurpose(n),
         address,
         state,
-        val.to_be(),
+        val,
     );
 
     let channel = &mut row.mem_channels[n];
@@ -262,7 +260,7 @@ pub(crate) fn mem_write_log<F: Field>(
     channel: MemoryChannel,
     address: MemoryAddress,
     state: &GenerationState<F>,
-    val: u32,
+    val: u32,   // LE
 ) -> MemoryOp {
     MemoryOp::new(
         channel,
