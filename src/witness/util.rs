@@ -2,8 +2,8 @@ use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
 
+use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
-
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
@@ -58,7 +58,8 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
 
     /*
     // FIXME: hold last channel for code read
-    let channel = &mut row.mem_channels[7];
+     */
+    let channel = &mut row.mem_channels[NUM_GP_CHANNELS - 1];
     assert_eq!(channel.used, F::ZERO);
     channel.used = F::ONE;
     channel.is_read = F::ONE;
@@ -66,7 +67,6 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
     channel.addr_segment = F::from_canonical_usize(address.segment);
     channel.addr_virtual = F::from_canonical_usize(address.virt);
     channel.value = F::from_canonical_u32(val);
-    */
 
     (val, op)
 }

@@ -414,7 +414,6 @@ mod tests {
     use crate::verifier::eval_l_0_and_l_last;
 
     #[test]
-    #[ignore]
     fn test_eval_l_0_and_l_last() {
         type F = GoldilocksField;
         let log_n = 5;

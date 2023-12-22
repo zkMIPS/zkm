@@ -28,11 +28,7 @@ fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColum
         mem_log
     );
 
-    /* FIXME: don't
     state.traces.push_memory(mem_log);
-    state.traces.push_cpu(*row);
-    println!("base row: {:?}", *row);
-    */
     opcode
 }
 
