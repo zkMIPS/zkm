@@ -1,9 +1,8 @@
 //! Support for EVM instructions MFHI, MTHI, MHLO, MTLO
 
-
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
-use plonky2::field::types::{PrimeField64};
+use plonky2::field::types::PrimeField64;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;

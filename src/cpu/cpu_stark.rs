@@ -93,10 +93,7 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Cpu,
         columns,
-        Some(Column::sum([
-            COL_MAP.op.binary_op,
-            COL_MAP.op.shift,
-        ])),
+        Some(Column::sum([COL_MAP.op.binary_op, COL_MAP.op.shift])),
     )
 }
 
@@ -305,7 +302,8 @@ mod tests {
         for i in 0..(vals.len() - 1) {
             log::debug!(
                 "[{i}] vals: {:?},\ncpu column: {:?}",
-                vals[i], state.traces.cpu[i]
+                vals[i],
+                state.traces.cpu[i]
             );
             assert!(
                 state.traces.cpu[i].op.binary_op == F::ZERO
