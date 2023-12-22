@@ -121,11 +121,6 @@ impl<T: Copy> Traces<T> {
     }
 
     pub fn push_memory(&mut self, op: MemoryOp) {
-        /*
-        if op.address.virt == 674224 {
-            panic!("{:?}", op);
-        }
-        */
         self.memory_ops.push(op);
     }
 

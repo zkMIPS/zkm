@@ -85,7 +85,6 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     base[0..COL_MAP.opcode_bits.len()].copy_from_slice(&COL_MAP.opcode_bits[..]);
     base[COL_MAP.opcode_bits.len()..].copy_from_slice(&COL_MAP.func_bits[..]);
     let mut columns = vec![Column::le_bits(base)];
-    // FIXME: mismatch lookup on operands
     columns.extend(ctl_data_binops());
 
     // Create the CPU Table whose columns are those with the two
@@ -96,9 +95,7 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
         columns,
         Some(Column::sum([
             COL_MAP.op.binary_op,
-            //         COL_MAP.op.binary_imm_op,
             COL_MAP.op.shift,
-            //         COL_MAP.op.shift_imm,
         ])),
     )
 }
@@ -306,7 +303,7 @@ mod tests {
             .collect::<Vec<_>>();
 
         for i in 0..(vals.len() - 1) {
-            println!(
+            log::debug!(
                 "[{i}] vals: {:?},\ncpu column: {:?}",
                 vals[i], state.traces.cpu[i]
             );
