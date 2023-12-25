@@ -30,22 +30,6 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn get_block_path(basedir: &str, block: &str, file: &str) -> String {
-        /*
-        let mut blockpath = match env::var("BASEDIR") {
-            Ok(val) => val,
-            Err(_e) => String::from("/tmp/cannon"),
-        };
-
-        blockpath.push_str("/0_");
-        blockpath.push_str(block);
-        blockpath.push_str("/");
-        blockpath.push_str(file);
-        blockpath
-        */
-        format!("{basedir}/0_{block}/{file}")
-    }
-
     pub fn load_block(&mut self, blockpath: &str) -> Result<bool> {
         let content = fs::read(blockpath).expect("Read file failed");
 
@@ -277,11 +261,11 @@ impl Program {
 
 #[cfg(test)]
 mod test {
+    use crate::cpu::kernel::elf::*;
+    use crate::mips_emulator::utils::get_block_path;
     use std::fs::File;
     use std::io::BufReader;
     use std::io::Read;
-
-    use crate::cpu::kernel::elf::*;
 
     #[test]
     fn load_and_check_mips_elf() {
@@ -293,7 +277,7 @@ mod test {
         let mut p: Program = Program::load_elf(&buffer, max_mem).unwrap();
         println!("entry: {}", p.entry);
 
-        let real_blockpath = Program::get_block_path("test-vectors", "13284491", "input");
+        let real_blockpath = get_block_path("test-vectors", "13284491", "input");
         println!("real block path: {}", real_blockpath);
         let test_blockpath: &str = "test-vectors/0_13284491/input";
         p.load_block(test_blockpath).unwrap();

@@ -279,21 +279,6 @@ impl State {
             .expect("set memory range failed");
     }
 
-    pub fn get_block_path(&mut self, basedir: &str, block: &str) -> String {
-        /*
-        let mut blockpath = match env::var("BASEDIR") {
-            Ok(val) => val,
-            Err(_e) => String::from("/tmp/cannon"),
-        };
-
-        blockpath.push_str("/0_");
-        blockpath.push_str(block);
-        blockpath.push_str("/");
-        blockpath
-        */
-        format!("{basedir}/0_{block}/")
-    }
-
     pub fn sync_registers(&mut self) {
         for i in 0..32 {
             self.memory.set_memory(i << 2, self.registers[i as usize]);

@@ -11,6 +11,7 @@ use mips_circuits::config::StarkConfig;
 use mips_circuits::cpu::kernel::assembler::segment_kernel;
 use mips_circuits::generation::GenerationInputs;
 use mips_circuits::mips_emulator::state::{InstrumentedState, State, SEGMENT_STEPS};
+use mips_circuits::mips_emulator::utils::get_block_path;
 use mips_circuits::proof;
 use mips_circuits::prover::prove;
 use mips_circuits::verifier::verify_proof;
@@ -32,7 +33,7 @@ fn split_elf_into_segs() {
     state.patch_go(&file);
     state.patch_stack();
 
-    let block_path = state.get_block_path(&basedir, &block_no);
+    let block_path = get_block_path(&basedir, &block_no, "");
     state.load_input(&block_path);
 
     let mut instrumented_state = InstrumentedState::new(state, block_path);

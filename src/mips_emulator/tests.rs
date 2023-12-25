@@ -8,6 +8,7 @@ mod tests {
 
     use crate::mips_emulator::state::SEGMENT_STEPS;
     use crate::mips_emulator::state::{InstrumentedState, State};
+    use crate::mips_emulator::utils::get_block_path;
 
     const END_ADDR: u32 = 0xa7ef00d0;
     const OUTPUT: &str = "/tmp/segment";
@@ -82,7 +83,7 @@ mod tests {
         state.patch_go(&file);
         state.patch_stack();
 
-        let block_path = state.get_block_path("./test-vectors", "13284491");
+        let block_path = get_block_path("./test-vectors", "13284491", "");
         state.load_input(&block_path);
 
         let mut instrumented_state = InstrumentedState::new(state, block_path);
