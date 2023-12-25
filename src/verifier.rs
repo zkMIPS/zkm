@@ -456,7 +456,7 @@ mod tests {
         let mut row = 0;
         for proof in allproof.stark_proofs.clone() {
             let proof_str = serde_json::to_string(&proof.proof).unwrap();
-            let plonky2_proof = Plonky2Proof {
+            let plonky2_proof: Plonky2Proof<<C as GenericConfig<D>>::F, PoseidonGoldilocksConfig, D> = Plonky2Proof {
                 wires_cap: proof.proof.trace_cap.clone(),
                 plonk_zs_partial_products_cap: proof.proof.auxiliary_polys_cap.clone(),
                 quotient_polys_cap: proof.proof.quotient_polys_cap,
