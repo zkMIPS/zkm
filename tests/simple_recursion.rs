@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use mips_circuits::all_stark::AllStark;
 use mips_circuits::config::StarkConfig;
+use mips_circuits::cpu::kernel::KERNEL;
 use mips_circuits::fixed_recursive_verifier::AllRecursiveCircuits;
 use mips_circuits::generation::GenerationInputs;
 use mips_circuits::proof::{MemsRoot, PublicValues};
@@ -35,7 +36,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
 
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
     let (root_proof_first, _first_public_values) =
-        all_circuits.prove_root(&all_stark, &config, inputs_first, &mut timing)?;
+        all_circuits.prove_root(&all_stark, &KERNEL, &config, inputs_first, &mut timing)?;
 
     timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_root(root_proof_first.clone())?;
@@ -44,7 +45,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
 
     let mut timing = TimingTree::new("prove root second", log::Level::Info);
     let (root_proof, _public_values) =
-        all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
+        all_circuits.prove_root(&all_stark, &KERNEL, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
 
     all_circuits.verify_root(root_proof.clone())?;

@@ -8,7 +8,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::kernel::KERNEL;
+use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
 
@@ -16,17 +16,16 @@ use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::mem_write_gp_log_and_fill;
 
-pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>) {
+pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) {
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
-    for chunk in &KERNEL.program.image.iter().chunks(NUM_GP_CHANNELS) {
+    for chunk in &kernel.program.image.iter().chunks(NUM_GP_CHANNELS) {
         let mut cpu_row = CpuColumnsView::default();
         cpu_row.clock = F::from_canonical_usize(state.traces.clock());
         cpu_row.is_bootstrap_kernel = F::ONE;
 
         // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
         for (channel, (addr, val)) in chunk.enumerate() {
-            // FIXMEBoth instruction and memory data are located in
-            // code section for MIPS
+            // Both instruction and memory data are located in code section for MIPS
             let address = MemoryAddress::new(0, Segment::Code, *addr as usize);
             let write =
                 mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, (*val).to_be());

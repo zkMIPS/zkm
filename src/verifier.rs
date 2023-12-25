@@ -410,6 +410,7 @@ mod tests {
     use crate::config::StarkConfig;
     use crate::generation::GenerationInputs;
 
+    use crate::cpu::kernel::KERNEL;
     use crate::proof;
     use crate::prover::prove;
 
@@ -453,7 +454,7 @@ mod tests {
 
         let mut timing = TimingTree::new("prove", log::Level::Debug);
         let allproof: proof::AllProof<GoldilocksField, C, D> =
-            prove(&allstark, &config, input, &mut timing).unwrap();
+            prove(&allstark, &KERNEL, &config, input, &mut timing).unwrap();
         let mut count_bytes = 0;
         let mut row = 0;
         for proof in allproof.stark_proofs.clone() {
@@ -477,7 +478,7 @@ mod tests {
             row = row + 1;
             count_bytes = count_bytes + proof_str.len();
         }
-        println!("total proof bytes:{}KB", count_bytes / 1024);
+        log::trace!("total proof bytes:{}KB", count_bytes / 1024);
 
         verify_proof(&allstark, allproof, &config).unwrap();
     }
