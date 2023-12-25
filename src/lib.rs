@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 pub mod all_stark;
 pub mod arithmetic;
+pub mod backend;
 pub mod config;
 pub mod constraint_consumer;
 pub mod cpu;

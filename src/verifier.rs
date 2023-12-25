@@ -437,10 +437,11 @@ mod tests {
         use plonky2::hash::merkle_tree::MerkleCap;
         use plonky2::fri::proof::FriProof;
         use plonky2::plonk::proof::OpeningSet;
+        use crate::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
 
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = PoseidonBN128GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
         let allstark: AllStark<F, D> = AllStark::default();
@@ -456,7 +457,7 @@ mod tests {
         let mut row = 0;
         for proof in allproof.stark_proofs.clone() {
             let proof_str = serde_json::to_string(&proof.proof).unwrap();
-            let plonky2_proof: Plonky2Proof<<C as GenericConfig<D>>::F, PoseidonGoldilocksConfig, D> = Plonky2Proof {
+            let plonky2_proof: Plonky2Proof<<C as GenericConfig<D>>::F, PoseidonBN128GoldilocksConfig, D> = Plonky2Proof {
                 wires_cap: proof.proof.trace_cap.clone(),
                 plonk_zs_partial_products_cap: proof.proof.auxiliary_polys_cap.clone(),
                 quotient_polys_cap: proof.proof.quotient_polys_cap,
