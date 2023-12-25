@@ -29,6 +29,7 @@ use plonky2_util::log2_ceil;
 
 use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
+use crate::cpu::kernel::assembler::Kernel;
 use crate::cross_table_lookup::{
     get_grand_product_challenge_set_target, verify_cross_table_lookups_circuit, CrossTableLookup,
     GrandProductChallengeSet,
@@ -926,11 +927,12 @@ where
     pub fn prove_root(
         &self,
         all_stark: &AllStark<F, D>,
+        kernel: &Kernel,
         config: &StarkConfig,
         generation_inputs: GenerationInputs,
         timing: &mut TimingTree,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
-        let all_proof = prove::<F, C, D>(all_stark, config, generation_inputs, timing)?;
+        let all_proof = prove::<F, C, D>(all_stark, kernel, config, generation_inputs, timing)?;
         //verify_proof(&all_stark, all_proof.clone(), &config).unwrap();
         let mut root_inputs = PartialWitness::new();
 

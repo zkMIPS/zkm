@@ -5,4 +5,5 @@ pub mod opcode_id;
 pub mod page;
 pub mod state;
 pub mod tests;
+pub mod utils;
 pub mod witness;

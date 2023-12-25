@@ -4,7 +4,7 @@ pub(crate) mod count;
 pub mod cpu_stark;
 pub(crate) mod decode;
 pub(crate) mod jumps;
-pub(crate) mod kernel;
+pub mod kernel;
 pub(crate) mod membus;
 pub(crate) mod memio;
 pub(crate) mod shift;
