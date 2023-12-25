@@ -29,7 +29,7 @@ pub(crate) fn combined_kernel() -> Kernel {
     let mut code = Vec::new();
     reader.read_to_end(&mut code).unwrap();
     let mut p: Program = Program::load_elf(&code, MAX_MEM).unwrap();
-    let real_blockpath = Program::get_block_path("./test-vectors", "13284491", "input");
+    let real_blockpath = Program::get_block_path("test-vectors", "13284491", "input");
     log::debug!("real block path: {}, entry: {}", real_blockpath, p.entry);
     let test_blockpath: &str = "test-vectors/0_13284491/input";
     p.load_block(test_blockpath).unwrap();
@@ -40,7 +40,7 @@ pub(crate) fn combined_kernel() -> Kernel {
     });
     let code_hash = code_hash_be.map(u32::from_be);
     log::debug!("code_hash: {:?}", code_hash);
-    let blockpath = Program::get_block_path("./test-vectors", "13284491", "");
+    let blockpath = Program::get_block_path("test-vectors", "13284491", "");
 
     Kernel {
         program: p,

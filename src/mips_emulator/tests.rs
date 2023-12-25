@@ -10,7 +10,7 @@ mod tests {
     use crate::mips_emulator::state::{InstrumentedState, State};
 
     const END_ADDR: u32 = 0xa7ef00d0;
-    const OUTPUT: &str = "output/segment";
+    const OUTPUT: &str = "/tmp/segment";
 
     fn execute_open_mips(path: PathBuf) {
         if path.ends_with("oracle.bin") {
@@ -83,9 +83,9 @@ mod tests {
         state.patch_stack();
 
         let block_path = state.get_block_path("./test-vectors", "13284491");
-        state.load_input(block_path.clone());
+        state.load_input(&block_path);
 
-        let mut instrumented_state = InstrumentedState::new(state, block_path.clone());
+        let mut instrumented_state = InstrumentedState::new(state, block_path);
         instrumented_state.split_segment(false, OUTPUT);
         let mut segment_step = SEGMENT_STEPS;
         loop {

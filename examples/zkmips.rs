@@ -33,9 +33,9 @@ fn split_elf_into_segs() {
     state.patch_stack();
 
     let block_path = state.get_block_path(&basedir, &block_no);
-    state.load_input(block_path.clone());
+    state.load_input(&block_path);
 
-    let mut instrumented_state = InstrumentedState::new(state, block_path.clone());
+    let mut instrumented_state = InstrumentedState::new(state, block_path);
     instrumented_state.split_segment(false, &seg_path);
     let mut segment_step = seg_size;
     loop {
@@ -88,7 +88,7 @@ fn main() {
     env_logger::try_init().unwrap_or_default();
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        println!("{} split|prove", args[0]);
+        log::warn!("Help: {} split|prove", args[0]);
         return;
     }
     match args[1].as_str() {
@@ -98,6 +98,6 @@ fn main() {
         "prove" => {
             prove_single_seg();
         }
-        _ => todo!("{} split|prove", args[0]),
+        _ => todo!("Help: {} split|prove", args[0]),
     };
 }

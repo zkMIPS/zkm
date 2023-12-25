@@ -12,6 +12,7 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 use std::fs::File;
 use std::io::{stderr, stdout, Write};
+use std::path::Path;
 
 pub const FD_STDIN: u32 = 0;
 pub const FD_STDOUT: u32 = 1;
@@ -266,11 +267,10 @@ impl State {
             .expect("set memory range failed");
     }
 
-    pub fn load_input(&mut self, blockpath: String) {
-        let mut input_path = blockpath.clone();
-        input_path.push_str("input");
+    pub fn load_input(&mut self, blockpath: &str) {
+        let input_path = Path::new(blockpath).join("input");
 
-        log::trace!("load input: {input_path}");
+        log::trace!("load input: {:?}", input_path);
         let data = fs::read(input_path).expect("could not read file");
         let data: Box<&[u8]> = Box::new(data.as_slice());
 
