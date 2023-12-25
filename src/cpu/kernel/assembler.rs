@@ -10,7 +10,7 @@ use std::io::Read;
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Kernel {
     // MIPS ELF
-    pub(crate) code: Vec<u8>,
+    pub code: Vec<u8>,
     pub(crate) program: Program,
     pub(crate) code_hash: [u32; 8],
     // For debugging purposes
@@ -21,18 +21,15 @@ pub struct Kernel {
     pub blockpath: String,
 }
 
-// FIXME
-pub const KERNLE_FILE: &str = "test-vectors/hello";
+pub const MAX_MEM: u32 = 0x80000000;
 
-// FIXME: impl the mips vm
+// NOTE: for debugging
 pub(crate) fn combined_kernel() -> Kernel {
     let mut reader = BufReader::new(File::open("test-vectors/hello").unwrap());
     let mut code = Vec::new();
     reader.read_to_end(&mut code).unwrap();
-    //FIXME: define it as global constant
-    let max_mem = 0x80000000;
-    let mut p: Program = Program::load_elf(&code, max_mem).unwrap();
-    let real_blockpath = Program::get_block_path("13284491", "input");
+    let mut p: Program = Program::load_elf(&code, MAX_MEM).unwrap();
+    let real_blockpath = Program::get_block_path("./test-vectors", "13284491", "input");
     log::debug!("real block path: {}, entry: {}", real_blockpath, p.entry);
     let test_blockpath: &str = "test-vectors/0_13284491/input";
     p.load_block(test_blockpath).unwrap();
@@ -43,7 +40,7 @@ pub(crate) fn combined_kernel() -> Kernel {
     });
     let code_hash = code_hash_be.map(u32::from_be);
     log::debug!("code_hash: {:?}", code_hash);
-    let blockpath = Program::get_block_path("13284491", "");
+    let blockpath = Program::get_block_path("./test-vectors", "13284491", "");
 
     Kernel {
         program: p,
@@ -55,7 +52,7 @@ pub(crate) fn combined_kernel() -> Kernel {
     }
 }
 
-pub(crate) fn segment_kernel() -> Kernel {
+pub fn segment_kernel(basedir: &str, block: &str, file: &str) -> Kernel {
     let code = Vec::new();
 
     let p: Program = Program::load_segment(0).unwrap();
@@ -66,7 +63,7 @@ pub(crate) fn segment_kernel() -> Kernel {
     });
     let code_hash = code_hash_be.map(u32::from_be);
     log::debug!("code_hash: {:?}", code_hash);
-    let blockpath = Program::get_block_path("13284491", "");
+    let blockpath = Program::get_block_path(basedir, block, file);
 
     Kernel {
         program: p,

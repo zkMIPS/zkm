@@ -13,6 +13,7 @@ use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::CpuColumnsView;
+use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::kernel::KERNEL;
 use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
@@ -30,6 +31,7 @@ pub struct GenerationInputs {
 
 pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
+    kernel: &Kernel,
     inputs: GenerationInputs,
     config: &StarkConfig,
     timing: &mut TimingTree,
@@ -41,8 +43,8 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Decode the trace record
     // 1. Decode instruction and fill in cpu columns
     // 2. Decode memory and fill in memory columns
-    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code, SEGMENT_STEPS).unwrap();
-    generate_bootstrap_kernel::<F>(&mut state);
+    let mut state = GenerationState::<F>::new(inputs.clone(), &kernel.code, SEGMENT_STEPS).unwrap();
+    generate_bootstrap_kernel::<F>(&mut state, kernel);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
 

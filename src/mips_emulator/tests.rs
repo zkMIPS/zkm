@@ -10,6 +10,7 @@ mod tests {
     use crate::mips_emulator::state::{InstrumentedState, State};
 
     const END_ADDR: u32 = 0xa7ef00d0;
+    const OUTPUT: &str = "output/segment";
 
     fn execute_open_mips(path: PathBuf) {
         if path.ends_with("oracle.bin") {
@@ -81,11 +82,11 @@ mod tests {
         state.patch_go(&file);
         state.patch_stack();
 
-        let block_path = state.get_block_path("13284491");
+        let block_path = state.get_block_path("./test-vectors", "13284491");
         state.load_input(block_path.clone());
 
         let mut instrumented_state = InstrumentedState::new(state, block_path.clone());
-        instrumented_state.split_segment(false);
+        instrumented_state.split_segment(false, OUTPUT);
         let mut segment_step = SEGMENT_STEPS;
         loop {
             if instrumented_state.state.exited {
@@ -95,11 +96,11 @@ mod tests {
             segment_step -= 1;
             if segment_step == 0 {
                 segment_step = SEGMENT_STEPS;
-                instrumented_state.split_segment(true);
+                instrumented_state.split_segment(true, OUTPUT);
             }
         }
 
-        instrumented_state.split_segment(true);
+        instrumented_state.split_segment(true, OUTPUT);
     }
 
     #[test]
@@ -114,7 +115,7 @@ mod tests {
         state.patch_stack();
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
-        instrumented_state.split_segment(false);
+        instrumented_state.split_segment(false, OUTPUT);
         let mut segment_step = SEGMENT_STEPS;
         loop {
             if instrumented_state.state.exited {
@@ -124,10 +125,10 @@ mod tests {
             segment_step -= 1;
             if segment_step == 0 {
                 segment_step = SEGMENT_STEPS;
-                instrumented_state.split_segment(true);
+                instrumented_state.split_segment(true, OUTPUT);
             }
         }
 
-        instrumented_state.split_segment(true);
+        instrumented_state.split_segment(true, OUTPUT);
     }
 }

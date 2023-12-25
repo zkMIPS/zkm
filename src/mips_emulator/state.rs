@@ -9,9 +9,9 @@ use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
+use std::fs;
 use std::fs::File;
 use std::io::{stderr, stdout, Write};
-use std::{env, fs};
 
 pub const FD_STDIN: u32 = 0;
 pub const FD_STDOUT: u32 = 1;
@@ -270,6 +270,7 @@ impl State {
         let mut input_path = blockpath.clone();
         input_path.push_str("input");
 
+        log::trace!("load input: {input_path}");
         let data = fs::read(input_path).expect("could not read file");
         let data: Box<&[u8]> = Box::new(data.as_slice());
 
@@ -278,7 +279,8 @@ impl State {
             .expect("set memory range failed");
     }
 
-    pub fn get_block_path(&mut self, block: &str) -> String {
+    pub fn get_block_path(&mut self, basedir: &str, block: &str) -> String {
+        /*
         let mut blockpath = match env::var("BASEDIR") {
             Ok(val) => val,
             Err(_e) => String::from("/tmp/cannon"),
@@ -288,6 +290,8 @@ impl State {
         blockpath.push_str(block);
         blockpath.push_str("/");
         blockpath
+        */
+        format!("{basedir}/0_{block}/")
     }
 
     pub fn sync_registers(&mut self) {
@@ -922,7 +926,7 @@ impl InstrumentedState {
         self.mips_step()
     }
 
-    pub fn split_segment(&mut self, proof: bool) {
+    pub fn split_segment(&mut self, proof: bool, output: &str) {
         self.state.sync_registers();
         let image_id = self.state.memory.compute_image_id(self.state.pc);
         let image = self.state.memory.get_input_image();
@@ -935,10 +939,8 @@ impl InstrumentedState {
                 image_id: image_id,
                 end_pc: self.state.pc,
             };
-            //let serialized = serde_json::to_string(&segment).unwrap();
-            let mut name = String::from("output/segment");
-            name.push_str(&self.pre_segment_id.to_string());
-            //println!("file {}", name);
+            let name = format!("{output}{}", self.pre_segment_id);
+            //log::trace!("file {}", name);
             let f = File::create(name).unwrap();
             serde_json::to_writer(f, &segment).unwrap();
             self.pre_segment_id += 1;
