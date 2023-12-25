@@ -396,6 +396,8 @@ pub(crate) mod testutils {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
+    use std::io::BufWriter;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Sample;
@@ -429,8 +431,13 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    // #[ignore]
     fn test_mips_prove_and_verify() {
+        use plonky2::plonk::proof::Proof as Plonky2Proof;
+        use plonky2::hash::merkle_tree::MerkleCap;
+        use plonky2::fri::proof::FriProof;
+        use plonky2::plonk::proof::OpeningSet;
+
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
@@ -449,6 +456,17 @@ mod tests {
         let mut row = 0;
         for proof in allproof.stark_proofs.clone() {
             let proof_str = serde_json::to_string(&proof.proof).unwrap();
+            let plonky2_proof = Plonky2Proof {
+                wires_cap: proof.proof.trace_cap.clone(),
+                plonk_zs_partial_products_cap: proof.proof.auxiliary_polys_cap.clone(),
+                quotient_polys_cap: proof.proof.quotient_polys_cap,
+                openings: OpeningSet::default(),
+                opening_proof: proof.proof.opening_proof.clone()
+            };
+            let proof_path = format!("./proof_{}.json", row);
+            let mut file = File::create(proof_path).unwrap();
+            let mut writer = BufWriter::new(file);
+            serde_json::to_writer(&mut writer, &plonky2_proof);
             println!("row:{} proof bytes:{}", row, proof_str.len());
             row = row + 1;
             count_bytes = count_bytes + proof_str.len();
