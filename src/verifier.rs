@@ -434,6 +434,7 @@ mod tests {
     // #[ignore]
     fn test_mips_prove_and_verify() {
         use plonky2::plonk::proof::Proof as Plonky2Proof;
+        use plonky2::plonk::proof::ProofWithPublicInputs;
         use plonky2::hash::merkle_tree::MerkleCap;
         use plonky2::fri::proof::FriProof;
         use plonky2::plonk::proof::OpeningSet;
@@ -464,10 +465,14 @@ mod tests {
                 openings: OpeningSet::default(),
                 opening_proof: proof.proof.opening_proof.clone()
             };
+            let proof_with_public_input = ProofWithPublicInputs {
+                proof: plonky2_proof,
+                public_inputs: vec![]
+            };
             let proof_path = format!("./proof_{}.json", row);
             let mut file = File::create(proof_path).unwrap();
             let mut writer = BufWriter::new(file);
-            serde_json::to_writer(&mut writer, &plonky2_proof);
+            serde_json::to_writer(&mut writer, &proof_with_public_input);
             println!("row:{} proof bytes:{}", row, proof_str.len());
             row = row + 1;
             count_bytes = count_bytes + proof_str.len();
