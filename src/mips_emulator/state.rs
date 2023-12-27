@@ -199,7 +199,7 @@ impl State {
         }
     }
 
-    pub fn patch_stack(&mut self) {
+    pub fn patch_stack(&mut self, input: &str) {
         // setup stack pointer
         let sp: u32 = 0x7fFFd000;
 
@@ -223,21 +223,49 @@ impl State {
                 .expect("failed to set memory range");
         };
 
+        let mut items: BTreeMap<u32, &str> = BTreeMap::new();
+        let mut index = 0;
+        for item in input.split_whitespace() {
+            items.insert(index, item);
+            index += 1u32;
+        }
+
+        println!("count {} items {:?}", index, items);
         // init argc,  argv, aux on stack
-        store_mem(sp + 4 * 1, 0x42); // argc = 0 (argument count)
-        store_mem(sp + 4 * 2, 0x35); // argv[n] = 0 (terminating argv)
-        store_mem(sp + 4 * 3, 0x00); // envp[term] = 0 (no env vars)
-        store_mem(sp + 4 * 4, 0x06); // auxv[0] = _AT_PAGESZ = 6 (key)
-        store_mem(sp + 4 * 5, 0x1000); // auxv[1] = page size of 4 KiB (value) - (== minPhysPageSize)
-        store_mem(sp + 4 * 6, 0x1A); // auxv[2] = AT_RANDOM
-        store_mem(sp + 4 * 7, sp + 4 * 9); // auxv[3] = address of 16 bytes containing random value
-        store_mem(sp + 4 * 8, 0); // auxv[term] = 0
+        store_mem(sp + 4 * 0, index);
+        store_mem(sp + 4 * (index + 1), 0x35); // argv[n] = 0 (terminating argv)
+        store_mem(sp + 4 * (index + 2), 0x00); // envp[term] = 0 (no env vars)
+        store_mem(sp + 4 * (index + 3), 0x06); // auxv[0] = _AT_PAGESZ = 6 (key)
+        store_mem(sp + 4 * (index + 4), 0x1000); // auxv[1] = page size of 4 KiB (value) - (== minPhysPageSize)
+        store_mem(sp + 4 * (index + 5), 0x1A); // auxv[2] = AT_RANDOM
+        store_mem(sp + 4 * (index + 6), sp + 4 * (index + 8)); // auxv[3] = address of 16 bytes containing random value
+        store_mem(sp + 4 * (index + 7), 0); // auxv[term] = 0
+
+        let mut store_mem_str = |paddr: u32, daddr: u32, str: &str| {
+            let mut dat = [0u8; 4];
+            dat.copy_from_slice(&daddr.to_be_bytes());
+            let r = Box::new(dat.as_slice());
+            self.memory
+                .set_memory_range(paddr, r)
+                .expect("failed to set memory range");
+            let r = Box::new(str.as_bytes());
+            self.memory
+                .set_memory_range(daddr, r)
+                .expect("failed to set memory range");
+        };
+
+        let mut addr = sp + 4 * (index + 12);
+        for (ind, inp) in items.iter() {
+            let index = *ind;
+            store_mem_str(sp + 4 * (index + 1), addr, inp);
+            addr += inp.len() as u32 + 1;
+        }
 
         let mut rng = thread_rng();
         let r: [u8; 16] = rng.gen();
         let r: Box<&[u8]> = Box::new(r.as_slice());
         self.memory
-            .set_memory_range(sp + 4 * 9, r)
+            .set_memory_range(sp + 4 * (index + 8), r)
             .expect("failed to set memory range");
     }
 

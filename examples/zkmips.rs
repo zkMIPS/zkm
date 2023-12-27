@@ -31,7 +31,7 @@ fn split_elf_into_segs() {
         ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
     let (mut state, _) = State::load_elf(&file);
     state.patch_go(&file);
-    state.patch_stack();
+    state.patch_stack("");
 
     let block_path = get_block_path(&basedir, &block_no, "");
     state.load_input(&block_path);
