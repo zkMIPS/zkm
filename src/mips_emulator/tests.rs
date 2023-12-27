@@ -59,7 +59,7 @@ mod tests {
         let (mut state, _) = State::load_elf(&file);
 
         state.patch_go(&file);
-        state.patch_stack();
+        state.patch_stack("aab ccd");
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
 
@@ -81,7 +81,7 @@ mod tests {
         let (mut state, _) = State::load_elf(&file);
 
         state.patch_go(&file);
-        state.patch_stack();
+        state.patch_stack("");
 
         let block_path = get_block_path("./test-vectors", "13284491", "");
         state.load_input(&block_path);
@@ -105,7 +105,7 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_hello_split() {
+    fn test_execute_split_hello() {
         let path = PathBuf::from("./test-vectors/hello");
         let data = fs::read(path).expect("could not read file");
         let file =
@@ -113,7 +113,7 @@ mod tests {
         let (mut state, _) = State::load_elf(&file);
 
         state.patch_go(&file);
-        state.patch_stack();
+        state.patch_stack("");
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
         instrumented_state.split_segment(false, OUTPUT);
