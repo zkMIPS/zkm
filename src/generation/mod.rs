@@ -17,7 +17,6 @@ use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::kernel::KERNEL;
 use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
-use crate::mips_emulator::state::SEGMENT_STEPS;
 use crate::witness::transition::transition;
 /// Inputs needed for trace generation. Wrap the trace record.
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -43,7 +42,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Decode the trace record
     // 1. Decode instruction and fill in cpu columns
     // 2. Decode memory and fill in memory columns
-    let mut state = GenerationState::<F>::new(inputs.clone(), &kernel.code, SEGMENT_STEPS).unwrap();
+    let mut state = GenerationState::<F>::new(inputs.clone(), &kernel.code, kernel.steps).unwrap();
     generate_bootstrap_kernel::<F>(&mut state, kernel);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
