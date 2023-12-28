@@ -53,10 +53,10 @@ pub(crate) fn combined_kernel() -> Kernel {
     }
 }
 
-pub fn segment_kernel(basedir: &str, block: &str, file: &str) -> Kernel {
+pub fn segment_kernel(basedir: &str, block: &str, file: &str, seg_file: &str) -> Kernel {
     let code = Vec::new();
 
-    let p: Program = Program::load_segment(0).unwrap();
+    let p: Program = Program::load_segment(seg_file).unwrap();
 
     let code_hash_bytes = keccak(&code).0;
     let code_hash_be = core::array::from_fn(|i| {

@@ -59,7 +59,8 @@ fn prove_single_seg() {
     let basedir = env::var("BASEDIR").unwrap_or("/tmp/cannon".to_string());
     let block = env::var("BLOCK_NO").expect("Block number is missing");
     let file = env::var("BLOCK_FILE").unwrap_or(String::from(""));
-    let kernel = segment_kernel(&basedir, &block, &file);
+    let seg_file = env::var("SEG_FILE").expect("Segment file is missing");
+    let kernel = segment_kernel(&basedir, &block, &file, &seg_file);
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
