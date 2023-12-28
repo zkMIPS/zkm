@@ -23,7 +23,7 @@ BASEDIR=test-vectors RUST_LOG=trace ELF_PATH=test-vectors/hello BLOCK_NO=1328449
 * Generate proof for each segment
 
 ```
-BASEDIR=test-vectors RUST_LOG=trace BLOCK_NO=13284491 BLOCK_FILE="" \
+BASEDIR=test-vectors RUST_LOG=trace BLOCK_NO=13284491 BLOCK_FILE="" SEG_FILE="/tmp/output0" \
     cargo run --release --example zkmips prove
 ```
 
