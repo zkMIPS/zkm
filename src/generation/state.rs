@@ -9,6 +9,7 @@ use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryState;
 use crate::witness::state::RegistersState;
 use crate::witness::traces::{TraceCheckpoint, Traces};
+use crate::cpu::kernel::assembler::Kernel;
 
 pub(crate) struct GenerationStateCheckpoint {
     pub(crate) registers: RegistersState,
@@ -27,13 +28,13 @@ pub(crate) struct GenerationState<F: Field> {
 impl<F: Field> GenerationState<F> {
     pub(crate) fn new(
         inputs: GenerationInputs,
-        kernel_code: &[u8],
         step: usize,
+        kernel: &Kernel,
     ) -> Result<Self, ProgramError> {
         Ok(GenerationState {
             inputs,
-            registers: Default::default(),
-            memory: MemoryState::new(kernel_code),
+            registers: RegistersState::new(kernel),
+            memory: MemoryState::new(&kernel.code),
             traces: Traces::default(),
             step,
         })

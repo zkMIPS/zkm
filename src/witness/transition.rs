@@ -3,11 +3,12 @@ use log::log_enabled;
 use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::kernel::KERNEL;
+
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
+use crate::cpu::kernel::assembler::Kernel;
 
 use crate::witness::operation::*;
 use crate::witness::state::RegistersState;
@@ -310,10 +311,11 @@ fn perform_op<F: Field>(
     state: &mut GenerationState<F>,
     op: Operation,
     row: CpuColumnsView<F>,
+    kernel: &Kernel,
 ) -> Result<(), ProgramError> {
     log::debug!("perform_op {:?}", op);
     match op {
-        Operation::Syscall => generate_syscall(state, row)?,
+        Operation::Syscall => generate_syscall(state, row, kernel)?,
         Operation::CondMov(cond, rs, rt, rd) => generate_cond_mov_op(cond, rs, rt, rd, state, row)?,
         Operation::Count(ones, rs, rd) => generate_count_op(ones, rs, rd, state, row)?,
         Operation::BinaryLogic(binary_logic_op, rs, rt, rd) => {
@@ -451,12 +453,12 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u32
     (row, opcode)
 }
 
-fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(), ProgramError> {
+fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) -> Result<(), ProgramError> {
     let (mut row, opcode) = base_row(state);
     let op = decode(state.registers, opcode)?;
 
     if state.registers.is_kernel {
-        log_kernel_instruction(state, op);
+        log_kernel_instruction(state, op, kernel);
     } else {
         log::debug!("user instruction: {:?}", op);
     }
@@ -478,17 +480,17 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
     }
     */
 
-    perform_op(state, op, row)
+    perform_op(state, op, row, kernel)
 }
 
-fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
+fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation, kernel: &Kernel) {
     // The logic below is a bit costly, so skip it if debug logs aren't enabled.
     if !log_enabled!(log::Level::Debug) {
         return;
     }
 
     let pc = state.registers.program_counter;
-    let is_interesting_offset = KERNEL
+    let is_interesting_offset = kernel
         .offset_label(pc)
         .filter(|label| !label.starts_with("halt"))
         .is_some();
@@ -502,7 +504,7 @@ fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
         "Cycle {}, ctx={}, pc={}, instruction={:?}, stack={:?}",
         state.traces.clock(),
         state.registers.context,
-        KERNEL.offset_name(pc),
+        kernel.offset_name(pc),
         op,
         //state.stack(),
         0,
@@ -531,9 +533,9 @@ fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> 
     Ok(())
 }
 
-pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Result<()> {
+pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) -> anyhow::Result<()> {
     let checkpoint = state.checkpoint();
-    let result = try_perform_instruction(state);
+    let result = try_perform_instruction(state, kernel);
 
     match result {
         Ok(()) => {
@@ -544,7 +546,7 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Re
         }
         Err(e) => {
             if state.registers.is_kernel {
-                let offset_name = KERNEL.offset_name(state.registers.program_counter);
+                let offset_name = kernel.offset_name(state.registers.program_counter);
                 bail!(
                     "{:?} in kernel at pc={}, stack={:?}, memory={:?}",
                     e,

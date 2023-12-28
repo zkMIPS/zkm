@@ -14,7 +14,6 @@ use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
-use crate::cpu::kernel::KERNEL;
 use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
 use crate::witness::transition::transition;
@@ -42,10 +41,10 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Decode the trace record
     // 1. Decode instruction and fill in cpu columns
     // 2. Decode memory and fill in memory columns
-    let mut state = GenerationState::<F>::new(inputs.clone(), &kernel.code, kernel.steps).unwrap();
+    let mut state = GenerationState::<F>::new(inputs.clone(), kernel.steps, kernel).unwrap();
     generate_bootstrap_kernel::<F>(&mut state, kernel);
 
-    timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
+    timed!(timing, "simulate CPU", simulate_cpu(&mut state, kernel)?);
 
     log::info!(
         "Trace lengths (before padding): {:?}",
@@ -74,6 +73,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 /// Perform MIPS instruction and transit state
 pub(crate) fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
     state: &mut GenerationState<F>,
+    kernel: &Kernel,
 ) -> anyhow::Result<()> {
     let mut step = 0;
     loop {
@@ -91,12 +91,12 @@ pub(crate) fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
             row.program_counter = F::from_canonical_usize(pc);
             row.is_kernel_mode = F::ONE;
 
-            if step == state.step && pc != KERNEL.program.end_pc {
+            if step == state.step && pc != kernel.program.end_pc {
                 log::error!(
                     "Segment split {} error at {:X} expected: {:X}",
                     step,
                     pc,
-                    KERNEL.program.end_pc
+                    kernel.program.end_pc
                 )
             }
 
@@ -112,7 +112,7 @@ pub(crate) fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
             return Ok(());
         }
 
-        transition(state)?;
+        transition(state, kernel)?;
         step += 1;
     }
 }
