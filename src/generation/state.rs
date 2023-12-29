@@ -5,11 +5,11 @@ use plonky2::field::types::Field;
 
 use crate::generation::GenerationInputs;
 
+use crate::cpu::kernel::assembler::Kernel;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryState;
 use crate::witness::state::RegistersState;
 use crate::witness::traces::{TraceCheckpoint, Traces};
-use crate::cpu::kernel::assembler::Kernel;
 
 pub(crate) struct GenerationStateCheckpoint {
     pub(crate) registers: RegistersState,

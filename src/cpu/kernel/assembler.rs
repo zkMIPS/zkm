@@ -56,7 +56,13 @@ pub(crate) fn combined_kernel() -> Kernel {
     }
 }
 
-pub fn segment_kernel(basedir: &str, block: &str, file: &str, seg_file: &str, steps: usize) -> Kernel {
+pub fn segment_kernel(
+    basedir: &str,
+    block: &str,
+    file: &str,
+    seg_file: &str,
+    steps: usize,
+) -> Kernel {
     let code = Vec::new();
 
     let p: Program = Program::load_segment(seg_file).unwrap();
@@ -76,7 +82,7 @@ pub fn segment_kernel(basedir: &str, block: &str, file: &str, seg_file: &str, st
         ordered_labels: vec![],
         global_labels: HashMap::new(),
         blockpath,
-        steps
+        steps,
     }
 }
 

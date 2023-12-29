@@ -4,11 +4,11 @@ use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
 
+use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
-use crate::cpu::kernel::assembler::Kernel;
 
 use crate::witness::operation::*;
 use crate::witness::state::RegistersState;
@@ -453,7 +453,10 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u32
     (row, opcode)
 }
 
-fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) -> Result<(), ProgramError> {
+fn try_perform_instruction<F: Field>(
+    state: &mut GenerationState<F>,
+    kernel: &Kernel,
+) -> Result<(), ProgramError> {
     let (mut row, opcode) = base_row(state);
     let op = decode(state.registers, opcode)?;
 
@@ -533,7 +536,10 @@ fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> 
     Ok(())
 }
 
-pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) -> anyhow::Result<()> {
+pub(crate) fn transition<F: Field>(
+    state: &mut GenerationState<F>,
+    kernel: &Kernel,
+) -> anyhow::Result<()> {
     let checkpoint = state.checkpoint();
     let result = try_perform_instruction(state, kernel);
 

@@ -1,5 +1,6 @@
 use super::util::*;
 use crate::cpu::columns::CpuColumnsView;
+use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
@@ -8,7 +9,6 @@ use crate::witness::memory::MemoryAddress;
 use crate::{arithmetic, logic};
 use anyhow::{Context, Result};
 use plonky2::field::types::Field;
-use crate::cpu::kernel::assembler::Kernel;
 
 use hex;
 use std::fs;
@@ -719,7 +719,10 @@ pub(crate) fn generate_srav<F: Field>(
     Ok(())
 }
 
-pub(crate) fn load_preimage<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) -> Result<()> {
+pub(crate) fn load_preimage<F: Field>(
+    state: &mut GenerationState<F>,
+    kernel: &Kernel,
+) -> Result<()> {
     let mut hash_bytes = [0u8; 32];
     {
         let mut cpu_row = CpuColumnsView::default();
