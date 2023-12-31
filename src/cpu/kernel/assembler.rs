@@ -20,6 +20,7 @@ pub struct Kernel {
     //  should be preprocessed after loading code
     pub(crate) global_labels: HashMap<String, usize>,
     pub blockpath: String,
+    pub steps: usize,
 }
 
 pub const MAX_MEM: u32 = 0x80000000;
@@ -42,6 +43,7 @@ pub(crate) fn combined_kernel() -> Kernel {
     let code_hash = code_hash_be.map(u32::from_be);
     log::debug!("code_hash: {:?}", code_hash);
     let blockpath = get_block_path("test-vectors", "13284491", "");
+    let steps = 0xFFFFFFFFFFFFFFFF;
 
     Kernel {
         program: p,
@@ -50,13 +52,20 @@ pub(crate) fn combined_kernel() -> Kernel {
         ordered_labels: vec![],
         global_labels: HashMap::new(),
         blockpath,
+        steps,
     }
 }
 
-pub fn segment_kernel(basedir: &str, block: &str, file: &str) -> Kernel {
+pub fn segment_kernel(
+    basedir: &str,
+    block: &str,
+    file: &str,
+    seg_file: &str,
+    steps: usize,
+) -> Kernel {
     let code = Vec::new();
 
-    let p: Program = Program::load_segment(0).unwrap();
+    let p: Program = Program::load_segment(seg_file).unwrap();
 
     let code_hash_bytes = keccak(&code).0;
     let code_hash_be = core::array::from_fn(|i| {
@@ -73,6 +82,7 @@ pub fn segment_kernel(basedir: &str, block: &str, file: &str) -> Kernel {
         ordered_labels: vec![],
         global_labels: HashMap::new(),
         blockpath,
+        steps,
     }
 }
 

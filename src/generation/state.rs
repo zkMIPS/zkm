@@ -5,6 +5,7 @@ use plonky2::field::types::Field;
 
 use crate::generation::GenerationInputs;
 
+use crate::cpu::kernel::assembler::Kernel;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryState;
 use crate::witness::state::RegistersState;
@@ -27,13 +28,13 @@ pub(crate) struct GenerationState<F: Field> {
 impl<F: Field> GenerationState<F> {
     pub(crate) fn new(
         inputs: GenerationInputs,
-        kernel_code: &[u8],
         step: usize,
+        kernel: &Kernel,
     ) -> Result<Self, ProgramError> {
         Ok(GenerationState {
             inputs,
-            registers: Default::default(),
-            memory: MemoryState::new(kernel_code),
+            registers: RegistersState::new(kernel),
+            memory: MemoryState::new(&kernel.code),
             traces: Traces::default(),
             step,
         })

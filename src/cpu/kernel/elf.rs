@@ -211,9 +211,7 @@ impl Program {
         })
     }
 
-    pub fn load_segment(segment_id: u32) -> Result<Program> {
-        let mut name = String::from("output/segment");
-        name.push_str(&segment_id.to_string());
+    pub fn load_segment(name: &str) -> Result<Program> {
         log::debug!("file {}", name);
         let f = File::open(name).unwrap();
         let reader = BufReader::new(f);
