@@ -36,6 +36,7 @@ use crate::cross_table_lookup::{
 };
 //use crate::verifier::verify_proof;
 use crate::generation::GenerationInputs;
+use crate::get_challenges::observe_public_values_target;
 //use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
     MemRootsTarget,
@@ -56,6 +57,7 @@ use crate::recursive_verifier::{
     StarkWrapperCircuit,
 };
 use crate::stark::Stark;
+use crate::verifier::verify_proof;
 //use crate::util::h256_limbs;
 
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
@@ -469,7 +471,7 @@ where
             }
         }
 
-        //observe_public_values_target::<F, C, D>(&mut challenger, &public_values);
+        observe_public_values_target::<F, C, D>(&mut challenger, &public_values);
 
         let ctl_challenges = get_grand_product_challenge_set_target(
             &mut builder,
@@ -933,7 +935,7 @@ where
         timing: &mut TimingTree,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let all_proof = prove::<F, C, D>(all_stark, kernel, config, generation_inputs, timing)?;
-        //verify_proof(&all_stark, all_proof.clone(), &config).unwrap();
+        verify_proof(&all_stark, all_proof.clone(), &config).unwrap();
         let mut root_inputs = PartialWitness::new();
 
         for table in 0..NUM_TABLES {
