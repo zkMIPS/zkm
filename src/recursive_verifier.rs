@@ -35,7 +35,7 @@ use crate::lookup::LookupCheckVarsTarget;
 
 use crate::memory::VALUE_LIMBS;
 use crate::proof::{
-    PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
+    MemRootsTarget, PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
     StarkProofChallengesTarget, StarkProofTarget, StarkProofWithMetadata,
 };
 use crate::stark::Stark;
@@ -681,8 +681,17 @@ pub(crate) fn add_virtual_public_values<F: RichField + Extendable<D>, const D: u
         extra_block_data,
     }
     */
-    let zero = builder.zero();
-    PublicValuesTarget::from_public_inputs(&[zero, zero])
+    // let zero = builder.zero();
+    // PublicValuesTarget::from_public_inputs(&[zero, zero])
+
+    PublicValuesTarget {
+        roots_before: MemRootsTarget {
+            root: builder.add_virtual_public_input(),
+        },
+        roots_after: MemRootsTarget {
+            root: builder.add_virtual_public_input(),
+        },
+    }
 }
 
 /*
@@ -838,14 +847,22 @@ pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: 
 }
 
 pub(crate) fn set_public_value_targets<F, W, const D: usize>(
-    _witness: &mut W,
-    _public_values_target: &PublicValuesTarget,
-    _public_values: &PublicValues,
+    witness: &mut W,
+    public_values_target: &PublicValuesTarget,
+    public_values: &PublicValues,
 ) -> Result<(), ProgramError>
 where
     F: RichField + Extendable<D>,
     W: Witness<F>,
 {
+    witness.set_target(
+        public_values_target.roots_before.root,
+        F::from_canonical_u32(public_values.roots_before.root),
+    );
+    witness.set_target(
+        public_values_target.roots_after.root,
+        F::from_canonical_u32(public_values.roots_after.root),
+    );
     /*
     set_trie_roots_target(
         witness,
