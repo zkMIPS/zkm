@@ -1,6 +1,6 @@
 use super::util::*;
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::kernel::KERNEL;
+use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
@@ -719,7 +719,10 @@ pub(crate) fn generate_srav<F: Field>(
     Ok(())
 }
 
-pub(crate) fn load_preimage<F: Field>(state: &mut GenerationState<F>) -> Result<()> {
+pub(crate) fn load_preimage<F: Field>(
+    state: &mut GenerationState<F>,
+    kernel: &Kernel,
+) -> Result<()> {
     let mut hash_bytes = [0u8; 32];
     {
         let mut cpu_row = CpuColumnsView::default();
@@ -735,7 +738,7 @@ pub(crate) fn load_preimage<F: Field>(state: &mut GenerationState<F>) -> Result<
     }
 
     let hex_string = hex::encode(&hash_bytes);
-    let mut preiamge_path = KERNEL.blockpath.clone();
+    let mut preiamge_path = kernel.blockpath.clone();
     preiamge_path.push_str("0x");
     preiamge_path.push_str(hex_string.as_str());
     log::debug!("load file {}", preiamge_path);
@@ -794,6 +797,7 @@ pub(crate) fn load_preimage<F: Field>(state: &mut GenerationState<F>) -> Result<
 pub(crate) fn generate_syscall<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
+    kernel: &Kernel,
 ) -> Result<(), ProgramError> {
     let (sys_num, log_in1) = reg_read_with_log(2, 0, state, &mut row)?;
     let (a0, log_in2) = reg_read_with_log(4, 1, state, &mut row)?;
@@ -805,7 +809,7 @@ pub(crate) fn generate_syscall<F: Field>(
     let result = match sys_num {
         SYSGETPID => {
             row.general.syscall_mut().sysnum[0] = F::from_canonical_u32(1u32);
-            let _ = load_preimage(state);
+            let _ = load_preimage(state, kernel);
             Ok(())
         }
         SYSMMAP => {

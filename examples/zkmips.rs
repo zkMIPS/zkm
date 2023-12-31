@@ -38,7 +38,7 @@ fn split_elf_into_segs() {
 
     let mut instrumented_state = InstrumentedState::new(state, block_path);
     instrumented_state.split_segment(false, &seg_path);
-    let mut segment_step = seg_size;
+    let mut segment_step: usize = seg_size;
     loop {
         if instrumented_state.state.exited {
             break;
@@ -59,7 +59,10 @@ fn prove_single_seg() {
     let basedir = env::var("BASEDIR").unwrap_or("/tmp/cannon".to_string());
     let block = env::var("BLOCK_NO").expect("Block number is missing");
     let file = env::var("BLOCK_FILE").unwrap_or(String::from(""));
-    let kernel = segment_kernel(&basedir, &block, &file);
+    let seg_file = env::var("SEG_FILE").expect("Segment file is missing");
+    let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
+    let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
+    let kernel = segment_kernel(&basedir, &block, &file, &seg_file, seg_size);
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;

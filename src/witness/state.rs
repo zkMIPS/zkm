@@ -1,5 +1,4 @@
-use crate::cpu::kernel::KERNEL;
-
+use crate::cpu::kernel::assembler::Kernel;
 const KERNEL_CONTEXT: usize = 0;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -25,14 +24,14 @@ impl RegistersState {
     }
 }
 
-impl Default for RegistersState {
-    fn default() -> Self {
+impl RegistersState {
+    pub fn new(kernel: &Kernel) -> Self {
         Self {
-            gprs: KERNEL.program.gprs,
-            lo: KERNEL.program.lo,
-            hi: KERNEL.program.hi,
-            heap: KERNEL.program.heap,
-            program_counter: KERNEL.program.entry as usize,
+            gprs: kernel.program.gprs,
+            lo: kernel.program.lo,
+            hi: kernel.program.hi,
+            heap: kernel.program.heap,
+            program_counter: kernel.program.entry as usize,
             is_kernel: true,
             context: 0,
             exited: false,

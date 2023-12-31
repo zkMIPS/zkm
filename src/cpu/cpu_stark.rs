@@ -287,9 +287,9 @@ mod tests {
         };
 
         let inputs = GenerationInputs {};
-        let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code, 40000000).unwrap();
+        let mut state = GenerationState::<F>::new(inputs.clone(), 40000000, &KERNEL).unwrap();
         generate_bootstrap_kernel::<F>(&mut state, &KERNEL);
-        simulate_cpu::<F, D>(&mut state).unwrap();
+        simulate_cpu::<F, D>(&mut state, &KERNEL).unwrap();
 
         let vals: Vec<[F; NUM_CPU_COLUMNS]> = state
             .clone()
