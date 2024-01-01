@@ -408,9 +408,8 @@ mod tests {
     use super::verify_proof;
     use crate::all_stark::AllStark;
     use crate::config::StarkConfig;
-    use crate::generation::GenerationInputs;
 
-    use crate::cpu::kernel::KERNEL;
+    use crate::cpu::kernel::TEST_KERNEL;
     use crate::proof;
     use crate::prover::prove;
 
@@ -432,7 +431,7 @@ mod tests {
     }
 
     #[test]
-    // #[ignore]
+    #[ignore = "Too slow"]
     fn test_mips_prove_and_verify() {
         use plonky2::plonk::proof::Proof as Plonky2Proof;
         use plonky2::plonk::proof::ProofWithPublicInputs;
@@ -447,14 +446,11 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
 
         let allstark: AllStark<F, D> = AllStark::default();
-        let mut config = StarkConfig::standard_fast_config();
-        config.fri_config.rate_bits = 3;
-
-        let input = GenerationInputs {};
+        let config = StarkConfig::standard_fast_config();
 
         let mut timing = TimingTree::new("prove", log::Level::Debug);
         let allproof: proof::AllProof<GoldilocksField, C, D> =
-            prove(&allstark, &KERNEL, &config, input, &mut timing).unwrap();
+            prove(&allstark, &TEST_KERNEL, &config, &mut timing).unwrap();
         let mut count_bytes = 0;
         let mut row = 0;
         for proof in allproof.stark_proofs.clone() {

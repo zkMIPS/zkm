@@ -49,12 +49,12 @@ pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, H: Hasher<F>,
 /// Memory values which are public.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct PublicValues {
-    pub roots_before: MemsRoot,
-    pub roots_after: MemsRoot,
+    pub roots_before: MemRoots,
+    pub roots_after: MemRoots,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct MemsRoot {
+pub struct MemRoots {
     pub root: u32,
 }
 

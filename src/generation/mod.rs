@@ -1,13 +1,12 @@
 pub(crate) mod outputs;
 pub(crate) mod state;
-use crate::proof::{MemsRoot, PublicValues};
+use crate::proof::{MemRoots, PublicValues};
 use anyhow::anyhow;
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
-use serde::{Deserialize, Serialize};
 
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
@@ -17,20 +16,11 @@ use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
 use crate::witness::transition::transition;
-/// Inputs needed for trace generation. Wrap the trace record.
-#[derive(Clone, Debug, Deserialize, Serialize, Default)]
-pub struct GenerationInputs {
-    // Code, does not need to be trace record, can be a whole MIPS ELF?
-    // Memory image
-    // pre_image: HashMap<>,
-    // memory: Vec<u8>,
-    // mem_root: [u32; 8],
-}
+//use crate::mips_emulator::state::Segment;
 
 pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
     kernel: &Kernel,
-    inputs: GenerationInputs,
     config: &StarkConfig,
     timing: &mut TimingTree,
 ) -> anyhow::Result<(
@@ -41,7 +31,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Decode the trace record
     // 1. Decode instruction and fill in cpu columns
     // 2. Decode memory and fill in memory columns
-    let mut state = GenerationState::<F>::new(inputs.clone(), kernel.steps, kernel).unwrap();
+    let mut state = GenerationState::<F>::new(kernel.steps, kernel).unwrap();
     generate_bootstrap_kernel::<F>(&mut state, kernel);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state, kernel)?);
@@ -59,8 +49,8 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Generate the public values and outputs
     // FIXME: get the right merkle root
     let public_values = PublicValues {
-        roots_before: MemsRoot { root: 0 },
-        roots_after: MemsRoot { root: 0 },
+        roots_before: MemRoots { root: 0 },
+        roots_after: MemRoots { root: 0 },
     };
     let tables = timed!(
         timing,
@@ -91,6 +81,7 @@ pub(crate) fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
             row.program_counter = F::from_canonical_usize(pc);
             row.is_kernel_mode = F::ONE;
 
+            // FIXME: should be quit if not matching
             if step == state.step && pc != kernel.program.end_pc {
                 log::error!(
                     "Segment split {} error at {:X} expected: {:X}",

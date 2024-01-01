@@ -236,10 +236,9 @@ mod tests {
     use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
     use crate::cpu::columns::NUM_CPU_COLUMNS;
     use crate::cpu::cpu_stark::CpuStark;
-    use crate::cpu::kernel::KERNEL;
+    use crate::cpu::kernel::TEST_KERNEL;
     use crate::generation::simulate_cpu;
     use crate::generation::state::GenerationState;
-    use crate::generation::GenerationInputs;
     use crate::stark_testing::{
         test_stark_circuit_constraints, test_stark_cpu_check_constraints, test_stark_low_degree,
     };
@@ -274,7 +273,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "Too slow"]
     fn test_stark_check_memio() {
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
@@ -286,10 +285,9 @@ mod tests {
             f: Default::default(),
         };
 
-        let inputs = GenerationInputs {};
-        let mut state = GenerationState::<F>::new(inputs.clone(), 40000000, &KERNEL).unwrap();
-        generate_bootstrap_kernel::<F>(&mut state, &KERNEL);
-        simulate_cpu::<F, D>(&mut state, &KERNEL).unwrap();
+        let mut state = GenerationState::<F>::new(40000000, &TEST_KERNEL).unwrap();
+        generate_bootstrap_kernel::<F>(&mut state, &TEST_KERNEL);
+        simulate_cpu::<F, D>(&mut state, &TEST_KERNEL).unwrap();
 
         let vals: Vec<[F; NUM_CPU_COLUMNS]> = state
             .clone()
