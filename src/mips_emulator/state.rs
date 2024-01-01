@@ -954,7 +954,7 @@ impl InstrumentedState {
                 end_pc: self.state.pc,
             };
             let name = format!("{output}/{}", self.pre_segment_id);
-            println!("file {}", name);
+            log::trace!("split: file {}", name);
             let f = File::create(name).unwrap();
             serde_json::to_writer(f, &segment).unwrap();
             self.pre_segment_id += 1;
