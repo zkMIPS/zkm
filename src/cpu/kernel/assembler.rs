@@ -64,9 +64,7 @@ pub fn segment_kernel(
     steps: usize,
 ) -> Kernel {
     let code = Vec::new();
-
     let p: Program = Program::load_segment(seg_file).unwrap();
-
     let code_hash_bytes = keccak(&code).0;
     let code_hash_be = core::array::from_fn(|i| {
         u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
@@ -111,5 +109,4 @@ impl Kernel {
 /// nontrivial given the circular dependency between an offset and its size.
 pub(crate) const BYTES_PER_OFFSET: u8 = 3;
 
-pub static KERNEL: Lazy<Kernel> = Lazy::new(combined_kernel);
-//pub static KERNEL: Lazy<Kernel> = Lazy::new(segment_kernel);
+pub static TEST_KERNEL: Lazy<Kernel> = Lazy::new(combined_kernel);

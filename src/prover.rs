@@ -27,8 +27,8 @@ use crate::cross_table_lookup::{
     GrandProductChallengeSet,
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
+use crate::generation::generate_traces;
 use crate::generation::outputs::GenerationOutputs;
-use crate::generation::{generate_traces, GenerationInputs};
 use crate::get_challenges::observe_public_values;
 use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
@@ -43,14 +43,13 @@ pub fn prove<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
     kernel: &Kernel,
     config: &StarkConfig,
-    inputs: GenerationInputs,
     timing: &mut TimingTree,
 ) -> Result<AllProof<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    let (proof, _outputs) = prove_with_outputs(all_stark, kernel, config, inputs, timing)?;
+    let (proof, _outputs) = prove_with_outputs(all_stark, kernel, config, timing)?;
     Ok(proof)
 }
 
@@ -60,7 +59,6 @@ pub fn prove_with_outputs<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
     kernel: &Kernel,
     config: &StarkConfig,
-    inputs: GenerationInputs,
     timing: &mut TimingTree,
 ) -> Result<(AllProof<F, C, D>, GenerationOutputs)>
 where
@@ -71,7 +69,7 @@ where
     let (traces, public_values, outputs) = timed!(
         timing,
         "generate all traces",
-        generate_traces(all_stark, kernel, inputs, config, timing)?
+        generate_traces(all_stark, kernel, config, timing)?
     );
     let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
     Ok((proof, outputs))

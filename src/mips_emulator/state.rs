@@ -21,7 +21,7 @@ pub const MIPS_EBADF: u32 = 9;
 
 pub const SEGMENT_STEPS: usize = 200000;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
 pub struct Segment {
     pub mem_image: BTreeMap<u32, u32>,
     pub pc: u32,
@@ -940,6 +940,7 @@ impl InstrumentedState {
     }
 
     pub fn split_segment(&mut self, proof: bool, output: &str) {
+        std::fs::create_dir_all(output).unwrap();
         self.state.sync_registers();
         let image_id = self.state.memory.compute_image_id(self.state.pc);
         let image = self.state.memory.get_input_image();
@@ -949,11 +950,11 @@ impl InstrumentedState {
                 mem_image: image,
                 segment_id: self.pre_segment_id,
                 pc: self.pre_pc,
-                image_id: image_id,
+                image_id,
                 end_pc: self.state.pc,
             };
-            let name = format!("{output}{}", self.pre_segment_id);
-            //log::trace!("file {}", name);
+            let name = format!("{output}/{}", self.pre_segment_id);
+            log::trace!("split: file {}", name);
             let f = File::create(name).unwrap();
             serde_json::to_writer(f, &segment).unwrap();
             self.pre_segment_id += 1;
