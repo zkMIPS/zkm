@@ -1,10 +1,6 @@
 // use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
-// use crate::cpu::kernel::aggregator::KERNEL;
-
-use crate::generation::GenerationInputs;
-
 use crate::cpu::kernel::assembler::Kernel;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryState;
@@ -18,7 +14,6 @@ pub(crate) struct GenerationStateCheckpoint {
 
 #[derive(Clone)]
 pub(crate) struct GenerationState<F: Field> {
-    pub(crate) inputs: GenerationInputs,
     pub(crate) registers: RegistersState,
     pub(crate) memory: MemoryState,
     pub(crate) traces: Traces<F>,
@@ -26,13 +21,8 @@ pub(crate) struct GenerationState<F: Field> {
 }
 
 impl<F: Field> GenerationState<F> {
-    pub(crate) fn new(
-        inputs: GenerationInputs,
-        step: usize,
-        kernel: &Kernel,
-    ) -> Result<Self, ProgramError> {
+    pub(crate) fn new(step: usize, kernel: &Kernel) -> Result<Self, ProgramError> {
         Ok(GenerationState {
-            inputs,
             registers: RegistersState::new(kernel),
             memory: MemoryState::new(&kernel.code),
             traces: Traces::default(),

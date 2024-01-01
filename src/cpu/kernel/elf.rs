@@ -273,12 +273,11 @@ mod test {
         reader.read_to_end(&mut buffer).unwrap();
         let max_mem = 0x80000000;
         let mut p: Program = Program::load_elf(&buffer, max_mem).unwrap();
-        println!("entry: {}", p.entry);
+        log::info!("entry: {}", p.entry);
 
         let real_blockpath = get_block_path("test-vectors", "13284491", "input");
-        println!("real block path: {}", real_blockpath);
-        let test_blockpath: &str = "test-vectors/0_13284491/input";
-        p.load_block(test_blockpath).unwrap();
+        log::info!("real block path: {}", real_blockpath);
+        p.load_block(&real_blockpath).unwrap();
 
         p.image.iter().for_each(|(k, v)| {
             if *k > INIT_SP && *k < INIT_SP + 50 {

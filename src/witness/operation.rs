@@ -398,7 +398,7 @@ pub(crate) fn generate_branch<F: Field>(
     let (src1, src1_op) = reg_read_with_log(src1, 0, state, &mut row)?;
     let (src2, src2_op) = reg_read_with_log(src2, 1, state, &mut row)?;
     let should_jump = cond.result(src1 as i32, src2 as i32);
-    //println!("jump: {} c0: {}, c1: {}, aux1: {}, aux2: {}", should_jump, src1, src2, src1.wrapping_sub(src2), src2.wrapping_sub(src1));
+    //log::info!("jump: {} c0: {}, c1: {}, aux1: {}, aux2: {}", should_jump, src1, src2, src1.wrapping_sub(src2), src2.wrapping_sub(src1));
     let aux1 = src1.wrapping_sub(src2);
     let aux2 = src2.wrapping_sub(src1);
     let aux3 = (src1 ^ src2) & 0x80000000 > 0;

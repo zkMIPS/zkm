@@ -35,7 +35,6 @@ use crate::cross_table_lookup::{
     GrandProductChallengeSet,
 };
 //use crate::verifier::verify_proof;
-use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
 //use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
@@ -931,10 +930,9 @@ where
         all_stark: &AllStark<F, D>,
         kernel: &Kernel,
         config: &StarkConfig,
-        generation_inputs: GenerationInputs,
         timing: &mut TimingTree,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
-        let all_proof = prove::<F, C, D>(all_stark, kernel, config, generation_inputs, timing)?;
+        let all_proof = prove::<F, C, D>(all_stark, kernel, config, timing)?;
         verify_proof(&all_stark, all_proof.clone(), &config).unwrap();
         let mut root_inputs = PartialWitness::new();
 
@@ -979,14 +977,12 @@ where
             anyhow::Error::msg("Invalid conversion when setting public values targets.")
         })?;
 
-        println!("prove root");
         let root_proof = self.root.circuit.prove(root_inputs)?;
 
         Ok((root_proof, all_proof.public_values))
     }
 
     pub fn verify_root(&self, agg_proof: ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
-        println!("verify root");
         self.root.circuit.verify(agg_proof)
     }
 

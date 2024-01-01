@@ -26,7 +26,7 @@ fn observe_root<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const 
 
 fn observe_trie_roots<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
-    trie_roots: &MemsRoot,
+    trie_roots: &MemRoots,
 ) {
     observe_root::<F, C, D>(challenger, trie_roots.root);
     //observe_root::<F, C, D>(challenger, trie_roots.transactions_root);
