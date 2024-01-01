@@ -129,8 +129,11 @@ fn aggregate_proof() -> anyhow::Result<()> {
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
     // Preprocess all circuits.
-    let all_circuits =
-        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &[10..12, 10..12, 8..12, 10..13], &config);
+    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
+        &all_stark,
+        &[16..20, 16..22, 12..20, 19..22],
+        &config,
+    );
 
     let input_first = segment_kernel(&basedir, &block, &file, &seg_file, seg_size);
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
