@@ -78,6 +78,8 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
         serde_json::to_string(&block_proof.proof).unwrap().len()
     );
     all_circuits.verify_block(&block_proof);
+    println!("all_circuits.block.circuit.common.num_public_inputs {:?}", all_circuits.block.circuit.common.num_public_inputs);
+    println!("block_proof.public_inputs {:?}", block_proof.public_inputs);
 
     let build_path = "../verifier/data".to_string();
     let path = format!("{}/test_circuit/", build_path);
