@@ -10,7 +10,6 @@ use curta::machine::bytes::builder::BytesBuilder;
 use curta::machine::bytes::proof::ByteStarkProof;
 use curta::machine::bytes::stark::ByteStark;
 use curta::math::prelude::*;
-
 use itertools::Itertools;
 use log::debug;
 use plonky2::util::log2_ceil;
@@ -226,7 +225,7 @@ pub fn stark<L: PlonkParameters<D>, const D: usize>(
     let num_messages = builder.alloc_public::<ElementRegister>();
 
     // Hash the padded chunks.
-    let digests = builder.blake2b::<>(
+    let digests = builder.blake2b(
         &padded_chunks,
         &t_values,
         &end_bits,

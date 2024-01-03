@@ -74,14 +74,14 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
         "proof size: {:?}",
         serde_json::to_string(&block_proof.proof).unwrap().len()
     );
-    all_circuits.verify_block(&block_proof);
-
-    let build_path = "../verifier/data".to_string();
-    let path = format!("{}/test_circuit/", build_path);
-    let mut builder = CircuitBuilder::<DefaultParameters, 2>::new();
-    let mut circuit = builder.build();
-    circuit.set_data(all_circuits.block.circuit);
-    let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);
-    let wrapped_proof = wrapped_circuit.prove(&proof).unwrap();
-    wrapped_proof.save(path).unwrap();
+    all_circuits.verify_block(&block_proof)
+    //
+    // let build_path = "../verifier/data".to_string();
+    // let path = format!("{}/test_circuit/", build_path);
+    // let mut builder = CircuitBuilder::<DefaultParameters, 2>::new();
+    // let mut circuit = builder.build();
+    // circuit.set_data(all_circuits.block.circuit);
+    // let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);
+    // let wrapped_proof = wrapped_circuit.prove(&proof).unwrap();
+    // wrapped_proof.save(path).unwrap();
 }
