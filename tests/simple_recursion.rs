@@ -14,10 +14,11 @@ use mips_circuits::backend::circuit::Groth16WrapperParameters;
 use mips_circuits::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
 use mips_circuits::frontend::builder::CircuitBuilder;
 use mips_circuits::prelude::DefaultParameters;
+use mips_circuits::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
 
 type F = GoldilocksField;
 const D: usize = 2;
-type C = PoseidonGoldilocksConfig;
+type C = PoseidonBN128GoldilocksConfig;
 
 // Tests proving two transactions, one of which with logs, and aggregating them.
 #[test]
