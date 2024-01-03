@@ -17,7 +17,6 @@ type C = PoseidonGoldilocksConfig;
 
 // Tests proving two transactions, one of which with logs, and aggregating them.
 #[test]
-#[ignore = "Too slow"]
 fn test_mips_with_aggreg() -> anyhow::Result<()> {
     env_logger::try_init().unwrap_or_default();
 
@@ -26,7 +25,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     // Preprocess all circuits.
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[16..20, 17..22, 12..20, 19..22],
+        &[16..20, 17..22, 14..15, 9..10, 12..20, 19..22],
         &config,
     );
 

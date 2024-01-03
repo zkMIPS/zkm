@@ -10,10 +10,10 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use super::columns::CpuColumnsView;
-//use super::halt;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
+use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::{bootstrap_kernel, count, decode, jumps, membus, memio, shift, syscall};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
@@ -47,6 +47,30 @@ pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
 
 pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
     Column::single(COL_MAP.is_keccak_sponge)
+}
+
+pub(crate) fn ctl_data_partial_memory<F: Field>() -> Vec<Column<F>> {
+    let channel_map = COL_MAP.partial_channel;
+    let values = COL_MAP.mem_channels[0].value;
+    let mut cols: Vec<_> = Column::singles([
+        channel_map.is_read,
+        channel_map.addr_context,
+        channel_map.addr_segment,
+        channel_map.addr_virtual,
+    ])
+    .collect();
+
+    cols.extend(Column::singles(values));
+
+    cols.push(mem_time_and_channel(
+        MEM_GP_CHANNELS_IDX_START + NUM_GP_CHANNELS,
+    ));
+
+    cols
+}
+
+pub(crate) fn ctl_filter_partial_memory<F: Field>() -> Column<F> {
+    Column::single(COL_MAP.partial_channel.used)
 }
 
 /// Create the vector of Columns corresponding to the two inputs and
@@ -273,7 +297,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Too slow"]
     fn test_stark_check_memio() {
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
