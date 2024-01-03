@@ -86,7 +86,6 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     circuit.set_data(all_circuits.block.circuit);
     let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);
     println!("build finish");
-    println!("wrapped_circuit is {:?}",wrapped_circuit);
     let wrapped_proof = wrapped_circuit.prove(&block_proof).unwrap();
     wrapped_proof.save(path).unwrap();
 
