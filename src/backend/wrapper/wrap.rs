@@ -54,7 +54,7 @@ where
             &circuit.data.common,
         );
 
-        let num_input_targets = circuit.io.input().len();
+        let num_input_targets = circuit.data.common.num_public_inputs;
         let (input_targets, output_targets) = circuit_proof_target
             .public_inputs
             .split_at(num_input_targets);
