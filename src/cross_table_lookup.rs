@@ -802,6 +802,7 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
     }
 }
 
+// Optimization: https://github.com/0xPolygonZero/plonky2/pull/1398/files
 pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize>(
     cross_table_lookups: &[CrossTableLookup<F>],
     ctl_zs_first: [Vec<F>; NUM_TABLES],

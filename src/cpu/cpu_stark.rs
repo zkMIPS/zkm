@@ -60,7 +60,7 @@ pub(crate) fn ctl_data_partial_memory<F: Field>() -> Vec<Column<F>> {
     ])
     .collect();
 
-    cols.extend(Column::singles(values));
+    cols.extend(Column::single(values));
 
     cols.push(mem_time_and_channel(
         MEM_GP_CHANNELS_IDX_START + NUM_GP_CHANNELS,
