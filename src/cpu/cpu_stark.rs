@@ -13,7 +13,7 @@ use super::columns::CpuColumnsView;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
-use crate::cpu::membus::NUM_GP_CHANNELS;
+//use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::{bootstrap_kernel, count, decode, jumps, membus, memio, shift, syscall};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
@@ -49,6 +49,7 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
     Column::single(COL_MAP.is_keccak_sponge)
 }
 
+/*
 pub(crate) fn ctl_data_partial_memory<F: Field>() -> Vec<Column<F>> {
     let channel_map = COL_MAP.partial_channel;
     let values = COL_MAP.mem_channels[0].value;
@@ -72,6 +73,7 @@ pub(crate) fn ctl_data_partial_memory<F: Field>() -> Vec<Column<F>> {
 pub(crate) fn ctl_filter_partial_memory<F: Field>() -> Column<F> {
     Column::single(COL_MAP.partial_channel.used)
 }
+*/
 
 /// Create the vector of Columns corresponding to the two inputs and
 /// one output of a binary operation.
