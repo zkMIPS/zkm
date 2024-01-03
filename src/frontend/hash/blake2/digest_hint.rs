@@ -1,9 +1,7 @@
 use curta::machine::hash::blake::blake2b;
-use curta::machine::hash::blake::blake2b::BLAKE2B;
 use curta::machine::hash::blake::blake2b::pure::BLAKE2BPure;
 use curta::machine::hash::blake::blake2b::utils::BLAKE2BUtil;
 use curta::math::prelude::PrimeField64;
-use curta::machine::hash::blake::blake2b::builder::BlakeBuilder;
 use serde::{Deserialize, Serialize};
 
 use crate::frontend::hint::simple::hint::Hint;
@@ -35,7 +33,7 @@ impl<L: PlonkParameters<D>, const D: usize> Hint<L, D> for BLAKE2BDigestHint {
             } else {
                 t += 128;
             }
-            <BLAKE2B as BLAKE2BPure>::compress(chunk, &mut state, t, at_last_chunk);
+            BLAKE2BPure::compress(chunk, &mut state, t, at_last_chunk);
         }
 
         // Write the digest to the output stream.

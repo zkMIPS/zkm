@@ -10,7 +10,6 @@ use curta::machine::bytes::builder::BytesBuilder;
 use curta::machine::bytes::proof::ByteStarkProof;
 use curta::machine::bytes::stark::ByteStark;
 use curta::math::prelude::*;
-use curta::machine::hash::blake::blake2b::builder::BlakeBuilder;
 
 use itertools::Itertools;
 use log::debug;
