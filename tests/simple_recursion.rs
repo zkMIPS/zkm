@@ -8,7 +8,7 @@ use mips_circuits::fixed_recursive_verifier::AllRecursiveCircuits;
 use mips_circuits::proof::PublicValues;
 //use mips_circuits::cpu::kernel::assembler::segment_kernel;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use plonky2::util::timing::TimingTree;
 use mips_circuits::backend::circuit::Groth16WrapperParameters;
 use mips_circuits::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
@@ -16,9 +16,9 @@ use mips_circuits::frontend::builder::CircuitBuilder;
 use mips_circuits::prelude::DefaultParameters;
 use mips_circuits::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
 
-type F = GoldilocksField;
 const D: usize = 2;
 type C = PoseidonBN128GoldilocksConfig;
+type F = <C as GenericConfig<D>>::F;
 
 // Tests proving two transactions, one of which with logs, and aggregating them.
 #[test]
