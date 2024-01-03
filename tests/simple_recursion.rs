@@ -11,7 +11,7 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use mips_circuits::backend::circuit::Groth16WrapperParameters;
-use mips_circuits::backend::wrapper::wrap::WrappedCircuit;
+use mips_circuits::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
 use mips_circuits::frontend::builder::CircuitBuilder;
 use mips_circuits::prelude::DefaultParameters;
 
@@ -78,13 +78,21 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
 
     let build_path = "../verifier/data".to_string();
     let path = format!("{}/test_circuit/", build_path);
-    let mut builder = CircuitBuilder::<DefaultParameters, 2>::new();
-    let mut circuit = builder.build();
-    circuit.set_data(all_circuits.block.circuit);
-    let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);
-    println!("build finish");
-    println!("wrapped_circuit is {:?}",wrapped_circuit);
-    let wrapped_proof = wrapped_circuit.prove(&block_proof).unwrap();
+    // let mut builder = CircuitBuilder::<DefaultParameters, 2>::new();
+    // let mut circuit = builder.build();
+    // circuit.set_data(all_circuits.block.circuit);
+    // let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);
+    // println!("build finish");
+    // println!("wrapped_circuit is {:?}",wrapped_circuit);
+    // let wrapped_proof = wrapped_circuit.prove(&block_proof).unwrap();
+    // wrapped_proof.save(path).unwrap();
+
+    let wrapped_proof: WrappedOutput<DefaultParameters, 2> = WrappedOutput {
+        proof: block_proof.clone(),
+        common_data:  all_circuits.block.circuit.common.clone(),
+        verifier_data: all_circuits.block.circuit.verifier_only.clone(),
+    };
     wrapped_proof.save(path).unwrap();
+
     Ok(())
 }
