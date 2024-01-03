@@ -176,6 +176,7 @@ where
         &self,
         inner_proof: &ProofWithPublicInputs<InnerParameters::Field, InnerParameters::Config, D>,
     ) -> Result<WrappedOutput<OuterParameters, D>> {
+        println!("in prove");
         let mut pw = PartialWitness::new();
         pw.set_verifier_data_target(
             &self.circuit_verifier_target,
