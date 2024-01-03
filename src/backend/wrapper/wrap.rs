@@ -189,6 +189,8 @@ where
         println!("in prove2");
 
         let (hash_proof, _) = self.hash_circuit.prove_with_partial_witness(pw);
+        println!("in prove2.5");
+
         self.hash_circuit.data.verify(hash_proof.clone())?;
         debug!("Successfully verified hash proof");
         println!("in prove3");
