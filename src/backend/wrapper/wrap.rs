@@ -178,15 +178,20 @@ where
     ) -> Result<WrappedOutput<OuterParameters, D>> {
         println!("in prove");
         let mut pw = PartialWitness::new();
+        println!("in prove0");
         pw.set_verifier_data_target(
             &self.circuit_verifier_target,
             &self.circuit.data.verifier_only,
         );
+        println!("in prove1");
+
         pw.set_proof_with_pis_target(&self.circuit_proof_target, inner_proof);
+        println!("in prove2");
 
         let (hash_proof, _) = self.hash_circuit.prove_with_partial_witness(pw);
         self.hash_circuit.data.verify(hash_proof.clone())?;
         debug!("Successfully verified hash proof");
+        println!("in prove3");
 
         let mut pw = PartialWitness::new();
         pw.set_verifier_data_target(
@@ -194,6 +199,7 @@ where
             &self.hash_circuit.data.verifier_only,
         );
         pw.set_proof_with_pis_target(&self.hash_proof_target, &hash_proof);
+        println!("in prove4");
 
         let recursive_proof = self.recursive_circuit.data.prove(pw)?;
         self.recursive_circuit
@@ -207,6 +213,7 @@ where
             &self.recursive_circuit.data.verifier_only,
         );
         pw.set_proof_with_pis_target(&self.proof_target, &recursive_proof);
+        println!("in prove5");
 
         let proof = self.wrapper_circuit.data.prove(pw)?;
         self.wrapper_circuit.data.verify(proof.clone())?;
