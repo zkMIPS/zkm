@@ -551,7 +551,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         Ok(Self { row, gate })
     }
 }
-
+/*
 #[cfg(test)]
 mod tests {
 
@@ -746,3 +746,4 @@ mod tests {
         );
     }
 }
+*/

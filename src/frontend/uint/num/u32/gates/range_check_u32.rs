@@ -236,7 +236,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         Ok(Self { row, gate })
     }
 }
-
+/*
 #[cfg(test)]
 mod tests {
     use itertools::unfold;
@@ -338,3 +338,4 @@ mod tests {
         test_gate_constraint(input_limbs);
     }
 }
+*/

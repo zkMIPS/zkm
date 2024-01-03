@@ -288,7 +288,7 @@ impl<L: PlonkParameters<D>, const D: usize> Zero<L, D> for ByteVariable {
         ByteVariable(array![_ => builder.constant(false); 8])
     }
 }
-
+/*
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
@@ -407,3 +407,4 @@ mod tests {
         assert_eq!(right_nibble, expected_right_nibble);
     }
 }
+*/

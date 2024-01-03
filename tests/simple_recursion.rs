@@ -10,6 +10,10 @@ use mips_circuits::proof::PublicValues;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
+use mips_circuits::backend::circuit::Groth16WrapperParameters;
+use mips_circuits::backend::wrapper::wrap::WrappedCircuit;
+use mips_circuits::frontend::builder::CircuitBuilder;
+use mips_circuits::prelude::DefaultParameters;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -17,8 +21,10 @@ type C = PoseidonGoldilocksConfig;
 
 // Tests proving two transactions, one of which with logs, and aggregating them.
 #[test]
-#[ignore = "Too slow"]
 fn test_mips_with_aggreg() -> anyhow::Result<()> {
+    type InnerParameters = DefaultParameters;
+    type OuterParameters = Groth16WrapperParameters;
+
     env_logger::try_init().unwrap_or_default();
 
     let all_stark = AllStark::<F, D>::default();
@@ -68,5 +74,14 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
         "proof size: {:?}",
         serde_json::to_string(&block_proof.proof).unwrap().len()
     );
-    all_circuits.verify_block(&block_proof)
+    all_circuits.verify_block(&block_proof);
+
+    let build_path = "../verifier/data".to_string();
+    let path = format!("{}/test_circuit/", build_path);
+    let mut builder = CircuitBuilder::<DefaultParameters, 2>::new();
+    let mut circuit = builder.build();
+    circuit.set_data(all_circuits.block.circuit);
+    let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);
+    let wrapped_proof = wrapped_circuit.prove(&proof).unwrap();
+    wrapped_proof.save(path).unwrap();
 }

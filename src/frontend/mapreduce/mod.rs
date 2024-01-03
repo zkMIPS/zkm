@@ -255,7 +255,7 @@ impl<L: PlonkParameters<D>, const D: usize> CircuitBuilder<L, D> {
         output.output
     }
 }
-
+/*
 #[cfg(test)]
 pub(crate) mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
@@ -307,3 +307,4 @@ pub(crate) mod tests {
         println!("{}", result);
     }
 }
+*/

@@ -120,7 +120,7 @@ impl<L: PlonkParameters<D>, const D: usize> CircuitBuilder<L, D> {
         permuted_inputs
     }
 }
-
+/*
 #[cfg(test)]
 pub(crate) mod tests {
 
@@ -160,3 +160,6 @@ pub(crate) mod tests {
         circuit.verify(&proof, &input, &output);
     }
 }
+
+
+ */

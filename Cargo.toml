@@ -57,5 +57,5 @@ dotenv = "0.15.0"
 prettytable-rs = "^0.8"
 
 [dev-dependencies]
-env_logger = { version = "0.9.0", default-features = false }
+#env_logger = { version = "0.9.0", default-features = false }
 keccak-hash = "0.10.0"

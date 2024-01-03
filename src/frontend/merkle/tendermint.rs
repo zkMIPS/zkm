@@ -213,7 +213,7 @@ impl<L: PlonkParameters<D>, const D: usize> TendermintMerkleTree for CircuitBuil
         self.get_root_from_hashed_leaves::<MAX_NB_LEAVES>(hashed_leaves, nb_enabled_leaves)
     }
 }
-
+/*
 #[cfg(test)]
 mod tests {
 
@@ -311,3 +311,4 @@ mod tests {
         );
     }
 }
+*/

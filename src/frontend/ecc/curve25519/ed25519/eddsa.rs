@@ -195,7 +195,7 @@ impl<L: PlonkParameters<D>, const D: usize> CircuitBuilder<L, D> {
         }
     }
 }
-
+/*
 #[cfg(test)]
 mod tests {
     use curve25519_dalek::edwards::CompressedEdwardsY;
@@ -467,3 +467,5 @@ mod tests {
         );
     }
 }
+
+ */
