@@ -4,12 +4,17 @@ use std::marker::PhantomData;
 
 use ff::{Field as ff_Field, PrimeField};
 use num::BigUint;
+use plonky2::field::extension::Extendable;
 use plonky2::field::extension::quadratic::QuadraticExtension;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::field::types::Field;
+use plonky2::gates::poseidon::PoseidonGate;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::poseidon::{PoseidonHash, PoseidonPermutation};
-use plonky2::plonk::config::{GenericConfig, GenericHashOut, Hasher};
+use plonky2::hash::hashing::PlonkyPermutation;
+use plonky2::hash::poseidon::{PoseidonHash, PoseidonPermutation, SPONGE_WIDTH};
+use plonky2::iop::target::{BoolTarget, Target};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, GenericHashOut, Hasher};
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -193,6 +198,39 @@ impl<F: RichField> Hasher<F> for PoseidonBN128Hash {
             value: state[0],
             _phantom: PhantomData,
         }
+    }
+}
+
+impl<F: RichField> AlgebraicHasher<F> for PoseidonBN128Hash {
+    type AlgebraicPermutation = PoseidonPermutation<Target>;
+
+    fn permute_swapped<const D: usize>(
+        inputs: Self::AlgebraicPermutation,
+        swap: BoolTarget,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self::AlgebraicPermutation
+        where
+            F: RichField + Extendable<D>,
+    {
+        let gate_type = PoseidonGate::<F, D>::new();
+        let gate = builder.add_gate(gate_type, vec![]);
+
+        let swap_wire = PoseidonGate::<F, D>::WIRE_SWAP;
+        let swap_wire = Target::wire(gate, swap_wire);
+        builder.connect(swap.target, swap_wire);
+
+        // Route input wires.
+        let inputs = inputs.as_ref();
+        for i in 0..SPONGE_WIDTH {
+            let in_wire = PoseidonGate::<F, D>::wire_input(i);
+            let in_wire = Target::wire(gate, in_wire);
+            builder.connect(inputs[i], in_wire);
+        }
+
+        // Collect output wires.
+        Self::AlgebraicPermutation::new(
+            (0..SPONGE_WIDTH).map(|i| Target::wire(gate, PoseidonGate::<F, D>::wire_output(i))),
+        )
     }
 }
 
