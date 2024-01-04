@@ -1076,7 +1076,8 @@ where
             .map_err(|_| {
                 anyhow::Error::msg("Invalid conversion when setting public values targets.")
             })?;
-        println!("block_inputs.get_targets().len() :{:?}",block_inputs.get_targets().len());
+        println!("block_inputs.get_targets().len() :{:?}",block_inputs.target_values.len());
+
         let block_proof = self.block.circuit.prove(block_inputs)?;
         Ok((block_proof, public_values))
     }
