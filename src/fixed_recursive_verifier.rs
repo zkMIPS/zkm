@@ -253,7 +253,7 @@ where
     parent_block_proof: ProofWithPublicInputsTarget<D>,
     agg_root_proof: ProofWithPublicInputsTarget<D>,
     public_values: PublicValuesTarget,
-    cyclic_vk: VerifierCircuitTarget,
+    // cyclic_vk: VerifierCircuitTarget,
 }
 
 impl<F, C, const D: usize> BlockCircuitData<F, C, D>
@@ -272,7 +272,7 @@ where
         buffer.write_target_proof_with_public_inputs(&self.parent_block_proof)?;
         buffer.write_target_proof_with_public_inputs(&self.agg_root_proof)?;
         self.public_values.to_buffer(buffer)?;
-        buffer.write_target_verifier_circuit(&self.cyclic_vk)?;
+        // buffer.write_target_verifier_circuit(&self.cyclic_vk)?;
         Ok(())
     }
 
@@ -286,14 +286,14 @@ where
         let parent_block_proof = buffer.read_target_proof_with_public_inputs()?;
         let agg_root_proof = buffer.read_target_proof_with_public_inputs()?;
         let public_values = PublicValuesTarget::from_buffer(buffer)?;
-        let cyclic_vk = buffer.read_target_verifier_circuit()?;
+        // let cyclic_vk = buffer.read_target_verifier_circuit()?;
         Ok(Self {
             circuit,
             has_parent_block,
             parent_block_proof,
             agg_root_proof,
             public_values,
-            cyclic_vk,
+            // cyclic_vk,
         })
     }
 }
@@ -761,7 +761,7 @@ where
 
         // Make connections between block proofs, and check initial and final block values.
         //Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
-        let cyclic_vk = builder.add_verifier_data_public_inputs();
+        // let cyclic_vk = builder.add_verifier_data_public_inputs();
 
 
         builder
@@ -785,7 +785,7 @@ where
             parent_block_proof,
             agg_root_proof,
             public_values,
-            cyclic_vk,
+            // cyclic_vk,
         }
     }
 
@@ -1081,8 +1081,8 @@ where
 
         block_inputs.set_proof_with_pis_target(&self.block.agg_root_proof, agg_root_proof);
 
-        block_inputs
-            .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
+        // block_inputs
+        //     .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
         set_public_value_targets(&mut block_inputs, &self.block.public_values, &public_values)
             .map_err(|_| {
