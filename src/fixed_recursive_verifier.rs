@@ -764,13 +764,13 @@ where
         // let cyclic_vk = builder.add_verifier_data_public_inputs();
 
 
-        builder
-            .conditionally_verify_cyclic_proof_or_dummy::<C>(
-                has_parent_block,
-                &parent_block_proof,
-                &expected_common_data,
-            )
-            .expect("Failed to build cyclic recursion circuit");
+        // builder
+        //     .conditionally_verify_cyclic_proof_or_dummy::<C>(
+        //         has_parent_block,
+        //         &parent_block_proof,
+        //         &expected_common_data,
+        //     )
+        //     .expect("Failed to build cyclic recursion circuit");
 
 
 
