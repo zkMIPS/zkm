@@ -1055,7 +1055,7 @@ where
             self.block.has_parent_block,
             opt_parent_block_proof.is_some(),
         );
-
+/*
         if let Some(parent_block_proof) = opt_parent_block_proof {
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
@@ -1078,7 +1078,7 @@ where
         }
 
 
-
+*/
         block_inputs.set_proof_with_pis_target(&self.block.agg_root_proof, agg_root_proof);
 
         // block_inputs
