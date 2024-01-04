@@ -1092,7 +1092,7 @@ where
 
 */
 
-        let block_proof = self.block.circuit.prove(block_inputs)?;
+        // let block_proof = self.block.circuit.prove(block_inputs)?;
         Ok((block_proof, public_values))
     }
 
