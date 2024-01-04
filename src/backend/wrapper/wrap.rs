@@ -69,18 +69,16 @@ where
             .map(ByteVariable::from_targets)
             .collect::<Vec<_>>();
 
-        hash_builder.watch_slice(&input_bytes, "input_bytes");
-        hash_builder.watch_slice(&output_bytes, "output_bytes");
+        // hash_builder.watch_slice(&input_bytes, "input_bytes");
+        // hash_builder.watch_slice(&output_bytes, "output_bytes");
 
         let input_hash = hash_builder.curta_sha256(&input_bytes);
         let output_hash = hash_builder.curta_sha256(&output_bytes);
 
-        println!("input_hash :{:?}",input_hash);
-        println!("output_hash :{:?}",output_hash);
 
 
-        hash_builder.watch(&input_hash, "input_hash");
-        hash_builder.watch(&output_hash, "output_hash");
+        // hash_builder.watch(&input_hash, "input_hash");
+        // hash_builder.watch(&output_hash, "output_hash");
 
         // We must truncate the top 3 bits because in the gnark-plonky2-verifier, the input_hash
         // and output_hash are both represented as 1 field element in the BN254 field to reduce
@@ -88,8 +86,8 @@ where
         let input_hash_zeroed = hash_builder.mask_be_bits(input_hash, 3);
         let output_hash_zeroed = hash_builder.mask_be_bits(output_hash, 3);
 
-        hash_builder.watch(&input_hash_zeroed, "input_hash_truncated");
-        hash_builder.watch(&output_hash_zeroed, "output_hash_truncated");
+        // hash_builder.watch(&input_hash_zeroed, "input_hash_truncated");
+        // hash_builder.watch(&output_hash_zeroed, "output_hash_truncated");
 
         let input_vars = input_hash_zeroed
             .as_bytes()
@@ -103,8 +101,8 @@ where
             .map(|b| b.to_variable(&mut hash_builder))
             .collect::<Vec<Variable>>();
 
-        hash_builder.watch_slice(&input_vars, "input_hash_truncated as vars");
-        hash_builder.watch_slice(&output_vars, "output_hash_truncated as vars");
+        // hash_builder.watch_slice(&input_vars, "input_hash_truncated as vars");
+        // hash_builder.watch_slice(&output_vars, "output_hash_truncated as vars");
 
         // Write input_hash, output_hash to public_inputs. In the gnark-plonky2-verifier, these
         // 64 bytes get summed to 2 field elements that correspond to the input_hash and output_hash
