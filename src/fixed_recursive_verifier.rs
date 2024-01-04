@@ -250,10 +250,10 @@ where
 {
     pub circuit: CircuitData<F, C, D>,
     has_parent_block: BoolTarget,
-    parent_block_proof: ProofWithPublicInputsTarget<D>,
-    agg_root_proof: ProofWithPublicInputsTarget<D>,
+    // parent_block_proof: ProofWithPublicInputsTarget<D>,
+    // agg_root_proof: ProofWithPublicInputsTarget<D>,
     // public_values: PublicValuesTarget,
-    cyclic_vk: VerifierCircuitTarget,
+    // cyclic_vk: VerifierCircuitTarget,
 }
 
 impl<F, C, const D: usize> BlockCircuitData<F, C, D>
@@ -269,10 +269,10 @@ where
     ) -> IoResult<()> {
         buffer.write_circuit_data(&self.circuit, gate_serializer, generator_serializer)?;
         buffer.write_target_bool(self.has_parent_block)?;
-        buffer.write_target_proof_with_public_inputs(&self.parent_block_proof)?;
-        buffer.write_target_proof_with_public_inputs(&self.agg_root_proof)?;
+        // buffer.write_target_proof_with_public_inputs(&self.parent_block_proof)?;
+        // buffer.write_target_proof_with_public_inputs(&self.agg_root_proof)?;
         // self.public_values.to_buffer(buffer)?;
-        buffer.write_target_verifier_circuit(&self.cyclic_vk)?;
+        // buffer.write_target_verifier_circuit(&self.cyclic_vk)?;
         Ok(())
     }
 
@@ -283,17 +283,17 @@ where
     ) -> IoResult<Self> {
         let circuit = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
         let has_parent_block = buffer.read_target_bool()?;
-        let parent_block_proof = buffer.read_target_proof_with_public_inputs()?;
-        let agg_root_proof = buffer.read_target_proof_with_public_inputs()?;
-        let public_values = PublicValuesTarget::from_buffer(buffer)?;
-        let cyclic_vk = buffer.read_target_verifier_circuit()?;
+        // let parent_block_proof = buffer.read_target_proof_with_public_inputs()?;
+        // let agg_root_proof = buffer.read_target_proof_with_public_inputs()?;
+        // let public_values = PublicValuesTarget::from_buffer(buffer)?;
+        // let cyclic_vk = buffer.read_target_verifier_circuit()?;
         Ok(Self {
             circuit,
             has_parent_block,
-            parent_block_proof,
-            agg_root_proof,
+            // parent_block_proof,
+            // agg_root_proof,
             // public_values,
-            cyclic_vk,
+            // cyclic_vk,
         })
     }
 }
@@ -744,6 +744,7 @@ where
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
         // let public_values = add_virtual_public_values(&mut builder);
         let has_parent_block = builder.add_virtual_bool_target_safe();
+        /*
         let parent_block_proof = builder.add_virtual_proof_with_pis(&expected_common_data);
         let agg_root_proof = builder.add_virtual_proof_with_pis(&agg.circuit.common);
 
@@ -771,17 +772,20 @@ where
 
          */
 
+
         let agg_verifier_data = builder.constant_verifier_data(&agg.circuit.verifier_only);
-        builder.verify_proof::<C>(&agg_root_proof, &agg_verifier_data, &agg.circuit.common);
+
+         */
+        // builder.verify_proof::<C>(&agg_root_proof, &agg_verifier_data, &agg.circuit.common);
 
         let circuit = builder.build::<C>();
         BlockCircuitData {
             circuit,
             has_parent_block,
-            parent_block_proof,
-            agg_root_proof,
+            // parent_block_proof,
+            // agg_root_proof,
             // public_values,
-            cyclic_vk,
+            // cyclic_vk,
         }
     }
 
@@ -1074,11 +1078,13 @@ where
         }
 
          */
-
+        /*
         block_inputs.set_proof_with_pis_target(&self.block.agg_root_proof, agg_root_proof);
 
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
+
+         */
         /*
         set_public_value_targets(&mut block_inputs, &self.block.public_values, &public_values)
             .map_err(|_| {
