@@ -75,6 +75,10 @@ where
         let input_hash = hash_builder.curta_sha256(&input_bytes);
         let output_hash = hash_builder.curta_sha256(&output_bytes);
 
+        println!("input_hash :{:?}",input_hash);
+        println!("output_hash :{:?}",output_hash);
+
+
         hash_builder.watch(&input_hash, "input_hash");
         hash_builder.watch(&output_hash, "output_hash");
 
