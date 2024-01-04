@@ -271,7 +271,7 @@ where
         buffer.write_target_bool(self.has_parent_block)?;
         buffer.write_target_proof_with_public_inputs(&self.parent_block_proof)?;
         buffer.write_target_proof_with_public_inputs(&self.agg_root_proof)?;
-        self.public_values.to_buffer(buffer)?;
+        // self.public_values.to_buffer(buffer)?;
         buffer.write_target_verifier_circuit(&self.cyclic_vk)?;
         Ok(())
     }
@@ -292,7 +292,7 @@ where
             has_parent_block,
             parent_block_proof,
             agg_root_proof,
-            public_values,
+            // public_values,
             cyclic_vk,
         })
     }
