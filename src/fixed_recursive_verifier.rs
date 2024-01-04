@@ -742,7 +742,7 @@ where
         };
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
-        // let public_values = add_virtual_public_values(&mut builder);
+        let public_values = add_virtual_public_values(&mut builder);
         let has_parent_block = builder.add_virtual_bool_target_safe();
         let parent_block_proof = builder.add_virtual_proof_with_pis(&expected_common_data);
         let agg_root_proof = builder.add_virtual_proof_with_pis(&agg.circuit.common);
@@ -1079,13 +1079,13 @@ where
 
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
-        /*
+
         set_public_value_targets(&mut block_inputs, &self.block.public_values, &public_values)
             .map_err(|_| {
                 anyhow::Error::msg("Invalid conversion when setting public values targets.")
             })?;
         println!("block_inputs.get_targets().len() :{:?}",block_inputs.target_values.len());
-        */
+
         let block_proof = self.block.circuit.prove(block_inputs)?;
         Ok((block_proof, public_values))
     }
