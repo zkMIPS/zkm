@@ -761,6 +761,7 @@ where
 
         // Make connections between block proofs, and check initial and final block values.
         //Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
+        let cyclic_vk = builder.add_verifier_data_public_inputs();
 
 
         builder
@@ -773,7 +774,6 @@ where
 
 
 
-        let cyclic_vk = builder.add_verifier_data_public_inputs();
 
         let agg_verifier_data = builder.constant_verifier_data(&agg.circuit.verifier_only);
         builder.verify_proof::<C>(&agg_root_proof, &agg_verifier_data, &agg.circuit.common);
