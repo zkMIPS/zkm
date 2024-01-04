@@ -747,6 +747,9 @@ where
         let parent_block_proof = builder.add_virtual_proof_with_pis(&expected_common_data);
         let agg_root_proof = builder.add_virtual_proof_with_pis(&agg.circuit.common);
 
+
+        let cyclic_vk = builder.add_verifier_data_public_inputs();
+
         // FIXME
         // Connect block hashes
         //Self::connect_block_hashes(&mut builder, &parent_block_proof, &agg_root_proof);
@@ -757,7 +760,6 @@ where
         // Make connections between block proofs, and check initial and final block values.
         //Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
 
-        let cyclic_vk = builder.add_verifier_data_public_inputs();
 
         builder
             .conditionally_verify_cyclic_proof_or_dummy::<C>(
@@ -1089,15 +1091,15 @@ where
     }
 
     pub fn verify_block(&self, block_proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
-        self.block.circuit.verify(block_proof.clone())?;
-        /*
-        check_cyclic_proof_verifier_data(
-            block_proof,
-            &self.block.circuit.verifier_only,
-            &self.block.circuit.common,
-        )
+        self.block.circuit.verify(block_proof.clone())
 
-         */
+        // check_cyclic_proof_verifier_data(
+        //     block_proof,
+        //     &self.block.circuit.verifier_only,
+        //     &self.block.circuit.common,
+        // )
+
+
     }
 }
 
