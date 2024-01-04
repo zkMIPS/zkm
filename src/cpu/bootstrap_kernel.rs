@@ -6,6 +6,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
+use crate::witness::util::keccak_sponge_log;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
@@ -39,22 +40,20 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     final_cpu_row.clock = F::from_canonical_usize(state.traces.clock());
     final_cpu_row.is_bootstrap_kernel = F::ONE;
     final_cpu_row.is_keccak_sponge = F::ONE;
-    /*
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
     final_cpu_row.mem_channels[0].value = F::ZERO; // context
     final_cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize); // segment
     final_cpu_row.mem_channels[2].value = F::ZERO; // virt
-    final_cpu_row.mem_channels[3].value = F::from_canonical_usize(KERNEL.code.len()); // len
+    final_cpu_row.mem_channels[3].value = F::from_canonical_usize(kernel.code.len()); // len
 
     // FIXME: store all the hash
-    final_cpu_row.mem_channels[4].value = KERNEL.code_hash.map(F::from_canonical_u32)[0];
+    final_cpu_row.mem_channels[4].value = kernel.code_hash.map(F::from_canonical_u32)[0];
     //final_cpu_row.mem_channels[4].value.reverse();
     keccak_sponge_log(
         state,
         MemoryAddress::new(0, Segment::Code, 0),
-        KERNEL.code.clone(),
+        kernel.code.clone(),
     );
-    */
     state.traces.push_cpu(final_cpu_row);
 
     state.memory.apply_ops(&state.traces.memory_ops);

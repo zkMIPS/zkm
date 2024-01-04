@@ -1,8 +1,15 @@
+use byteorder::LittleEndian;
+use byteorder::ByteOrder;
 use plonky2::field::types::Field;
 
+use crate::cpu::kernel::keccak_util::keccakf_u8s;
+use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
+use crate::cpu::membus::NUM_CHANNELS;
 use crate::cpu::columns::CpuColumnsView;
-
+use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
 use crate::cpu::membus::NUM_GP_CHANNELS;
+use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
+use crate::logic;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
@@ -276,7 +283,6 @@ pub(crate) fn mem_write_log<F: Field>(
     )
 }
 
-/*
 pub(crate) fn keccak_sponge_log<F: Field>(
     state: &mut GenerationState<F>,
     base_address: MemoryAddress,
@@ -355,4 +361,3 @@ fn xor_into_sponge<F: Field>(
         sponge_state[i] ^= block[i];
     }
 }
-*/
