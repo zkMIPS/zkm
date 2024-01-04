@@ -221,11 +221,11 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);
     println!("build finish");
 
-    let (proof_inputs,_) = block_proof.public_inputs.split_at(2);
-    let proof_conv =  ProofWithPublicInputs {
-        proof:block_proof.proof,
-        public_inputs: Vec::from(proof_inputs),
-    };
+    // let (proof_inputs,_) = block_proof.public_inputs.split_at(2);
+    // let proof_conv =  ProofWithPublicInputs {
+    //     proof:block_proof.proof,
+    //     public_inputs: Vec::from(proof_inputs),
+    // };
 
     let wrapped_proof = wrapped_circuit.prove(&block_proof).unwrap();
     wrapped_proof.save(path).unwrap();
