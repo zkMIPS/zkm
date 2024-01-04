@@ -56,9 +56,10 @@ where
         );
 
         let num_input_targets =0;
-        let (input_targets, output_targets) = circuit_proof_target
+        let (proof_input_targets, _) = circuit_proof_target
             .public_inputs
-            .split_at(num_input_targets);
+            .split_at(2);
+        let (input_targets,output_targets) = proof_input_targets.split_at(num_input_targets);
 
         let input_bytes = input_targets
             .chunks_exact(ByteVariable::nb_elements())

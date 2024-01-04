@@ -227,7 +227,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
         public_inputs: Vec::from(proof_inputs),
     };
 
-    let wrapped_proof = wrapped_circuit.prove(&proof_conv).unwrap();
+    let wrapped_proof = wrapped_circuit.prove(&block_proof).unwrap();
     wrapped_proof.save(path).unwrap();
 
     Ok(())
