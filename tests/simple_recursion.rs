@@ -15,6 +15,7 @@ use mips_circuits::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
 use mips_circuits::frontend::builder::CircuitBuilder;
 use mips_circuits::prelude::DefaultParameters;
 use mips_circuits::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
+use mips_circuits::frontend::vars::ByteVariable;
 
 
 type F = GoldilocksField;
@@ -30,6 +31,31 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
 
     env_logger::try_init().unwrap_or_default();
 
+    let mut builder = CircuitBuilder::<DefaultParameters, 2>::new();
+    let a = builder.evm_read::<ByteVariable>();
+    let _ = builder.evm_read::<ByteVariable>();
+    builder.evm_write(a);
+
+    let circuit = builder.build();
+    let mut input = circuit.input();
+    input.evm_write::<ByteVariable>(0u8);
+    input.evm_write::<ByteVariable>(0u8);
+    let (proof, _output) = circuit.prove(&input);
+
+    println!("circuit.io.input().len() {:?}", circuit.io.input().len());
+    println!("proof.public_inputs: {:?},proof.public_inputs.len(): {:?}", proof.public_inputs, proof.public_inputs.len());
+    println!("circuit.data.common.num_public_inputs {:?}", circuit.data.common.num_public_inputs);
+
+    let mut builder = CircuitBuilder::<DefaultParameters, 2>::new();
+    let mut circuit2 = builder.build();
+    circuit2.set_data(circuit.data);
+
+    let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit2);
+
+
+    let wrapped_proof = wrapped_circuit.prove(&proof).unwrap();
+    // wrapped_proof.save(path).unwrap();
+    /*
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
     // Preprocess all circuits.
@@ -90,6 +116,8 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     println!("build finish");
     let wrapped_proof = wrapped_circuit.prove(&block_proof).unwrap();
     wrapped_proof.save(path).unwrap();
+    */
+
 
     Ok(())
 }
