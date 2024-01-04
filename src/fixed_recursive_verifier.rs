@@ -12,7 +12,7 @@ use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::RecursiveChallenger;
 use plonky2::iop::target::{BoolTarget, Target};
-use plonky2::iop::witness::{PartialWitness, WitnessWrite};
+use plonky2::iop::witness::{PartialWitness, Witness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget,
@@ -1041,7 +1041,7 @@ where
         public_values: PublicValues,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let mut block_inputs = PartialWitness::new();
-
+        //1
         block_inputs.set_bool_target(
             self.block.has_parent_block,
             opt_parent_block_proof.is_some(),
@@ -1076,7 +1076,7 @@ where
             .map_err(|_| {
                 anyhow::Error::msg("Invalid conversion when setting public values targets.")
             })?;
-
+        println!("block_inputs.get_targets().len() :{:?}",block_inputs.get_targets().len());
         let block_proof = self.block.circuit.prove(block_inputs)?;
         Ok((block_proof, public_values))
     }

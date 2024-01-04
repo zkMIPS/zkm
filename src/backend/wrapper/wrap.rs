@@ -46,6 +46,7 @@ where
         // Standartize the public inputs/outputs to their hash and verify the circuit recursively.
         let mut hash_builder = CircuitBuilder::<InnerParameters, D>::new();
         let circuit_proof_target = hash_builder.add_virtual_proof_with_pis(&circuit.data.common);
+        println!("circuit.data.common.num_public_inputs {:?}", circuit.data.common.num_public_inputs);
         let circuit_verifier_target =
             hash_builder.constant_verifier_data::<InnerParameters>(&circuit.data);
         hash_builder.verify_proof::<InnerParameters>(
