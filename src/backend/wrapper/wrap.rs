@@ -55,7 +55,7 @@ where
             &circuit.data.common,
         );
 
-        let num_input_targets =35;
+        let num_input_targets =1;
         let (input_targets, output_targets) = circuit_proof_target
             .public_inputs
             .split_at(num_input_targets);
