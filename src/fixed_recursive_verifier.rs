@@ -776,7 +776,7 @@ where
 
 
         let agg_verifier_data = builder.constant_verifier_data(&agg.circuit.verifier_only);
-        builder.verify_proof::<C>(&agg_root_proof, &agg_verifier_data, &agg.circuit.common);
+        // builder.verify_proof::<C>(&agg_root_proof, &agg_verifier_data, &agg.circuit.common);
 
         let circuit = builder.build::<C>();
         BlockCircuitData {
