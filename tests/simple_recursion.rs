@@ -14,6 +14,7 @@ use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::proof::ProofWithPublicInputs;
 
 use mips_circuits::backend::circuit::Groth16WrapperParameters;
 use mips_circuits::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
@@ -219,9 +220,15 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     circuit.set_data(all_circuits.block.circuit);
     let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);
     println!("build finish");
-    let wrapped_proof = wrapped_circuit.prove(&block_proof).unwrap();
-    wrapped_proof.save(path).unwrap();
 
+    let (proof_inputs,_) = block_proof.public_inputs.split_at(2);
+    let proof_conv =  ProofWithPublicInputs {
+        proof:block_proof.proof,
+        public_inputs: Vec::from(proof_inputs),
+    };
+
+    let wrapped_proof = wrapped_circuit.prove(&proof_conv).unwrap();
+    wrapped_proof.save(path).unwrap();
 
     Ok(())
 }
