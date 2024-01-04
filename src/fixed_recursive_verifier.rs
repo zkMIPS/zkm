@@ -252,7 +252,7 @@ where
     has_parent_block: BoolTarget,
     // parent_block_proof: ProofWithPublicInputsTarget<D>,
     agg_root_proof: ProofWithPublicInputsTarget<D>,
-    // public_values: PublicValuesTarget,
+    public_values: PublicValuesTarget,
     cyclic_vk: VerifierCircuitTarget,
 }
 
@@ -271,7 +271,7 @@ where
         buffer.write_target_bool(self.has_parent_block)?;
         // buffer.write_target_proof_with_public_inputs(&self.parent_block_proof)?;
         buffer.write_target_proof_with_public_inputs(&self.agg_root_proof)?;
-        // self.public_values.to_buffer(buffer)?;
+        self.public_values.to_buffer(buffer)?;
         buffer.write_target_verifier_circuit(&self.cyclic_vk)?;
         Ok(())
     }
@@ -285,14 +285,14 @@ where
         let has_parent_block = buffer.read_target_bool()?;
         // let parent_block_proof = buffer.read_target_proof_with_public_inputs()?;
         let agg_root_proof = buffer.read_target_proof_with_public_inputs()?;
-        // let public_values = PublicValuesTarget::from_buffer(buffer)?;
+        let public_values = PublicValuesTarget::from_buffer(buffer)?;
         let cyclic_vk = buffer.read_target_verifier_circuit()?;
         Ok(Self {
             circuit,
             has_parent_block,
             // parent_block_proof,
             agg_root_proof,
-            // public_values,
+            public_values,
             cyclic_vk,
         })
     }
@@ -742,7 +742,7 @@ where
         };
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
-        // let public_values = add_virtual_public_values(&mut builder);
+        let public_values = add_virtual_public_values(&mut builder);
         let has_parent_block = builder.add_virtual_bool_target_safe();
         /*
         let parent_block_proof = builder.add_virtual_proof_with_pis(&expected_common_data);
@@ -757,9 +757,12 @@ where
         let _parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
         let _agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
 
+
+         */
         // Make connections between block proofs, and check initial and final block values.
         //Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
 
+        /*
         builder
             .conditionally_verify_cyclic_proof_or_dummy::<C>(
                 has_parent_block,
@@ -781,7 +784,7 @@ where
             has_parent_block,
             // parent_block_proof,
             agg_root_proof,
-            // public_values,
+            public_values,
             cyclic_vk,
         }
     }
@@ -1080,14 +1083,14 @@ where
 
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
-/*
+
         set_public_value_targets(&mut block_inputs, &self.block.public_values, &public_values)
             .map_err(|_| {
                 anyhow::Error::msg("Invalid conversion when setting public values targets.")
             })?;
         println!("block_inputs.get_targets().len() :{:?}",block_inputs.target_values.len());
 
- */
+
 
 
         let block_proof = self.block.circuit.prove(block_inputs)?;
