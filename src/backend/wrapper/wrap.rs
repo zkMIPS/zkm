@@ -54,7 +54,7 @@ where
             &circuit_verifier_target,
             &circuit.data.common,
         );
-
+        /*
         let num_input_targets =2;
         let (input_targets, output_targets) = circuit_proof_target
             .public_inputs
@@ -112,6 +112,8 @@ where
             .for_each(|v| {
                 hash_builder.write(v);
             });
+
+         */
         let hash_circuit = hash_builder.build();
 
         // An inner recursion to standardize the degree.
