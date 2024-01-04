@@ -8,11 +8,16 @@ use mips_circuits::fixed_recursive_verifier::AllRecursiveCircuits;
 use mips_circuits::proof::PublicValues;
 //use mips_circuits::cpu::kernel::assembler::segment_kernel;
 use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::types::Field;
+use plonky2::iop::witness::{PartialWitness, WitnessWrite};
+use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
+
 use mips_circuits::backend::circuit::Groth16WrapperParameters;
 use mips_circuits::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
-use mips_circuits::frontend::builder::CircuitBuilder;
+use mips_circuits::frontend::builder::CircuitBuilder as WrapperBuilder;
 use mips_circuits::prelude::DefaultParameters;
 use mips_circuits::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
 use mips_circuits::frontend::vars::ByteVariable;
@@ -31,24 +36,48 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
 
     env_logger::try_init().unwrap_or_default();
 
-    let mut builder = CircuitBuilder::<DefaultParameters, 2>::new();
-    let a = builder.evm_read::<ByteVariable>();
-    let _ = builder.evm_read::<ByteVariable>();
-    builder.evm_write(a);
+    let config = CircuitConfig::standard_recursion_config();
+    let mut builder = CircuitBuilder::<F, D>::new(config);
 
-    let circuit = builder.build();
-    let mut input = circuit.input();
-    input.evm_write::<ByteVariable>(8u8);
-    input.evm_write::<ByteVariable>(6u8);
-    let (proof, _output) = circuit.prove(&input);
+    // The arithmetic circuit.
+    let initial_a = builder.add_virtual_target();
+    let initial_b = builder.add_virtual_target();
+    let mut prev_target = initial_a;
+    let mut cur_target = initial_b;
+    for _ in 0..5 {
+        let temp = builder.add(prev_target, cur_target);
+        prev_target = cur_target;
+        cur_target = temp;
+    }
 
-    println!("circuit.io.input().len() {:?}", circuit.io.input().len());
+    // Public inputs are the two initial values (provided below) and the result (which is generated).
+    builder.register_public_input(initial_a);
+    builder.register_public_input(initial_b);
+    builder.register_public_input(cur_target);
+
+    // Provide initial values.
+    let mut pw = PartialWitness::new();
+    pw.set_target(initial_a, F::ZERO);
+    pw.set_target(initial_b, F::ONE);
+
+    let data = builder.build::<C>();
+    let proof = data.prove(pw.clone())?;
+
+
+    println!(
+        "100th Fibonacci number mod |F| (starting with {}, {}) is: {}",
+        proof.public_inputs[0], proof.public_inputs[1], proof.public_inputs[2]
+    );
+
+    data.verify(proof.clone());
+
+    println!("pw.target_values.len() {:?}", pw.target_values.len());
     println!("proof.public_inputs: {:?},proof.public_inputs.len(): {:?}", proof.public_inputs, proof.public_inputs.len());
-    println!("circuit.data.common.num_public_inputs {:?}", circuit.data.common.num_public_inputs);
+    println!("circuit.data.common.num_public_inputs {:?}", data.common.num_public_inputs);
 
-    let mut builder = CircuitBuilder::<DefaultParameters, 2>::new();
+    let mut builder = WrapperBuilder::<DefaultParameters, 2>::new();
     let mut circuit2 = builder.build();
-    circuit2.set_data(circuit.data);
+    circuit2.set_data(data);
 
     let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit2);
 
