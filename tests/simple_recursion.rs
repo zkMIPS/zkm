@@ -38,8 +38,8 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
 
     let circuit = builder.build();
     let mut input = circuit.input();
-    input.evm_write::<ByteVariable>(0u8);
-    input.evm_write::<ByteVariable>(0u8);
+    input.evm_write::<ByteVariable>(8u8);
+    input.evm_write::<ByteVariable>(6u8);
     let (proof, _output) = circuit.prove(&input);
 
     println!("circuit.io.input().len() {:?}", circuit.io.input().len());
