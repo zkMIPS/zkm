@@ -1053,7 +1053,7 @@ where
             // Initialize genesis_state_trie, state_root_after and the block number for correct connection between blocks.
             // Initialize `state_root_after`.
             let _state_trie_root_after_keys = 24..32;
-            let nonzero_pis = HashMap::new();
+            // let nonzero_pis = HashMap::new();
 
             // Initialize the block number.
             // FIXME
@@ -1062,7 +1062,7 @@ where
                 &cyclic_base_proof(
                     &self.block.circuit.common,
                     &self.block.circuit.verifier_only,
-                    nonzero_pis,
+                    vec![].into_iter().enumerate().collect(),
                 ),
             );
         }
