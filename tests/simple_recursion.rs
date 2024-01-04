@@ -81,9 +81,11 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
 
     let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit2);
 
+    let build_path = "../verifier/data".to_string();
+    let path = format!("{}/test_circuit/", build_path);
 
     let wrapped_proof = wrapped_circuit.prove(&proof).unwrap();
-    // wrapped_proof.save(path).unwrap();
+    wrapped_proof.save(path).unwrap();
     /*
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
