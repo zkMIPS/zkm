@@ -28,17 +28,17 @@ pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // GP channel 2: stack[-3] = virt
     // GP channel 3: stack[-4] = len
     // GP channel 4: pushed = outputs
-    let context = Column::single(COL_MAP.mem_channels[0].value);
-    let segment = Column::single(COL_MAP.mem_channels[1].value);
-    let virt = Column::single(COL_MAP.mem_channels[2].value);
-    let len = Column::single(COL_MAP.mem_channels[3].value);
+    let context = Column::single(COL_MAP.mem_channels[0].value[0]);
+    let segment = Column::single(COL_MAP.mem_channels[1].value[0]);
+    let virt = Column::single(COL_MAP.mem_channels[2].value[0]);
+    let len = Column::single(COL_MAP.mem_channels[3].value[0]);
 
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
 
     let mut cols = vec![context, segment, virt, len, timestamp];
     cols.extend(
-        vec![COL_MAP.mem_channels[4].value]
+        vec![COL_MAP.mem_channels[4].value[0]]
             .into_iter()
             .map(Column::single),
     );
@@ -81,9 +81,10 @@ pub(crate) fn ctl_filter_partial_memory<F: Field>() -> Column<F> {
 /// 36, out 68. But the looking table offers in0 77, in1 83, out 89.
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
     log::debug!("{:?}", COL_MAP.mem_channels);
-    let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value]).collect_vec();
-    res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value]));
-    res.extend(Column::singles(vec![COL_MAP.mem_channels[2].value]));
+    // FIXME: select all values
+    let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value[0]]).collect_vec();
+    res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value[0]]));
+    res.extend(Column::singles(vec![COL_MAP.mem_channels[2].value[0]]));
     res
 }
 
@@ -169,7 +170,7 @@ pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     ])
     .collect();
 
-    cols.extend(Column::singles(vec![channel_map.value]));
+    cols.extend(Column::singles(vec![channel_map.value[0]]));
 
     cols.push(mem_time_and_channel(MEM_GP_CHANNELS_IDX_START + channel));
 

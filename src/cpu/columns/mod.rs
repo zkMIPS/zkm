@@ -24,7 +24,7 @@ pub struct MemoryChannelView<T: Copy> {
     pub addr_context: T,
     pub addr_segment: T,
     pub addr_virtual: T,
-    pub value: T,
+    pub value: [T; 8],
 }
 
 #[repr(C)]

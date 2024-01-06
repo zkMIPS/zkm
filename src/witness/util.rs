@@ -39,7 +39,7 @@ fn to_bits32_le<F: Field>(n: u32) -> [F; 32] {
 
 pub(crate) fn fill_channel_with_value<F: Field>(row: &mut CpuColumnsView<F>, n: usize, val: u32) {
     let channel = &mut row.mem_channels[n];
-    channel.value = F::from_canonical_u32(val);
+    channel.value[0] = F::from_canonical_u32(val);
 }
 
 pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
@@ -73,7 +73,7 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
     channel.addr_context = F::from_canonical_usize(address.context);
     channel.addr_segment = F::from_canonical_usize(address.segment);
     channel.addr_virtual = F::from_canonical_usize(address.virt);
-    channel.value = F::from_canonical_u32(val);
+    channel.value[0] = F::from_canonical_u32(val);
 
     (val, op)
 }
@@ -127,7 +127,7 @@ pub(crate) fn reg_read_with_log<F: Field>(
     channel.addr_context = F::from_canonical_usize(address.context);
     channel.addr_segment = F::from_canonical_usize(address.segment);
     channel.addr_virtual = F::from_canonical_usize(address.virt);
-    channel.value = F::from_canonical_u32(result as u32);
+    channel.value[0] = F::from_canonical_u32(result as u32);
 
     Ok((result, op))
 }
@@ -183,7 +183,7 @@ pub(crate) fn reg_write_with_log<F: Field>(
     channel.addr_context = F::from_canonical_usize(address.context);
     channel.addr_segment = F::from_canonical_usize(address.segment);
     channel.addr_virtual = F::from_canonical_usize(address.virt);
-    channel.value = F::from_canonical_u32(value as u32);
+    channel.value[0] = F::from_canonical_u32(value as u32);
     Ok(op)
 }
 
@@ -224,7 +224,7 @@ pub(crate) fn push_no_write<F: Field>(
         channel.addr_context = F::from_canonical_usize(0);
         channel.addr_segment = F::from_canonical_usize(0);
         channel.addr_virtual = F::from_canonical_usize(0);
-        channel.value = F::from_canonical_u32(val);
+        channel.value[0] = F::from_canonical_u32(val);
     }
 }
 
@@ -243,7 +243,7 @@ pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
     channel.addr_context = F::from_canonical_usize(address.context);
     channel.addr_segment = F::from_canonical_usize(address.segment);
     channel.addr_virtual = F::from_canonical_usize(address.virt);
-    channel.value = F::from_canonical_u32(val);
+    channel.value[0] = F::from_canonical_u32(val);
     (val, op)
 }
 
@@ -263,7 +263,7 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     channel.addr_context = F::from_canonical_usize(address.context);
     channel.addr_segment = F::from_canonical_usize(address.segment);
     channel.addr_virtual = F::from_canonical_usize(address.virt);
-    channel.value = F::from_canonical_u32(val);
+    channel.value[0] = F::from_canonical_u32(val);
 
     op
 }
