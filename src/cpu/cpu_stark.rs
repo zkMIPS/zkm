@@ -166,10 +166,8 @@ pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     ])
     .collect();
 
-    cols.extend(Column::singles(vec![channel_map.value[0]]));
-
+    cols.extend(Column::singles(channel_map.value));
     cols.push(mem_time_and_channel(MEM_GP_CHANNELS_IDX_START + channel));
-
     cols
 }
 
