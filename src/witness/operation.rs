@@ -321,6 +321,7 @@ pub(crate) fn generate_binary_arithmetic_imm_op<F: Field>(
     Ok(())
 }
 
+// TODO: will be used in the future to offload the evm's keccak256 in user's program
 pub(crate) fn generate_keccak_general<F: Field>(
     _state: &mut GenerationState<F>,
     _row: CpuColumnsView<F>,
@@ -356,6 +357,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
     Ok(())
 }
 
+// TODO: can be removed?
 pub(crate) fn generate_prover_input<F: Field>(
     _state: &mut GenerationState<F>,
     _row: CpuColumnsView<F>,

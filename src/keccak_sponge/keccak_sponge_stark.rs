@@ -22,6 +22,8 @@ use crate::keccak_sponge::columns::*;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
+pub const U8S_PER_CTL: usize = 32;
+pub const U32S_PER_CTL: usize = 8;
 
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
@@ -112,16 +114,12 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
 }
 
 pub(crate) fn num_logic_ctls() -> usize {
-    const U8S_PER_CTL: usize = 32;
     ceil_div_usize(KECCAK_RATE_BYTES, U8S_PER_CTL)
 }
 
 /// CTL for performing the `i`th logic CTL. Since we need to do 136 byte XORs, and the logic CTL can
 /// XOR 32 bytes per CTL, there are 5 such CTLs.
 pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
-    const U32S_PER_CTL: usize = 8;
-    const U8S_PER_CTL: usize = 32;
-
     debug_assert!(i < num_logic_ctls());
     let cols = KECCAK_SPONGE_COL_MAP;
 
