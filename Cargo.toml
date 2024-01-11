@@ -12,7 +12,7 @@ plonky2 = { git = "https://github.com/mir-protocol/plonky2.git", default-feature
 starky = { git = "https://github.com/mir-protocol/plonky2.git", branch = "main" }
 plonky2_util = { git = "https://github.com/mir-protocol/plonky2.git", branch = "main" }
 plonky2_maybe_rayon = { git = "https://github.com/mir-protocol/plonky2.git", branch = "main" }
-curta = {path = "./../../../project/mips_verifier/curta/curta" }
+curta = { git ="https://github.com/zkMIPS/curta.git", branch = "main" }
 tokio = { version = "1", features = ["full"] }
 backtrace = "0.3"
 array-macro = "2.1.5"
