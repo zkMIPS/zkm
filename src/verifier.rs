@@ -396,11 +396,11 @@ pub(crate) mod testutils {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::io::BufWriter;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Sample;
+    use std::fs::File;
+    use std::io::BufWriter;
 
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
@@ -433,12 +433,12 @@ mod tests {
     #[test]
     #[ignore = "Too slow"]
     fn test_mips_prove_and_verify() {
+        use crate::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
+        use plonky2::fri::proof::FriProof;
+        use plonky2::hash::merkle_tree::MerkleCap;
+        use plonky2::plonk::proof::OpeningSet;
         use plonky2::plonk::proof::Proof as Plonky2Proof;
         use plonky2::plonk::proof::ProofWithPublicInputs;
-        use plonky2::hash::merkle_tree::MerkleCap;
-        use plonky2::fri::proof::FriProof;
-        use plonky2::plonk::proof::OpeningSet;
-        use crate::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
 
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;
@@ -455,16 +455,20 @@ mod tests {
         let mut row = 0;
         for proof in allproof.stark_proofs.clone() {
             let proof_str = serde_json::to_string(&proof.proof).unwrap();
-            let plonky2_proof: Plonky2Proof<<C as GenericConfig<D>>::F, PoseidonBN128GoldilocksConfig, D> = Plonky2Proof {
+            let plonky2_proof: Plonky2Proof<
+                <C as GenericConfig<D>>::F,
+                PoseidonBN128GoldilocksConfig,
+                D,
+            > = Plonky2Proof {
                 wires_cap: proof.proof.trace_cap.clone(),
                 plonk_zs_partial_products_cap: proof.proof.auxiliary_polys_cap.clone(),
                 quotient_polys_cap: proof.proof.quotient_polys_cap,
                 openings: OpeningSet::default(),
-                opening_proof: proof.proof.opening_proof.clone()
+                opening_proof: proof.proof.opening_proof.clone(),
             };
             let proof_with_public_input = ProofWithPublicInputs {
                 proof: plonky2_proof,
-                public_inputs: vec![]
+                public_inputs: vec![],
             };
             let proof_path = format!("./proof_{}.json", row);
             let mut file = File::create(proof_path).unwrap();

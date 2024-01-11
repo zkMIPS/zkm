@@ -1,7 +1,6 @@
 #![feature(decl_macro)]
 #![feature(generic_arg_infer)]
 #![feature(trait_upcasting)]
-
 #![allow(dead_code)]
 pub mod all_stark;
 pub mod arithmetic;
@@ -27,16 +26,15 @@ pub mod recursive_verifier;
 pub mod stark;
 pub mod stark_testing;
 pub mod util;
+pub mod utils;
 pub mod vanishing_poly;
 pub mod verifier;
-pub mod utils;
 pub mod witness;
 
 //#[macro_use]
 extern crate prettytable;
 
 extern crate alloc;
-
 
 pub mod prelude {
     pub use plonky2::field::extension::Extendable;

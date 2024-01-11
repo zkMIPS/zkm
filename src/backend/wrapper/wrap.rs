@@ -46,7 +46,10 @@ where
         // Standartize the public inputs/outputs to their hash and verify the circuit recursively.
         let mut hash_builder = CircuitBuilder::<InnerParameters, D>::new();
         let circuit_proof_target = hash_builder.add_virtual_proof_with_pis(&circuit.data.common);
-        println!("circuit.data.common.num_public_inputs {:?}", circuit.data.common.num_public_inputs);
+        println!(
+            "circuit.data.common.num_public_inputs {:?}",
+            circuit.data.common.num_public_inputs
+        );
         let circuit_verifier_target =
             hash_builder.constant_verifier_data::<InnerParameters>(&circuit.data);
         hash_builder.verify_proof::<InnerParameters>(
@@ -55,11 +58,9 @@ where
             &circuit.data.common,
         );
 
-        let num_input_targets =0;
-        let (proof_input_targets, _) = circuit_proof_target
-            .public_inputs
-            .split_at(2);
-        let (input_targets,output_targets) = proof_input_targets.split_at(num_input_targets);
+        let num_input_targets = 0;
+        let (proof_input_targets, _) = circuit_proof_target.public_inputs.split_at(2);
+        let (input_targets, output_targets) = proof_input_targets.split_at(num_input_targets);
 
         let input_bytes = input_targets
             .chunks_exact(ByteVariable::nb_elements())
@@ -75,8 +76,6 @@ where
 
         let input_hash = hash_builder.curta_sha256(&input_bytes);
         let output_hash = hash_builder.curta_sha256(&output_bytes);
-
-
 
         // hash_builder.watch(&input_hash, "input_hash");
         // hash_builder.watch(&output_hash, "output_hash");
@@ -115,7 +114,6 @@ where
             .for_each(|v| {
                 hash_builder.write(v);
             });
-
 
         let hash_circuit = hash_builder.build();
 

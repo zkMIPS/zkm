@@ -4,8 +4,8 @@ use std::marker::PhantomData;
 
 use ff::{Field as ff_Field, PrimeField};
 use num::BigUint;
-use plonky2::field::extension::Extendable;
 use plonky2::field::extension::quadratic::QuadraticExtension;
+use plonky2::field::extension::Extendable;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::field::types::Field;
 use plonky2::gates::poseidon::PoseidonGate;
@@ -200,7 +200,6 @@ impl<F: RichField> Hasher<F> for PoseidonBN128Hash {
         }
     }
 }
-
 
 #[cfg(test)]
 pub mod tests {

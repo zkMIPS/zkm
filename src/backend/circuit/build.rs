@@ -29,7 +29,7 @@ use crate::utils::serde::{BufferRead, BufferWrite};
 /// It can compute a function in the form f(publicInputs, privateInputs) = publicOutputs.
 #[derive(Debug)]
 pub struct CircuitBuild<L: PlonkParameters<D>, const D: usize> {
-    pub  data: CircuitData<L::Field, L::Config, D>,
+    pub data: CircuitData<L::Field, L::Config, D>,
     pub io: CircuitIO<D>,
     pub async_hints: BTreeMap<usize, AsyncHintDataRef<L, D>>,
 }
@@ -40,7 +40,7 @@ impl<L: PlonkParameters<D>, const D: usize> CircuitBuild<L, D> {
         PublicInput::new(&self.io)
     }
 
-    pub fn set_data(&mut self, data:CircuitData<L::Field, L::Config, D>)  {
+    pub fn set_data(&mut self, data: CircuitData<L::Field, L::Config, D>) {
         self.data = data
     }
 

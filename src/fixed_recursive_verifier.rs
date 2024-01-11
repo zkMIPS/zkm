@@ -747,7 +747,6 @@ where
 
         let parent_block_proof = builder.add_virtual_proof_with_pis(&expected_common_data);
 
-
         let agg_root_proof = builder.add_virtual_proof_with_pis(&agg.circuit.common);
 
         // FIXME
@@ -757,12 +756,9 @@ where
         let _parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
         let _agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
 
-
-
         // Make connections between block proofs, and check initial and final block values.
         //Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
         let cyclic_vk = builder.add_verifier_data_public_inputs();
-
 
         builder
             .conditionally_verify_cyclic_proof_or_dummy::<C>(
@@ -771,9 +767,6 @@ where
                 &expected_common_data,
             )
             .expect("Failed to build cyclic recursion circuit");
-
-
-
 
         let agg_verifier_data = builder.constant_verifier_data(&agg.circuit.verifier_only);
         builder.verify_proof::<C>(&agg_root_proof, &agg_verifier_data, &agg.circuit.common);
@@ -1077,7 +1070,6 @@ where
             );
         }
 
-
         block_inputs.set_proof_with_pis_target(&self.block.agg_root_proof, agg_root_proof);
 
         block_inputs
@@ -1087,9 +1079,10 @@ where
             .map_err(|_| {
                 anyhow::Error::msg("Invalid conversion when setting public values targets.")
             })?;
-        println!("block_inputs.get_targets().len() :{:?}",block_inputs.target_values.len());
-
-
+        println!(
+            "block_inputs.get_targets().len() :{:?}",
+            block_inputs.target_values.len()
+        );
 
         let block_proof = self.block.circuit.prove(block_inputs)?;
         Ok((block_proof, public_values))

@@ -10,19 +10,18 @@ use mips_circuits::proof::PublicValues;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::field::types::Field;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use plonky2::util::timing::TimingTree;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::proof::ProofWithPublicInputs;
+use plonky2::util::timing::TimingTree;
 
 use mips_circuits::backend::circuit::Groth16WrapperParameters;
+use mips_circuits::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
 use mips_circuits::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
 use mips_circuits::frontend::builder::CircuitBuilder as WrapperBuilder;
-use mips_circuits::prelude::DefaultParameters;
-use mips_circuits::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
 use mips_circuits::frontend::vars::ByteVariable;
-
+use mips_circuits::prelude::DefaultParameters;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -31,7 +30,6 @@ type C = PoseidonGoldilocksConfig;
 // Tests proving two transactions, one of which with logs, and aggregating them.
 #[test]
 fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
-
     type InnerParameters = DefaultParameters;
     type OuterParameters = Groth16WrapperParameters;
 
@@ -64,7 +62,6 @@ fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
     let data = builder.build::<C>();
     let proof = data.prove(pw.clone())?;
 
-
     println!(
         "100th Fibonacci number mod |F| (starting with {}, {}) is: {}",
         proof.public_inputs[0], proof.public_inputs[1], proof.public_inputs[2]
@@ -73,8 +70,15 @@ fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
     data.verify(proof.clone());
 
     println!("pw.target_values.len() {:?}", pw.target_values.len());
-    println!("proof.public_inputs: {:?},proof.public_inputs.len(): {:?}", proof.public_inputs, proof.public_inputs.len());
-    println!("circuit.data.common.num_public_inputs {:?}", data.common.num_public_inputs);
+    println!(
+        "proof.public_inputs: {:?},proof.public_inputs.len(): {:?}",
+        proof.public_inputs,
+        proof.public_inputs.len()
+    );
+    println!(
+        "circuit.data.common.num_public_inputs {:?}",
+        data.common.num_public_inputs
+    );
 
     let mut builder = WrapperBuilder::<DefaultParameters, 2>::new();
     let mut circuit2 = builder.build();
@@ -150,13 +154,11 @@ fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
     wrapped_proof.save(path).unwrap();
     */
 
-
     Ok(())
 }
 
 #[test]
 fn test_mips_with_aggreg() -> anyhow::Result<()> {
-
     type InnerParameters = DefaultParameters;
     type OuterParameters = Groth16WrapperParameters;
 
@@ -210,7 +212,10 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
         serde_json::to_string(&block_proof.proof).unwrap().len()
     );
     all_circuits.verify_block(&block_proof);
-    println!("all_circuits.block.circuit.common.num_public_inputs {:?}", all_circuits.block.circuit.common.num_public_inputs);
+    println!(
+        "all_circuits.block.circuit.common.num_public_inputs {:?}",
+        all_circuits.block.circuit.common.num_public_inputs
+    );
     println!("block_proof.public_inputs {:?}", block_proof.public_inputs);
 
     let build_path = "../verifier/data".to_string();
