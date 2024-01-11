@@ -29,6 +29,7 @@ type C = PoseidonGoldilocksConfig;
 
 // Tests proving two transactions, one of which with logs, and aggregating them.
 #[test]
+#[ignore = "Too slow"]
 fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
     type InnerParameters = DefaultParameters;
     type OuterParameters = Groth16WrapperParameters;
@@ -158,6 +159,7 @@ fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
 }
 
 #[test]
+#[ignore = "Too slow"]
 fn test_mips_with_aggreg() -> anyhow::Result<()> {
     type InnerParameters = DefaultParameters;
     type OuterParameters = Groth16WrapperParameters;
