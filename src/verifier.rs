@@ -470,7 +470,7 @@ mod tests {
             let mut file = File::create(proof_path).unwrap();
             let mut writer = BufWriter::new(file);
             serde_json::to_writer(&mut writer, &proof_with_public_input);
-            println!("row:{} proof bytes:{}", row, proof_str.len());
+            log::trace!("row:{} proof bytes:{}", row, proof_str.len());
             row = row + 1;
             count_bytes = count_bytes + proof_str.len();
         }
