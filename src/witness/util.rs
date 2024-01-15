@@ -1,16 +1,16 @@
-use byteorder::LittleEndian;
 use byteorder::ByteOrder;
+use byteorder::LittleEndian;
 use plonky2::field::types::Field;
 
-use crate::cpu::kernel::keccak_util::keccakf_u8s;
-use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
-use crate::cpu::membus::NUM_CHANNELS;
 use crate::cpu::columns::CpuColumnsView;
-use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
+use crate::cpu::kernel::keccak_util::keccakf_u8s;
+use crate::cpu::membus::NUM_CHANNELS;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
-use crate::logic;
 use crate::generation::state::GenerationState;
+use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
+use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
+use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
+use crate::logic;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
@@ -305,9 +305,10 @@ pub(crate) fn keccak_sponge_log<F: Field>(
             address.increment();
         }
         xor_into_sponge(state, &mut sponge_state, block.try_into().unwrap());
-        state
-            .traces
-            .push_keccak_bytes(sponge_state, clock * NUM_CHANNELS);
+        state.traces.push_keccak_bytes(
+            sponge_state,
+            clock * NUM_CHANNELS + MemoryChannel::Code.index(),
+        );
         keccakf_u8s(&mut sponge_state);
     }
 
@@ -332,13 +333,14 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         final_block[KECCAK_RATE_BYTES - 1] = 0b10000000;
     }
     xor_into_sponge(state, &mut sponge_state, &final_block);
-    state
-        .traces
-        .push_keccak_bytes(sponge_state, clock * NUM_CHANNELS);
+    state.traces.push_keccak_bytes(
+        sponge_state,
+        clock * NUM_CHANNELS + MemoryChannel::Code.index(),
+    );
 
     state.traces.push_keccak_sponge(KeccakSpongeOp {
         base_address,
-        timestamp: clock * NUM_CHANNELS,
+        timestamp: clock * NUM_CHANNELS + MemoryChannel::Code.index(),
         input,
     });
 }

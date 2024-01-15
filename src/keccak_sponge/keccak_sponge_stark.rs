@@ -22,7 +22,7 @@ use crate::keccak_sponge::columns::*;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
-pub const U8S_PER_CTL: usize = 32 * 8;
+pub const U8S_PER_CTL: usize = 4;
 pub const U32S_PER_CTL: usize = 1;
 
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
