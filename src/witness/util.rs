@@ -211,9 +211,6 @@ pub(crate) fn push_no_write<F: Field>(
     val: u32,
     channel_opt: Option<usize>,
 ) {
-    // state.registers.stack_top = val;
-    // state.registers.stack_len += 1;
-
     if let Some(channel) = channel_opt {
         // let val_limbs: [u64; 4] = val.0;
 
@@ -285,24 +282,31 @@ pub(crate) fn mem_write_log<F: Field>(
 
 pub(crate) fn keccak_sponge_log<F: Field>(
     state: &mut GenerationState<F>,
-    base_address: MemoryAddress,
+    base_address: &[MemoryAddress],
     input: Vec<u8>,
 ) {
     let clock = state.traces.clock();
 
-    let mut address = base_address;
+    let mut addr_idx = 0;
     let mut input_blocks = input.chunks_exact(KECCAK_RATE_BYTES);
     let mut sponge_state = [0u8; KECCAK_WIDTH_BYTES];
+    // Since the keccak read byte by byte, and the memory unit is of 4-byte, we just need to read
+    // the same memory for 4 keccak-op
     for block in input_blocks.by_ref() {
-        for &byte in block {
+        for i in 0..block.len() {
+        //for &byte in block {
+            let align = i / 4;
+            let val = u32::from_le_bytes(block[align..(align+4)].try_into().unwrap());
             state.traces.push_memory(MemoryOp::new(
                 MemoryChannel::Code,
                 clock,
-                address,
+                base_address[addr_idx],
                 MemoryOpKind::Read,
-                byte.into(),
+                val,
             ));
-            address.increment();
+            if (i+1) % 4 == 0 {
+                addr_idx += 1;
+            }
         }
         xor_into_sponge(state, &mut sponge_state, block.try_into().unwrap());
         state.traces.push_keccak_bytes(
@@ -312,15 +316,20 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         keccakf_u8s(&mut sponge_state);
     }
 
-    for &byte in input_blocks.remainder() {
+    let rem = input_blocks.remainder();
+    for i in 0..rem.len() {
+        let align = i / 4;
+        let val = u32::from_le_bytes(rem[align..(align+4)].try_into().unwrap());
         state.traces.push_memory(MemoryOp::new(
             MemoryChannel::Code,
             clock,
-            address,
+            base_address[addr_idx],
             MemoryOpKind::Read,
-            byte.into(),
+            val,
         ));
-        address.increment();
+        if (i+1) % 4 == 0 {
+            addr_idx += 1;
+        }
     }
     let mut final_block = [0u8; KECCAK_RATE_BYTES];
     final_block[..input_blocks.remainder().len()].copy_from_slice(input_blocks.remainder());
@@ -339,7 +348,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
     );
 
     state.traces.push_keccak_sponge(KeccakSpongeOp {
-        base_address,
+        base_address: base_address.to_vec(),
         timestamp: clock * NUM_CHANNELS + MemoryChannel::Code.index(),
         input,
     });

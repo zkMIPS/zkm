@@ -41,7 +41,7 @@ impl MemoryAddress {
     }
 
     pub(crate) fn increment(&mut self) {
-        self.virt = self.virt.saturating_add(1);
+        self.virt = self.virt.saturating_add(4);
     }
 }
 
