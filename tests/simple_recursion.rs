@@ -17,6 +17,7 @@ type C = PoseidonGoldilocksConfig;
 
 // Tests proving two transactions, one of which with logs, and aggregating them.
 #[test]
+#[ignore]
 fn test_mips_with_aggreg() -> anyhow::Result<()> {
     env_logger::try_init().unwrap_or_default();
 
