@@ -341,6 +341,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         row.is_final_input_len[final_inputs.len()] = F::ONE;
 
         Self::generate_common_fields(&mut row, op, already_absorbed_bytes, sponge_state);
+        log::info!("row: {:?}", row);
         row
     }
 

@@ -304,6 +304,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
                 MemoryOpKind::Read,
                 val,
             ));
+            log::info!("idx {:?}, val: {:?}, address: {:?}", addr_idx, val, base_address[addr_idx]);
             if (i+1) % 4 == 0 {
                 addr_idx += 1;
             }
