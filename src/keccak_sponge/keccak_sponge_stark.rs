@@ -191,7 +191,7 @@ pub(crate) fn ctl_looking_keccak_filter<F: Field>() -> Column<F> {
 #[derive(Clone, Debug)]
 pub(crate) struct KeccakSpongeOp {
     /// The base address at which inputs are read.
-    pub(crate) base_address: Vec<MemoryAddress>,
+    pub(crate) base_address: MemoryAddress,
 
     /// The timestamp at which inputs are read.
     pub(crate) timestamp: usize,
@@ -354,9 +354,9 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         mut sponge_state: [u32; KECCAK_WIDTH_U32S],
     ) {
         let idx = already_absorbed_bytes / 4;
-        row.context = F::from_canonical_usize(op.base_address[idx].context);
-        row.segment = F::from_canonical_usize(op.base_address[idx].segment);
-        row.virt = F::from_canonical_usize(op.base_address[idx].virt);
+        row.context = F::from_canonical_usize(op.base_address.context);
+        row.segment = F::from_canonical_usize(op.base_address.segment);
+        row.virt = F::from_canonical_usize(op.base_address.virt);
         row.timestamp = F::from_canonical_usize(op.timestamp);
         row.len = F::from_canonical_usize(op.input.len());
         row.already_absorbed_bytes = F::from_canonical_usize(already_absorbed_bytes);
@@ -755,11 +755,11 @@ mod tests {
         let expected_output = keccak(&input);
 
         let op = KeccakSpongeOp {
-            base_address: vec![MemoryAddress {
+            base_address: MemoryAddress {
                 context: 0,
                 segment: Segment::Code as usize,
                 virt: 0,
-            }],
+            },
             timestamp: 0,
             input,
         };

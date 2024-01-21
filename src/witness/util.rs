@@ -349,7 +349,11 @@ pub(crate) fn keccak_sponge_log<F: Field>(
     );
 
     state.traces.push_keccak_sponge(KeccakSpongeOp {
-        base_address: base_address.to_vec(),
+        base_address: MemoryAddress {
+            context: 0,
+            segment: 0,
+            virt: 0,
+        },
         timestamp: clock * NUM_CHANNELS + MemoryChannel::Code.index(),
         input,
     });
