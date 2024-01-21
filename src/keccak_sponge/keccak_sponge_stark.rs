@@ -341,7 +341,6 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         row.is_final_input_len[final_inputs.len()] = F::ONE;
 
         Self::generate_common_fields(&mut row, op, already_absorbed_bytes, sponge_state);
-        log::info!("row: {:?}", row);
         row
     }
 
@@ -353,7 +352,6 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         already_absorbed_bytes: usize,
         mut sponge_state: [u32; KECCAK_WIDTH_U32S],
     ) {
-        let idx = already_absorbed_bytes / 4;
         row.context = F::from_canonical_usize(op.base_address.context);
         row.segment = F::from_canonical_usize(op.base_address.segment);
         row.virt = F::from_canonical_usize(op.base_address.virt);

@@ -1,18 +1,18 @@
 use itertools::Itertools;
+use keccak_hash::keccak;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use keccak_hash::keccak;
 
-use crate::witness::util::keccak_sponge_log;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
+use crate::witness::util::keccak_sponge_log;
 
 use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
@@ -48,13 +48,13 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
 
     let mut image_addr_value_byte = vec![0u8; image_addr_value.len() * 4];
     for (i, v) in image_addr_value.iter().enumerate() {
-        image_addr_value_byte[i*4 .. (i*4+4)].copy_from_slice(&v.to_le_bytes());
+        image_addr_value_byte[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
     }
 
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
     final_cpu_row.mem_channels[0].value[0] = F::ZERO; // context
     final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize); // segment
-    final_cpu_row.mem_channels[2].value[0] = F::ZERO; // virt
+    final_cpu_row.mem_channels[2].value[0] = F::ZERO; // FIXME: virt should start from 0 or 65536?
     final_cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(image_addr_value_byte.len()); // len
 
     let code_hash_bytes = keccak(&image_addr_value_byte).0;

@@ -1,6 +1,5 @@
 use itertools::Itertools;
 
-use ethereum_types::BigEndianHash;
 use super::util::*;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
@@ -11,8 +10,9 @@ use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
 use crate::{arithmetic, logic};
 use anyhow::{Context, Result};
-use plonky2::field::types::Field;
+use ethereum_types::BigEndianHash;
 use keccak_hash::keccak;
+use plonky2::field::types::Field;
 
 use hex;
 use std::fs;
@@ -326,7 +326,6 @@ pub(crate) fn generate_binary_arithmetic_imm_op<F: Field>(
 }
 
 pub(crate) fn generate_keccak_general<F: Field>(
-
     state: &mut GenerationState<F>,
     row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
