@@ -22,6 +22,8 @@ use crate::keccak_sponge::columns::*;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
+pub const U8S_PER_CTL: usize = 4;
+pub const U32S_PER_CTL: usize = 1;
 
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
@@ -91,10 +93,13 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     res.extend(Column::singles([cols.context, cols.segment]));
 
     // The address of the byte being read is `virt + already_absorbed_bytes + i`.
+    /*
     res.push(Column::linear_combination_with_constant(
         [(cols.virt, F::ONE), (cols.already_absorbed_bytes, F::ONE)],
         F::from_canonical_usize(i),
     ));
+    */
+    res.push(Column::single(cols.virt));
 
     // The i'th input byte being read.
     res.push(Column::single(cols.block_bytes[i]));
@@ -112,21 +117,17 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
 }
 
 pub(crate) fn num_logic_ctls() -> usize {
-    const U8S_PER_CTL: usize = 32;
     ceil_div_usize(KECCAK_RATE_BYTES, U8S_PER_CTL)
 }
 
 /// CTL for performing the `i`th logic CTL. Since we need to do 136 byte XORs, and the logic CTL can
 /// XOR 32 bytes per CTL, there are 5 such CTLs.
 pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
-    const U32S_PER_CTL: usize = 8;
-    const U8S_PER_CTL: usize = 32;
-
     debug_assert!(i < num_logic_ctls());
     let cols = KECCAK_SPONGE_COL_MAP;
 
     let mut res = vec![
-        Column::constant(F::from_canonical_u8(0x18)), // is_xor
+        Column::constant(F::from_canonical_u32(0b000000 + 0b100110 * (1 << 6))), // is_xor
     ];
 
     // Input 0 contains some of the sponge's original rate chunks. If this is the last CTL, we won't

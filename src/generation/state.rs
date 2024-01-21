@@ -24,7 +24,7 @@ impl<F: Field> GenerationState<F> {
     pub(crate) fn new(step: usize, kernel: &Kernel) -> Result<Self, ProgramError> {
         Ok(GenerationState {
             registers: RegistersState::new(kernel),
-            memory: MemoryState::new(&kernel.code),
+            memory: MemoryState::new(&[]), // FIXME
             traces: Traces::default(),
             step,
         })

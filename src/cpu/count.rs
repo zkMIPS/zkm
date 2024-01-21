@@ -38,8 +38,8 @@ pub fn eval_packed<P: PackedField>(
 ) {
     let filter = lv.op.count_op; // `CLZ` or `CLO`
 
-    let rs_val = lv.mem_channels[0].value;
-    let rd_val = lv.mem_channels[1].value;
+    let rs_val = lv.mem_channels[0].value[0];
+    let rd_val = lv.mem_channels[1].value[0];
     let rs = limb_from_bits_le(vec![rs_val].into_iter());
     let rd = limb_from_bits_le(vec![rd_val].into_iter());
 
@@ -411,8 +411,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let clo_filter = builder.sub_extension(one, lv.func_bits[0]);
     let clo_filter = builder.mul_extension(filter, clo_filter);
 
-    let rs_val = lv.mem_channels[0].value;
-    let rd_val = lv.mem_channels[1].value;
+    let rs_val = lv.mem_channels[0].value[0];
+    let rd_val = lv.mem_channels[1].value[0];
     let rs = limb_from_bits_le_recursive(builder, vec![rs_val].into_iter());
     let rd = limb_from_bits_le_recursive(builder, vec![rd_val].into_iter());
 

@@ -8,6 +8,7 @@ use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
 use crate::{arithmetic, logic};
 use anyhow::{Context, Result};
+
 use plonky2::field::types::Field;
 
 use hex;
@@ -325,12 +326,19 @@ pub(crate) fn generate_keccak_general<F: Field>(
     _state: &mut GenerationState<F>,
     _row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
+    //row.is_keccak_sponge = F::ONE;
     /*
-    row.is_keccak_sponge = F::ONE;
     let [(context, _), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
         stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
+    */
+    /*
+    let lookup_addr ;
+    let (context, _) = mem_read_gp_with_log_and_fill(0, lookup_addr, state, &mut row);
+    let (segment, log_in1) = mem_read_gp_with_log_and_fill(1, lookup_addr, state, &mut row);
+    let (base_virt, log_in2) = mem_read_gp_with_log_and_fill(2, lookup_addr, state, &mut row);
+    let (len, log_in3) = mem_read_gp_with_log_and_fill(3, lookup_addr, state, &mut row);
 
-    let base_address = MemoryAddress::new(context, segment, base_virt);
+    let base_address = MemoryAddress::new(context, Segment::Code, base_virt);
     let input = (0..len)
         .map(|i| {
             let address = MemoryAddress {
@@ -343,8 +351,8 @@ pub(crate) fn generate_keccak_general<F: Field>(
         .collect_vec();
     log::debug!("Hashing {:?}", input);
 
-    let hash = keccak(&input);
-    push_no_write(state, &mut row, hash.into_uint(), Some(NUM_GP_CHANNELS - 1));
+    let hash = keccak(&input); // FIXME
+    push_no_write(state, &mut row, hash[0], Some(NUM_GP_CHANNELS - 1));
 
     keccak_sponge_log(state, base_address, input);
 
@@ -356,6 +364,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
     Ok(())
 }
 
+// TODO: can be removed?
 pub(crate) fn generate_prover_input<F: Field>(
     _state: &mut GenerationState<F>,
     _row: CpuColumnsView<F>,
