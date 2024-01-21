@@ -1,6 +1,6 @@
 use super::elf::Program;
 use crate::mips_emulator::utils::get_block_path;
-use keccak_hash::keccak;
+
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

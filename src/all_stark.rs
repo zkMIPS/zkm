@@ -1,4 +1,3 @@
-use core::iter;
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
@@ -12,7 +11,7 @@ use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
 use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
-use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
+
 use crate::keccak_sponge::keccak_sponge_stark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 
