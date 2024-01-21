@@ -28,13 +28,13 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         cpu_row.is_bootstrap_kernel = F::ONE;
 
         // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
-        for (addr, val) in chunk {
+        for (channel, (addr, val)) in chunk.enumerate() {
             // Both instruction and memory data are located in code section for MIPS
             let address = MemoryAddress::new(0, Segment::Code, *addr as usize);
             image_addr.push(address);
             image_addr_value.push(*val);
             let write =
-                mem_write_gp_log_and_fill(0, address, state, &mut cpu_row, (*val).to_be());
+                mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, (*val).to_be());
             state.traces.push_memory(write);
         }
 
