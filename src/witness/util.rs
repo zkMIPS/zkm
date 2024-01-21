@@ -292,23 +292,18 @@ pub(crate) fn keccak_sponge_log<F: Field>(
     let mut sponge_state = [0u8; KECCAK_WIDTH_BYTES];
     // Since the keccak read byte by byte, and the memory unit is of 4-byte, we just need to read
     // the same memory for 4 keccak-op
-    let mut n_gp = 0;
     for block in input_blocks.by_ref() {
         for i in 0..block.len() {
             //for &byte in block {
             let align = i / 4;
             let val = u32::from_le_bytes(block[align..(align + 4)].try_into().unwrap());
             state.traces.push_memory(MemoryOp::new(
-                MemoryChannel::GeneralPurpose(n_gp),
+                MemoryChannel::GeneralPurpose(0),
                 clock,
                 base_address[addr_idx],
                 MemoryOpKind::Read,
                 val,
             ));
-            n_gp += 1;
-            if n_gp == 8 {
-                n_gp = 0;
-            }
             if (i + 1) % 4 == 0 {
                 addr_idx += 1;
             }
@@ -326,16 +321,12 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         let align = i / 4;
         let val = u32::from_le_bytes(rem[align..(align + 4)].try_into().unwrap());
         state.traces.push_memory(MemoryOp::new(
-            MemoryChannel::GeneralPurpose(n_gp),
+            MemoryChannel::GeneralPurpose(0),
             clock,
             base_address[addr_idx],
             MemoryOpKind::Read,
             val,
         ));
-        n_gp += 1;
-        if n_gp == 8 {
-            n_gp = 0;
-        }
         if (i + 1) % 4 == 0 {
             addr_idx += 1;
         }
