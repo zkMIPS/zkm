@@ -131,7 +131,7 @@ fn aggregate_proof() -> anyhow::Result<()> {
     // Preprocess all circuits.
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[16..20, 17..22, 14..15, 9..10, 12..20, 19..22],
+        &[10..20, 15..22, 14..19, 9..17, 12..20, 15..22],
         &config,
     );
 
