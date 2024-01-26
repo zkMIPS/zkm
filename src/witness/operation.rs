@@ -1,7 +1,6 @@
 use super::util::*;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
-use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
@@ -782,10 +781,10 @@ pub(crate) fn load_preimage<F: Field>(
         let mut word = 0;
         // Don't read past the end of the file.
         let len = core::cmp::min(content.len() - i, WORD_SIZE);
-        for j in 0..len {
-            let offset = i + j;
+        for k in 0..len {
+            let offset = i + k;
             let byte = content.get(offset).context("Invalid block offset")?;
-            word |= (*byte as u32) << (j * 8);
+            word |= (*byte as u32) << (k * 8);
         }
         log::debug!("{:X}: {:X}", map_addr, word);
         let mem_op = mem_write_gp_log_and_fill(
@@ -799,6 +798,8 @@ pub(crate) fn load_preimage<F: Field>(
         map_addr += 4;
         j += 1;
     }
+
+    state.traces.push_cpu(cpu_row);
 
     Ok(())
 }
@@ -814,11 +815,11 @@ pub(crate) fn generate_syscall<F: Field>(
     let (a2, log_in4) = reg_read_with_log(6, 3, state, &mut row)?;
     let mut v0 = 0usize;
     let mut v1 = 0usize;
-
+    let mut is_load_preimage = false;
     let result = match sys_num {
         SYSGETPID => {
             row.general.syscall_mut().sysnum[0] = F::from_canonical_u32(1u32);
-            let _ = load_preimage(state, kernel);
+            is_load_preimage = true;
             Ok(())
         }
         SYSMMAP => {
@@ -930,6 +931,9 @@ pub(crate) fn generate_syscall<F: Field>(
     state.traces.push_memory(outlog1);
     state.traces.push_memory(outlog2);
     state.traces.push_cpu(row);
+    if is_load_preimage {
+        let _ = load_preimage(state, kernel);
+    }
     result
 }
 
