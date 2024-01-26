@@ -737,7 +737,7 @@ pub(crate) fn load_preimage<F: Field>(
         let mut cpu_row = CpuColumnsView::default();
         cpu_row.clock = F::from_canonical_usize(state.traces.clock());
         cpu_row.is_load_preimage = F::ONE;
-        for i in 0..NUM_GP_CHANNELS {
+        for i in 0..8 {
             let address = MemoryAddress::new(0, Segment::Code, 0x30001000 + i * 4);
             let (mem, op) = mem_read_gp_with_log_and_fill(i, address, state, &mut cpu_row);
             hash_bytes[i * 4..i * 4 + 4].copy_from_slice(mem.to_be_bytes().as_ref());
