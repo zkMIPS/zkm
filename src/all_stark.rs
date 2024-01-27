@@ -1,7 +1,7 @@
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
-
+use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
 use crate::arithmetic::arithmetic_stark;
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
 use crate::config::StarkConfig;
@@ -188,6 +188,7 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         cpu_stark::ctl_data_partial_memory::<F>(),
         Some(cpu_stark::ctl_filter_partial_memory()),
     );
+    */
 
     let keccak_sponge_reads = (0..KECCAK_RATE_BYTES).map(|i| {
         TableWithColumns::new(
@@ -196,13 +197,12 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
             Some(keccak_sponge_stark::ctl_looking_memory_filter(i)),
         )
     });
-    */
     //let all_lookers = iter::once(cpu_memory_code_read)
     let all_lookers = []
         .into_iter()
         .chain(cpu_memory_gp_ops)
         //       .chain(iter::once(cpu_push_write_ops))
-        //    .chain(keccak_sponge_reads)
+        .chain(keccak_sponge_reads)
         .collect();
     let memory_looked = TableWithColumns::new(
         Table::Memory,
