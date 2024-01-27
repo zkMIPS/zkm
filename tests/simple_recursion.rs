@@ -1,4 +1,7 @@
 #![allow(clippy::upper_case_acronyms)]
+#![feature(decl_macro)]
+#![feature(generic_arg_infer)]
+#![feature(trait_upcasting)]
 use std::time::Duration;
 
 use mips_circuits::all_stark::AllStark;
@@ -16,12 +19,12 @@ use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::util::timing::TimingTree;
 
-use mips_circuits::backend::circuit::Groth16WrapperParameters;
-use mips_circuits::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
-use mips_circuits::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
-use mips_circuits::frontend::builder::CircuitBuilder as WrapperBuilder;
-use mips_circuits::frontend::vars::ByteVariable;
-use mips_circuits::prelude::DefaultParameters;
+use plonky2x::backend::circuit::Groth16WrapperParameters;
+use plonky2x::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
+use plonky2x::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
+use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
+use plonky2x::frontend::vars::ByteVariable;
+use plonky2x::prelude::DefaultParameters;
 
 type F = GoldilocksField;
 const D: usize = 2;
