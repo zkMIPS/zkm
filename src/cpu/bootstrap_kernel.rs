@@ -31,7 +31,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         for (channel, (addr, val)) in chunk.enumerate() {
             // Both instruction and memory data are located in code section for MIPS
             let address = MemoryAddress::new(0, Segment::Code, *addr as usize);
-            log::info!("write: {}={:?}", channel, address);
+            log::info!("write: {}={:?}, value = {:?}", channel, address, *val);
             image_addr.push(address);
             image_addr_value.push(*val);
             let write =

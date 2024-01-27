@@ -117,6 +117,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     res.extend((1..8).map(|_| Column::zero()));
 
     res.push(Column::single(cols.timestamp));
+    log::info!("Keccak cols : {:?}", cols);
 
     assert_eq!(
         res.len(),
