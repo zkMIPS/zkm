@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 #plonky2 = { git = "https://github.com/0xPolygonZero/plonky2", branch = "main" }
-plonky2 = { git = "https://github.com/mir-protocol/plonky2.git", default-features = false }
+plonky2 = { git = "https://github.com/mir-protocol/plonky2.git", default-features = false, rev = "2d36559d" }
 plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x",  rev = "ce95383" }
 starky = { git = "https://github.com/mir-protocol/plonky2.git", branch = "main" }
 plonky2_util = { git = "https://github.com/mir-protocol/plonky2.git", branch = "main" }
@@ -60,6 +60,6 @@ prettytable-rs = "^0.8"
 [dev-dependencies]
 #env_logger = { version = "0.9.0", default-features = false }
 keccak-hash = "0.10.0"
-plonky2 = { git = "https://github.com/mir-protocol/plonky2.git",  features = [
+plonky2 = { git = "https://github.com/mir-protocol/plonky2.git", rev = "2d36559d", features = [
     "gate_testing",
 ] }
