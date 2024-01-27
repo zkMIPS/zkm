@@ -282,19 +282,18 @@ pub(crate) fn mem_write_log<F: Field>(
 
 pub(crate) fn keccak_sponge_log<F: Field>(
     state: &mut GenerationState<F>,
-    _base_address: &[MemoryAddress],
+    base_address: &[MemoryAddress],
     input: Vec<u8>,
 ) {
     let clock = state.traces.clock();
 
-    //let mut addr_idx = 0;
+    let mut addr_idx = 0;
     let mut input_blocks = input.chunks_exact(KECCAK_RATE_BYTES);
     let mut sponge_state = [0u8; KECCAK_WIDTH_BYTES];
     // Since the keccak read byte by byte, and the memory unit is of 4-byte, we just need to read
     // the same memory for 4 keccak-op
-    //let mut n_gp = 0;
+    let mut n_gp = 0;
     for block in input_blocks.by_ref() {
-        /* FIXME
         for i in 0..block.len() {
             //for &byte in block {
             let align = i / 4;
@@ -306,13 +305,13 @@ pub(crate) fn keccak_sponge_log<F: Field>(
                 MemoryOpKind::Read,
                 val,
             ));
+            log::info!("read: {}={:?}", n_gp, base_address[addr_idx]);
             n_gp += 1;
             n_gp %= NUM_GP_CHANNELS;
             if (i + 1) % 4 == 0 {
                 addr_idx += 1;
             }
         }
-            */
         xor_into_sponge(state, &mut sponge_state, block.try_into().unwrap());
         state.traces.push_keccak_bytes(
             sponge_state,
@@ -321,7 +320,6 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         keccakf_u8s(&mut sponge_state);
     }
 
-    /* FIXME
     let rem = input_blocks.remainder();
     for i in 0..rem.len() {
         let align = i / 4;
@@ -333,13 +331,13 @@ pub(crate) fn keccak_sponge_log<F: Field>(
             MemoryOpKind::Read,
             val,
         ));
+        log::info!("read: {}={:?}", n_gp, base_address[addr_idx]);
         n_gp += 1;
         n_gp %= NUM_GP_CHANNELS;
         if (i + 1) % 4 == 0 {
             addr_idx += 1;
         }
     }
-    */
     let mut final_block = [0u8; KECCAK_RATE_BYTES];
     final_block[..input_blocks.remainder().len()].copy_from_slice(input_blocks.remainder());
     // pad10*1 rule
