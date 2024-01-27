@@ -356,11 +356,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
 
     //FIXME: how to setup the base address
     state.traces.push_keccak_sponge(KeccakSpongeOp {
-        base_address: MemoryAddress {
-            context: 0,
-            segment: 0,
-            virt: 0,
-        },
+        base_address: base_address.to_vec(),
         timestamp: clock * NUM_CHANNELS + MemoryChannel::Code.index(),
         input,
     });

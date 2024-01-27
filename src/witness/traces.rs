@@ -168,7 +168,6 @@ impl<T: Copy> Traces<T> {
         let cap_elements = config.fri_config.num_cap_elements();
         let Traces {
             arithmetic_ops,
-            //byte_packing_ops,
             cpu,
             logic_ops,
             memory_ops,
@@ -181,15 +180,6 @@ impl<T: Copy> Traces<T> {
             "generate arithmetic trace",
             all_stark.arithmetic_stark.generate_trace(arithmetic_ops)
         );
-        /*
-        let byte_packing_trace = timed!(
-            timing,
-            "generate byte packing trace",
-            all_stark
-                .byte_packing_stark
-                .generate_trace(byte_packing_ops, cap_elements, timing)
-        );
-        */
         let cpu_rows: Vec<_> = cpu.into_iter().map(|x| x.into()).collect();
         let cpu_trace = trace_rows_to_poly_values(cpu_rows);
         let keccak_trace = timed!(
@@ -221,7 +211,6 @@ impl<T: Copy> Traces<T> {
 
         [
             arithmetic_trace,
-            //byte_packing_trace,
             cpu_trace,
             keccak_trace,
             keccak_sponge_trace,
