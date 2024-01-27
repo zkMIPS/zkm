@@ -305,7 +305,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
                 MemoryOpKind::Read,
                 val,
             ));
-            log::info!("read: {}={:?}", n_gp, base_address[addr_idx]);
+            log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val);
             n_gp += 1;
             n_gp %= NUM_GP_CHANNELS;
             if (i + 1) % 4 == 0 {
