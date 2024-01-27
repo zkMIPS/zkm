@@ -1,7 +1,4 @@
 #![allow(clippy::upper_case_acronyms)]
-#![feature(decl_macro)]
-#![feature(generic_arg_infer)]
-#![feature(trait_upcasting)]
 use std::time::Duration;
 
 use mips_circuits::all_stark::AllStark;
