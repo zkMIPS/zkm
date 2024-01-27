@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 #plonky2 = { git = "https://github.com/0xPolygonZero/plonky2", branch = "main" }
-plonky2 = { git = "https://github.com/mir-protocol/plonky2.git", default-features = false, optional = true }
+plonky2 = { git = "https://github.com/mir-protocol/plonky2.git", default-features = false}
 plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x",  rev = "d3a5a3f" }
 starky = { git = "https://github.com/mir-protocol/plonky2.git", branch = "main" }
 plonky2_util = { git = "https://github.com/mir-protocol/plonky2.git", branch = "main" }
