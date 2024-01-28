@@ -33,3 +33,10 @@ BASEDIR=test-vectors RUST_LOG=trace BLOCK_NO=13284491 SEG_FILE="/tmp/output/0" S
 BASEDIR=test-vectors RUST_LOG=trace BLOCK_NO=13284491 SEG_FILE="/tmp/output/0" SEG_FILE2="/tmp/output/1" SEG_SIZE=262144 \
     cargo run --release --example zkmips aggregate_proof
 ```
+
+* Aggregate proof all
+
+```
+BASEDIR=test-vectors RUST_LOG=trace BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" SEG_FILE_NUM=55 SEG_SIZE=262144 \
+    cargo run --release --example zkmips aggregate_proof_all
+```
