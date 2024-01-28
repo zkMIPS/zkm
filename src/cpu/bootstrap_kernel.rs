@@ -71,6 +71,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     final_cpu_row.mem_channels[4].value = code_hash.map(F::from_canonical_u32);
     final_cpu_row.mem_channels[4].value.reverse();
 
+    log::info!("image_addr_value_byte_le: {:?}", image_addr_value_byte_le);
     keccak_sponge_log(
         state,
         //MemoryAddress::new(0, Segment::Code, 0),
