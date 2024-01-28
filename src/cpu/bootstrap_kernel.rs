@@ -22,7 +22,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
     let mut image_addr_value = vec![];
     let mut image_addr = vec![];
-    for chunk in &kernel.program.image.iter().chunks(NUM_GP_CHANNELS) {
+    for chunk in &kernel.program.image.iter().chunks(8) {
         let mut cpu_row = CpuColumnsView::default();
         cpu_row.clock = F::from_canonical_usize(state.traces.clock());
         cpu_row.is_bootstrap_kernel = F::ONE;
