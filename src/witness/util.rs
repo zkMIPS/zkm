@@ -283,7 +283,7 @@ pub(crate) fn mem_write_log<F: Field>(
 pub(crate) fn keccak_sponge_log<F: Field>(
     state: &mut GenerationState<F>,
     base_address: Vec<MemoryAddress>,
-    input: Vec<u8>,
+    input: Vec<u8>, // LE
 ) {
     let clock = state.traces.clock();
 
@@ -303,9 +303,9 @@ pub(crate) fn keccak_sponge_log<F: Field>(
                 clock,
                 base_address[addr_idx],
                 MemoryOpKind::Read,
-                val.to_be(),
+                val, // LE
             ));
-            log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val);
+            log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val.to_be());
             n_gp += 1;
             n_gp %= 8;
             if (i + 1) % 4 == 0 {
@@ -329,9 +329,9 @@ pub(crate) fn keccak_sponge_log<F: Field>(
             clock,
             base_address[addr_idx],
             MemoryOpKind::Read,
-            val.to_be(),
+            val,
         ));
-        log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val);
+        log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val.to_be());
         n_gp += 1;
         n_gp %= 8;
         if (i + 1) % 4 == 0 {
