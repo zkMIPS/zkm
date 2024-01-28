@@ -33,7 +33,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
             let address = MemoryAddress::new(0, Segment::Code, *addr as usize);
             log::info!("write: {}={:?}, value = {:?}", channel, address, *val);
             image_addr.push(address);
-            image_addr_value.push(*val);
+            image_addr_value.push(*val); // BE
             let write =
                 mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, (*val).to_be());
             state.traces.push_memory(write);
@@ -49,7 +49,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
 
     let mut image_addr_value_byte = vec![0u8; image_addr_value.len() * 4];
     for (i, v) in image_addr_value.iter().enumerate() {
-        image_addr_value_byte[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
+        image_addr_value_byte[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_be_bytes());
     }
 
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
@@ -74,7 +74,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     keccak_sponge_log(
         state,
         //MemoryAddress::new(0, Segment::Code, 0),
-        &image_addr,
+        image_addr,
         image_addr_value_byte,
     );
     state.traces.push_cpu(final_cpu_row);
