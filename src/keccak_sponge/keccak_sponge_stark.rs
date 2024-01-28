@@ -362,7 +362,6 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         row.len = F::from_canonical_usize(op.input.len());
         row.already_absorbed_bytes = F::from_canonical_usize(already_absorbed_bytes);
 
-        log::info!("common row: {:?}", row);
 
         row.original_rate_u32s = sponge_state[..KECCAK_RATE_U32S]
             .iter()
@@ -409,6 +408,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
                 .map(|i| F::from_canonical_u32(i))
                 .collect::<Vec<_>>(),
         );
+        log::info!("common row: {:?}", row);
         sponge_state[..KECCAK_DIGEST_U32S]
             .iter()
             .enumerate()
