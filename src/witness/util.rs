@@ -287,6 +287,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
 ) {
     let clock = state.traces.clock();
 
+    let mut addr_idx = 0;
     let mut input_blocks = input.chunks_exact(KECCAK_RATE_BYTES);
     let mut sponge_state = [0u8; KECCAK_WIDTH_BYTES];
     // Since the keccak read byte by byte, and the memory unit is of 4-byte, we just need to read
@@ -300,13 +301,16 @@ pub(crate) fn keccak_sponge_log<F: Field>(
             state.traces.push_memory(MemoryOp::new(
                 MemoryChannel::GeneralPurpose(n_gp),
                 clock,
-                base_address[align],
+                base_address[addr_idx],
                 MemoryOpKind::Read,
                 val,
             ));
-            log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[align], val);
+            log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val);
             n_gp += 1;
             n_gp %= NUM_GP_CHANNELS;
+            if (i + 1) % 4 == 0 {
+                addr_idx += 1;
+            }
         }
         xor_into_sponge(state, &mut sponge_state, block.try_into().unwrap());
         state.traces.push_keccak_bytes(
@@ -323,13 +327,16 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         state.traces.push_memory(MemoryOp::new(
             MemoryChannel::GeneralPurpose(n_gp),
             clock,
-            base_address[align],
+            base_address[addr_idx],
             MemoryOpKind::Read,
             val,
         ));
-        log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[align], val);
+        log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val);
         n_gp += 1;
         n_gp %= NUM_GP_CHANNELS;
+        if (i + 1) % 4 == 0 {
+            addr_idx += 1;
+        }
     }
     let mut final_block = [0u8; KECCAK_RATE_BYTES];
     final_block[..input_blocks.remainder().len()].copy_from_slice(input_blocks.remainder());
