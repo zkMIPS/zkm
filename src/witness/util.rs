@@ -307,7 +307,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
             ));
             log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val);
             n_gp += 1;
-            n_gp %= NUM_GP_CHANNELS;
+            n_gp %= 8;
             if (i + 1) % 4 == 0 {
                 addr_idx += 1;
             }
@@ -333,7 +333,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         ));
         log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val);
         n_gp += 1;
-        n_gp %= NUM_GP_CHANNELS;
+        n_gp %= 8;
         if (i + 1) % 4 == 0 {
             addr_idx += 1;
         }

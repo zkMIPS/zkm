@@ -10,7 +10,6 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
-use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
 use crate::witness::util::keccak_sponge_log;
 
@@ -22,6 +21,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
     let mut image_addr_value = vec![];
     let mut image_addr = vec![];
+    // handle 8 memory for each cpu instruction
     for chunk in &kernel.program.image.iter().chunks(8) {
         let mut cpu_row = CpuColumnsView::default();
         cpu_row.clock = F::from_canonical_usize(state.traces.clock());
