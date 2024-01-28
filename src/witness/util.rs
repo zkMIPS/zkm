@@ -303,7 +303,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
                 clock,
                 base_address[addr_idx],
                 MemoryOpKind::Read,
-                val,
+                val.to_be(),
             ));
             log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val.to_be());
             n_gp += 1;
@@ -329,7 +329,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
             clock,
             base_address[addr_idx],
             MemoryOpKind::Read,
-            val,
+            val.to_be(),
         ));
         log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val.to_be());
         n_gp += 1;
