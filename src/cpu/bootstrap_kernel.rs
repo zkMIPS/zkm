@@ -55,7 +55,8 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
     final_cpu_row.mem_channels[0].value[0] = F::ZERO; // context
     final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize); // segment
-    // align with the `already_absorbed_bytes/4` in keccak_sponge_stark
+    // align with the `already_absorbed_bytes/4` to avoid that the padding block bytes are not present in
+    // memory
     let final_idx = image_addr_value_byte.len()/136 * 34;
     final_cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(image_addr[final_idx].virt);
     final_cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(image_addr_value_byte.len()); // len
