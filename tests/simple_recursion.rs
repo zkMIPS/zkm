@@ -171,7 +171,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     // Preprocess all circuits.
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[16..20, 17..22, 12..20, 19..22],
+        &[16..20, 17..22, 14..19, 9..15, 12..20, 19..22],
         &config,
     );
 

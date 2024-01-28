@@ -1,6 +1,6 @@
 use super::elf::Program;
 use crate::mips_emulator::utils::get_block_path;
-use keccak_hash::keccak;
+
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -11,9 +11,7 @@ use std::io::Read;
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Kernel {
     // MIPS ELF
-    pub code: Vec<u8>,
     pub(crate) program: Program,
-    pub(crate) code_hash: [u32; 8],
     // For debugging purposes
     pub(crate) ordered_labels: Vec<String>,
     // FIXME: precompiled function and global variable, like HALT PC or ecrecover
@@ -36,19 +34,19 @@ pub(crate) fn combined_kernel() -> Kernel {
     let test_blockpath: &str = "test-vectors/0_13284491/input";
     p.load_block(test_blockpath).unwrap();
 
+    /*
     let code_hash_bytes = keccak(&code).0;
     let code_hash_be = core::array::from_fn(|i| {
         u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
     });
     let code_hash = code_hash_be.map(u32::from_be);
     log::debug!("code_hash: {:?}", code_hash);
+    */
     let blockpath = get_block_path("test-vectors", "13284491", "");
     let steps = 0xFFFFFFFFFFFFFFFF;
 
     Kernel {
         program: p,
-        code,
-        code_hash,
         ordered_labels: vec![],
         global_labels: HashMap::new(),
         blockpath,
@@ -63,20 +61,11 @@ pub fn segment_kernel(
     seg_file: &str,
     steps: usize,
 ) -> Kernel {
-    let code = Vec::new();
     let p: Program = Program::load_segment(seg_file).unwrap();
-    let code_hash_bytes = keccak(&code).0;
-    let code_hash_be = core::array::from_fn(|i| {
-        u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
-    });
-    let code_hash = code_hash_be.map(u32::from_be);
-    log::debug!("code_hash: {:?}", code_hash);
     let blockpath = get_block_path(basedir, block, file);
 
     Kernel {
         program: p,
-        code,
-        code_hash,
         ordered_labels: vec![],
         global_labels: HashMap::new(),
         blockpath,

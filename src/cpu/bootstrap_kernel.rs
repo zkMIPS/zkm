@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use keccak_hash::keccak;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -11,6 +12,7 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
+use crate::witness::util::keccak_sponge_log;
 
 use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
@@ -18,6 +20,8 @@ use crate::witness::util::mem_write_gp_log_and_fill;
 
 pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) {
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
+    let mut image_addr_value = vec![];
+    let mut image_addr = vec![];
     for chunk in &kernel.program.image.iter().chunks(NUM_GP_CHANNELS) {
         let mut cpu_row = CpuColumnsView::default();
         cpu_row.clock = F::from_canonical_usize(state.traces.clock());
@@ -27,6 +31,8 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         for (channel, (addr, val)) in chunk.enumerate() {
             // Both instruction and memory data are located in code section for MIPS
             let address = MemoryAddress::new(0, Segment::Code, *addr as usize);
+            image_addr.push(address);
+            image_addr_value.push(*val);
             let write =
                 mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, (*val).to_be());
             state.traces.push_memory(write);
@@ -39,22 +45,34 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     final_cpu_row.clock = F::from_canonical_usize(state.traces.clock());
     final_cpu_row.is_bootstrap_kernel = F::ONE;
     final_cpu_row.is_keccak_sponge = F::ONE;
-    /*
-    // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
-    final_cpu_row.mem_channels[0].value = F::ZERO; // context
-    final_cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize); // segment
-    final_cpu_row.mem_channels[2].value = F::ZERO; // virt
-    final_cpu_row.mem_channels[3].value = F::from_canonical_usize(KERNEL.code.len()); // len
 
-    // FIXME: store all the hash
-    final_cpu_row.mem_channels[4].value = KERNEL.code_hash.map(F::from_canonical_u32)[0];
-    //final_cpu_row.mem_channels[4].value.reverse();
+    let mut image_addr_value_byte = vec![0u8; image_addr_value.len() * 4];
+    for (i, v) in image_addr_value.iter().enumerate() {
+        image_addr_value_byte[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
+    }
+
+    // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
+    final_cpu_row.mem_channels[0].value[0] = F::ZERO; // context
+    final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize); // segment
+    final_cpu_row.mem_channels[2].value[0] = F::ZERO; // FIXME: virt should start from 0 or 65536?
+    final_cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(image_addr_value_byte.len()); // len
+
+    let code_hash_bytes = keccak(&image_addr_value_byte).0;
+    let code_hash_be = core::array::from_fn(|i| {
+        u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
+    });
+    let code_hash = code_hash_be.map(u32::from_be);
+    log::info!("code_hash: {:?}", code_hash);
+
+    final_cpu_row.mem_channels[4].value = code_hash.map(F::from_canonical_u32);
+    final_cpu_row.mem_channels[4].value.reverse();
+
     keccak_sponge_log(
         state,
-        MemoryAddress::new(0, Segment::Code, 0),
-        KERNEL.code.clone(),
+        //MemoryAddress::new(0, Segment::Code, 0),
+        &image_addr,
+        image_addr_value_byte,
     );
-    */
     state.traces.push_cpu(final_cpu_row);
 
     state.memory.apply_ops(&state.traces.memory_ops);
