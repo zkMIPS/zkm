@@ -8,11 +8,17 @@ use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use plonky2::util::timing::TimingTree;
 
 use mips_circuits::all_stark::AllStark;
+use mips_circuits::backend::circuit::Groth16WrapperParameters;
+use mips_circuits::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
+use mips_circuits::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
 use mips_circuits::config::StarkConfig;
 use mips_circuits::cpu::kernel::assembler::segment_kernel;
 use mips_circuits::fixed_recursive_verifier::AllRecursiveCircuits;
+use mips_circuits::frontend::builder::CircuitBuilder as WrapperBuilder;
+use mips_circuits::frontend::vars::ByteVariable;
 use mips_circuits::mips_emulator::state::{InstrumentedState, State, SEGMENT_STEPS};
 use mips_circuits::mips_emulator::utils::get_block_path;
+use mips_circuits::prelude::DefaultParameters;
 use mips_circuits::proof;
 use mips_circuits::proof::PublicValues;
 use mips_circuits::prover::prove;
@@ -178,6 +184,9 @@ fn aggregate_proof() -> anyhow::Result<()> {
 }
 
 fn aggregate_proof_all() -> anyhow::Result<()> {
+    type InnerParameters = DefaultParameters;
+    type OuterParameters = Groth16WrapperParameters;
+
     type F = GoldilocksField;
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -309,6 +318,17 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
         serde_json::to_string(&block_proof.proof).unwrap().len()
     );
     let result = all_circuits.verify_block(&block_proof);
+
+    let build_path = "../verifier/data".to_string();
+    let path = format!("{}/test_circuit/", build_path);
+    let mut builder = WrapperBuilder::<DefaultParameters, 2>::new();
+    let mut circuit = builder.build();
+    circuit.set_data(all_circuits.block.circuit);
+    let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);
+    println!("build finish");
+
+    let wrapped_proof = wrapped_circuit.prove(&block_proof).unwrap();
+    wrapped_proof.save(path).unwrap();
 
     total_timing.filter(Duration::from_millis(100)).print();
     result
