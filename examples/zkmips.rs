@@ -191,6 +191,10 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
     let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
     let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
 
+    if seg_file_number < 2 {
+        panic!("seg file number must >= 2\n");
+    }
+
     let total_timing = TimingTree::new("prove total time", log::Level::Info);
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
@@ -244,7 +248,7 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
         base_seg = 2;
     }
 
-    for i in 0..(seg_file_number / 2 - 1) {
+    for i in 0..(seg_file_number - base_seg) / 2 {
         let seg_file = format!("{}/{}", seg_dir, base_seg + (i << 1));
         let input_first = segment_kernel(&basedir, &block, &file, &seg_file, seg_size);
         let mut timing = TimingTree::new("prove root first", log::Level::Info);
