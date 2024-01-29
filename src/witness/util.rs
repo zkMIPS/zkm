@@ -298,6 +298,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
             //for &byte in block {
             //let align = (i / 4) * 4;
             //let val = u32::from_le_bytes(block[align..(align + 4)].try_into().unwrap());
+            /*
             state.traces.push_memory(MemoryOp::new(
                 MemoryChannel::GeneralPurpose(n_gp),
                 clock,
@@ -306,6 +307,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
                 block[i].into(),
                 //val.to_be(),
             ));
+            */
             //log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val.to_be());
             n_gp += 1;
             n_gp %= 8;
@@ -325,6 +327,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
     for i in 0..rem.len() {
         let align = (i / 4) * 4;
         //let val = u32::from_le_bytes(rem[align..(align + 4)].try_into().unwrap());
+        /*
         state.traces.push_memory(MemoryOp::new(
             MemoryChannel::GeneralPurpose(n_gp),
             clock,
@@ -333,6 +336,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
             rem[i].into(),
             //val.to_be(),
         ));
+        */
         //log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val.to_be());
         n_gp += 1;
         n_gp %= 8;
