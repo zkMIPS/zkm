@@ -300,7 +300,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
             let align = (i / 4) * 4;
             let val = u32::from_be_bytes(block[align..(align + 4)].try_into().unwrap());
             let addr_idx = absorbed_bytes/4;
-            assert_eq!(val, input_u32[addr_idx]);
+            assert_eq!(val.to_be(), input_u32[addr_idx]);
             state.traces.push_memory(MemoryOp::new(
                 MemoryChannel::GeneralPurpose(n_gp),
                 clock,
@@ -327,7 +327,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         let align = (i / 4) * 4;
         let val = u32::from_be_bytes(rem[align..(align + 4)].try_into().unwrap());
         let addr_idx = absorbed_bytes/4;
-        assert_eq!(val, input_u32[addr_idx]);
+        assert_eq!(val.to_be(), input_u32[addr_idx]);
         state.traces.push_memory(MemoryOp::new(
             MemoryChannel::GeneralPurpose(n_gp),
             clock,
