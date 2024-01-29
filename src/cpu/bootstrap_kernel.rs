@@ -77,6 +77,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         //MemoryAddress::new(0, Segment::Code, 0),
         image_addr,
         image_addr_value_byte_le,
+        image_addr_value,
     );
     state.traces.push_cpu(final_cpu_row);
 
