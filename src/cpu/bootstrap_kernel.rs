@@ -49,7 +49,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
 
     let mut image_addr_value_byte_le = vec![0u8; image_addr_value.len() * 4];
     for (i, v) in image_addr_value.iter().enumerate() {
-        image_addr_value_byte_le[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_be_bytes());
+        image_addr_value_byte_le[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
     }
 
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.

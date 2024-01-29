@@ -102,9 +102,8 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     res.push(Column::single(cols.virt));
 
     // The u32 of i'th input byte being read.
-    //let start = (i / 4) * 4;
-    //let lc = Column::le_bytes(&cols.block_bytes[start..(start + 4)]);
-    res.push(Column::single(cols.block_bytes[i]));
+    let start = (i / 4) * 4;
+    let lc = Column::le_bytes(&cols.block_bytes[start..(start + 4)]);
 
     // Since we're reading a single byte, the higher limbs must be zero.
     res.extend((1..8).map(|_| Column::zero()));
