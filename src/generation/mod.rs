@@ -47,7 +47,6 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Execute the trace record
 
     // Generate the public values and outputs
-    // FIXME: get the right merkle root
     let public_values = PublicValues {
         roots_before: MemRoots { root: 0 },
         roots_after: MemRoots { root: 0 },

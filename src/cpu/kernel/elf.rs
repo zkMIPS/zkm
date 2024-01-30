@@ -14,7 +14,7 @@ pub const INIT_SP: u32 = 0x7fffd000;
 pub const PAGE_SIZE: u32 = 4096;
 
 /// A MIPS program
-#[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, Default)]
 pub struct Program {
     /// The entrypoint of the program, PC
     pub entry: u32,
@@ -25,6 +25,7 @@ pub struct Program {
     pub hi: usize,
     pub heap: usize,
     pub end_pc: usize,
+    pub image_id: [u8; 32],
 }
 
 impl Program {
@@ -206,6 +207,7 @@ impl Program {
             hi,
             heap,
             end_pc,
+            ..Default::default()
         })
     }
 
@@ -251,6 +253,7 @@ impl Program {
             hi,
             heap,
             end_pc,
+            image_id: segment.image_id,
         })
     }
 }
