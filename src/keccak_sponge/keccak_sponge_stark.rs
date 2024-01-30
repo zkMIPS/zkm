@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::cmp::min;
 use std::iter::{once, repeat};
 use std::marker::PhantomData;
 use std::mem::size_of;
@@ -41,7 +42,7 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     Column::singles([
         cols.context,
         cols.segment,
-        cols.virt,
+        cols.virt[0],
         cols.len,
         cols.timestamp,
     ])
@@ -99,7 +100,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
         F::from_canonical_usize(i),
     ));
     */
-    res.push(Column::single(cols.virt));
+    res.push(Column::single(cols.virt[i / 4]));
 
     // The u32 of i'th input byte being read.
     let start = (i / 4) * 4;
@@ -355,13 +356,22 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         mut sponge_state: [u32; KECCAK_WIDTH_U32S],
     ) {
         let idx = already_absorbed_bytes / 4;
+        let end_index = min(
+            (already_absorbed_bytes + KECCAK_RATE_BYTES) / 4,
+            op.base_address.len(),
+        );
+        let mut virt = (idx..end_index)
+            .map(|i| op.base_address[i].virt)
+            .collect_vec();
+        virt.resize(KECCAK_RATE_U32S, 0);
+        let virt: [usize; KECCAK_RATE_U32S] = virt.try_into().unwrap();
+
         row.context = F::from_canonical_usize(op.base_address[idx].context);
         row.segment = F::from_canonical_usize(op.base_address[idx].segment);
-        row.virt = F::from_canonical_usize(op.base_address[idx].virt);
+        row.virt = virt.map(F::from_canonical_usize);
         row.timestamp = F::from_canonical_usize(op.timestamp);
         row.len = F::from_canonical_usize(op.input.len());
         row.already_absorbed_bytes = F::from_canonical_usize(already_absorbed_bytes);
-
 
         row.original_rate_u32s = sponge_state[..KECCAK_RATE_U32S]
             .iter()
@@ -499,8 +509,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         yield_constr.constraint_transition(
             is_full_input_block * (local_values.segment - next_values.segment),
         );
-        yield_constr
-            .constraint_transition(is_full_input_block * (local_values.virt - next_values.virt));
+        // yield_constr
+        //     .constraint_transition(is_full_input_block * (local_values.virt - next_values.virt));
         yield_constr.constraint_transition(
             is_full_input_block * (local_values.timestamp - next_values.timestamp),
         );
@@ -625,9 +635,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         let constraint = builder.mul_extension(is_full_input_block, segment_diff);
         yield_constr.constraint_transition(builder, constraint);
 
-        let virt_diff = builder.sub_extension(local_values.virt, next_values.virt);
-        let constraint = builder.mul_extension(is_full_input_block, virt_diff);
-        yield_constr.constraint_transition(builder, constraint);
+        // let virt_diff = builder.sub_extension(local_values.virt, next_values.virt);
+        // let constraint = builder.mul_extension(is_full_input_block, virt_diff);
+        // yield_constr.constraint_transition(builder, constraint);
 
         let timestamp_diff = builder.sub_extension(local_values.timestamp, next_values.timestamp);
         let constraint = builder.mul_extension(is_full_input_block, timestamp_diff);

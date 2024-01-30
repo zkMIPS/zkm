@@ -49,17 +49,18 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
 
     let mut image_addr_value_byte_le = vec![0u8; image_addr_value.len() * 4];
     for (i, v) in image_addr_value.iter().enumerate() {
-        image_addr_value_byte_le[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
+        image_addr_value_byte_le[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_be_bytes());
     }
 
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
     final_cpu_row.mem_channels[0].value[0] = F::ZERO; // context
     final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize); // segment
-    // align with the `already_absorbed_bytes/4` to avoid that the padding block bytes are not present in
-    // memory
-    let final_idx = image_addr_value_byte_le.len()/136 * 34;
+                                                                                              // align with the `already_absorbed_bytes/4` to avoid that the padding block bytes are not present in
+                                                                                              // memory
+    let final_idx = image_addr_value_byte_le.len() / 136 * 34;
     final_cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(image_addr[final_idx].virt);
-    final_cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(image_addr_value_byte_le.len()); // len
+    final_cpu_row.mem_channels[3].value[0] =
+        F::from_canonical_usize(image_addr_value_byte_le.len()); // len
 
     let code_hash_bytes = keccak(&image_addr_value_byte_le).0;
     let code_hash_be = core::array::from_fn(|i| {
@@ -77,7 +78,6 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         //MemoryAddress::new(0, Segment::Code, 0),
         image_addr,
         image_addr_value_byte_le,
-        image_addr_value,
     );
     state.traces.push_cpu(final_cpu_row);
 

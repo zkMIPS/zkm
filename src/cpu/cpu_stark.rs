@@ -20,7 +20,6 @@ use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::stark::Stark;
-use crate::witness::memory::MemoryChannel;
 
 pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // When executing KECCAK_GENERAL, the GP memory channels are used as follows:
@@ -35,10 +34,7 @@ pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     let len = Column::single(COL_MAP.mem_channels[3].value[0]);
 
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);
-    let timestamp = Column::linear_combination_with_constant(
-        [(COL_MAP.clock, num_channels)],
-        F::from_canonical_u64(MemoryChannel::Code.index() as u64),
-    );
+    let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
 
     let mut cols = vec![context, segment, virt, len, timestamp];
     cols.extend(COL_MAP.mem_channels[4].value.map(Column::single));
@@ -171,7 +167,8 @@ pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     .collect();
 
     cols.extend(Column::singles(channel_map.value));
-    cols.push(mem_time_and_channel(MEM_GP_CHANNELS_IDX_START + channel));
+    // cols.push(mem_time_and_channel(MEM_GP_CHANNELS_IDX_START + channel));
+    cols.push(mem_time_and_channel(0));
     cols
 }
 

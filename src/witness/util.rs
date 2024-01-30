@@ -284,7 +284,6 @@ pub(crate) fn keccak_sponge_log<F: Field>(
     state: &mut GenerationState<F>,
     base_address: Vec<MemoryAddress>,
     input: Vec<u8>, // LE
-    input_u32: Vec<u32>
 ) {
     let clock = state.traces.clock();
 
@@ -298,45 +297,50 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         for i in 0..block.len() {
             //for &byte in block {
             let align = (i / 4) * 4;
-            let val = u32::from_le_bytes(block[align..(align + 4)].try_into().unwrap());
-            let addr_idx = absorbed_bytes/4;
-            assert_eq!(val, input_u32[addr_idx]);
+            let val = u32::from_be_bytes(block[align..(align + 4)].try_into().unwrap());
+            let addr_idx = absorbed_bytes / 4;
             state.traces.push_memory(MemoryOp::new(
                 MemoryChannel::GeneralPurpose(n_gp),
                 clock,
                 base_address[addr_idx],
                 MemoryOpKind::Read,
-                input_u32[addr_idx],
-                //val.to_be(),
+                val.to_be(),
             ));
-            log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val);
+            log::info!(
+                "read: {}={:?}, value = {:?}",
+                n_gp,
+                base_address[addr_idx],
+                val
+            );
             n_gp += 1;
             n_gp %= 8;
             absorbed_bytes += 1;
         }
         xor_into_sponge(state, &mut sponge_state, block.try_into().unwrap());
-        state.traces.push_keccak_bytes(
-            sponge_state,
-            clock * NUM_CHANNELS + MemoryChannel::Code.index(),
-        );
+        state
+            .traces
+            .push_keccak_bytes(sponge_state, clock * NUM_CHANNELS);
         keccakf_u8s(&mut sponge_state);
     }
 
     let rem = input_blocks.remainder();
     for i in 0..rem.len() {
         let align = (i / 4) * 4;
-        let val = u32::from_le_bytes(rem[align..(align + 4)].try_into().unwrap());
-        let addr_idx = absorbed_bytes/4;
-        assert_eq!(val, input_u32[addr_idx]);
+        let val = u32::from_be_bytes(rem[align..(align + 4)].try_into().unwrap());
+        let addr_idx = absorbed_bytes / 4;
         state.traces.push_memory(MemoryOp::new(
             MemoryChannel::GeneralPurpose(n_gp),
             clock,
             base_address[addr_idx],
             MemoryOpKind::Read,
-            input_u32[addr_idx],
-            //val.to_be(),
+            val.to_be(),
         ));
-        log::info!("read: {}={:?}, value = {:?}", n_gp, base_address[addr_idx], val);
+        log::info!(
+            "read: {}={:?}, value = {:?}",
+            n_gp,
+            base_address[addr_idx],
+            val
+        );
         n_gp += 1;
         n_gp %= 8;
         absorbed_bytes += 1;
@@ -352,15 +356,14 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         final_block[KECCAK_RATE_BYTES - 1] = 0b10000000;
     }
     xor_into_sponge(state, &mut sponge_state, &final_block);
-    state.traces.push_keccak_bytes(
-        sponge_state,
-        clock * NUM_CHANNELS + MemoryChannel::Code.index(),
-    );
+    state
+        .traces
+        .push_keccak_bytes(sponge_state, clock * NUM_CHANNELS);
 
     //FIXME: how to setup the base address
     state.traces.push_keccak_sponge(KeccakSpongeOp {
         base_address,
-        timestamp: clock * NUM_CHANNELS + MemoryChannel::Code.index(),
+        timestamp: clock * NUM_CHANNELS,
         input,
     });
 }

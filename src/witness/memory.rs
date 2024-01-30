@@ -88,13 +88,13 @@ pub static DUMMY_MEMOP: MemoryOp = MemoryOp {
 
 impl MemoryOp {
     pub fn new(
-        channel: MemoryChannel,
+        _channel: MemoryChannel,
         clock: usize,
         address: MemoryAddress,
         kind: MemoryOpKind,
         value: u32,
     ) -> Self {
-        let timestamp = clock * NUM_CHANNELS + channel.index();
+        let timestamp = clock * NUM_CHANNELS;
         MemoryOp {
             filter: true,
             timestamp,
