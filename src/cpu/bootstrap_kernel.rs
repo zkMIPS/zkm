@@ -11,8 +11,8 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::state::GenerationState;
-use crate::witness::util::keccak_sponge_log;
 use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_RATE_U32S};
+use crate::witness::util::keccak_sponge_log;
 
 use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
@@ -73,11 +73,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     final_cpu_row.mem_channels[4].value.reverse();
 
     log::info!("image_addr_value_byte_be: {:?}", image_addr_value_byte_be);
-    keccak_sponge_log(
-        state,
-        image_addr,
-        image_addr_value_byte_be,
-    );
+    keccak_sponge_log(state, image_addr, image_addr_value_byte_be);
     state.traces.push_cpu(final_cpu_row);
 
     state.memory.apply_ops(&state.traces.memory_ops);
