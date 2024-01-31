@@ -19,8 +19,8 @@ pub fn eval_packed_exit_kernel<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let input0 = lv.mem_channels[0].value;
-    let input1 = lv.mem_channels[1].value;
+    let input0 = lv.mem_channels[0].value[0];
+    let input1 = lv.mem_channels[1].value[0];
     let filter = lv.op.exit_kernel;
     // If we are executing `EXIT_KERNEL` then we simply restore the program counter, kernel mode
     // flag, and gas counter. The middle 4 (32-bit) limbs are ignored (this is not part of the spec,
@@ -38,8 +38,8 @@ pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let input0 = lv.mem_channels[0].value;
-    let input1 = lv.mem_channels[1].value;
+    let input0 = lv.mem_channels[0].value[0];
+    let input1 = lv.mem_channels[1].value[0];
     let filter = lv.op.exit_kernel;
 
     // If we are executing `EXIT_KERNEL` then we simply restore the program counter and kernel mode
@@ -89,7 +89,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     // Check `jump target value`:
     // constraint: is_jump * (next_program_coutner - reg[rs]) == 0
     {
-        let reg_dst = lv.mem_channels[0].value;
+        let reg_dst = lv.mem_channels[0].value[0];
         yield_constr.constraint(is_jump * (nv.program_counter - reg_dst));
     }
 
@@ -115,7 +115,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
         jump_imm[21..26].copy_from_slice(&lv.rs_bits);
 
         let imm_dst = limb_from_bits_le(jump_imm.into_iter());
-        let pc_remain = lv.mem_channels[7].value;
+        let pc_remain = lv.mem_channels[7].value[0];
         let jump_dest = pc_remain + imm_dst * P::Scalar::from_canonical_u8(4);
         yield_constr.constraint(is_jumpi * (nv.program_counter - jump_dest));
     }
@@ -126,7 +126,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     // * link = is_link + is_linki
     // * link * (ret_addr - next_addr) == 0
     {
-        let link_dest = lv.mem_channels[1].value;
+        let link_dest = lv.mem_channels[1].value[0];
         yield_constr.constraint(
             (is_link + is_linki)
                 * (lv.program_counter + P::Scalar::from_canonical_u64(8) - link_dest),
@@ -176,7 +176,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     // Check `jump target value`:
     // constraint: is_jump * (next_program_coutner - reg[rs]) == 0
     {
-        let reg_dst = lv.mem_channels[0].value;
+        let reg_dst = lv.mem_channels[0].value[0];
         let constr = builder.sub_extension(nv.program_counter, reg_dst);
         let constr = builder.mul_extension(is_jump, constr);
         yield_constr.constraint(builder, constr);
@@ -208,7 +208,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
         let jump_dest = limb_from_bits_le_recursive(builder, jump_imm.into_iter());
         let jump_dest = builder.mul_const_extension(F::from_canonical_u64(4), jump_dest); //TO FIX
 
-        let constr = builder.add_extension(lv.mem_channels[7].value, jump_dest);
+        let constr = builder.add_extension(lv.mem_channels[7].value[0], jump_dest);
         let constr = builder.sub_extension(nv.program_counter, constr);
         let constr = builder.mul_extension(is_jumpi, constr);
         yield_constr.constraint(builder, constr);
@@ -220,7 +220,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     // * link = is_link + is_linki
     // * link * (ret_addr - next_addr) == 0
     {
-        let link_dst = lv.mem_channels[1].value;
+        let link_dst = lv.mem_channels[1].value[0];
         let link_dest = builder.add_const_extension(lv.program_counter, F::from_canonical_u64(8));
         let constr = builder.sub_extension(link_dest, link_dst);
         let is_link = builder.add_extension(is_link, is_linki);
@@ -306,9 +306,9 @@ pub fn eval_packed_branch<P: PackedField>(
     // * filter * aux1 * (1 - sum * overflow_inv) == 0
     // * filter * aux3 * (1 - aux3) == 0
     {
-        let aux1: P = lv.mem_channels[2].value;
-        let aux2 = lv.mem_channels[3].value;
-        let aux3 = lv.mem_channels[4].value;
+        let aux1: P = lv.mem_channels[2].value[0];
+        let aux2 = lv.mem_channels[3].value[0];
+        let aux3 = lv.mem_channels[4].value[0];
 
         yield_constr.constraint(filter * aux1 * (P::ONES - (aux1 + aux2) * overflow_inv));
 
@@ -334,11 +334,11 @@ pub fn eval_packed_branch<P: PackedField>(
 
     // Check Condition
     {
-        let src1 = lv.mem_channels[0].value;
-        let src2 = lv.mem_channels[1].value;
-        let aux1 = lv.mem_channels[2].value;
-        let aux2 = lv.mem_channels[3].value;
-        let aux3 = lv.mem_channels[4].value;
+        let src1 = lv.mem_channels[0].value[0];
+        let src2 = lv.mem_channels[1].value[0];
+        let aux1 = lv.mem_channels[2].value[0];
+        let aux2 = lv.mem_channels[3].value[0];
+        let aux3 = lv.mem_channels[4].value[0];
 
         // constraints:
         // * z = src2 + aux - src1
@@ -465,9 +465,9 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
     // * filter * aux1 * (1 - sum * overflow_inv) == 0
     // * filter * aux3 * (1 - aux3) == 0
     {
-        let aux1 = lv.mem_channels[2].value;
-        let aux2 = lv.mem_channels[3].value;
-        let aux3 = lv.mem_channels[4].value;
+        let aux1 = lv.mem_channels[2].value[0];
+        let aux2 = lv.mem_channels[3].value[0];
+        let aux3 = lv.mem_channels[4].value[0];
 
         let constr = builder.add_extension(aux1, aux2);
         let constr = builder.mul_extension(constr, overflow_inv);
@@ -510,11 +510,11 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
 
     // Check Condition
     {
-        let src1 = lv.mem_channels[0].value;
-        let src2 = lv.mem_channels[1].value;
-        let aux1 = lv.mem_channels[2].value;
-        let aux2 = lv.mem_channels[3].value;
-        let aux3 = lv.mem_channels[4].value;
+        let src1 = lv.mem_channels[0].value[0];
+        let src2 = lv.mem_channels[1].value[0];
+        let aux1 = lv.mem_channels[2].value[0];
+        let aux2 = lv.mem_channels[3].value[0];
+        let aux3 = lv.mem_channels[4].value[0];
 
         // constraints:
         // * z = src2 + aux - src1
@@ -604,10 +604,10 @@ pub fn eval_packed_condmov<P: PackedField>(
     _nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let rs = lv.mem_channels[0].value; // rs
-    let rt = lv.mem_channels[1].value; // rt
-    let rd = lv.mem_channels[2].value; // rd
-    let out = lv.mem_channels[3].value; // out
+    let rs = lv.mem_channels[0].value[0]; // rs
+    let rt = lv.mem_channels[1].value[0]; // rt
+    let rd = lv.mem_channels[2].value[0]; // rd
+    let out = lv.mem_channels[3].value[0]; // out
     let filter = lv.op.condmov_op;
     let is_movn = lv.func_bits[0];
     let is_movz = P::ONES - lv.func_bits[0];
@@ -638,10 +638,10 @@ pub fn eval_ext_circuit_condmov<F: RichField + Extendable<D>, const D: usize>(
     _nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let rs = lv.mem_channels[0].value; // rs
-    let rt = lv.mem_channels[1].value; // rt
-    let rd = lv.mem_channels[2].value; // rd
-    let out = lv.mem_channels[3].value; // out
+    let rs = lv.mem_channels[0].value[0]; // rs
+    let rt = lv.mem_channels[1].value[0]; // rt
+    let rd = lv.mem_channels[2].value[0]; // rd
+    let out = lv.mem_channels[3].value[0]; // out
     let filter = lv.op.condmov_op;
     let is_movn = lv.func_bits[0];
     let one_extension = builder.one_extension();

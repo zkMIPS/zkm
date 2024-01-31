@@ -9,7 +9,7 @@ edition = "2021"
 [dependencies]
 #plonky2 = { git = "https://github.com/0xPolygonZero/plonky2", branch = "main" }
 plonky2 = { git = "https://github.com/mir-protocol/plonky2.git", default-features = false, rev = "f46cf4ef680ddfd4941691a7d37e5a2568a89cf7"}
-plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x",  rev = "5877319" }
+plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x",  rev = "dcbecd9" }
 starky = { git = "https://github.com/mir-protocol/plonky2.git", branch = "main" }
 plonky2_util = { git = "https://github.com/mir-protocol/plonky2.git", branch = "main" }
 plonky2_maybe_rayon = { git = "https://github.com/mir-protocol/plonky2.git", branch = "main" }
@@ -19,7 +19,7 @@ backtrace = "0.3"
 array-macro = "2.1.5"
 curve25519-dalek = "4.1.1"
 sha2 = "0.10.7"
-plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x-derive",  rev = "5877319" }
+plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x-derive",  rev = "dcbecd9" }
 clap = { version = "4.4.0", features = ["derive"] }
 reqwest = { version = "0.11.4", features = ["blocking", "json"] }
 uuid = { version = "1.4.1", features = ["serde"] }

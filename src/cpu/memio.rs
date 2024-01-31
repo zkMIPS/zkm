@@ -87,9 +87,9 @@ fn eval_packed_load<P: PackedField>(
     // Check memory is used
     // Check is_read is 0/1
 
-    let rs = lv.mem_channels[0].value;
-    let rt = lv.mem_channels[1].value;
-    let mem = lv.mem_channels[3].value;
+    let rs = lv.mem_channels[0].value[0];
+    let rt = lv.mem_channels[1].value[0];
+    let mem = lv.mem_channels[3].value[0];
     let rs_limbs = lv.general.io().rs_le;
     let rt_limbs = lv.general.io().rt_le;
     let mem_limbs = lv.general.io().mem_le;
@@ -120,7 +120,7 @@ fn eval_packed_load<P: PackedField>(
 
     // Verify op
     let op_inv = lv.general.io().diff_inv;
-    let op = lv.mem_channels[4].value;
+    let op = lv.mem_channels[4].value[0];
     yield_constr.constraint(filter * (P::ONES - op * op_inv));
 
     // Constrain mem value
@@ -324,9 +324,9 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     let constr = builder.mul_extension(filter, diff);
     yield_constr.constraint(builder, constr);
 
-    let rs = lv.mem_channels[0].value;
-    let rt = lv.mem_channels[1].value;
-    let mem = lv.mem_channels[3].value;
+    let rs = lv.mem_channels[0].value[0];
+    let rt = lv.mem_channels[1].value[0];
+    let mem = lv.mem_channels[3].value[0];
     let rs_limbs = lv.general.io().rs_le;
     let rt_limbs = lv.general.io().rt_le;
     let mem_limbs = lv.general.io().mem_le;
@@ -366,7 +366,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
 
     // Verify op
     let op_inv = lv.general.io().diff_inv;
-    let op = lv.mem_channels[4].value;
+    let op = lv.mem_channels[4].value[0];
     let mul = builder.mul_extension(op, op_inv);
     let diff = builder.sub_extension(ones, mul);
     let constr = builder.mul_extension(filter, diff);
@@ -671,9 +671,9 @@ fn eval_packed_store<P: PackedField>(
     // Check memory is used
     // Check is_read is 0/1
 
-    let rs = lv.mem_channels[0].value;
-    let rt = lv.mem_channels[1].value;
-    let mem = lv.mem_channels[3].value;
+    let rs = lv.mem_channels[0].value[0];
+    let rt = lv.mem_channels[1].value[0];
+    let mem = lv.mem_channels[3].value[0];
     let rs_limbs = lv.general.io().rs_le;
     let rt_limbs = lv.general.io().rt_le;
     let mem_limbs = lv.general.io().mem_le;
@@ -703,7 +703,7 @@ fn eval_packed_store<P: PackedField>(
 
     // Verify op
     let op_inv = lv.general.io().diff_inv;
-    let op = lv.mem_channels[5].value;
+    let op = lv.mem_channels[5].value[0];
     yield_constr.constraint(filter * (P::ONES - op * op_inv));
 
     // Constrain mem value
@@ -877,9 +877,9 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     let constr = builder.mul_extension(filter, diff);
     yield_constr.constraint(builder, constr);
 
-    let rs = lv.mem_channels[0].value;
-    let rt = lv.mem_channels[1].value;
-    let mem = lv.mem_channels[3].value;
+    let rs = lv.mem_channels[0].value[0];
+    let rt = lv.mem_channels[1].value[0];
+    let mem = lv.mem_channels[3].value[0];
     let rs_limbs = lv.general.io().rs_le;
     let rt_limbs = lv.general.io().rt_le;
     let mem_limbs = lv.general.io().mem_le;
@@ -919,7 +919,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
 
     // Verify op
     let op_inv = lv.general.io().diff_inv;
-    let op = lv.mem_channels[5].value;
+    let op = lv.mem_channels[5].value[0];
     let mul = builder.mul_extension(op, op_inv);
     let diff = builder.sub_extension(ones, mul);
     let constr = builder.mul_extension(filter, diff);

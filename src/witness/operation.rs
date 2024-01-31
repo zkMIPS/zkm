@@ -1,13 +1,13 @@
 use super::util::*;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
-use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
 use crate::{arithmetic, logic};
 use anyhow::{Context, Result};
+
 use plonky2::field::types::Field;
 
 use hex;
@@ -325,12 +325,19 @@ pub(crate) fn generate_keccak_general<F: Field>(
     _state: &mut GenerationState<F>,
     _row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
+    //row.is_keccak_sponge = F::ONE;
     /*
-    row.is_keccak_sponge = F::ONE;
     let [(context, _), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
         stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
+    */
+    /*
+    let lookup_addr ;
+    let (context, _) = mem_read_gp_with_log_and_fill(0, lookup_addr, state, &mut row);
+    let (segment, log_in1) = mem_read_gp_with_log_and_fill(1, lookup_addr, state, &mut row);
+    let (base_virt, log_in2) = mem_read_gp_with_log_and_fill(2, lookup_addr, state, &mut row);
+    let (len, log_in3) = mem_read_gp_with_log_and_fill(3, lookup_addr, state, &mut row);
 
-    let base_address = MemoryAddress::new(context, segment, base_virt);
+    let base_address = MemoryAddress::new(context, Segment::Code, base_virt);
     let input = (0..len)
         .map(|i| {
             let address = MemoryAddress {
@@ -343,8 +350,8 @@ pub(crate) fn generate_keccak_general<F: Field>(
         .collect_vec();
     log::debug!("Hashing {:?}", input);
 
-    let hash = keccak(&input);
-    push_no_write(state, &mut row, hash.into_uint(), Some(NUM_GP_CHANNELS - 1));
+    let hash = keccak(&input); // FIXME
+    push_no_write(state, &mut row, hash[0], Some(NUM_GP_CHANNELS - 1));
 
     keccak_sponge_log(state, base_address, input);
 
@@ -356,6 +363,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
     Ok(())
 }
 
+// TODO: can be removed?
 pub(crate) fn generate_prover_input<F: Field>(
     _state: &mut GenerationState<F>,
     _row: CpuColumnsView<F>,
@@ -728,7 +736,7 @@ pub(crate) fn load_preimage<F: Field>(
         let mut cpu_row = CpuColumnsView::default();
         cpu_row.clock = F::from_canonical_usize(state.traces.clock());
         cpu_row.is_load_preimage = F::ONE;
-        for i in 0..NUM_GP_CHANNELS {
+        for i in 0..8 {
             let address = MemoryAddress::new(0, Segment::Code, 0x30001000 + i * 4);
             let (mem, op) = mem_read_gp_with_log_and_fill(i, address, state, &mut cpu_row);
             hash_bytes[i * 4..i * 4 + 4].copy_from_slice(mem.to_be_bytes().as_ref());
@@ -773,10 +781,10 @@ pub(crate) fn load_preimage<F: Field>(
         let mut word = 0;
         // Don't read past the end of the file.
         let len = core::cmp::min(content.len() - i, WORD_SIZE);
-        for j in 0..len {
-            let offset = i + j;
+        for k in 0..len {
+            let offset = i + k;
             let byte = content.get(offset).context("Invalid block offset")?;
-            word |= (*byte as u32) << (j * 8);
+            word |= (*byte as u32) << (k * 8);
         }
         log::debug!("{:X}: {:X}", map_addr, word);
         let mem_op = mem_write_gp_log_and_fill(
@@ -790,6 +798,8 @@ pub(crate) fn load_preimage<F: Field>(
         map_addr += 4;
         j += 1;
     }
+
+    state.traces.push_cpu(cpu_row);
 
     Ok(())
 }
@@ -805,11 +815,11 @@ pub(crate) fn generate_syscall<F: Field>(
     let (a2, log_in4) = reg_read_with_log(6, 3, state, &mut row)?;
     let mut v0 = 0usize;
     let mut v1 = 0usize;
-
+    let mut is_load_preimage = false;
     let result = match sys_num {
         SYSGETPID => {
             row.general.syscall_mut().sysnum[0] = F::from_canonical_u32(1u32);
-            let _ = load_preimage(state, kernel);
+            is_load_preimage = true;
             Ok(())
         }
         SYSMMAP => {
@@ -921,6 +931,9 @@ pub(crate) fn generate_syscall<F: Field>(
     state.traces.push_memory(outlog1);
     state.traces.push_memory(outlog2);
     state.traces.push_cpu(row);
+    if is_load_preimage {
+        let _ = load_preimage(state, kernel);
+    }
     result
 }
 

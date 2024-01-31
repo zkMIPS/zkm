@@ -10,16 +10,17 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use super::columns::CpuColumnsView;
-//use super::halt;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
+//use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::{bootstrap_kernel, count, decode, jumps, membus, memio, shift, syscall};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::stark::Stark;
+use crate::witness::memory::MemoryChannel;
 
 pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // When executing KECCAK_GENERAL, the GP memory channels are used as follows:
@@ -28,20 +29,19 @@ pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // GP channel 2: stack[-3] = virt
     // GP channel 3: stack[-4] = len
     // GP channel 4: pushed = outputs
-    let context = Column::single(COL_MAP.mem_channels[0].value);
-    let segment = Column::single(COL_MAP.mem_channels[1].value);
-    let virt = Column::single(COL_MAP.mem_channels[2].value);
-    let len = Column::single(COL_MAP.mem_channels[3].value);
+    let context = Column::single(COL_MAP.mem_channels[0].value[0]);
+    let segment = Column::single(COL_MAP.mem_channels[1].value[0]);
+    let virt = Column::single(COL_MAP.mem_channels[2].value[0]);
+    let len = Column::single(COL_MAP.mem_channels[3].value[0]);
 
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);
-    let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
+    let timestamp = Column::linear_combination_with_constant(
+        [(COL_MAP.clock, num_channels)],
+        F::from_canonical_u64(MemoryChannel::Code.index() as u64),
+    );
 
     let mut cols = vec![context, segment, virt, len, timestamp];
-    cols.extend(
-        vec![COL_MAP.mem_channels[4].value]
-            .into_iter()
-            .map(Column::single),
-    );
+    cols.extend(COL_MAP.mem_channels[4].value.map(Column::single));
     cols
 }
 
@@ -49,15 +49,42 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
     Column::single(COL_MAP.is_keccak_sponge)
 }
 
+/*
+pub(crate) fn ctl_data_partial_memory<F: Field>() -> Vec<Column<F>> {
+    let channel_map = COL_MAP.partial_channel;
+    let values = COL_MAP.mem_channels[0].value;
+    let mut cols: Vec<_> = Column::singles([
+        channel_map.is_read,
+        channel_map.addr_context,
+        channel_map.addr_segment,
+        channel_map.addr_virtual,
+    ])
+    .collect();
+
+    cols.extend(Column::single(values));
+
+    cols.push(mem_time_and_channel(
+        MEM_GP_CHANNELS_IDX_START + NUM_GP_CHANNELS,
+    ));
+
+    cols
+}
+
+pub(crate) fn ctl_filter_partial_memory<F: Field>() -> Column<F> {
+    Column::single(COL_MAP.partial_channel.used)
+}
+*/
+
 /// Create the vector of Columns corresponding to the two inputs and
 /// one output of a binary operation.
 /// FIXME: the column is unchecked. The in0 should starts from column 4 in looked table, and in1
 /// 36, out 68. But the looking table offers in0 77, in1 83, out 89.
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
     log::debug!("{:?}", COL_MAP.mem_channels);
-    let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value]).collect_vec();
-    res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value]));
-    res.extend(Column::singles(vec![COL_MAP.mem_channels[2].value]));
+    // FIXME: select all values
+    let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value[0]]).collect_vec();
+    res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value[0]]));
+    res.extend(Column::singles(vec![COL_MAP.mem_channels[2].value[0]]));
     res
 }
 
@@ -143,10 +170,8 @@ pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     ])
     .collect();
 
-    cols.extend(Column::singles(vec![channel_map.value]));
-
+    cols.extend(Column::singles(channel_map.value));
     cols.push(mem_time_and_channel(MEM_GP_CHANNELS_IDX_START + channel));
-
     cols
 }
 
@@ -273,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Too slow"]
+    #[ignore]
     fn test_stark_check_memio() {
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;

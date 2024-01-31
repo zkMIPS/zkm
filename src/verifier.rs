@@ -45,8 +45,8 @@ where
     let AllStark {
         arithmetic_stark,
         cpu_stark,
-        //keccak_stark,
-        //keccak_sponge_stark,
+        keccak_stark,
+        keccak_sponge_stark,
         logic_stark,
         memory_stark,
         cross_table_lookups,
@@ -76,7 +76,6 @@ where
         &ctl_challenges,
         config,
     )?;
-    /*
     verify_stark_proof_with_challenges(
         keccak_stark,
         &all_proof.stark_proofs[Table::Keccak as usize].proof,
@@ -93,7 +92,6 @@ where
         &ctl_challenges,
         config,
     )?;
-    */
     verify_stark_proof_with_challenges(
         logic_stark,
         &all_proof.stark_proofs[Table::Logic as usize].proof,
@@ -431,7 +429,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Too slow"]
+    #[ignore]
     fn test_mips_prove_and_verify() {
         env_logger::try_init().unwrap_or_default();
         const D: usize = 2;

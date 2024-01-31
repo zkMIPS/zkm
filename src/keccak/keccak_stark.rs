@@ -23,7 +23,7 @@ use crate::keccak::constants::{rc_value, rc_value_bit};
 use crate::keccak::logic::{
     andn, andn_gen, andn_gen_circuit, xor, xor3_gen, xor3_gen_circuit, xor_gen, xor_gen_circuit,
 };
-use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
+
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 
@@ -264,7 +264,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        eval_round_flags(vars, yield_constr);
+        //eval_round_flags(vars, yield_constr);
 
         let local_values = vars.get_local_values();
         let next_values = vars.get_next_values();
@@ -435,7 +435,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         let two_ext = builder.two_extension();
         let four_ext = builder.constant_extension(F::Extension::from_canonical_u8(4));
 
-        eval_round_flags_recursively(builder, vars, yield_constr);
+        //eval_round_flags_recursively(builder, vars, yield_constr);
 
         let local_values = vars.get_local_values();
         let next_values = vars.get_next_values();
