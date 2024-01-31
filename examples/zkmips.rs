@@ -14,7 +14,6 @@ use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::frontend::vars::ByteVariable;
 use plonky2x::prelude::DefaultParameters;
 
-
 use mips_circuits::all_stark::AllStark;
 use mips_circuits::config::StarkConfig;
 use mips_circuits::cpu::kernel::assembler::segment_kernel;
