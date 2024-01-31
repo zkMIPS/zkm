@@ -25,10 +25,8 @@ type C = PoseidonGoldilocksConfig;
 #[ignore = "Too slow"]
 fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
     use plonky2x::backend::circuit::Groth16WrapperParameters;
-    
-    use plonky2x::backend::wrapper::wrap::{WrappedCircuit};
+    use plonky2x::backend::wrapper::wrap::WrappedCircuit;
     use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
-    
     use plonky2x::prelude::DefaultParameters;
 
     type InnerParameters = DefaultParameters;
@@ -162,10 +160,8 @@ fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
 #[ignore = "Too slow"]
 fn test_mips_with_aggreg() -> anyhow::Result<()> {
     use plonky2x::backend::circuit::Groth16WrapperParameters;
-    
-    use plonky2x::backend::wrapper::wrap::{WrappedCircuit};
+    use plonky2x::backend::wrapper::wrap::WrappedCircuit;
     use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
-    
     use plonky2x::prelude::DefaultParameters;
 
     type InnerParameters = DefaultParameters;
