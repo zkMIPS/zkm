@@ -13,7 +13,7 @@ use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use plonky2::plonk::proof::ProofWithPublicInputs;
+
 use plonky2::util::timing::TimingTree;
 
 type F = GoldilocksField;
@@ -25,10 +25,8 @@ type C = PoseidonGoldilocksConfig;
 #[ignore = "Too slow"]
 fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
     use plonky2x::backend::circuit::Groth16WrapperParameters;
-    use plonky2x::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
-    use plonky2x::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
+    use plonky2x::backend::wrapper::wrap::WrappedCircuit;
     use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
-    use plonky2x::frontend::vars::ByteVariable;
     use plonky2x::prelude::DefaultParameters;
 
     type InnerParameters = DefaultParameters;
@@ -68,7 +66,7 @@ fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
         proof.public_inputs[0], proof.public_inputs[1], proof.public_inputs[2]
     );
 
-    data.verify(proof.clone());
+    let _ = data.verify(proof.clone());
 
     println!("pw.target_values.len() {:?}", pw.target_values.len());
     println!(
@@ -81,7 +79,7 @@ fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
         data.common.num_public_inputs
     );
 
-    let mut builder = WrapperBuilder::<DefaultParameters, 2>::new();
+    let builder = WrapperBuilder::<DefaultParameters, 2>::new();
     let mut circuit2 = builder.build();
     circuit2.set_data(data);
 
@@ -162,10 +160,8 @@ fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
 #[ignore = "Too slow"]
 fn test_mips_with_aggreg() -> anyhow::Result<()> {
     use plonky2x::backend::circuit::Groth16WrapperParameters;
-    use plonky2x::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
-    use plonky2x::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
+    use plonky2x::backend::wrapper::wrap::WrappedCircuit;
     use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
-    use plonky2x::frontend::vars::ByteVariable;
     use plonky2x::prelude::DefaultParameters;
 
     type InnerParameters = DefaultParameters;
@@ -220,7 +216,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
         "proof size: {:?}",
         serde_json::to_string(&block_proof.proof).unwrap().len()
     );
-    all_circuits.verify_block(&block_proof);
+    let _ = all_circuits.verify_block(&block_proof);
     println!(
         "all_circuits.block.circuit.common.num_public_inputs {:?}",
         all_circuits.block.circuit.common.num_public_inputs
@@ -229,7 +225,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
 
     let build_path = "../verifier/data".to_string();
     let path = format!("{}/test_circuit/", build_path);
-    let mut builder = WrapperBuilder::<DefaultParameters, 2>::new();
+    let builder = WrapperBuilder::<DefaultParameters, 2>::new();
     let mut circuit = builder.build();
     circuit.set_data(all_circuits.block.circuit);
     let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);
