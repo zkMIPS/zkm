@@ -1,3 +1,6 @@
+#![feature(decl_macro)]
+#![feature(generic_arg_infer)]
+#![feature(trait_upcasting)]
 #![allow(dead_code)]
 pub mod all_stark;
 pub mod arithmetic;
