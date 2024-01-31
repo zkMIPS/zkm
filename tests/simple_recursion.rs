@@ -16,12 +16,6 @@ use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::util::timing::TimingTree;
 
-use plonky2x::backend::circuit::Groth16WrapperParameters;
-use plonky2x::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
-use plonky2x::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
-use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
-use plonky2x::frontend::vars::ByteVariable;
-use plonky2x::prelude::DefaultParameters;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -31,6 +25,13 @@ type C = PoseidonGoldilocksConfig;
 #[test]
 #[ignore = "Too slow"]
 fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
+    use plonky2x::backend::circuit::Groth16WrapperParameters;
+    use plonky2x::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
+    use plonky2x::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
+    use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
+    use plonky2x::frontend::vars::ByteVariable;
+    use plonky2x::prelude::DefaultParameters;
+
     type InnerParameters = DefaultParameters;
     type OuterParameters = Groth16WrapperParameters;
 
@@ -161,6 +162,13 @@ fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
 #[test]
 #[ignore = "Too slow"]
 fn test_mips_with_aggreg() -> anyhow::Result<()> {
+    use plonky2x::backend::circuit::Groth16WrapperParameters;
+    use plonky2x::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
+    use plonky2x::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
+    use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
+    use plonky2x::frontend::vars::ByteVariable;
+    use plonky2x::prelude::DefaultParameters;
+
     type InnerParameters = DefaultParameters;
     type OuterParameters = Groth16WrapperParameters;
 

@@ -737,9 +737,7 @@ where
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
         let public_values = add_virtual_public_values(&mut builder);
         let has_parent_block = builder.add_virtual_bool_target_safe();
-
         let parent_block_proof = builder.add_virtual_proof_with_pis(&expected_common_data);
-
         let agg_root_proof = builder.add_virtual_proof_with_pis(&agg.circuit.common);
 
         // FIXME
@@ -751,8 +749,8 @@ where
 
         // Make connections between block proofs, and check initial and final block values.
         //Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
-        let cyclic_vk = builder.add_verifier_data_public_inputs();
 
+        let cyclic_vk = builder.add_verifier_data_public_inputs();
         builder
             .conditionally_verify_cyclic_proof_or_dummy::<C>(
                 has_parent_block,
@@ -1036,12 +1034,11 @@ where
         public_values: PublicValues,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let mut block_inputs = PartialWitness::new();
-        //1
+
         block_inputs.set_bool_target(
             self.block.has_parent_block,
             opt_parent_block_proof.is_some(),
         );
-
         if let Some(parent_block_proof) = opt_parent_block_proof {
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
@@ -1049,7 +1046,7 @@ where
             // Initialize genesis_state_trie, state_root_after and the block number for correct connection between blocks.
             // Initialize `state_root_after`.
             let _state_trie_root_after_keys = 24..32;
-            // let nonzero_pis = HashMap::new();
+            let nonzero_pis = HashMap::new();
 
             // Initialize the block number.
             // FIXME
@@ -1058,7 +1055,7 @@ where
                 &cyclic_base_proof(
                     &self.block.circuit.common,
                     &self.block.circuit.verifier_only,
-                    vec![].into_iter().enumerate().collect(),
+                    nonzero_pis,
                 ),
             );
         }
@@ -1072,7 +1069,7 @@ where
             .map_err(|_| {
                 anyhow::Error::msg("Invalid conversion when setting public values targets.")
             })?;
-        println!(
+        log::trace!(
             "block_inputs.get_targets().len() :{:?}",
             block_inputs.target_values.len()
         );
@@ -1082,7 +1079,7 @@ where
     }
 
     pub fn verify_block(&self, block_proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
-        self.block.circuit.verify(block_proof.clone());
+        self.block.circuit.verify(block_proof.clone())?;
         check_cyclic_proof_verifier_data(
             block_proof,
             &self.block.circuit.verifier_only,
