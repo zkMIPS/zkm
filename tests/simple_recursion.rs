@@ -68,7 +68,7 @@ fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
         proof.public_inputs[0], proof.public_inputs[1], proof.public_inputs[2]
     );
 
-    data.verify(proof.clone());
+    let _ = data.verify(proof.clone());
 
     println!("pw.target_values.len() {:?}", pw.target_values.len());
     println!(
@@ -220,7 +220,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
         "proof size: {:?}",
         serde_json::to_string(&block_proof.proof).unwrap().len()
     );
-    all_circuits.verify_block(&block_proof);
+    let _ = all_circuits.verify_block(&block_proof);
     println!(
         "all_circuits.block.circuit.common.num_public_inputs {:?}",
         all_circuits.block.circuit.common.num_public_inputs
