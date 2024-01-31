@@ -7,6 +7,13 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use plonky2::util::timing::TimingTree;
 
+use plonky2x::backend::circuit::Groth16WrapperParameters;
+use plonky2x::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
+use plonky2x::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
+use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
+use plonky2x::frontend::vars::ByteVariable;
+use plonky2x::prelude::DefaultParameters;
+
 use mips_circuits::all_stark::AllStark;
 use mips_circuits::config::StarkConfig;
 use mips_circuits::cpu::kernel::assembler::segment_kernel;
@@ -178,6 +185,9 @@ fn aggregate_proof() -> anyhow::Result<()> {
 }
 
 fn aggregate_proof_all() -> anyhow::Result<()> {
+    type InnerParameters = DefaultParameters;
+    type OuterParameters = Groth16WrapperParameters;
+
     type F = GoldilocksField;
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -313,6 +323,17 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
         serde_json::to_string(&block_proof.proof).unwrap().len()
     );
     let result = all_circuits.verify_block(&block_proof);
+
+    let build_path = "../verifier/data".to_string();
+    let path = format!("{}/test_circuit/", build_path);
+    let mut builder = WrapperBuilder::<DefaultParameters, 2>::new();
+    let mut circuit = builder.build();
+    circuit.set_data(all_circuits.block.circuit);
+    let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);
+    println!("build finish");
+
+    let wrapped_proof = wrapped_circuit.prove(&block_proof).unwrap();
+    wrapped_proof.save(path).unwrap();
 
     total_timing.filter(Duration::from_millis(100)).print();
     result
