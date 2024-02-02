@@ -8,10 +8,10 @@ use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use plonky2::util::timing::TimingTree;
 
 use plonky2x::backend::circuit::Groth16WrapperParameters;
-use plonky2x::backend::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
-use plonky2x::backend::wrapper::wrap::{WrappedCircuit, WrappedOutput};
+
+use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
-use plonky2x::frontend::vars::ByteVariable;
+
 use plonky2x::prelude::DefaultParameters;
 
 use mips_circuits::all_stark::AllStark;
@@ -326,7 +326,7 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
 
     let build_path = "../verifier/data".to_string();
     let path = format!("{}/test_circuit/", build_path);
-    let mut builder = WrapperBuilder::<DefaultParameters, 2>::new();
+    let builder = WrapperBuilder::<DefaultParameters, 2>::new();
     let mut circuit = builder.build();
     circuit.set_data(all_circuits.block.circuit);
     let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);

@@ -3,8 +3,8 @@ use crate::mips_emulator::state::Segment;
 use alloc::collections::BTreeMap;
 use anyhow::{anyhow, bail, Context, Result};
 use elf::{endian::BigEndian, file::Class, ElfBytes};
+use keccak_hash::keccak;
 use serde::{Deserialize, Serialize};
-
 use std::fs;
 use std::fs::File;
 use std::io::BufReader;
@@ -26,6 +26,7 @@ pub struct Program {
     pub heap: usize,
     pub end_pc: usize,
     pub image_id: [u8; 32],
+    pub page_hash_root: [u8; 32],
 }
 
 impl Program {
@@ -197,7 +198,15 @@ impl Program {
         let lo = 0;
         let hi = 0;
         let heap = 0x20000000;
-        let end_pc = 0;
+        let end_pc: u32 = 0;
+
+        // this is just for test
+        let mut final_data = [0u8; 36];
+        let page_hash_root = [1u8; 32];
+        final_data[0..32].copy_from_slice(&page_hash_root);
+        final_data[32..].copy_from_slice(&end_pc.to_be_bytes());
+
+        let image_id = keccak(&final_data).0;
 
         Ok(Program {
             entry,
@@ -206,8 +215,9 @@ impl Program {
             lo,
             hi,
             heap,
-            end_pc,
-            ..Default::default()
+            end_pc: end_pc as usize,
+            image_id,
+            page_hash_root,
         })
     }
 
@@ -233,6 +243,7 @@ impl Program {
         let hi: usize = image.get(&((33 << 2) as u32)).unwrap().to_be() as usize;
         let heap: usize = image.get(&((34 << 2) as u32)).unwrap().to_be() as usize;
         let pc: usize = image.get(&((35 << 2) as u32)).unwrap().to_be() as usize;
+        let page_hash_root = segment.page_hash_root;
 
         log::trace!(
             "load segment pc: {} image: {:?} gprs: {:?} lo: {} hi: {} heap:{} range: ({} -> {})",
@@ -254,6 +265,7 @@ impl Program {
             heap,
             end_pc,
             image_id: segment.image_id,
+            page_hash_root,
         })
     }
 }

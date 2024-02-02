@@ -9,6 +9,8 @@ use std::rc::Rc;
 
 use super::page::MAX_MEMORY;
 
+pub const ROOT_HASH_ADDRESS_BASE: u32 = 0x81021000;
+pub const END_PC_ADDRESS: u32 = ROOT_HASH_ADDRESS_BASE + 4 * 8;
 /// Operation to memory access, Read/Write
 #[derive(Copy, Clone, Debug)]
 pub enum MemoryOperation {
@@ -296,7 +298,8 @@ impl Memory {
         return Ok(());
     }
 
-    pub fn compute_image_id(&mut self, pc: u32) -> [u8; 32] {
+    // return image id and page hash root
+    pub fn compute_image_id(&mut self, pc: u32) -> ([u8; 32], [u8; 32]) {
         // MAIN MEMORY   0 .. 0x80000000
         for (page_index, cached_page) in self.wtrace[0].clone().iter() {
             let _ = self.set_hash_range(*page_index, hash_page(&cached_page.borrow().data), 0);
@@ -328,14 +331,16 @@ impl Memory {
         };
 
         let mut final_data = [0u8; 36];
-        final_data[0..4].copy_from_slice(&pc.to_be_bytes());
-        final_data[4..36].copy_from_slice(&hash);
+        final_data[0..32].copy_from_slice(&hash);
+        final_data[32..].copy_from_slice(&pc.to_be_bytes());
 
         let image_id = keccak(&final_data).0;
 
+        log::debug!("page root hash: {:?}", hash);
+        log::debug!("end pc: {:?}", pc.to_le_bytes());
         log::debug!("image id: {:?}", image_id);
 
-        image_id
+        (image_id, hash)
     }
 
     pub fn check_image_id(&mut self, pc: u32, image_id: [u8; 32]) {
