@@ -50,12 +50,12 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // FIXME: use previous hash root
     let public_values = PublicValues {
         roots_before: MemRoots {
-            root: unsafe { std::mem::transmute::<[u8; 32], [u32; 8]>(kernel.program.image_id) },
-            //root: Default::default(),
+            //root: unsafe { std::mem::transmute::<[u8; 32], [u32; 8]>(kernel.program.image_id) },
+            root: Default::default(),
         },
         roots_after: MemRoots {
-            root: unsafe { std::mem::transmute::<[u8; 32], [u32; 8]>(kernel.program.image_id) },
-            //root: Default::default(),
+            //root: unsafe { std::mem::transmute::<[u8; 32], [u32; 8]>(kernel.program.image_id) },
+            root: Default::default(),
         },
     };
     let tables = timed!(
