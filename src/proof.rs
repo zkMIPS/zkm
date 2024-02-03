@@ -92,8 +92,8 @@ impl PublicValuesTarget {
         };
 
         Ok(Self {
-            roots_before: roots_before,
-            roots_after: roots_after,
+            roots_before,
+            roots_after,
         })
     }
 
