@@ -743,11 +743,9 @@ where
         // Connect block hashes
         //Self::connect_block_hashes(&mut builder, &parent_block_proof, &agg_root_proof);
 
-        // FIXME: should we connect the public value?
-        let _parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
-        let _agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
+        let parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
+        let agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
 
-        /*
         // Connect block `trie_roots_before` with parent_pv `trie_roots_before`.
         MemRootsTarget::connect(
             &mut builder,
@@ -756,7 +754,6 @@ where
         );
         // Connect the rest of block `public_values` with agg_pv.
         MemRootsTarget::connect(&mut builder, public_values.roots_after, agg_pv.roots_after);
-        */
 
         // Make connections between block proofs, and check initial and final block values.
         //Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
