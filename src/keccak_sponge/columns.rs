@@ -24,7 +24,8 @@ pub(crate) struct KeccakSpongeColumnsView<T: Copy> {
     // The base address at which we will read the input block.
     pub context: T,
     pub segment: T,
-    pub virt: T,
+    // address
+    pub virt: [T; KECCAK_RATE_U32S],
 
     /// The timestamp at which inputs should be read from memory.
     pub timestamp: T,

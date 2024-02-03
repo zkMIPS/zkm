@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::cmp::min;
 use std::iter::{once, repeat};
 use std::marker::PhantomData;
 use std::mem::size_of;
@@ -41,7 +42,7 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     Column::singles([
         cols.context,
         cols.segment,
-        cols.virt,
+        cols.virt[0],
         cols.len,
         cols.timestamp,
     ])
@@ -99,10 +100,12 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
         F::from_canonical_usize(i),
     ));
     */
-    res.push(Column::single(cols.virt));
+    res.push(Column::single(cols.virt[i / 4]));
 
-    // The i'th input byte being read.
-    res.push(Column::single(cols.block_bytes[i]));
+    // The u32 of i'th input byte being read.
+    let start = (i / 4) * 4;
+    let lc = Column::le_bytes(&cols.block_bytes[start..(start + 4)]);
+    res.push(lc);
 
     // Since we're reading a single byte, the higher limbs must be zero.
     res.extend((1..8).map(|_| Column::zero()));
@@ -191,7 +194,7 @@ pub(crate) fn ctl_looking_keccak_filter<F: Field>() -> Column<F> {
 #[derive(Clone, Debug)]
 pub(crate) struct KeccakSpongeOp {
     /// The base address at which inputs are read.
-    pub(crate) base_address: MemoryAddress,
+    pub(crate) base_address: Vec<MemoryAddress>,
 
     /// The timestamp at which inputs are read.
     pub(crate) timestamp: usize,
@@ -352,9 +355,20 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         already_absorbed_bytes: usize,
         mut sponge_state: [u32; KECCAK_WIDTH_U32S],
     ) {
-        row.context = F::from_canonical_usize(op.base_address.context);
-        row.segment = F::from_canonical_usize(op.base_address.segment);
-        row.virt = F::from_canonical_usize(op.base_address.virt);
+        let idx = already_absorbed_bytes / 4;
+        let end_index = min(
+            (already_absorbed_bytes + KECCAK_RATE_BYTES) / 4,
+            op.base_address.len(),
+        );
+        let mut virt = (idx..end_index)
+            .map(|i| op.base_address[i].virt)
+            .collect_vec();
+        virt.resize(KECCAK_RATE_U32S, 0);
+        let virt: [usize; KECCAK_RATE_U32S] = virt.try_into().unwrap();
+
+        row.context = F::from_canonical_usize(op.base_address[idx].context);
+        row.segment = F::from_canonical_usize(op.base_address[idx].segment);
+        row.virt = virt.map(F::from_canonical_usize);
         row.timestamp = F::from_canonical_usize(op.timestamp);
         row.len = F::from_canonical_usize(op.input.len());
         row.already_absorbed_bytes = F::from_canonical_usize(already_absorbed_bytes);
@@ -404,6 +418,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
                 .map(|i| F::from_canonical_u32(i))
                 .collect::<Vec<_>>(),
         );
+        log::info!("common row: {:?}", row);
         sponge_state[..KECCAK_DIGEST_U32S]
             .iter()
             .enumerate()
@@ -494,8 +509,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         yield_constr.constraint_transition(
             is_full_input_block * (local_values.segment - next_values.segment),
         );
-        yield_constr
-            .constraint_transition(is_full_input_block * (local_values.virt - next_values.virt));
+        // yield_constr
+        //     .constraint_transition(is_full_input_block * (local_values.virt - next_values.virt));
         yield_constr.constraint_transition(
             is_full_input_block * (local_values.timestamp - next_values.timestamp),
         );
@@ -620,9 +635,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         let constraint = builder.mul_extension(is_full_input_block, segment_diff);
         yield_constr.constraint_transition(builder, constraint);
 
-        let virt_diff = builder.sub_extension(local_values.virt, next_values.virt);
-        let constraint = builder.mul_extension(is_full_input_block, virt_diff);
-        yield_constr.constraint_transition(builder, constraint);
+        // let virt_diff = builder.sub_extension(local_values.virt, next_values.virt);
+        // let constraint = builder.mul_extension(is_full_input_block, virt_diff);
+        // yield_constr.constraint_transition(builder, constraint);
 
         let timestamp_diff = builder.sub_extension(local_values.timestamp, next_values.timestamp);
         let constraint = builder.mul_extension(is_full_input_block, timestamp_diff);
@@ -753,11 +768,11 @@ mod tests {
         let expected_output = keccak(&input);
 
         let op = KeccakSpongeOp {
-            base_address: MemoryAddress {
+            base_address: vec![MemoryAddress {
                 context: 0,
                 segment: Segment::Code as usize,
                 virt: 0,
-            },
+            }],
             timestamp: 0,
             input,
         };

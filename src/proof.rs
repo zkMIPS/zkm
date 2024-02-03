@@ -55,7 +55,7 @@ pub struct PublicValues {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MemRoots {
-    pub root: u32,
+    pub root: [u32; 8],
 }
 
 /// Memory values which are public.
@@ -72,35 +72,35 @@ impl PublicValuesTarget {
             root: state_root_before,
         } = self.roots_before;
 
-        buffer.write_target_array(&[state_root_before])?;
+        buffer.write_target_array(&state_root_before)?;
 
         let MemRootsTarget {
             root: state_root_after,
         } = self.roots_after;
 
-        buffer.write_target_array(&[state_root_after])?;
+        buffer.write_target_array(&state_root_after)?;
         Ok(())
     }
 
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let trie_roots_before = MemRootsTarget {
-            root: buffer.read_target_array::<1>()?[0],
+        let roots_before = MemRootsTarget {
+            root: buffer.read_target_array()?,
         };
 
-        let trie_roots_after = MemRootsTarget {
-            root: buffer.read_target_array::<1>()?[0],
+        let roots_after = MemRootsTarget {
+            root: buffer.read_target_array()?,
         };
 
         Ok(Self {
-            roots_before: trie_roots_before,
-            roots_after: trie_roots_after,
+            roots_before,
+            roots_after,
         })
     }
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         Self {
-            roots_before: MemRootsTarget::from_public_inputs(&pis[0]),
-            roots_after: MemRootsTarget::from_public_inputs(&pis[1]),
+            roots_before: MemRootsTarget::from_public_inputs(&pis[0..8]),
+            roots_after: MemRootsTarget::from_public_inputs(&pis[8..16]),
         }
     }
 
@@ -129,14 +129,15 @@ impl PublicValuesTarget {
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub struct MemRootsTarget {
-    pub root: Target,
+    pub root: [Target; 8],
 }
 
 impl MemRootsTarget {
     pub const SIZE: usize = 24;
 
-    pub fn from_public_inputs(mr: &Target) -> Self {
-        Self { root: mr.clone() }
+    pub fn from_public_inputs(pis: &[Target]) -> Self {
+        let root = pis[0..8].try_into().unwrap();
+        Self { root }
     }
 
     pub fn select<F: RichField + Extendable<D>, const D: usize>(
@@ -146,7 +147,7 @@ impl MemRootsTarget {
         tr1: Self,
     ) -> Self {
         Self {
-            root: builder.select(condition, tr0.root, tr1.root),
+            root: core::array::from_fn(|i| builder.select(condition, tr0.root[i], tr1.root[i])),
         }
     }
 
@@ -155,7 +156,9 @@ impl MemRootsTarget {
         tr0: Self,
         tr1: Self,
     ) {
-        builder.connect(tr0.root, tr1.root);
+        for i in 0..8 {
+            builder.connect(tr0.root[i], tr1.root[i]);
+        }
     }
 }
 

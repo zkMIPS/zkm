@@ -35,7 +35,7 @@ use crate::lookup::LookupCheckVarsTarget;
 
 use crate::memory::VALUE_LIMBS;
 use crate::proof::{
-    MemRootsTarget, PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
+    MemRoots, MemRootsTarget, PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
     StarkProofChallengesTarget, StarkProofTarget, StarkProofWithMetadata,
 };
 use crate::stark::Stark;
@@ -667,107 +667,20 @@ fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
 pub(crate) fn add_virtual_public_values<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> PublicValuesTarget {
-    /*
-    let trie_roots_before = add_virtual_trie_roots(builder);
-    let trie_roots_after = add_virtual_trie_roots(builder);
-    let block_metadata = add_virtual_block_metadata(builder);
-    let block_hashes = add_virtual_block_hashes(builder);
-    let extra_block_data = add_virtual_extra_block_data(builder);
+    let roots_before = add_virtual_trie_roots(builder);
+    let roots_after = add_virtual_trie_roots(builder);
     PublicValuesTarget {
-        trie_roots_before,
-        trie_roots_after,
-        block_metadata,
-        block_hashes,
-        extra_block_data,
-    }
-    */
-    // let zero = builder.zero();
-    // PublicValuesTarget::from_public_inputs(&[zero, zero])
-
-    PublicValuesTarget {
-        roots_before: MemRootsTarget {
-            root: builder.add_virtual_public_input(),
-        },
-        roots_after: MemRootsTarget {
-            root: builder.add_virtual_public_input(),
-        },
+        roots_before,
+        roots_after,
     }
 }
-
-/*
 
 pub(crate) fn add_virtual_trie_roots<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-) -> TrieRootsTarget {
-    let state_root = builder.add_virtual_public_input_arr();
-    let transactions_root = builder.add_virtual_public_input_arr();
-    let receipts_root = builder.add_virtual_public_input_arr();
-    TrieRootsTarget {
-        state_root,
-        transactions_root,
-        receipts_root,
-    }
+) -> MemRootsTarget {
+    let root = builder.add_virtual_public_input_arr();
+    MemRootsTarget { root }
 }
-
-pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-) -> BlockMetadataTarget {
-    let block_beneficiary = builder.add_virtual_public_input_arr();
-    let block_timestamp = builder.add_virtual_public_input();
-    let block_number = builder.add_virtual_public_input();
-    let block_difficulty = builder.add_virtual_public_input();
-    let block_random = builder.add_virtual_public_input_arr();
-    let block_gaslimit = builder.add_virtual_public_input_arr();
-    let block_chain_id = builder.add_virtual_public_input();
-    let block_base_fee = builder.add_virtual_public_input_arr();
-    let block_gas_used = builder.add_virtual_public_input_arr();
-    let block_bloom = builder.add_virtual_public_input_arr();
-    BlockMetadataTarget {
-        block_beneficiary,
-        block_timestamp,
-        block_number,
-        block_difficulty,
-        block_random,
-        block_gaslimit,
-        block_chain_id,
-        block_base_fee,
-        block_gas_used,
-        block_bloom,
-    }
-}
-
-pub(crate) fn add_virtual_block_hashes<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-) -> BlockHashesTarget {
-    let prev_hashes = builder.add_virtual_public_input_arr();
-    let cur_hash = builder.add_virtual_public_input_arr();
-    BlockHashesTarget {
-        prev_hashes,
-        cur_hash,
-    }
-}
-
-pub(crate) fn add_virtual_extra_block_data<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-) -> ExtraBlockDataTarget {
-    let genesis_state_trie_root = builder.add_virtual_public_input_arr();
-    let txn_number_before = builder.add_virtual_public_input();
-    let txn_number_after = builder.add_virtual_public_input();
-    let gas_used_before = builder.add_virtual_public_input_arr();
-    let gas_used_after = builder.add_virtual_public_input_arr();
-    let block_bloom_before: [Target; 64] = builder.add_virtual_public_input_arr();
-    let block_bloom_after: [Target; 64] = builder.add_virtual_public_input_arr();
-    ExtraBlockDataTarget {
-        genesis_state_trie_root,
-        txn_number_before,
-        txn_number_after,
-        gas_used_before,
-        gas_used_after,
-        block_bloom_before,
-        block_bloom_after,
-    }
-}
-*/
 
 pub(crate) fn add_virtual_stark_proof<
     F: RichField + Extendable<D>,
@@ -855,174 +768,43 @@ where
     F: RichField + Extendable<D>,
     W: Witness<F>,
 {
-    witness.set_target(
-        public_values_target.roots_before.root,
-        F::from_canonical_u32(public_values.roots_before.root),
+    set_trie_roots_target(
+        witness,
+        &public_values_target.roots_before,
+        &public_values.roots_before,
     );
-    witness.set_target(
-        public_values_target.roots_after.root,
-        F::from_canonical_u32(public_values.roots_after.root),
+    set_trie_roots_target(
+        witness,
+        &public_values_target.roots_after,
+        &public_values.roots_after,
     );
     /*
-    set_trie_roots_target(
-        witness,
-        &public_values_target.trie_roots_before,
-        &public_values.trie_roots_before,
-    );
-    set_trie_roots_target(
-        witness,
-        &public_values_target.trie_roots_after,
-        &public_values.trie_roots_after,
-    );
-    set_block_metadata_target(
-        witness,
-        &public_values_target.block_metadata,
-        &public_values.block_metadata,
-    )?;
-    set_block_hashes_target(
-        witness,
-        &public_values_target.block_hashes,
-        &public_values.block_hashes,
-    );
     set_extra_public_values_target(
         witness,
         &public_values_target.extra_block_data,
         &public_values.extra_block_data,
     )?;
     */
-
     Ok(())
 }
-/*
 
 pub(crate) fn set_trie_roots_target<F, W, const D: usize>(
     witness: &mut W,
-    trie_roots_target: &TrieRootsTarget,
-    trie_roots: &TrieRoots,
+    trie_roots_target: &MemRootsTarget,
+    trie_roots: &MemRoots,
 ) where
     F: RichField + Extendable<D>,
     W: Witness<F>,
 {
-    for (i, limb) in trie_roots.state_root.into_uint().0.into_iter().enumerate() {
+    for (i, limb) in trie_roots.root.into_iter().enumerate() {
         witness.set_target(
-            trie_roots_target.state_root[2 * i],
+            trie_roots_target.root[i],
             F::from_canonical_u32(limb as u32),
-        );
-        witness.set_target(
-            trie_roots_target.state_root[2 * i + 1],
-            F::from_canonical_u32((limb >> 32) as u32),
-        );
-    }
-
-    for (i, limb) in trie_roots
-        .transactions_root
-        .into_uint()
-        .0
-        .into_iter()
-        .enumerate()
-    {
-        witness.set_target(
-            trie_roots_target.transactions_root[2 * i],
-            F::from_canonical_u32(limb as u32),
-        );
-        witness.set_target(
-            trie_roots_target.transactions_root[2 * i + 1],
-            F::from_canonical_u32((limb >> 32) as u32),
-        );
-    }
-
-    for (i, limb) in trie_roots
-        .receipts_root
-        .into_uint()
-        .0
-        .into_iter()
-        .enumerate()
-    {
-        witness.set_target(
-            trie_roots_target.receipts_root[2 * i],
-            F::from_canonical_u32(limb as u32),
-        );
-        witness.set_target(
-            trie_roots_target.receipts_root[2 * i + 1],
-            F::from_canonical_u32((limb >> 32) as u32),
         );
     }
 }
 
-pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
-    witness: &mut W,
-    block_metadata_target: &BlockMetadataTarget,
-    block_metadata: &BlockMetadata,
-) -> Result<(), ProgramError>
-where
-    F: RichField + Extendable<D>,
-    W: Witness<F>,
-{
-    let beneficiary_limbs: [F; 5] =
-        u256_limbs::<F>(U256::from_big_endian(&block_metadata.block_beneficiary.0))[..5]
-            .try_into()
-            .unwrap();
-    witness.set_target_arr(&block_metadata_target.block_beneficiary, &beneficiary_limbs);
-    witness.set_target(
-        block_metadata_target.block_timestamp,
-        u256_to_u32(block_metadata.block_timestamp)?,
-    );
-    witness.set_target(
-        block_metadata_target.block_number,
-        u256_to_u32(block_metadata.block_number)?,
-    );
-    witness.set_target(
-        block_metadata_target.block_difficulty,
-        u256_to_u32(block_metadata.block_difficulty)?,
-    );
-    witness.set_target_arr(
-        &block_metadata_target.block_random,
-        &h256_limbs(block_metadata.block_random),
-    );
-    // Gaslimit fits in 2 limbs
-    let gaslimit = u256_to_u64(block_metadata.block_gaslimit)?;
-    witness.set_target(block_metadata_target.block_gaslimit[0], gaslimit.0);
-    witness.set_target(block_metadata_target.block_gaslimit[1], gaslimit.1);
-    witness.set_target(
-        block_metadata_target.block_chain_id,
-        u256_to_u32(block_metadata.block_chain_id)?,
-    );
-    // Basefee fits in 2 limbs
-    let basefee = u256_to_u64(block_metadata.block_base_fee)?;
-    witness.set_target(block_metadata_target.block_base_fee[0], basefee.0);
-    witness.set_target(block_metadata_target.block_base_fee[1], basefee.1);
-    // Gas used fits in 2 limbs
-    let gas_used = u256_to_u64(block_metadata.block_gas_used)?;
-    witness.set_target(block_metadata_target.block_gas_used[0], gas_used.0);
-    witness.set_target(block_metadata_target.block_gas_used[1], gas_used.1);
-    let mut block_bloom_limbs = [F::ZERO; 64];
-    for (i, limbs) in block_bloom_limbs.chunks_exact_mut(8).enumerate() {
-        limbs.copy_from_slice(&u256_limbs(block_metadata.block_bloom[i]));
-    }
-    witness.set_target_arr(&block_metadata_target.block_bloom, &block_bloom_limbs);
-
-    Ok(())
-}
-
-pub(crate) fn set_block_hashes_target<F, W, const D: usize>(
-    witness: &mut W,
-    block_hashes_target: &BlockHashesTarget,
-    block_hashes: &BlockHashes,
-) where
-    F: RichField + Extendable<D>,
-    W: Witness<F>,
-{
-    for i in 0..256 {
-        let block_hash_limbs: [F; 8] = h256_limbs::<F>(block_hashes.prev_hashes[i]);
-        witness.set_target_arr(
-            &block_hashes_target.prev_hashes[8 * i..8 * (i + 1)],
-            &block_hash_limbs,
-        );
-    }
-    let cur_block_hash_limbs: [F; 8] = h256_limbs::<F>(block_hashes.cur_hash);
-    witness.set_target_arr(&block_hashes_target.cur_hash, &cur_block_hash_limbs);
-}
-
+/*
 pub(crate) fn set_extra_public_values_target<F, W, const D: usize>(
     witness: &mut W,
     ed_target: &ExtraBlockDataTarget,

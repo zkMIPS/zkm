@@ -21,12 +21,14 @@ pub const MIPS_EBADF: u32 = 9;
 
 pub const SEGMENT_STEPS: usize = 200000;
 
+// image_id = keccak(page_hash_root || end_pc)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
 pub struct Segment {
     pub mem_image: BTreeMap<u32, u32>,
     pub pc: u32,
     pub segment_id: u32,
     pub image_id: [u8; 32],
+    pub page_hash_root: [u8; 32],
     pub end_pc: u32,
 }
 
@@ -942,7 +944,7 @@ impl InstrumentedState {
     pub fn split_segment(&mut self, proof: bool, output: &str) {
         std::fs::create_dir_all(output).unwrap();
         self.state.sync_registers();
-        let image_id = self.state.memory.compute_image_id(self.state.pc);
+        let (image_id, page_hash_root) = self.state.memory.compute_image_id(self.state.pc);
         let image = self.state.memory.get_input_image();
 
         if proof {
@@ -952,6 +954,7 @@ impl InstrumentedState {
                 pc: self.pre_pc,
                 image_id,
                 end_pc: self.state.pc,
+                page_hash_root,
             };
             let name = format!("{output}/{}", self.pre_segment_id);
             log::trace!("split: file {}", name);
