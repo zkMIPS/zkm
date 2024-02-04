@@ -42,7 +42,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         state.traces.push_cpu(cpu_row);
     }
 
-    check_memory_root(state, kernel);
+    check_memory_root(state, kernel, true);
 
     let mut final_cpu_row = CpuColumnsView::default();
     final_cpu_row.clock = F::from_canonical_usize(state.traces.clock());
@@ -81,7 +81,11 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
 
-pub(crate) fn check_memory_root<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) {
+pub(crate) fn check_memory_root<F: Field>(
+    state: &mut GenerationState<F>,
+    kernel: &Kernel,
+    check_prev: bool,
+) {
     // push mem root and pc
     let mut root_u32s: [u32; 9] = [kernel.program.end_pc as u32; 9];
     for i in 0..8 {

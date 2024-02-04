@@ -124,7 +124,7 @@ pub(crate) struct Operation {
 impl Operation {
     pub(crate) fn new(operator: Op, input0: u32, input1: u32) -> Self {
         let result = operator.result(input0, input1);
-        log::debug!("{:?}: {} {} => {}", operator, input0, input1, result);
+        //log::debug!("{:?}: {} {} => {}", operator, input0, input1, result);
         Operation {
             operator,
             input0,

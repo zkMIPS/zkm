@@ -797,10 +797,12 @@ pub(crate) fn set_trie_roots_target<F, W, const D: usize>(
     W: Witness<F>,
 {
     for (i, limb) in trie_roots.root.into_iter().enumerate() {
-        witness.set_target(
+        log::trace!(
+            "set target: {:?} => {:?}",
             trie_roots_target.root[i],
-            F::from_canonical_u32(limb as u32),
+            F::from_canonical_u32(limb),
         );
+        witness.set_target(trie_roots_target.root[i], F::from_canonical_u32(limb));
     }
 }
 
