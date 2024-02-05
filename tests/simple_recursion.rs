@@ -157,7 +157,7 @@ fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
 }
 
 #[test]
-#[ignore = "Too slow"]
+#[ignore = "The pre image id is not correct"]
 fn test_mips_with_aggreg() -> anyhow::Result<()> {
     use plonky2x::backend::circuit::Groth16WrapperParameters;
     use plonky2x::backend::wrapper::wrap::WrappedCircuit;
