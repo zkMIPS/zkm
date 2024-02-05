@@ -157,7 +157,7 @@ fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
 }
 
 #[test]
-#[ignore = "Too slow"]
+#[ignore = "The pre image id is not correct"]
 fn test_mips_with_aggreg() -> anyhow::Result<()> {
     use plonky2x::backend::circuit::Groth16WrapperParameters;
     use plonky2x::backend::wrapper::wrap::WrappedCircuit;
@@ -193,6 +193,8 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     timing.filter(Duration::from_millis(100)).print();
 
     all_circuits.verify_root(root_proof.clone())?;
+    log::trace!("public_inputs before {:?}", first_public_values);
+    log::trace!("public_inputs {:?}", public_values);
 
     // Update public values for the aggregation.
     let agg_public_values = PublicValues {
@@ -201,6 +203,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     };
 
     // We can duplicate the proofs here because the state hasn't mutated.
+    log::info!("prove aggregation");
     let (agg_proof, updated_agg_public_values) = all_circuits.prove_aggregation(
         false,
         &root_proof_first,
@@ -208,7 +211,9 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
         &root_proof,
         agg_public_values,
     )?;
+    log::info!("verify aggregation");
     all_circuits.verify_aggregation(&agg_proof)?;
+    log::info!("prove aggregation successfully");
     let (block_proof, _block_public_values) =
         all_circuits.prove_block(None, &agg_proof, updated_agg_public_values)?;
 

@@ -743,11 +743,9 @@ where
         // Connect block hashes
         //Self::connect_block_hashes(&mut builder, &parent_block_proof, &agg_root_proof);
 
-        // FIXME: should we connect the public value?
-        let _parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
-        let _agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
+        let parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
+        let agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
 
-        /*
         // Connect block `trie_roots_before` with parent_pv `trie_roots_before`.
         MemRootsTarget::connect(
             &mut builder,
@@ -756,10 +754,9 @@ where
         );
         // Connect the rest of block `public_values` with agg_pv.
         MemRootsTarget::connect(&mut builder, public_values.roots_after, agg_pv.roots_after);
-        */
 
         // Make connections between block proofs, and check initial and final block values.
-        //Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
+        Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
 
         let cyclic_vk = builder.add_verifier_data_public_inputs();
         builder
@@ -784,8 +781,8 @@ where
         }
     }
 
-    /// Connect the 256 block hashes between two blocks
     /*
+    /// Connect the 256 block hashes between two blocks
     pub fn connect_block_hashes(
         builder: &mut CircuitBuilder<F, D>,
         lhs: &ProofWithPublicInputsTarget<D>,
@@ -807,6 +804,7 @@ where
             builder.connect(expected_hash[i], prev_block_hash[i]);
         }
     }
+    */
 
     fn connect_block_proof(
         builder: &mut CircuitBuilder<F, D>,
@@ -815,15 +813,11 @@ where
         rhs: &PublicValuesTarget,
     ) {
         // Between blocks, we only connect state tries.
-        for (&limb0, limb1) in lhs
-            .trie_roots_after
-            .state_root
-            .iter()
-            .zip(rhs.trie_roots_before.state_root)
-        {
+        for (&limb0, limb1) in lhs.roots_after.root.iter().zip(rhs.roots_before.root) {
             builder.connect(limb0, limb1);
         }
 
+        /*
         // Between blocks, the genesis state trie remains unchanged.
         for (&limb0, limb1) in lhs
             .extra_block_data
@@ -854,8 +848,10 @@ where
 
         // Check that the genesis block has the predetermined state trie root in `ExtraBlockData`.
         Self::connect_genesis_block(builder, rhs, has_not_parent_block);
+        */
     }
 
+    /*
     fn connect_genesis_block(
         builder: &mut CircuitBuilder<F, D>,
         x: &PublicValuesTarget,
@@ -972,6 +968,7 @@ where
             &self.aggregation.circuit.verifier_only,
         );
 
+        log::trace!("prove_root set_public_value_targets");
         set_public_value_targets(
             &mut root_inputs,
             &self.root.public_values,
@@ -1000,19 +997,23 @@ where
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let mut agg_inputs = PartialWitness::new();
 
+        log::trace!("set lhs agg proof");
         agg_inputs.set_bool_target(self.aggregation.lhs.is_agg, lhs_is_agg);
         agg_inputs.set_proof_with_pis_target(&self.aggregation.lhs.agg_proof, lhs_proof);
         agg_inputs.set_proof_with_pis_target(&self.aggregation.lhs.evm_proof, lhs_proof);
 
+        log::trace!("set rhs agg proof");
         agg_inputs.set_bool_target(self.aggregation.rhs.is_agg, rhs_is_agg);
         agg_inputs.set_proof_with_pis_target(&self.aggregation.rhs.agg_proof, rhs_proof);
         agg_inputs.set_proof_with_pis_target(&self.aggregation.rhs.evm_proof, rhs_proof);
 
+        log::trace!("set verifier proof");
         agg_inputs.set_verifier_data_target(
             &self.aggregation.cyclic_vk,
             &self.aggregation.circuit.verifier_only,
         );
 
+        log::trace!("prove_aggregation set_public_value_targets");
         set_public_value_targets(
             &mut agg_inputs,
             &self.aggregation.public_values,
@@ -1022,6 +1023,7 @@ where
             anyhow::Error::msg("Invalid conversion when setting public values targets.")
         })?;
 
+        log::trace!("aggregation proof");
         let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
         Ok((aggregation_proof, public_values))
     }
@@ -1054,13 +1056,21 @@ where
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
         } else {
-            // Initialize genesis_state_trie, state_root_after and the block number for correct connection between blocks.
             // Initialize `state_root_after`.
-            let _state_trie_root_after_keys = 24..32;
-            let nonzero_pis = HashMap::new();
+            let mut nonzero_pis = HashMap::new();
+            let state_trie_root_before_keys = 0..8;
+            for (key, &value) in
+                state_trie_root_before_keys.zip_eq(&public_values.roots_before.root)
+            {
+                nonzero_pis.insert(key, F::from_canonical_u32(value));
+            }
 
-            // Initialize the block number.
-            // FIXME
+            let state_trie_root_after_keys = 8..16;
+            for (key, &value) in state_trie_root_after_keys.zip_eq(&public_values.roots_before.root)
+            {
+                nonzero_pis.insert(key, F::from_canonical_u32(value));
+            }
+
             block_inputs.set_proof_with_pis_target(
                 &self.block.parent_block_proof,
                 &cyclic_base_proof(
@@ -1071,11 +1081,14 @@ where
             );
         }
 
+        log::trace!("set proof with pis");
         block_inputs.set_proof_with_pis_target(&self.block.agg_root_proof, agg_root_proof);
 
+        log::trace!("set verifier data");
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
+        log::trace!("prove_block set_public_value_targets");
         set_public_value_targets(&mut block_inputs, &self.block.public_values, &public_values)
             .map_err(|_| {
                 anyhow::Error::msg("Invalid conversion when setting public values targets.")
