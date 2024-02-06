@@ -13,8 +13,10 @@ use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::state::GenerationState;
 use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_RATE_U32S};
 use crate::memory::segments::Segment;
-use crate::mips_emulator::memory::{HASH_ADDRESS_END, HASH_ADDRESS_BASE, END_PC_ADDRESS, ROOT_HASH_ADDRESS_BASE};
-use crate::mips_emulator::page::PAGE_ADDR_MASK;
+use crate::mips_emulator::memory::{
+    END_PC_ADDRESS, HASH_ADDRESS_BASE, HASH_ADDRESS_END, ROOT_HASH_ADDRESS_BASE,
+};
+use crate::mips_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::keccak_sponge_log;
 use crate::witness::util::mem_write_gp_log_and_fill;
@@ -36,9 +38,11 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
             let address = MemoryAddress::new(0, Segment::Code, *addr as usize);
             image_addr.push(address);
             image_addr_value.push(*val); // BE
-            if addr & 0xFFFu32 == 0 {
+
+            if (addr & PAGE_ADDR_MASK as u32) == 0 {
                 page_addr.push(*val);
             }
+
             let write =
                 mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, (*val).to_be());
             state.traces.push_memory(write);
@@ -51,7 +55,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         check_memory_page_hash(state, kernel, *addr);
     }
 
-    check_memory_root(state, kernel, true);
+    check_image_id(state, kernel, true);
 
     let mut final_cpu_row = CpuColumnsView::default();
     final_cpu_row.clock = F::from_canonical_usize(state.traces.clock());
@@ -90,7 +94,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
 
-pub(crate) fn check_memory_root<F: Field>(
+pub(crate) fn check_image_id<F: Field>(
     state: &mut GenerationState<F>,
     kernel: &Kernel,
     check_prev: bool,
@@ -161,19 +165,24 @@ pub(crate) fn check_memory_root<F: Field>(
     state.traces.push_cpu(cpu_row);
 }
 
-pub(crate) fn check_memory_page_hash<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel, addr: u32) {
-    let root_hash_addr_value: Vec<_> = (addr..=addr + 4096)
+pub(crate) fn check_memory_page_hash<F: Field>(
+    state: &mut GenerationState<F>,
+    kernel: &Kernel,
+    addr: u32,
+) {
+    assert_eq!(addr & PAGE_ADDR_MASK as u32, 0u32);
+    let page_data_addr_value: Vec<_> = (addr..=addr + PAGE_SIZE as u32)
         .step_by(4)
         .collect::<Vec<u32>>();
 
-    let mut root_hash_addr = Vec::new();
+    let mut page_data_addr = Vec::new();
 
-    let mut image_addr_value_byte_be = vec![0u8; 4096];
-    for (i, addr) in root_hash_addr_value.iter().enumerate() {
+    let mut page_addr_value_byte_be = vec![0u8; PAGE_SIZE];
+    for (i, addr) in page_data_addr_value.iter().enumerate() {
         let v = kernel.program.image.get(addr).unwrap();
-        image_addr_value_byte_be[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
-        let address = MemoryAddress::new(0, Segment::Code, **addr as usize);
-        root_hash_addr.push(address);
+        page_addr_value_byte_be[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
+        let address = MemoryAddress::new(0, Segment::Code, *addr as usize);
+        page_data_addr.push(address);
     }
 
     let mut cpu_row = CpuColumnsView::default();
@@ -184,10 +193,10 @@ pub(crate) fn check_memory_page_hash<F: Field>(state: &mut GenerationState<F>, k
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
     cpu_row.mem_channels[0].value[0] = F::ZERO; // context
     cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize);
-    cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(root_hash_addr[0].virt);
-    cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(image_addr_value_byte_be.len()); // len
+    cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(page_data_addr[0].virt);
+    cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(page_addr_value_byte_be.len()); // len
 
-    let code_hash_bytes = keccak(&image_addr_value_byte_be).0;
+    let code_hash_bytes = keccak(&page_addr_value_byte_be).0;
     let code_hash_be = core::array::from_fn(|i| {
         u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
     });
@@ -213,7 +222,7 @@ pub(crate) fn check_memory_page_hash<F: Field>(state: &mut GenerationState<F>, k
     cpu_row.mem_channels[4].value = code_hash.map(F::from_canonical_u32);
     cpu_row.mem_channels[4].value.reverse();
 
-    keccak_sponge_log(state, root_hash_addr, image_addr_value_byte_be);
+    keccak_sponge_log(state, page_data_addr, page_addr_value_byte_be);
     state.traces.push_cpu(cpu_row);
 }
 
