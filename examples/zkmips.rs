@@ -139,7 +139,7 @@ fn aggregate_proof() -> anyhow::Result<()> {
     // Preprocess all circuits.
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[10..20, 15..22, 14..19, 9..17, 12..20, 15..23],
+        &[10..20, 10..22, 8..19, 8..17, 12..20, 14..23],
         &config,
     );
 
@@ -166,6 +166,7 @@ fn aggregate_proof() -> anyhow::Result<()> {
     };
 
     // We can duplicate the proofs here because the state hasn't mutated.
+    let timing = TimingTree::new("prove aggregation", log::Level::Info);
     let (agg_proof, updated_agg_public_values) = all_circuits.prove_aggregation(
         false,
         &root_proof_first,
@@ -173,9 +174,13 @@ fn aggregate_proof() -> anyhow::Result<()> {
         &root_proof,
         agg_public_values,
     )?;
+    timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_aggregation(&agg_proof)?;
+
+    let timing = TimingTree::new("prove block", log::Level::Info);
     let (block_proof, _block_public_values) =
         all_circuits.prove_block(None, &agg_proof, updated_agg_public_values)?;
+    timing.filter(Duration::from_millis(100)).print();
 
     log::info!(
         "proof size: {:?}",
