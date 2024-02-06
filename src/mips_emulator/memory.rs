@@ -9,6 +9,8 @@ use std::rc::Rc;
 
 use super::page::MAX_MEMORY;
 
+pub const HASH_ADDRESS_BASE: u32 = 0x80000000;
+pub const HASH_ADDRESS_END: u32 = 0x81020000;
 pub const ROOT_HASH_ADDRESS_BASE: u32 = 0x81021000;
 pub const END_PC_ADDRESS: u32 = ROOT_HASH_ADDRESS_BASE + 4 * 8;
 /// Operation to memory access, Read/Write
