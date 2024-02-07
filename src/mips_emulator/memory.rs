@@ -139,7 +139,6 @@ impl Memory {
     ) {
         let hash_addr = (page_index << 5) + MAX_MEMORY as u32;
         let page_index = hash_addr >> PAGE_ADDR_SIZE;
-        let hash_offset = hash_addr as usize & PAGE_ADDR_MASK;
         let cached_page: Option<Rc<RefCell<CachedPage>>> = self.page_lookup(page_index);
         let page = match cached_page {
             None => self.alloc_hash_page(page_index, level),
@@ -155,7 +154,7 @@ impl Memory {
         };
 
         if level < 2 {
-            set_hash_trace(page_index, level + 1);
+            self.set_hash_trace(page_index, level + 1);
         }
     }
 
@@ -169,7 +168,7 @@ impl Memory {
         match self.page_lookup(page_index) {
             None => {
                 self.rtrace.insert(page_index, [0u8; PAGE_SIZE]);
-                set_hash_rtrace(page_index, 0);
+                self.set_hash_trace(page_index, 0);
                 0u32
             }
             Some(cached_page) => {
@@ -180,7 +179,7 @@ impl Memory {
                 match self.rtrace.get(&page_index) {
                     None => {
                         self.rtrace.insert(page_index, cached_page.data.clone());
-                        set_hash_rtrace(page_index, 0);
+                        self.set_hash_trace(page_index, 0);
                     }
                     Some(_) => {}
                 };
@@ -226,8 +225,8 @@ impl Memory {
 
         match self.rtrace.get(&page_index) {
             None => {
-                self.rtrace.insert(page_index, cached_page.data.clone());
-                set_hash_rtrace(page_index, 0);
+                self.rtrace.insert(page_index, cached_page.borrow().data.clone());
+                self.set_hash_trace(page_index, 0);
             }
             Some(_) => {}
         };
@@ -281,7 +280,7 @@ impl Memory {
 
             match self.rtrace.get(&page_index) {
                 None => {
-                    self.rtrace.insert(page_index, page.data.clone());
+                    self.rtrace.insert(page_index, page.borrow().data.clone());
                     set_hash_rtrace(page_index, 0);
                 }
                 Some(_) => {}
