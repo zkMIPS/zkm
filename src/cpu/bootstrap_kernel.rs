@@ -40,7 +40,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
             image_addr_value.push(*val); // BE
 
             if (addr & PAGE_ADDR_MASK as u32) == 0 {
-                page_addr.push(*val);
+                page_addr.push(*addr);
             }
 
             let write =
@@ -170,6 +170,7 @@ pub(crate) fn check_memory_page_hash<F: Field>(
     kernel: &Kernel,
     addr: u32,
 ) {
+    log::debug!("check page hash, addr: {:X}", addr);
     assert_eq!(addr & PAGE_ADDR_MASK as u32, 0u32);
     let page_data_addr_value: Vec<_> = (addr..=addr + PAGE_SIZE as u32)
         .step_by(4)
@@ -203,8 +204,8 @@ pub(crate) fn check_memory_page_hash<F: Field>(
     let code_hash = code_hash_be.map(u32::from_be);
 
     if addr == HASH_ADDRESS_END {
-        log::debug!("actual image id: {:?}", code_hash_bytes);
-        log::debug!("expected image id: {:?}", kernel.program.page_hash_root);
+        log::debug!("actual root page hash: {:?}", code_hash_bytes);
+        log::debug!("expected root page hash: {:?}", kernel.program.page_hash_root);
         assert_eq!(code_hash_bytes, kernel.program.page_hash_root);
     } else {
         let mut expected_hash_byte = [0u8; 32];
@@ -214,8 +215,8 @@ pub(crate) fn check_memory_page_hash<F: Field>(
             let v = kernel.program.image.get(&addr).unwrap();
             expected_hash_byte[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
         }
-        log::debug!("actual image id: {:?}", code_hash_bytes);
-        log::debug!("expected image id: {:?}", expected_hash_byte);
+        log::debug!("actual page hash: {:?}", code_hash_bytes);
+        log::debug!("expected page hash: {:?}", expected_hash_byte);
         assert_eq!(code_hash_bytes, expected_hash_byte);
     }
 
