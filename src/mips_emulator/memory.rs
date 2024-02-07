@@ -281,7 +281,7 @@ impl Memory {
             match self.rtrace.get(&page_index) {
                 None => {
                     self.rtrace.insert(page_index, page.borrow().data.clone());
-                    set_hash_rtrace(page_index, 0);
+                    self.set_hash_trace(page_index, 0);
                 }
                 Some(_) => {}
             };
