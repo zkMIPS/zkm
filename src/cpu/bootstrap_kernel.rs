@@ -172,7 +172,7 @@ pub(crate) fn check_memory_page_hash<F: Field>(
 ) {
     log::debug!("check page hash, addr: {:X}", addr);
     assert_eq!(addr & PAGE_ADDR_MASK as u32, 0u32);
-    let page_data_addr_value: Vec<_> = (addr..=addr + PAGE_SIZE as u32)
+    let page_data_addr_value: Vec<_> = (addr..addr + PAGE_SIZE as u32)
         .step_by(4)
         .collect::<Vec<u32>>();
 
