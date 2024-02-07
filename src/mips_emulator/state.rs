@@ -967,7 +967,7 @@ impl InstrumentedState {
 
         self.pre_pc = self.state.pc;
         self.pre_image_id = image_id;
-        let _ = self.state.load_registers(); // add to rtraceq
+        let _ = self.state.load_registers(); // add to rtrace
     }
 }
 
