@@ -209,7 +209,7 @@ pub(crate) fn check_memory_page_hash<F: Field>(
         assert_eq!(code_hash_bytes, kernel.program.page_hash_root);
     } else {
         let mut expected_hash_byte = [0u8; 32];
-        let hash_addr = HASH_ADDRESS_BASE + (addr >> 12) << 5;
+        let hash_addr = HASH_ADDRESS_BASE + ((addr >> 12) << 5);
         for i in 0..8 {
             let addr = hash_addr + (i << 2) as u32;
             let v = kernel.program.image.get(&addr).unwrap();
