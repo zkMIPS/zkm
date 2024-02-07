@@ -971,7 +971,7 @@ impl InstrumentedState {
 
         self.pre_pc = self.state.pc;
         self.pre_image_id = image_id;
-        self.pre_hash_root = hash_root;
+        self.pre_hash_root = page_hash_root;
         let _ = self.state.load_registers(); // add to rtrace
     }
 }
