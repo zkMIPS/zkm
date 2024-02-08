@@ -207,7 +207,10 @@ pub(crate) fn check_memory_page_hash<F: Field>(
 
     if addr == HASH_ADDRESS_END {
         log::debug!("actual root page hash: {:?}", code_hash_bytes);
-        log::debug!("expected root page hash: {:?}", kernel.program.page_hash_root);
+        log::debug!(
+            "expected root page hash: {:?}",
+            kernel.program.page_hash_root
+        );
         assert_eq!(code_hash_bytes, kernel.program.pre_hash_root);
     } else {
         let mut expected_hash_byte = [0u8; 32];

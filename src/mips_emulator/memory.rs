@@ -23,8 +23,7 @@ pub enum MemoryOperation {
 pub fn hash_page(data: &[u8; 4096]) -> [u8; 32] {
     let mut swap_data = [0u8; 4096];
     for i in 0..1024 {
-        let bytes: [u8; 4] = data[i * 4..(i * 4 + 4)].try_into()
-        .unwrap();
+        let bytes: [u8; 4] = data[i * 4..(i * 4 + 4)].try_into().unwrap();
         let v = u32::from_be_bytes(bytes);
         swap_data[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
     }
@@ -139,11 +138,7 @@ impl Memory {
         }
     }
 
-    pub fn set_hash_trace<'a>(
-        &mut self,
-        page_index: u32,
-        level: usize,
-    ) {
+    pub fn set_hash_trace<'a>(&mut self, page_index: u32, level: usize) {
         let hash_addr = (page_index << 5) + MAX_MEMORY as u32;
         let page_index = hash_addr >> PAGE_ADDR_SIZE;
         let cached_page: Option<Rc<RefCell<CachedPage>>> = self.page_lookup(page_index);
@@ -232,7 +227,8 @@ impl Memory {
 
         match self.rtrace.get(&page_index) {
             None => {
-                self.rtrace.insert(page_index, cached_page.borrow().data.clone());
+                self.rtrace
+                    .insert(page_index, cached_page.borrow().data.clone());
                 self.set_hash_trace(page_index, 0);
             }
             Some(_) => {}
