@@ -1,12 +1,8 @@
 use super::elf::Program;
 use crate::mips_emulator::utils::get_block_path;
 
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-
-
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Kernel {

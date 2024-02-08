@@ -398,16 +398,6 @@ mod tests {
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Sample;
 
-    
-    
-
-    
-    
-    
-
-    
-    
-
     use crate::verifier::eval_l_0_and_l_last;
 
     #[test]

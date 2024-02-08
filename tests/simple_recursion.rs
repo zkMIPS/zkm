@@ -1,21 +1,21 @@
 #![allow(clippy::upper_case_acronyms)]
-use std::time::Duration;
-use std::fs;
 use elf::{endian::AnyEndian, ElfBytes};
+use std::fs;
+use std::time::Duration;
 
 use mips_circuits::all_stark::AllStark;
 use mips_circuits::config::StarkConfig;
-use mips_circuits::fixed_recursive_verifier::AllRecursiveCircuits;
-use mips_circuits::proof::PublicValues;
 use mips_circuits::cpu::kernel::assembler::segment_kernel;
+use mips_circuits::fixed_recursive_verifier::AllRecursiveCircuits;
+use mips_circuits::mips_emulator::state::{InstrumentedState, State};
+use mips_circuits::mips_emulator::utils::get_block_path;
+use mips_circuits::proof::PublicValues;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::field::types::Field;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use mips_circuits::mips_emulator::state::{InstrumentedState, State};
-use mips_circuits::mips_emulator::utils::get_block_path;
 
 use plonky2::util::timing::TimingTree;
 
@@ -23,7 +23,13 @@ type F = GoldilocksField;
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
-fn split_elf_into_segs(basedir: &str, elf_path: &str, block_no: &str, seg_path: &str, seg_size: usize) {
+fn split_elf_into_segs(
+    basedir: &str,
+    elf_path: &str,
+    block_no: &str,
+    seg_path: &str,
+    seg_size: usize,
+) {
     // 1. split ELF into segs
     let data = fs::read(elf_path).expect("could not read file");
     let file =

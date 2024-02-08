@@ -255,15 +255,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
 mod tests {
     use anyhow::Result;
 
-    
-    
     use crate::cpu::cpu_stark::CpuStark;
-    
-    
-    use crate::stark_testing::{
-        test_stark_circuit_constraints, test_stark_low_degree,
-    };
-    
+
+    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
