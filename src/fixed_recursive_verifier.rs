@@ -808,7 +808,7 @@ where
 
     fn connect_block_proof(
         builder: &mut CircuitBuilder<F, D>,
-        has_parent_block: BoolTarget,
+        _has_parent_block: BoolTarget,
         lhs: &PublicValuesTarget,
         rhs: &PublicValuesTarget,
     ) {

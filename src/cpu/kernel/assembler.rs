@@ -1,12 +1,12 @@
 use super::elf::Program;
 use crate::mips_emulator::utils::get_block_path;
 
-use once_cell::sync::Lazy;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::BufReader;
-use std::io::Read;
+
+
+
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Kernel {
@@ -22,37 +22,6 @@ pub struct Kernel {
 }
 
 pub const MAX_MEM: u32 = 0x80000000;
-
-// NOTE: for debugging
-pub(crate) fn combined_kernel() -> Kernel {
-    let mut reader = BufReader::new(File::open("test-vectors/hello").unwrap());
-    let mut code = Vec::new();
-    reader.read_to_end(&mut code).unwrap();
-    let mut p: Program = Program::load_elf(&code, MAX_MEM).unwrap();
-    let real_blockpath = get_block_path("test-vectors", "13284491", "input");
-    log::debug!("real block path: {}, entry: {}", real_blockpath, p.entry);
-    let test_blockpath: &str = "test-vectors/0_13284491/input";
-    p.load_block(test_blockpath).unwrap();
-
-    /*
-    let code_hash_bytes = keccak(&code).0;
-    let code_hash_be = core::array::from_fn(|i| {
-        u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
-    });
-    let code_hash = code_hash_be.map(u32::from_be);
-    log::debug!("code_hash: {:?}", code_hash);
-    */
-    let blockpath = get_block_path("test-vectors", "13284491", "");
-    let steps = 0xFFFFFFFFFFFFFFFF;
-
-    Kernel {
-        program: p,
-        ordered_labels: vec![],
-        global_labels: HashMap::new(),
-        blockpath,
-        steps,
-    }
-}
 
 pub fn segment_kernel(
     basedir: &str,
@@ -97,5 +66,3 @@ impl Kernel {
 /// Ideally we would automatically use the minimal number of bytes required, but that would be
 /// nontrivial given the circular dependency between an offset and its size.
 pub(crate) const BYTES_PER_OFFSET: u8 = 3;
-
-pub static TEST_KERNEL: Lazy<Kernel> = Lazy::new(combined_kernel);

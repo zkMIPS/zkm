@@ -398,16 +398,15 @@ mod tests {
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Sample;
 
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::util::timing::TimingTree;
+    
+    
 
-    use super::verify_proof;
-    use crate::all_stark::AllStark;
-    use crate::config::StarkConfig;
+    
+    
+    
 
-    use crate::cpu::kernel::TEST_KERNEL;
-    use crate::proof;
-    use crate::prover::prove;
+    
+    
 
     use crate::verifier::eval_l_0_and_l_last;
 
@@ -424,32 +423,5 @@ mod tests {
         let (l_first_x, l_last_x) = eval_l_0_and_l_last(log_n, x);
         assert_eq!(l_first_x, expected_l_first_x);
         assert_eq!(l_last_x, expected_l_last_x);
-    }
-
-    #[test]
-    #[ignore]
-    fn test_mips_prove_and_verify() {
-        env_logger::try_init().unwrap_or_default();
-        const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-
-        let allstark: AllStark<F, D> = AllStark::default();
-        let config = StarkConfig::standard_fast_config();
-
-        let mut timing = TimingTree::new("prove", log::Level::Debug);
-        let allproof: proof::AllProof<GoldilocksField, C, D> =
-            prove(&allstark, &TEST_KERNEL, &config, &mut timing).unwrap();
-        let mut count_bytes = 0;
-        let mut row = 0;
-        for proof in allproof.stark_proofs.clone() {
-            let proof_str = serde_json::to_string(&proof.proof).unwrap();
-            log::trace!("row:{} proof bytes:{}", row, proof_str.len());
-            row = row + 1;
-            count_bytes = count_bytes + proof_str.len();
-        }
-        log::trace!("total proof bytes:{}KB", count_bytes / 1024);
-
-        verify_proof(&allstark, allproof, &config).unwrap();
     }
 }
