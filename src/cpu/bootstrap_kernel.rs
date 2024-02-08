@@ -208,7 +208,7 @@ pub(crate) fn check_memory_page_hash<F: Field>(
     if addr == HASH_ADDRESS_END {
         log::debug!("actual root page hash: {:?}", code_hash_bytes);
         log::debug!("expected root page hash: {:?}", kernel.program.page_hash_root);
-        //assert_eq!(code_hash_bytes, kernel.program.pre_hash_root);
+        assert_eq!(code_hash_bytes, kernel.program.pre_hash_root);
     } else {
         let mut expected_hash_byte = [0u8; 32];
         let hash_addr = HASH_ADDRESS_BASE + ((addr >> 12) << 5);
@@ -219,7 +219,7 @@ pub(crate) fn check_memory_page_hash<F: Field>(
         }
         log::debug!("actual page hash: {:?}", code_hash_bytes);
         log::debug!("expected page hash: {:?}", expected_hash_byte);
-        //assert_eq!(code_hash_bytes, expected_hash_byte);
+        assert_eq!(code_hash_bytes, expected_hash_byte);
     }
 
     cpu_row.mem_channels[4].value = code_hash.map(F::from_canonical_u32);

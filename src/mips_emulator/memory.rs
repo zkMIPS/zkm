@@ -21,7 +21,14 @@ pub enum MemoryOperation {
 }
 
 pub fn hash_page(data: &[u8; 4096]) -> [u8; 32] {
-    keccak(&data).0
+    let mut swap_data = [0u8; 4096];
+    for i in 0..1024 {
+        let bytes: [u8; 4] = data[i * 4..(i * 4 + 4)].try_into()
+        .unwrap();
+        let v = u32::from_be_bytes(bytes);
+        swap_data[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
+    }
+    keccak(&swap_data).0
 }
 
 fn zero_hash() -> [u8; 32] {
