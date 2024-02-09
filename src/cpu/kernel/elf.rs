@@ -27,6 +27,7 @@ pub struct Program {
     pub end_pc: usize,
     pub image_id: [u8; 32],
     pub pre_image_id: [u8; 32],
+    pub pre_hash_root: [u8; 32],
     pub page_hash_root: [u8; 32],
 }
 
@@ -208,7 +209,11 @@ impl Program {
         final_data[32..].copy_from_slice(&end_pc.to_be_bytes());
 
         let image_id = keccak(&final_data).0;
-        let pre_image_id = [0u8; 32];
+        let pre_hash_root = [1u8; 32];
+        final_data[0..32].copy_from_slice(&pre_hash_root);
+        final_data[32..].copy_from_slice(&entry.to_be_bytes());
+
+        let pre_image_id = keccak(&final_data).0;
 
         Ok(Program {
             entry,
@@ -220,6 +225,7 @@ impl Program {
             end_pc: end_pc as usize,
             image_id,
             pre_image_id,
+            pre_hash_root,
             page_hash_root,
         })
     }
@@ -269,6 +275,7 @@ impl Program {
             end_pc,
             image_id: segment.image_id,
             pre_image_id: segment.pre_image_id,
+            pre_hash_root: segment.pre_hash_root,
             page_hash_root,
         })
     }
