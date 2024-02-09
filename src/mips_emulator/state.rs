@@ -28,6 +28,7 @@ pub struct Segment {
     pub pc: u32,
     pub segment_id: u32,
     pub pre_image_id: [u8; 32],
+    pub pre_hash_root: [u8; 32],
     pub image_id: [u8; 32],
     pub page_hash_root: [u8; 32],
     pub end_pc: u32,
@@ -337,6 +338,7 @@ pub struct InstrumentedState {
     pre_segment_id: u32,
     pre_pc: u32,
     pre_image_id: [u8; 32],
+    pre_hash_root: [u8; 32],
     block_path: String,
 }
 
@@ -355,6 +357,7 @@ impl InstrumentedState {
             block_path: block_path,
             pre_pc: 0u32,
             pre_image_id: [0u8; 32],
+            pre_hash_root: [0u8; 32],
             pre_segment_id: 0u32,
         });
         is
@@ -953,6 +956,7 @@ impl InstrumentedState {
                 mem_image: image,
                 segment_id: self.pre_segment_id,
                 pc: self.pre_pc,
+                pre_hash_root: self.pre_hash_root,
                 pre_image_id: self.pre_image_id,
                 image_id,
                 end_pc: self.state.pc,
@@ -967,7 +971,8 @@ impl InstrumentedState {
 
         self.pre_pc = self.state.pc;
         self.pre_image_id = image_id;
-        let _ = self.state.load_registers(); // add to rtraceq
+        self.pre_hash_root = page_hash_root;
+        let _ = self.state.load_registers(); // add to rtrace
     }
 }
 

@@ -9,6 +9,8 @@ use std::rc::Rc;
 
 use super::page::MAX_MEMORY;
 
+pub const HASH_ADDRESS_BASE: u32 = 0x80000000;
+pub const HASH_ADDRESS_END: u32 = 0x81020000;
 pub const ROOT_HASH_ADDRESS_BASE: u32 = 0x81021000;
 pub const END_PC_ADDRESS: u32 = ROOT_HASH_ADDRESS_BASE + 4 * 8;
 /// Operation to memory access, Read/Write
@@ -19,7 +21,13 @@ pub enum MemoryOperation {
 }
 
 pub fn hash_page(data: &[u8; 4096]) -> [u8; 32] {
-    keccak(&data).0
+    let mut swap_data = [0u8; 4096];
+    for i in 0..1024 {
+        let bytes: [u8; 4] = data[i * 4..(i * 4 + 4)].try_into().unwrap();
+        let v = u32::from_be_bytes(bytes);
+        swap_data[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
+    }
+    keccak(&swap_data).0
 }
 
 fn zero_hash() -> [u8; 32] {
@@ -130,6 +138,28 @@ impl Memory {
         }
     }
 
+    pub fn set_hash_trace<'a>(&mut self, page_index: u32, level: usize) {
+        let hash_addr = (page_index << 5) + MAX_MEMORY as u32;
+        let page_index = hash_addr >> PAGE_ADDR_SIZE;
+        let cached_page: Option<Rc<RefCell<CachedPage>>> = self.page_lookup(page_index);
+        let page = match cached_page {
+            None => self.alloc_hash_page(page_index, level),
+            Some(page) => page,
+        };
+
+        match self.rtrace.get(&page_index) {
+            None => {
+                self.rtrace
+                    .insert(page_index, page.borrow().clone().data.clone());
+            }
+            Some(_) => {}
+        };
+
+        if level < 2 {
+            self.set_hash_trace(page_index, level + 1);
+        }
+    }
+
     pub fn get_memory(&mut self, addr: u32) -> u32 {
         // addr must be aligned to 4 bytes
         if addr & 0x3 != 0 {
@@ -140,6 +170,7 @@ impl Memory {
         match self.page_lookup(page_index) {
             None => {
                 self.rtrace.insert(page_index, [0u8; PAGE_SIZE]);
+                self.set_hash_trace(page_index, 0);
                 0u32
             }
             Some(cached_page) => {
@@ -150,6 +181,7 @@ impl Memory {
                 match self.rtrace.get(&page_index) {
                     None => {
                         self.rtrace.insert(page_index, cached_page.data.clone());
+                        self.set_hash_trace(page_index, 0);
                     }
                     Some(_) => {}
                 };
@@ -166,8 +198,6 @@ impl Memory {
         let cached_page = Rc::new(RefCell::new(CachedPage::new()));
         self.pages.insert(page_index, cached_page.clone());
 
-        self.rtrace
-            .insert(page_index, cached_page.borrow().data.clone());
         cached_page
     }
 
@@ -193,6 +223,15 @@ impl Memory {
                 // self.invalidate(addr);
                 cached_page
             }
+        };
+
+        match self.rtrace.get(&page_index) {
+            None => {
+                self.rtrace
+                    .insert(page_index, cached_page.borrow().data.clone());
+                self.set_hash_trace(page_index, 0);
+            }
+            Some(_) => {}
         };
 
         self.wtrace[0].insert(page_index, cached_page.clone());
@@ -242,6 +281,14 @@ impl Memory {
                 Some(page) => page,
             };
 
+            match self.rtrace.get(&page_index) {
+                None => {
+                    self.rtrace.insert(page_index, page.borrow().data.clone());
+                    self.set_hash_trace(page_index, 0);
+                }
+                Some(_) => {}
+            };
+
             self.wtrace[0].insert(page_index, page.clone());
 
             let mut page = page.borrow_mut();
@@ -277,14 +324,6 @@ impl Memory {
         let page = match cached_page {
             None => self.alloc_hash_page(page_index, level),
             Some(page) => page,
-        };
-
-        match self.rtrace.get(&page_index) {
-            None => {
-                self.rtrace
-                    .insert(page_index, page.borrow().clone().data.clone());
-            }
-            Some(_) => {}
         };
 
         log::debug!("{:X} hash : {:?}", hash_addr, page_hash);
@@ -391,6 +430,7 @@ impl Memory {
 
     pub fn get_input_image(&mut self) -> BTreeMap<u32, u32> {
         let mut image = BTreeMap::<u32, u32>::new();
+
         for (page_index, cached_page) in self.rtrace.iter() {
             let addr = page_index << 12;
             for i in 0..(PAGE_SIZE / 4) {
