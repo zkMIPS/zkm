@@ -100,7 +100,6 @@ pub(crate) enum Operation {
     Count(bool, u8, u8),
     CondMov(BranchCond, u8, u8, u8),
     KeccakGeneral,
-    ProverInput,
     Jump(u8, u8),
     Jumpi(u8, u32),
     Branch(BranchCond, u8, u8, u32),
@@ -358,21 +357,6 @@ pub(crate) fn generate_keccak_general<F: Field>(
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_in3);
-    state.traces.push_cpu(row);
-    */
-    Ok(())
-}
-
-// TODO: can be removed?
-pub(crate) fn generate_prover_input<F: Field>(
-    _state: &mut GenerationState<F>,
-    _row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    /*
-    let pc = state.registers.program_counter;
-    let input_fn = &KERNEL.prover_inputs[&pc];
-    let input = state.prover_input(input_fn)?;
-    push_with_write(state, &mut row, input)?;
     state.traces.push_cpu(row);
     */
     Ok(())

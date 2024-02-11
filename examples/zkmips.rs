@@ -166,6 +166,7 @@ fn aggregate_proof() -> anyhow::Result<()> {
     };
 
     // We can duplicate the proofs here because the state hasn't mutated.
+    let timing = TimingTree::new("prove aggregation", log::Level::Info);
     let (agg_proof, updated_agg_public_values) = all_circuits.prove_aggregation(
         false,
         &root_proof_first,
@@ -173,9 +174,13 @@ fn aggregate_proof() -> anyhow::Result<()> {
         &root_proof,
         agg_public_values,
     )?;
+    timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_aggregation(&agg_proof)?;
+
+    let timing = TimingTree::new("prove block", log::Level::Info);
     let (block_proof, _block_public_values) =
         all_circuits.prove_block(None, &agg_proof, updated_agg_public_values)?;
+    timing.filter(Duration::from_millis(100)).print();
 
     log::info!(
         "proof size: {:?}",

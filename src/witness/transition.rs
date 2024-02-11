@@ -296,7 +296,6 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryArithmetic(..) => &mut flags.binary_op,
         Operation::BinaryArithmeticImm(..) => &mut flags.binary_imm_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
-        Operation::ProverInput => &mut flags.prover_input,
         Operation::Jump(_, _) | Operation::Jumpi(_, _) => &mut flags.jumps,
         Operation::Branch(_, _, _, _) => &mut flags.branch,
         Operation::Pc => &mut flags.pc,
@@ -392,7 +391,6 @@ fn perform_op<F: Field>(
             generate_binary_arithmetic_imm_op(rs, rt, imm, op, state, row)?
         }
         Operation::KeccakGeneral => generate_keccak_general(state, row)?,
-        Operation::ProverInput => generate_prover_input(state, row)?,
         Operation::Jump(link, target) => generate_jump(link, target, state, row)?,
         Operation::Jumpi(link, target) => generate_jumpi(link, target, state, row)?,
         Operation::Branch(cond, input1, input2, target) => {

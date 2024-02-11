@@ -255,16 +255,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
 mod tests {
     use anyhow::Result;
 
-    use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
-    use crate::cpu::columns::NUM_CPU_COLUMNS;
     use crate::cpu::cpu_stark::CpuStark;
-    use crate::cpu::kernel::TEST_KERNEL;
-    use crate::generation::simulate_cpu;
-    use crate::generation::state::GenerationState;
-    use crate::stark_testing::{
-        test_stark_circuit_constraints, test_stark_cpu_check_constraints, test_stark_low_degree,
-    };
-    use plonky2::field::types::Field;
+
+    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
@@ -294,6 +288,7 @@ mod tests {
         test_stark_circuit_constraints::<F, C, S, D>(stark)
     }
 
+    /*
     #[test]
     #[ignore]
     fn test_stark_check_memio() {
@@ -336,4 +331,5 @@ mod tests {
             test_stark_cpu_check_constraints::<F, C, S, D>(stark, &vals[i], &vals[i + 1]);
         }
     }
+    */
 }

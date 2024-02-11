@@ -418,7 +418,6 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
                 .map(|i| F::from_canonical_u32(i))
                 .collect::<Vec<_>>(),
         );
-        log::info!("common row: {:?}", row);
         sponge_state[..KECCAK_DIGEST_U32S]
             .iter()
             .enumerate()
