@@ -74,7 +74,8 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     // memory
     if image_addr_value_byte_be.len() % KECCAK_RATE_BYTES != 0 {
         let final_idx = image_addr_value_byte_be.len() / KECCAK_RATE_BYTES * KECCAK_RATE_U32S;
-        final_cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(image_addr[final_idx].virt);
+        final_cpu_row.mem_channels[2].value[0] =
+            F::from_canonical_usize(image_addr[final_idx].virt);
     } else {
         final_cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(0);
     }
