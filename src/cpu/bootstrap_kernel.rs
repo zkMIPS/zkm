@@ -72,13 +72,14 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize);
     // align with the `already_absorbed_bytes/4` to avoid that the padding block bytes are not present in
     // memory
-    if image_addr_value_byte_be.len() % KECCAK_RATE_BYTES != 0 {
-        let final_idx = image_addr_value_byte_be.len() / KECCAK_RATE_BYTES * KECCAK_RATE_U32S;
-        final_cpu_row.mem_channels[2].value[0] =
-            F::from_canonical_usize(image_addr[final_idx].virt);
-    } else {
-        final_cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(0);
+
+    if (image_addr_value_byte_be.len() % KECCAK_RATE_BYTES) == 0 {
+        image_addr.push(MemoryAddress::new(0, Segment::Code, 0));
     }
+
+    let final_idx = image_addr_value_byte_be.len() / KECCAK_RATE_BYTES * KECCAK_RATE_U32S;
+    final_cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(image_addr[final_idx].virt);
+
     final_cpu_row.mem_channels[3].value[0] =
         F::from_canonical_usize(image_addr_value_byte_be.len()); // len
 

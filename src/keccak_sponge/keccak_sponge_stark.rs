@@ -14,6 +14,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2_util::ceil_div_usize;
+use crate::memory::segments::Segment;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
