@@ -5,8 +5,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use elf::{endian::BigEndian, file::Class, ElfBytes};
 use keccak_hash::keccak;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::BufReader;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
@@ -285,8 +284,6 @@ impl Program {
 mod test {
     use crate::cpu::kernel::elf::*;
     use crate::mips_emulator::utils::get_block_path;
-    use std::fs::File;
-    use std::io::BufReader;
     use std::io::Read;
 
     #[test]

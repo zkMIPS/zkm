@@ -10,7 +10,6 @@ use anyhow::{Context, Result};
 
 use plonky2::field::types::Field;
 
-use hex;
 use std::fs;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();

@@ -1,7 +1,4 @@
 use crate::arithmetic::columns::*;
-use crate::arithmetic::columns::{
-    INPUT_REGISTER_0, INPUT_REGISTER_1, IS_SLT, LIMB_BITS, NUM_ARITH_COLUMNS, OUTPUT_REGISTER,
-};
 use crate::arithmetic::utils::u32_to_array;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 

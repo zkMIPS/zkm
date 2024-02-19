@@ -286,12 +286,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 mod tests {
     use anyhow::Result;
     use itertools::Itertools;
-    use plonky2::field::types::PrimeField64;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
 
-    use super::{columns, ArithmeticStark};
+    use crate::arithmetic::arithmetic_stark::ArithmeticStark;
     use crate::arithmetic::columns::OUTPUT_REGISTER;
     use crate::arithmetic::*;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};

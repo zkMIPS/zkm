@@ -872,14 +872,8 @@ pub(crate) fn verify_cross_table_lookups_circuit<F: RichField + Extendable<D>, c
 #[cfg(test)]
 pub(crate) mod testutils {
     use std::collections::HashMap;
-
-    use plonky2::field::polynomial::PolynomialValues;
-    use plonky2::field::types::Field;
-
     use super::*;
-    use crate::all_stark::Table;
-    use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::plonk::config::PoseidonGoldilocksConfig;
 
     type MultiSet<F> = HashMap<Vec<F>, Vec<(Table, usize)>>;
 
