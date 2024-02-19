@@ -40,8 +40,8 @@ pub fn eval_packed<P: PackedField>(
 
     let rs_val = lv.mem_channels[0].value[0];
     let rd_val = lv.mem_channels[1].value[0];
-    let rs = limb_from_bits_le(vec![rs_val].into_iter());
-    let rd = limb_from_bits_le(vec![rd_val].into_iter());
+    let rs = limb_from_bits_le(vec![rs_val]);
+    let rd = limb_from_bits_le(vec![rd_val]);
 
     // CLZ and CLO are differentiated by their first func_bits.
     let clz_filter = filter * lv.func_bits[0];
@@ -51,7 +51,7 @@ pub fn eval_packed<P: PackedField>(
     // constraint: filter * (rs_reg - rs) == 0
     {
         let rs_reg = lv.mem_channels[0].addr_virtual;
-        let rs_src = limb_from_bits_le(lv.rs_bits.into_iter());
+        let rs_src = limb_from_bits_le(lv.rs_bits);
         yield_constr.constraint(filter * (rs_reg - rs_src));
     }
 
@@ -59,7 +59,7 @@ pub fn eval_packed<P: PackedField>(
     // constraint: filter * (rd_reg - rd) == 0
     {
         let rd_reg = lv.mem_channels[1].addr_virtual;
-        let rd_dst = limb_from_bits_le(lv.rd_bits.into_iter());
+        let rd_dst = limb_from_bits_le(lv.rd_bits);
         yield_constr.constraint(filter * (rd_reg - rd_dst));
     }
 
@@ -413,15 +413,15 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let rs_val = lv.mem_channels[0].value[0];
     let rd_val = lv.mem_channels[1].value[0];
-    let rs = limb_from_bits_le_recursive(builder, vec![rs_val].into_iter());
-    let rd = limb_from_bits_le_recursive(builder, vec![rd_val].into_iter());
+    let rs = limb_from_bits_le_recursive(builder, vec![rs_val]);
+    let rd = limb_from_bits_le_recursive(builder, vec![rd_val]);
 
     // Check rs Reg
     {
         let rs_reg = lv.mem_channels[0].addr_virtual;
         let mut rs_reg_index = [one; 5];
         rs_reg_index.copy_from_slice(&lv.rs_bits);
-        let rs_src = limb_from_bits_le_recursive(builder, rs_reg_index.into_iter());
+        let rs_src = limb_from_bits_le_recursive(builder, rs_reg_index);
         let constr = builder.sub_extension(rs_reg, rs_src);
         let constr = builder.mul_extension(constr, filter);
         yield_constr.constraint(builder, constr);
@@ -433,7 +433,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let rd_reg = lv.mem_channels[1].addr_virtual;
         let mut rd_reg_index = [one; 5];
         rd_reg_index.copy_from_slice(&lv.rd_bits);
-        let rd_src = limb_from_bits_le_recursive(builder, rd_reg_index.into_iter());
+        let rd_src = limb_from_bits_le_recursive(builder, rd_reg_index);
         let constr = builder.sub_extension(rd_reg, rd_src);
         let constr = builder.mul_extension(constr, filter);
         yield_constr.constraint(builder, constr);

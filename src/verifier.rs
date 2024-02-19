@@ -139,8 +139,6 @@ pub(crate) fn get_memory_extra_looking_products<F, const D: usize>(
 where
     F: RichField + Extendable<D>,
 {
-    let prod = F::ONE;
-
     /*
     // Add metadata and state root writes. Skip due to not enabling
     let fields = [
@@ -159,7 +157,7 @@ where
     fields.map(|(field, val)| prod = add_data_write(challenge, segment, prod, field as usize, val));
     */
 
-    prod
+    F::ONE
 }
 
 fn add_data_write<F, const D: usize>(
@@ -364,15 +362,13 @@ pub(crate) mod testutils {
     where
         F: RichField + Extendable<D>,
     {
-        let extra_looking_rows = Vec::new();
-
         /*
         let fields = [{}];
         fields.map(|(field, val)| {
             extra_looking_rows.push(add_extra_looking_row(segment, field as usize, val))
         });
         */
-        extra_looking_rows
+        Vec::new()
     }
 
     fn add_extra_looking_row<F, const D: usize>(segment: F, index: usize, val: u32) -> Vec<F>

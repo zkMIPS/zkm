@@ -706,7 +706,7 @@ where
         timing: &mut TimingTree,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let all_proof = prove::<F, C, D>(all_stark, kernel, config, timing)?;
-        verify_proof(&all_stark, all_proof.clone(), &config).unwrap();
+        verify_proof(all_stark, all_proof.clone(), config).unwrap();
         let mut root_inputs = PartialWitness::new();
 
         for table in 0..NUM_TABLES {

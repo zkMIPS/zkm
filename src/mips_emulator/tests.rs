@@ -1,3 +1,4 @@
+#[allow(clippy::module_inception)]
 #[cfg(test)]
 mod tests {
     use elf::{endian::AnyEndian, ElfBytes};

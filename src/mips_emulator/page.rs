@@ -13,6 +13,12 @@ pub struct CachedPage {
     pub data: [u8; PAGE_SIZE],
 }
 
+impl Default for CachedPage {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CachedPage {
     pub fn new() -> Self {
         Self {

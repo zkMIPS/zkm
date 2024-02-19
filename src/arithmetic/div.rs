@@ -82,7 +82,7 @@ pub(crate) fn generate_div<F: PrimeField64>(
 
         debug_assert_eq!(abs_idx.len(), N_LIMBS);
 
-        u32_to_array(&mut lv[abs_idx], (input as i32).abs() as u32);
+        u32_to_array(&mut lv[abs_idx], (input as i32).unsigned_abs());
 
         is_neg
     };

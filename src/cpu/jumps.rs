@@ -97,7 +97,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     // constraint: is_jump *(jump_reg - rs) == 0
     {
         let jump_reg = lv.mem_channels[0].addr_virtual;
-        let jump_dst = limb_from_bits_le(lv.rs_bits.into_iter());
+        let jump_dst = limb_from_bits_le(lv.rs_bits);
         yield_constr.constraint(is_jump * (jump_dst - jump_reg));
     }
 
@@ -114,7 +114,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
         jump_imm[16..21].copy_from_slice(&lv.rt_bits);
         jump_imm[21..26].copy_from_slice(&lv.rs_bits);
 
-        let imm_dst = limb_from_bits_le(jump_imm.into_iter());
+        let imm_dst = limb_from_bits_le(jump_imm);
         let pc_remain = lv.mem_channels[7].value[0];
         let jump_dest = pc_remain + imm_dst * P::Scalar::from_canonical_u8(4);
         yield_constr.constraint(is_jumpi * (nv.program_counter - jump_dest));
@@ -137,7 +137,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     // constraint: is_link * (ret_reg - rd) == 0
     let link_reg = lv.mem_channels[1].addr_virtual;
     {
-        let link_dst = limb_from_bits_le(lv.rd_bits.into_iter());
+        let link_dst = limb_from_bits_le(lv.rd_bits);
         yield_constr.constraint(is_link * (link_reg - link_dst));
     }
 
@@ -186,7 +186,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     // constraint: is_jump *(jump_reg - rs) == 0
     {
         let jump_reg = lv.mem_channels[0].addr_virtual;
-        let jump_dst = limb_from_bits_le_recursive(builder, lv.rs_bits.into_iter());
+        let jump_dst = limb_from_bits_le_recursive(builder, lv.rs_bits);
         let constr = builder.sub_extension(jump_dst, jump_reg);
         let constr = builder.mul_extension(constr, is_jump);
         yield_constr.constraint(builder, constr);
@@ -205,7 +205,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
         jump_imm[16..21].copy_from_slice(&lv.rt_bits);
         jump_imm[21..26].copy_from_slice(&lv.rs_bits);
 
-        let jump_dest = limb_from_bits_le_recursive(builder, jump_imm.into_iter());
+        let jump_dest = limb_from_bits_le_recursive(builder, jump_imm);
         let jump_dest = builder.mul_const_extension(F::from_canonical_u64(4), jump_dest); //TO FIX
 
         let constr = builder.add_extension(lv.mem_channels[7].value[0], jump_dest);
@@ -232,7 +232,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     // constraint: is_link * (ret_reg - rd) == 0
     let link_reg = lv.mem_channels[1].addr_virtual;
     {
-        let link_dst = limb_from_bits_le_recursive(builder, lv.rd_bits.into_iter());
+        let link_dst = limb_from_bits_le_recursive(builder, lv.rd_bits);
         let constr = builder.sub_extension(link_reg, link_dst);
         let constr = builder.mul_extension(constr, is_link);
         yield_constr.constraint(builder, constr);
@@ -285,7 +285,7 @@ pub fn eval_packed_branch<P: PackedField>(
         branch_offset[13..18].copy_from_slice(&lv.rd_bits); // 5 bits
         branch_offset[18..32].copy_from_slice(&[lv.rd_bits[4]; 14]); // lv.insn_bits[15]
 
-        let offset_dst = limb_from_bits_le(branch_offset.into_iter());
+        let offset_dst = limb_from_bits_le(branch_offset);
         let branch_dst = lv.program_counter + P::Scalar::from_canonical_u8(4) + offset_dst;
         yield_constr.constraint(
             filter
@@ -319,7 +319,7 @@ pub fn eval_packed_branch<P: PackedField>(
     // constraint: filter * (src1_reg - rs) == 0
     {
         let rs_reg = lv.mem_channels[0].addr_virtual;
-        let rs_src = limb_from_bits_le(lv.rs_bits.into_iter());
+        let rs_src = limb_from_bits_le(lv.rs_bits);
         yield_constr.constraint(filter * (rs_reg - rs_src));
     }
 
@@ -327,7 +327,7 @@ pub fn eval_packed_branch<P: PackedField>(
     // constraint: filter * (src2_reg - rt) == 0
     {
         let rt_reg = lv.mem_channels[1].addr_virtual;
-        let rt_src = limb_from_bits_le(lv.rt_bits.into_iter());
+        let rt_src = limb_from_bits_le(lv.rt_bits);
         yield_constr.constraint(filter * norm_filter * (rt_reg - rt_src));
         yield_constr.constraint(filter * special_filter * rt_reg);
     }
@@ -438,7 +438,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
         branch_offset[8..13].copy_from_slice(&lv.shamt_bits); // 5 bits
         branch_offset[13..18].copy_from_slice(&lv.rd_bits); // 5 bits
         branch_offset[18..32].copy_from_slice(&[lv.rd_bits[4]; 14]); // lv.insn_bits[15]
-        let offset_dst = limb_from_bits_le_recursive(builder, branch_offset.into_iter());
+        let offset_dst = limb_from_bits_le_recursive(builder, branch_offset);
 
         let base_pc = builder.add_const_extension(lv.program_counter, F::from_canonical_u64(4));
         let branch_dst = builder.add_extension(base_pc, offset_dst);
@@ -488,7 +488,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
         let rs_reg = lv.mem_channels[0].addr_virtual;
         let mut rs_reg_index = [one_extension; 5];
         rs_reg_index.copy_from_slice(&lv.rs_bits);
-        let rs_src = limb_from_bits_le_recursive(builder, rs_reg_index.into_iter());
+        let rs_src = limb_from_bits_le_recursive(builder, rs_reg_index);
         let constr = builder.sub_extension(rs_reg, rs_src);
         let constr = builder.mul_extension(constr, filter);
         yield_constr.constraint(builder, constr);
@@ -497,7 +497,7 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
     // Check rt Reg
     {
         let rt_reg = lv.mem_channels[1].addr_virtual;
-        let rt_src = limb_from_bits_le_recursive(builder, lv.rt_bits.into_iter());
+        let rt_src = limb_from_bits_le_recursive(builder, lv.rt_bits);
         let constr = builder.sub_extension(rt_reg, rt_src);
         let constr = builder.mul_extension(constr, norm_filter);
         let constr = builder.mul_extension(constr, filter);

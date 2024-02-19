@@ -82,11 +82,11 @@ pub(crate) fn sign_extend<const N: usize>(value: u32) -> u32 {
     let is_signed = (value >> (N - 1)) != 0;
     let signed = ((1 << (32 - N)) - 1) << N;
     let mask = (1 << N) - 1;
-    return if is_signed {
+    if is_signed {
         value & mask | signed
     } else {
         value & mask
-    };
+    }
 }
 
 pub(crate) fn reg_read_with_log<F: Field>(

@@ -1,3 +1,4 @@
+#![allow(clippy::extra_unused_lifetimes)]
 use std::cell::RefCell;
 
 use crate::mips_emulator::page::{CachedPage, PAGE_ADDR_MASK, PAGE_ADDR_SIZE, PAGE_SIZE};
@@ -27,7 +28,7 @@ pub fn hash_page(data: &[u8; 4096]) -> [u8; 32] {
         let v = u32::from_be_bytes(bytes);
         swap_data[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
     }
-    keccak(&swap_data).0
+    keccak(swap_data).0
 }
 
 fn zero_hash() -> [u8; 32] {
@@ -48,7 +49,7 @@ fn compute_const_hash_pages(hash: &mut [[u8; 4096]; 3], level: usize) -> [u8; 32
         hash[level - 1][i << 5..(i << 5) + 32].copy_from_slice(&base_hash);
     }
 
-    return hash_page(&hash[level - 1]);
+    hash_page(&hash[level - 1])
 }
 
 lazy_static! {
@@ -82,6 +83,12 @@ pub fn hash_cached_page(page: &Rc<RefCell<CachedPage>>) -> [u8; 32] {
     hash_page(&data)
 }
 
+impl Default for Memory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Memory {
     pub fn new() -> Self {
         Self {
@@ -107,9 +114,7 @@ impl Memory {
     ) -> Result<(), String> {
         for (page_index, cached_page) in self.pages.iter() {
             let r = handler(*page_index, cached_page);
-            if let Err(e) = r {
-                return Err(e);
-            }
+            r?
         }
 
         Ok(())
@@ -133,7 +138,7 @@ impl Memory {
                 self.last_page_keys[0] = Some(page_index);
                 self.last_page[0] = Some(cached_page.clone());
 
-                return self.last_page[0].clone();
+                self.last_page[0].clone()
             }
         }
     }
@@ -149,8 +154,7 @@ impl Memory {
 
         match self.rtrace.get(&page_index) {
             None => {
-                self.rtrace
-                    .insert(page_index, page.borrow().clone().data.clone());
+                self.rtrace.insert(page_index, page.borrow().clone().data);
             }
             Some(_) => {}
         };
@@ -180,7 +184,7 @@ impl Memory {
 
                 match self.rtrace.get(&page_index) {
                     None => {
-                        self.rtrace.insert(page_index, cached_page.data.clone());
+                        self.rtrace.insert(page_index, cached_page.data);
                         self.set_hash_trace(page_index, 0);
                     }
                     Some(_) => {}
@@ -227,8 +231,7 @@ impl Memory {
 
         match self.rtrace.get(&page_index) {
             None => {
-                self.rtrace
-                    .insert(page_index, cached_page.borrow().data.clone());
+                self.rtrace.insert(page_index, cached_page.borrow().data);
                 self.set_hash_trace(page_index, 0);
             }
             Some(_) => {}
@@ -256,7 +259,7 @@ impl Memory {
             n /= unit;
         }
         let exp_table = b"KMGTPE";
-        return format!("{}, {}iB", total / div, exp_table[exp] as char);
+        format!("{}, {}iB", total / div, exp_table[exp] as char)
     }
 
     pub fn read_memory_range(&mut self, addr: u32, count: u32) {
@@ -283,7 +286,7 @@ impl Memory {
 
             match self.rtrace.get(&page_index) {
                 None => {
-                    self.rtrace.insert(page_index, page.borrow().data.clone());
+                    self.rtrace.insert(page_index, page.borrow().data);
                     self.set_hash_trace(page_index, 0);
                 }
                 Some(_) => {}
@@ -334,7 +337,7 @@ impl Memory {
             self.wtrace[level + 1].insert(page_index, page.clone());
         }
 
-        return Ok(());
+        Ok(())
     }
 
     // return image id and page hash root
@@ -373,7 +376,7 @@ impl Memory {
         final_data[0..32].copy_from_slice(&hash);
         final_data[32..].copy_from_slice(&pc.to_be_bytes());
 
-        let image_id = keccak(&final_data).0;
+        let image_id = keccak(final_data).0;
 
         log::debug!("page root hash: {:?}", hash);
         log::debug!("end pc: {:?}", pc.to_le_bytes());
@@ -398,7 +401,7 @@ impl Memory {
                 final_data[0..4].copy_from_slice(&pc.to_be_bytes());
                 final_data[4..36].copy_from_slice(&hash);
 
-                let real_image_id = keccak(&final_data).0;
+                let real_image_id = keccak(final_data).0;
 
                 if image_id != real_image_id {
                     log::error!("image_id not match {:?} {:?}", image_id, real_image_id);

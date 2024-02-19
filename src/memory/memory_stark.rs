@@ -69,7 +69,7 @@ impl MemoryOp {
             && (segment == (Segment::RegisterFile as usize))
             && (virt == 0)
         {
-            0 as u32
+            0_u32
         } else {
             self.value
         };

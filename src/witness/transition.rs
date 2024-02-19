@@ -421,7 +421,6 @@ fn perform_op<F: Field>(
                 state.registers.program_counter,
                 state.registers.gprs
             );
-            ()
         }
         Operation::Syscall => {
             log::debug!(
@@ -429,7 +428,6 @@ fn perform_op<F: Field>(
                 state.registers.program_counter + 4,
                 state.registers.gprs
             );
-            ()
         }
         _ => (),
     };
