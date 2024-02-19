@@ -871,9 +871,9 @@ pub(crate) fn verify_cross_table_lookups_circuit<F: RichField + Extendable<D>, c
 
 #[cfg(test)]
 pub(crate) mod testutils {
-    use std::collections::HashMap;
     use super::*;
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
+    use std::collections::HashMap;
 
     type MultiSet<F> = HashMap<Vec<F>, Vec<(Table, usize)>>;
 
