@@ -15,7 +15,7 @@ fn observe_root<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const 
     challenger: &mut Challenger<F, C::Hasher>,
     root: &[u32; 8],
 ) {
-    for limb in root.into_iter() {
+    for limb in root.iter() {
         challenger.observe_element(F::from_canonical_u32(*limb));
     }
 }

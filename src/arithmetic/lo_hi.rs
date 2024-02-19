@@ -59,8 +59,6 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use super::*;
-    use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
-    use crate::constraint_consumer::ConstraintConsumer;
 
     const OPS: [usize; 4] = [IS_MFHI, IS_MTHI, IS_MFLO, IS_MTLO];
     #[test]

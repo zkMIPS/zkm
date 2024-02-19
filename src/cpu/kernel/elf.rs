@@ -5,8 +5,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use elf::{endian::BigEndian, file::Class, ElfBytes};
 use keccak_hash::keccak;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::BufReader;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
@@ -180,7 +179,7 @@ impl Program {
 
         sp = INIT_SP;
         // init argc, argv, aux on stack
-        image.insert(sp + 4 * 1, 0x42u32.to_be()); // argc = 0 (argument count)
+        image.insert(sp + 4, 0x42u32.to_be()); // argc = 0 (argument count)
         image.insert(sp + 4 * 2, 0x35u32.to_be()); // argv[n] = 0 (terminating argv)
         image.insert(sp + 4 * 3, 0); // envp[term] = 0 (no env vars)
         image.insert(sp + 4 * 4, 6u32.to_be()); // auxv[0] = _AT_PAGESZ = 6 (key)
@@ -208,12 +207,12 @@ impl Program {
         final_data[0..32].copy_from_slice(&page_hash_root);
         final_data[32..].copy_from_slice(&end_pc.to_be_bytes());
 
-        let image_id = keccak(&final_data).0;
+        let image_id = keccak(final_data).0;
         let pre_hash_root = [1u8; 32];
         final_data[0..32].copy_from_slice(&pre_hash_root);
         final_data[32..].copy_from_slice(&entry.to_be_bytes());
 
-        let pre_image_id = keccak(&final_data).0;
+        let pre_image_id = keccak(final_data).0;
 
         Ok(Program {
             entry,
@@ -285,8 +284,6 @@ impl Program {
 mod test {
     use crate::cpu::kernel::elf::*;
     use crate::mips_emulator::utils::get_block_path;
-    use std::fs::File;
-    use std::io::BufReader;
     use std::io::Read;
 
     #[test]

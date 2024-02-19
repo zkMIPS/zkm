@@ -10,7 +10,6 @@ use anyhow::{Context, Result};
 
 use plonky2::field::types::Field;
 
-use hex;
 use std::fs;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
@@ -283,7 +282,7 @@ pub(crate) fn generate_binary_arithmetic_hilo_op<F: Field>(
         _ => todo!(),
     };
     */
-    let operation = arithmetic::Operation::binary(operator, in0 as u32, in1 as u32);
+    let operation = arithmetic::Operation::binary(operator, in0, in1);
     let (lo, hi) = operation.result();
 
     let log_out0 = reg_write_with_log(32, 2, lo as usize, state, &mut row)?;
@@ -729,7 +728,7 @@ pub(crate) fn load_preimage<F: Field>(
         state.traces.push_cpu(cpu_row);
     }
 
-    let hex_string = hex::encode(&hash_bytes);
+    let hex_string = hex::encode(hash_bytes);
     let mut preiamge_path = kernel.blockpath.clone();
     preiamge_path.push_str("0x");
     preiamge_path.push_str(hex_string.as_str());
@@ -812,7 +811,7 @@ pub(crate) fn generate_syscall<F: Field>(
             if sz & 0xFFF != 0 {
                 row.general.syscall_mut().a1 = F::from_canonical_u32(1u32);
                 sz += 0x1000 - (sz & 0xFFF);
-                row.general.syscall_mut().sysnum[9] = F::from_canonical_usize(sz.clone());
+                row.general.syscall_mut().sysnum[9] = F::from_canonical_usize(sz);
                 //use sysnum[9] to mark sz value
             } else {
                 row.general.syscall_mut().sysnum[10] = F::from_canonical_u32(1u32);
@@ -886,12 +885,10 @@ pub(crate) fn generate_syscall<F: Field>(
                 FD_STDIN => {
                     row.general.syscall_mut().a0[0] = F::from_canonical_u32(1u32);
                     v0 = 0;
-                    ()
                 } // fdStdin
                 FD_STDOUT | FD_STDERR => {
                     row.general.syscall_mut().a0[1] = F::from_canonical_u32(1u32);
                     v0 = 1;
-                    ()
                 } // fdStdout / fdStderr
                 _ => {
                     row.general.syscall_mut().a0[2] = F::from_canonical_u32(1u32);

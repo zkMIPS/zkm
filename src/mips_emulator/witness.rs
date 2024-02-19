@@ -35,6 +35,7 @@ pub struct Instruction {
 }
 
 impl Instruction {
+    #[allow(clippy::wrong_self_convention)]
     fn to_bits(&self) -> [bool; MIPS_INSTRUCTION_LEN] {
         i2lebsp::<MIPS_INSTRUCTION_LEN>(self.bytecode as u64) // omit the high 4 bits of address
     }
@@ -71,7 +72,7 @@ impl Iterator for Program {
         let cur_instruction = self.cur_instruction;
         let cur_bit = self.cur_bit;
 
-        let res = if cur_segment >= self.segments.len() {
+        if cur_segment >= self.segments.len() {
             None
         } else {
             let ins = self.segments[cur_segment].instructions[cur_instruction];
@@ -87,9 +88,7 @@ impl Iterator for Program {
                 }
             }
             Some(bit)
-        };
-
-        res
+        }
     }
 }
 
@@ -156,7 +155,7 @@ impl Program {
         let mut res_segment = cur_segment;
         let mut res_instruction = cur_instruction;
 
-        let res = if res_segment >= self.segments.len() {
+        if res_segment >= self.segments.len() {
             (None, res_segment, res_instruction)
         } else {
             let ins = self.segments[res_segment].instructions[res_instruction];
@@ -168,8 +167,6 @@ impl Program {
             }
 
             (Some(ins), res_segment, res_instruction)
-        };
-
-        res
+        }
     }
 }

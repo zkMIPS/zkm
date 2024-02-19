@@ -82,7 +82,7 @@ pub(crate) fn generate_div<F: PrimeField64>(
 
         debug_assert_eq!(abs_idx.len(), N_LIMBS);
 
-        u32_to_array(&mut lv[abs_idx], (input as i32).abs() as u32);
+        u32_to_array(&mut lv[abs_idx], (input as i32).unsigned_abs());
 
         is_neg
     };
@@ -938,13 +938,11 @@ pub(crate) fn eval_div_ext_circuit<F: RichField + Extendable<D>, const D: usize>
 #[cfg(test)]
 mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
-    use plonky2::field::types::{Field, Sample};
+    use plonky2::field::types::Sample;
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
 
     use super::*;
-    use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
-    use crate::constraint_consumer::ConstraintConsumer;
 
     const N_RND_TESTS: usize = 1000;
     const MODULAR_OPS: [usize; 2] = [IS_DIV, IS_DIVU];

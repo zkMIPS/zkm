@@ -82,12 +82,10 @@ fn prove_single_seg() {
     let allproof: proof::AllProof<GoldilocksField, C, D> =
         prove(&allstark, &kernel, &config, &mut timing).unwrap();
     let mut count_bytes = 0;
-    let mut row = 0;
-    for proof in allproof.stark_proofs.clone() {
+    for (row, proof) in allproof.stark_proofs.clone().iter().enumerate() {
         let proof_str = serde_json::to_string(&proof.proof).unwrap();
         log::info!("row:{} proof bytes:{}", row, proof_str.len());
-        row = row + 1;
-        count_bytes = count_bytes + proof_str.len();
+        count_bytes += proof_str.len();
     }
     log::info!("total proof bytes:{}KB", count_bytes / 1024);
     verify_proof(&allstark, allproof, &config).unwrap();
@@ -139,7 +137,7 @@ fn aggregate_proof() -> anyhow::Result<()> {
     // Preprocess all circuits.
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[10..20, 15..22, 14..20, 9..20, 12..20, 15..23],
+        &[10..21, 15..22, 14..21, 9..21, 12..21, 15..23],
         &config,
     );
 

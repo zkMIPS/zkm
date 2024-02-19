@@ -154,7 +154,7 @@ pub fn eval_packed_generic<P: PackedField>(
     let output = &lv[OUTPUT_REGISTER];
     for (x, (y, z)) in logic_shifted_input
         .iter()
-        .zip((vec![acc_lo, acc_hi].iter()).zip(output.iter()))
+        .zip(([acc_lo, acc_hi].iter()).zip(output.iter()))
     {
         yield_constr.constraint_transition(filter * (*x + *y * is_neg - *z));
     }
@@ -259,7 +259,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let output = &lv[OUTPUT_REGISTER];
     for (x, (y, z)) in logic_shifted_input
         .iter()
-        .zip((vec![acc_lo, acc_hi].iter()).zip(output.iter()))
+        .zip(([acc_lo, acc_hi].iter()).zip(output.iter()))
     {
         let t0 = builder.sub_extension(*x, *z);
         let t1 = builder.mul_add_extension(*y, is_neg, t0);
@@ -288,7 +288,7 @@ fn eval_poly<F: Field>(poly: PolynomialCoeffs<F>, x: F) -> Vec<F> {
     let mut results = vec![];
     let mut acc = F::ZERO;
     for chunks in poly.coeffs.chunks(2).rev() {
-        let inter_coeff = chunks.iter().chain([acc].iter()).map(|x| *x).collect_vec();
+        let inter_coeff = chunks.iter().chain([acc].iter()).copied().collect_vec();
         let inter_poly = PolynomialCoeffs::new(inter_coeff);
         acc = inter_poly.eval(x);
         results.push(acc);

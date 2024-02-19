@@ -378,15 +378,6 @@ where
             &all_stark.cross_table_lookups,
             stark_config,
         );
-        /*
-        let byte_packing = RecursiveCircuitsForTable::new(
-            Table::BytePacking,
-            &all_stark.byte_packing_stark,
-            degree_bits_ranges[Table::BytePacking as usize].clone(),
-            &all_stark.cross_table_lookups,
-            stark_config,
-        );
-        */
         let cpu = RecursiveCircuitsForTable::new(
             Table::Cpu,
             &all_stark.cpu_stark,
@@ -581,30 +572,6 @@ where
 
         let lhs_public_values = lhs.public_values(&mut builder);
         let rhs_public_values = rhs.public_values(&mut builder);
-        // Connect all block hash values
-        /*
-        BlockHashesTarget::connect(
-            &mut builder,
-            public_values.block_hashes,
-            lhs_public_values.block_hashes,
-        );
-        BlockHashesTarget::connect(
-            &mut builder,
-            public_values.block_hashes,
-            rhs_public_values.block_hashes,
-        );
-        // Connect all block metadata values.
-        BlockMetadataTarget::connect(
-            &mut builder,
-            public_values.block_metadata,
-            lhs_public_values.block_metadata,
-        );
-        BlockMetadataTarget::connect(
-            &mut builder,
-            public_values.block_metadata,
-            rhs_public_values.block_metadata,
-        );
-        */
         // Connect aggregation `trie_roots_before` with lhs `trie_roots_before`.
         MemRootsTarget::connect(
             &mut builder,
@@ -624,15 +591,6 @@ where
             rhs_public_values.roots_before,
         );
 
-        /*
-        Self::connect_extra_public_values(
-            &mut builder,
-            &public_values.extra_block_data,
-            &lhs_public_values.extra_block_data,
-            &rhs_public_values.extra_block_data,
-        );
-        */
-
         // Pad to match the root circuit's degree.
         while log2_ceil(builder.num_gates()) < root.circuit.common.degree_bits() {
             builder.add_gate(NoopGate, vec![]);
@@ -647,60 +605,6 @@ where
             cyclic_vk,
         }
     }
-
-    /*
-    fn connect_extra_public_values(
-        builder: &mut CircuitBuilder<F, D>,
-        pvs: &ExtraBlockDataTarget,
-        lhs: &ExtraBlockDataTarget,
-        rhs: &ExtraBlockDataTarget,
-    ) {
-        // Connect genesis state root values.
-        for (&limb0, &limb1) in pvs
-            .genesis_state_trie_root
-            .iter()
-            .zip(&rhs.genesis_state_trie_root)
-        {
-            builder.connect(limb0, limb1);
-        }
-        for (&limb0, &limb1) in pvs
-            .genesis_state_trie_root
-            .iter()
-            .zip(&lhs.genesis_state_trie_root)
-        {
-            builder.connect(limb0, limb1);
-        }
-
-        // Connect the transaction number in public values to the lhs and rhs values correctly.
-        builder.connect(pvs.txn_number_before, lhs.txn_number_before);
-        builder.connect(pvs.txn_number_after, rhs.txn_number_after);
-
-        // Connect lhs `txn_number_after` with rhs `txn_number_before`.
-        builder.connect(lhs.txn_number_after, rhs.txn_number_before);
-
-        // Connect the gas used in public values to the lhs and rhs values correctly.
-        builder.connect(pvs.gas_used_before[0], lhs.gas_used_before[0]);
-        builder.connect(pvs.gas_used_before[1], lhs.gas_used_before[1]);
-        builder.connect(pvs.gas_used_after[0], rhs.gas_used_after[0]);
-        builder.connect(pvs.gas_used_after[1], rhs.gas_used_after[1]);
-
-        // Connect lhs `gas_used_after` with rhs `gas_used_before`.
-        builder.connect(lhs.gas_used_after[0], rhs.gas_used_before[0]);
-        builder.connect(lhs.gas_used_after[1], rhs.gas_used_before[1]);
-
-        // Connect the `block_bloom` in public values to the lhs and rhs values correctly.
-        for (&limb0, &limb1) in pvs.block_bloom_after.iter().zip(&rhs.block_bloom_after) {
-            builder.connect(limb0, limb1);
-        }
-        for (&limb0, &limb1) in pvs.block_bloom_before.iter().zip(&lhs.block_bloom_before) {
-            builder.connect(limb0, limb1);
-        }
-        // Connect lhs `block_bloom_after` with rhs `block_bloom_before`.
-        for (&limb0, &limb1) in lhs.block_bloom_after.iter().zip(&rhs.block_bloom_before) {
-            builder.connect(limb0, limb1);
-        }
-    }
-    */
 
     fn add_agg_child(
         builder: &mut CircuitBuilder<F, D>,
@@ -781,31 +685,6 @@ where
         }
     }
 
-    /*
-    /// Connect the 256 block hashes between two blocks
-    pub fn connect_block_hashes(
-        builder: &mut CircuitBuilder<F, D>,
-        lhs: &ProofWithPublicInputsTarget<D>,
-        rhs: &ProofWithPublicInputsTarget<D>,
-    ) {
-        let lhs_public_values = PublicValuesTarget::from_public_inputs(&lhs.public_inputs);
-        let rhs_public_values = PublicValuesTarget::from_public_inputs(&rhs.public_inputs);
-        for i in 0..255 {
-            for j in 0..8 {
-                builder.connect(
-                    lhs_public_values.block_hashes.prev_hashes[8 * (i + 1) + j],
-                    rhs_public_values.block_hashes.prev_hashes[8 * i + j],
-                );
-            }
-        }
-        let expected_hash = lhs_public_values.block_hashes.cur_hash;
-        let prev_block_hash = &rhs_public_values.block_hashes.prev_hashes[255 * 8..256 * 8];
-        for i in 0..expected_hash.len() {
-            builder.connect(expected_hash[i], prev_block_hash[i]);
-        }
-    }
-    */
-
     fn connect_block_proof(
         builder: &mut CircuitBuilder<F, D>,
         _has_parent_block: BoolTarget,
@@ -816,113 +695,7 @@ where
         for (&limb0, limb1) in lhs.roots_after.root.iter().zip(rhs.roots_before.root) {
             builder.connect(limb0, limb1);
         }
-
-        /*
-        // Between blocks, the genesis state trie remains unchanged.
-        for (&limb0, limb1) in lhs
-            .extra_block_data
-            .genesis_state_trie_root
-            .iter()
-            .zip(rhs.extra_block_data.genesis_state_trie_root)
-        {
-            builder.connect(limb0, limb1);
-        }
-
-        // Connect block numbers.
-        let one = builder.one();
-        let prev_block_nb = builder.sub(rhs.block_metadata.block_number, one);
-        builder.connect(lhs.block_metadata.block_number, prev_block_nb);
-
-        // Check initial block values.
-        Self::connect_initial_values_block(builder, rhs);
-
-        // Connect intermediary values for gas_used and bloom filters to the block's final values. We only plug on the right, so there is no need to check the left-handside block.
-        Self::connect_final_block_values_to_intermediary(builder, rhs);
-
-        let zero = builder.zero();
-        let has_not_parent_block = builder.sub(one, has_parent_block.target);
-
-        // Check that the genesis block number is 0.
-        let gen_block_constr = builder.mul(has_not_parent_block, rhs.block_metadata.block_number);
-        builder.connect(gen_block_constr, zero);
-
-        // Check that the genesis block has the predetermined state trie root in `ExtraBlockData`.
-        Self::connect_genesis_block(builder, rhs, has_not_parent_block);
-        */
     }
-
-    /*
-    fn connect_genesis_block(
-        builder: &mut CircuitBuilder<F, D>,
-        x: &PublicValuesTarget,
-        has_not_parent_block: Target,
-    ) where
-        F: RichField + Extendable<D>,
-    {
-        let zero = builder.zero();
-        for (&limb0, limb1) in x
-            .trie_roots_before
-            .state_root
-            .iter()
-            .zip(x.extra_block_data.genesis_state_trie_root)
-        {
-            let mut constr = builder.sub(limb0, limb1);
-            constr = builder.mul(has_not_parent_block, constr);
-            builder.connect(constr, zero);
-        }
-    }
-
-    fn connect_final_block_values_to_intermediary(
-        builder: &mut CircuitBuilder<F, D>,
-        x: &PublicValuesTarget,
-    ) where
-        F: RichField + Extendable<D>,
-    {
-        builder.connect(
-            x.block_metadata.block_gas_used[0],
-            x.extra_block_data.gas_used_after[0],
-        );
-        builder.connect(
-            x.block_metadata.block_gas_used[1],
-            x.extra_block_data.gas_used_after[1],
-        );
-
-        for (&limb0, &limb1) in x
-            .block_metadata
-            .block_bloom
-            .iter()
-            .zip(&x.extra_block_data.block_bloom_after)
-        {
-            builder.connect(limb0, limb1);
-        }
-    }
-
-    fn connect_initial_values_block(builder: &mut CircuitBuilder<F, D>, x: &PublicValuesTarget)
-    where
-        F: RichField + Extendable<D>,
-    {
-        let zero = builder.constant(F::ZERO);
-        // The initial number of transactions is 0.
-        builder.connect(x.extra_block_data.txn_number_before, zero);
-        // The initial gas used is 0.
-        builder.connect(x.extra_block_data.gas_used_before[0], zero);
-        builder.connect(x.extra_block_data.gas_used_before[1], zero);
-
-        // The initial bloom filter is all zeroes.
-        for t in x.extra_block_data.block_bloom_before {
-            builder.connect(t, zero);
-        }
-
-        // The transactions and receipts tries are empty at the beginning of the block.
-        let initial_trie = HashedPartialTrie::from(Node::Empty).hash();
-
-        for (i, limb) in h256_limbs::<F>(initial_trie).into_iter().enumerate() {
-            let limb_target = builder.constant(limb);
-            builder.connect(x.trie_roots_before.transactions_root[i], limb_target);
-            builder.connect(x.trie_roots_before.receipts_root[i], limb_target);
-        }
-    }
-    */
 
     /// Create a proof for each STARK, then combine them, eventually culminating in a root proof.
     pub fn prove_root(
@@ -933,7 +706,7 @@ where
         timing: &mut TimingTree,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let all_proof = prove::<F, C, D>(all_stark, kernel, config, timing)?;
-        verify_proof(&all_stark, all_proof.clone(), &config).unwrap();
+        verify_proof(all_stark, all_proof.clone(), config).unwrap();
         let mut root_inputs = PartialWitness::new();
 
         for table in 0..NUM_TABLES {

@@ -21,7 +21,7 @@ fn load_offset<P: PackedField>(lv: &CpuColumnsView<P>) -> P {
     mem_offset[11..16].copy_from_slice(&lv.rd_bits); // 5 bits
                                                      //mem_offset[16..].copy_from_slice(&[lv.rd_bits[4]; 16]);
     let mem_offset = sign_extend::<_, 16>(&mem_offset);
-    limb_from_bits_le(mem_offset.into_iter())
+    limb_from_bits_le(mem_offset)
 }
 
 #[inline]
@@ -35,15 +35,13 @@ fn load_offset_ext<F: RichField + Extendable<D>, const D: usize>(
     mem_offset[11..16].copy_from_slice(&lv.rd_bits); // 5 bits
                                                      //mem_offset[16..].copy_from_slice(&[lv.rd_bits[4]; 16]);
     let mem_offset = sign_extend_ext::<_, D, 16>(builder, &mem_offset);
-    limb_from_bits_le_recursive(builder, mem_offset.into_iter())
+    limb_from_bits_le_recursive(builder, mem_offset)
 }
 
 #[inline]
 fn sign_extend<P: PackedField, const N: usize>(limbs: &[P; 32]) -> [P; 32] {
     let mut out = [P::ZEROS; 32];
-    for i in 0..N {
-        out[i] = limbs[i];
-    }
+    out[..N].copy_from_slice(&limbs[..N]);
     for i in N..32 {
         out[i] = limbs[N - 1];
     }
@@ -56,9 +54,7 @@ fn sign_extend_ext<F: RichField + Extendable<D>, const D: usize, const N: usize>
     limbs: &[ExtensionTarget<D>; 32],
 ) -> [ExtensionTarget<D>; 32] {
     let mut out = [builder.zero_extension(); 32];
-    for i in 0..N {
-        out[i] = limbs[i];
-    }
+    out[..N].copy_from_slice(&limbs[..N]);
     for i in N..32 {
         out[i] = limbs[N - 1];
     }
@@ -100,20 +96,20 @@ fn eval_packed_load<P: PackedField>(
     let virt_raw = rs + offset;
 
     // May raise overflow here since wrapping_add used in simulator
-    let rs_from_bits = limb_from_bits_le(rs_limbs.into_iter());
+    let rs_from_bits = limb_from_bits_le(rs_limbs);
     let u32max = P::Scalar::from_canonical_u64(1u64 << 32);
     yield_constr
         .constraint(filter * (rs_from_bits - virt_raw) * (rs_from_bits + u32max - virt_raw));
 
-    let rt_from_bits = limb_from_bits_le(rt_limbs.into_iter());
+    let rt_from_bits = limb_from_bits_le(rt_limbs);
     yield_constr.constraint(filter * (rt_from_bits - rt));
 
     // Constrain mem address
     //    let virt = virt_raw & 0xFFFF_FFFC;
-    let mut tmp = rs_limbs.clone();
+    let mut tmp = rs_limbs;
     tmp[0] = P::ZEROS;
     tmp[1] = P::ZEROS;
-    let virt = limb_from_bits_le(tmp.into_iter());
+    let virt = limb_from_bits_le(tmp);
 
     let mem_virt = lv.mem_channels[2].addr_virtual;
     yield_constr.constraint(filter * (virt - mem_virt));
@@ -134,10 +130,10 @@ fn eval_packed_load<P: PackedField>(
         // Range value(rs[1]): rs[1] == 0
         let mut mem_val_0 = [P::ZEROS; 32];
         mem_val_0[0..16].copy_from_slice(&mem_limbs[16..32]);
-        let mem_val_0 = sign_extend::<_, 16>(&mut mem_val_0);
+        let mem_val_0 = sign_extend::<_, 16>(&mem_val_0);
 
-        let mem_val_1 = limb_from_bits_le(mem_val_1.into_iter());
-        let mem_val_0 = limb_from_bits_le(mem_val_0.into_iter());
+        let mem_val_1 = limb_from_bits_le(mem_val_1);
+        let mem_val_0 = limb_from_bits_le(mem_val_0);
 
         // Range check
         let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
@@ -167,10 +163,10 @@ fn eval_packed_load<P: PackedField>(
         mem_val_1_1[0..24].copy_from_slice(&rt_limbs[0..24]);
         mem_val_1_1[24..].copy_from_slice(&mem_limbs[0..8]);
 
-        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0.into_iter());
-        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0.into_iter());
-        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1.into_iter());
-        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1.into_iter());
+        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0);
+        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0);
+        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1);
+        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1);
 
         let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
             + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
@@ -181,7 +177,7 @@ fn eval_packed_load<P: PackedField>(
 
     // LW:
     {
-        let mem_value = limb_from_bits_le(mem_limbs.into_iter());
+        let mem_value = limb_from_bits_le(mem_limbs);
         yield_constr.constraint(filter * lv.general.io().micro_op[2] * (mem - mem_value));
     }
 
@@ -197,10 +193,10 @@ fn eval_packed_load<P: PackedField>(
         mem_val_0_1[0..8].copy_from_slice(&mem_limbs[8..16]);
         mem_val_1_1[0..8].copy_from_slice(&mem_limbs[0..8]);
 
-        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0.into_iter());
-        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0.into_iter());
-        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1.into_iter());
-        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1.into_iter());
+        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0);
+        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0);
+        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1);
+        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1);
 
         let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
             + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
@@ -217,8 +213,8 @@ fn eval_packed_load<P: PackedField>(
         mem_val_0[0..16].copy_from_slice(&mem_limbs[16..32]);
         mem_val_1[0..16].copy_from_slice(&mem_limbs[0..16]);
 
-        let mem_val_1 = limb_from_bits_le(mem_val_1.into_iter());
-        let mem_val_0 = limb_from_bits_le(mem_val_0.into_iter());
+        let mem_val_1 = limb_from_bits_le(mem_val_1);
+        let mem_val_0 = limb_from_bits_le(mem_val_0);
 
         let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
         yield_constr.constraint(filter * lv.general.io().micro_op[4] * sum);
@@ -245,10 +241,10 @@ fn eval_packed_load<P: PackedField>(
 
         mem_val_1_1[0..32].copy_from_slice(&mem_limbs[..]);
 
-        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0.into_iter());
-        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0.into_iter());
-        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1.into_iter());
-        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1.into_iter());
+        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0);
+        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0);
+        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1);
+        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1);
 
         let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
             + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
@@ -259,7 +255,7 @@ fn eval_packed_load<P: PackedField>(
 
     // LL:
     {
-        let mem_value = limb_from_bits_le(mem_limbs.into_iter());
+        let mem_value = limb_from_bits_le(mem_limbs);
         yield_constr.constraint(filter * lv.general.io().micro_op[6] * (mem - mem_value));
     }
 
@@ -280,10 +276,10 @@ fn eval_packed_load<P: PackedField>(
         let mem_val_0_1 = sign_extend::<_, 8>(&mem_val_0_1);
         let mem_val_1_1 = sign_extend::<_, 8>(&mem_val_1_1);
 
-        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0.into_iter());
-        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0.into_iter());
-        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1.into_iter());
-        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1.into_iter());
+        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0);
+        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0);
+        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1);
+        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1);
 
         let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
             + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
@@ -338,26 +334,26 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
 
     let u32max = F::from_canonical_u64(1u64 << 32);
     //yield_constr.constraint(filter * (rs_from_bits - virt_raw) * (rs_from_bits + u32max - virt_raw));
-    let rs_from_bits = limb_from_bits_le_recursive(builder, rs_limbs.into_iter());
+    let rs_from_bits = limb_from_bits_le_recursive(builder, rs_limbs);
     let diff1 = builder.sub_extension(rs_from_bits, virt_raw);
 
     let diff2 = builder.add_const_extension(rs_from_bits, u32max);
     let diff2 = builder.sub_extension(diff2, virt_raw);
 
-    let constr = builder.mul_many_extension(&[filter, diff1, diff2]);
+    let constr = builder.mul_many_extension([filter, diff1, diff2]);
     yield_constr.constraint(builder, constr);
 
-    let rt_from_bits = limb_from_bits_le_recursive(builder, rt_limbs.into_iter());
+    let rt_from_bits = limb_from_bits_le_recursive(builder, rt_limbs);
     let diff = builder.sub_extension(rt_from_bits, rt);
     let constr = builder.mul_extension(filter, diff);
     yield_constr.constraint(builder, constr);
 
     // Constrain mem address
     //    let virt = virt_raw & 0xFFFF_FFFC;
-    let mut tmp = rs_limbs.clone();
+    let mut tmp = rs_limbs;
     tmp[0] = zeros;
     tmp[1] = zeros;
-    let virt = limb_from_bits_le_recursive(builder, tmp.into_iter());
+    let virt = limb_from_bits_le_recursive(builder, tmp);
 
     let mem_virt = lv.mem_channels[2].addr_virtual;
     let diff = builder.sub_extension(virt, mem_virt);
@@ -385,8 +381,8 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         mem_val_0[0..16].copy_from_slice(&mem_limbs[16..32]);
         let mem_val_0 = sign_extend_ext::<_, D, 16>(builder, &mem_val_0);
 
-        let mem_val_1 = limb_from_bits_le_recursive(builder, mem_val_1.into_iter());
-        let mem_val_0 = limb_from_bits_le_recursive(builder, mem_val_0.into_iter());
+        let mem_val_1 = limb_from_bits_le_recursive(builder, mem_val_1);
+        let mem_val_0 = limb_from_bits_le_recursive(builder, mem_val_0);
 
         // Range check
         // let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
@@ -423,10 +419,10 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         mem_val_1_1[0..24].copy_from_slice(&rt_limbs[0..24]);
         mem_val_1_1[24..].copy_from_slice(&mem_limbs[0..8]);
 
-        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0.into_iter());
-        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0.into_iter());
-        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
-        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
+        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0);
+        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0);
+        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1);
+        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1);
 
         // let sum =
         //     (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES) +
@@ -459,7 +455,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
 
     // LW:
     {
-        let mem_value = limb_from_bits_le_recursive(builder, mem_limbs.into_iter());
+        let mem_value = limb_from_bits_le_recursive(builder, mem_limbs);
         // yield_constr.constraint(filter * lv.general.io().micro_op[2] * (mem - mem_value));
         let diff1 = builder.sub_extension(mem, mem_value);
         let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[2], diff1]);
@@ -478,10 +474,10 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         mem_val_0_1[0..8].copy_from_slice(&mem_limbs[8..16]);
         mem_val_1_1[0..8].copy_from_slice(&mem_limbs[0..8]);
 
-        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0.into_iter());
-        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0.into_iter());
-        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
-        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
+        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0);
+        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0);
+        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1);
+        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1);
 
         /*
         //yield_constr.constraint(filter * lv.general.io().micro_op[3]
@@ -526,8 +522,8 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         mem_val_0[0..16].copy_from_slice(&mem_limbs[16..32]);
         mem_val_1[0..16].copy_from_slice(&mem_limbs[0..16]);
 
-        let mem_val_1 = limb_from_bits_le_recursive(builder, mem_val_1.into_iter());
-        let mem_val_0 = limb_from_bits_le_recursive(builder, mem_val_0.into_iter());
+        let mem_val_1 = limb_from_bits_le_recursive(builder, mem_val_1);
+        let mem_val_0 = limb_from_bits_le_recursive(builder, mem_val_0);
 
         let diff1 = builder.sub_extension(mem, mem_val_1);
         let diff2 = builder.sub_extension(mem, mem_val_0);
@@ -559,10 +555,10 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
 
         mem_val_1_1[0..32].copy_from_slice(&mem_limbs[..]);
 
-        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0.into_iter());
-        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0.into_iter());
-        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
-        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
+        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0);
+        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0);
+        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1);
+        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1);
 
         //let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
         //    + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
@@ -594,7 +590,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
 
     // LL:
     {
-        let mem_value = limb_from_bits_le_recursive(builder, mem_limbs.into_iter());
+        let mem_value = limb_from_bits_le_recursive(builder, mem_limbs);
         // yield_constr.constraint(filter * lv.general.io().micro_op[6] * (mem - mem_value));
         let diff1 = builder.sub_extension(mem, mem_value);
         let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[6], diff1]);
@@ -618,10 +614,10 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         let mem_val_0_1 = sign_extend_ext::<_, D, 8>(builder, &mem_val_0_1);
         let mem_val_1_1 = sign_extend_ext::<_, D, 8>(builder, &mem_val_1_1);
 
-        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0.into_iter());
-        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0.into_iter());
-        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
-        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
+        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0);
+        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0);
+        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1);
+        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1);
 
         let diff1 = builder.sub_extension(mem, mem_val_0_0);
         let diff2 = builder.sub_extension(mem, mem_val_1_0);
@@ -683,20 +679,20 @@ fn eval_packed_store<P: PackedField>(
     let offset = load_offset(lv);
     let virt_raw = rs + offset;
 
-    let rs_from_bits = limb_from_bits_le(rs_limbs.into_iter());
+    let rs_from_bits = limb_from_bits_le(rs_limbs);
     let u32max = P::Scalar::from_canonical_u64(1u64 << 32);
     yield_constr
         .constraint(filter * (rs_from_bits - virt_raw) * (rs_from_bits + u32max - virt_raw));
 
-    let rt_from_bits = limb_from_bits_le(rt_limbs.into_iter());
+    let rt_from_bits = limb_from_bits_le(rt_limbs);
     yield_constr.constraint(filter * (rt_from_bits - rt));
 
     // Constrain mem address
     //    let virt = virt_raw & 0xFFFF_FFFC;
-    let mut tmp = rs_limbs.clone();
+    let mut tmp = rs_limbs;
     tmp[0] = P::ZEROS;
     tmp[1] = P::ZEROS;
-    let virt = limb_from_bits_le(tmp.into_iter());
+    let virt = limb_from_bits_le(tmp);
 
     let mem_virt = lv.mem_channels[2].addr_virtual;
     yield_constr.constraint(filter * (virt - mem_virt));
@@ -732,10 +728,10 @@ fn eval_packed_store<P: PackedField>(
         mem_val_1_1[0..8].copy_from_slice(&rt_limbs[0..8]);
         mem_val_1_1[8..].copy_from_slice(&mem_limbs[8..]);
 
-        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0.into_iter());
-        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0.into_iter());
-        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1.into_iter());
-        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1.into_iter());
+        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0);
+        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0);
+        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1);
+        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1);
 
         let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
             + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
@@ -758,8 +754,8 @@ fn eval_packed_store<P: PackedField>(
         mem_val_1[0..16].copy_from_slice(&rt_limbs[0..16]);
         mem_val_1[16..].copy_from_slice(&mem_limbs[16..]);
 
-        let mem_val_1 = limb_from_bits_le(mem_val_1.into_iter());
-        let mem_val_0 = limb_from_bits_le(mem_val_0.into_iter());
+        let mem_val_1 = limb_from_bits_le(mem_val_1);
+        let mem_val_0 = limb_from_bits_le(mem_val_0);
 
         let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
         yield_constr.constraint(filter * lv.general.io().micro_op[1] * sum);
@@ -787,10 +783,10 @@ fn eval_packed_store<P: PackedField>(
         mem_val_1_1[0..8].copy_from_slice(&rt_limbs[24..]);
         mem_val_1_1[8..].copy_from_slice(&mem_limbs[8..]);
 
-        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0.into_iter());
-        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0.into_iter());
-        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1.into_iter());
-        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1.into_iter());
+        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0);
+        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0);
+        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1);
+        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1);
 
         let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
             + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
@@ -801,7 +797,7 @@ fn eval_packed_store<P: PackedField>(
 
     // SW
     {
-        let rt_value = limb_from_bits_le(rt_limbs.into_iter());
+        let rt_value = limb_from_bits_le(rt_limbs);
         yield_constr.constraint(filter * lv.general.io().micro_op[3] * (mem - rt_value));
     }
 
@@ -827,10 +823,10 @@ fn eval_packed_store<P: PackedField>(
         // rs[0] = 1, rs[1] = 1
         mem_val_1_1[..].copy_from_slice(&rt_limbs[..]);
 
-        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0.into_iter());
-        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0.into_iter());
-        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1.into_iter());
-        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1.into_iter());
+        let mem_val_0_0 = limb_from_bits_le(mem_val_0_0);
+        let mem_val_1_0 = limb_from_bits_le(mem_val_1_0);
+        let mem_val_0_1 = limb_from_bits_le(mem_val_0_1);
+        let mem_val_1_1 = limb_from_bits_le(mem_val_1_1);
 
         let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
             + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
@@ -842,7 +838,7 @@ fn eval_packed_store<P: PackedField>(
     // SC:
     //  TODO: write back rt register
     {
-        let rt_value = limb_from_bits_le(rt_limbs.into_iter());
+        let rt_value = limb_from_bits_le(rt_limbs);
         yield_constr.constraint(filter * lv.general.io().micro_op[5] * (mem - rt_value));
     }
 
@@ -891,26 +887,26 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
 
     let u32max = F::from_canonical_u64(1u64 << 32);
     //yield_constr.constraint(filter * (rs_from_bits - virt_raw) * (rs_from_bits + u32max - virt_raw));
-    let rs_from_bits = limb_from_bits_le_recursive(builder, rs_limbs.into_iter());
+    let rs_from_bits = limb_from_bits_le_recursive(builder, rs_limbs);
     let diff1 = builder.sub_extension(rs_from_bits, virt_raw);
 
     let diff2 = builder.add_const_extension(rs_from_bits, u32max);
     let diff2 = builder.sub_extension(diff2, virt_raw);
 
-    let constr = builder.mul_many_extension(&[filter, diff1, diff2]);
+    let constr = builder.mul_many_extension([filter, diff1, diff2]);
     yield_constr.constraint(builder, constr);
 
-    let rt_from_bits = limb_from_bits_le_recursive(builder, rt_limbs.into_iter());
+    let rt_from_bits = limb_from_bits_le_recursive(builder, rt_limbs);
     let diff = builder.sub_extension(rt_from_bits, rt);
     let constr = builder.mul_extension(filter, diff);
     yield_constr.constraint(builder, constr);
 
     // Constrain mem address
     //    let virt = virt_raw & 0xFFFF_FFFC;
-    let mut tmp = rs_limbs.clone();
+    let mut tmp = rs_limbs;
     tmp[0] = zeros;
     tmp[1] = zeros;
-    let virt = limb_from_bits_le_recursive(builder, tmp.into_iter());
+    let virt = limb_from_bits_le_recursive(builder, tmp);
 
     let mem_virt = lv.mem_channels[2].addr_virtual;
     let diff = builder.sub_extension(virt, mem_virt);
@@ -951,10 +947,10 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         mem_val_1_1[0..8].copy_from_slice(&rt_limbs[0..8]);
         mem_val_1_1[8..].copy_from_slice(&mem_limbs[8..]);
 
-        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0.into_iter());
-        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0.into_iter());
-        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
-        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
+        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0);
+        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0);
+        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1);
+        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1);
 
         let diff1 = builder.sub_extension(mem, mem_val_0_0);
         let diff2 = builder.sub_extension(mem, mem_val_1_0);
@@ -993,8 +989,8 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         mem_val_1[0..16].copy_from_slice(&rt_limbs[0..16]);
         mem_val_1[16..].copy_from_slice(&mem_limbs[16..]);
 
-        let mem_val_1 = limb_from_bits_le_recursive(builder, mem_val_1.into_iter());
-        let mem_val_0 = limb_from_bits_le_recursive(builder, mem_val_0.into_iter());
+        let mem_val_1 = limb_from_bits_le_recursive(builder, mem_val_1);
+        let mem_val_0 = limb_from_bits_le_recursive(builder, mem_val_0);
 
         let diff1 = builder.sub_extension(mem, mem_val_1);
         let diff2 = builder.sub_extension(mem, mem_val_0);
@@ -1027,10 +1023,10 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         mem_val_1_1[0..8].copy_from_slice(&rt_limbs[24..]);
         mem_val_1_1[8..].copy_from_slice(&mem_limbs[8..]);
 
-        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0.into_iter());
-        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0.into_iter());
-        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
-        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
+        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0);
+        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0);
+        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1);
+        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1);
 
         let diff1 = builder.sub_extension(mem, mem_val_0_0);
         let diff2 = builder.sub_extension(mem, mem_val_1_0);
@@ -1057,7 +1053,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
 
     // SW
     {
-        let rt_value = limb_from_bits_le_recursive(builder, rt_limbs.into_iter());
+        let rt_value = limb_from_bits_le_recursive(builder, rt_limbs);
         //yield_constr.constraint(filter * lv.general.io().micro_op[3] * (mem - rt_value));
         let diff1 = builder.sub_extension(mem, rt_value);
         let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[3], diff1]);
@@ -1086,10 +1082,10 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         // rs[0] = 1, rs[1] = 1
         mem_val_1_1[..].copy_from_slice(&rt_limbs[..]);
 
-        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0.into_iter());
-        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0.into_iter());
-        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1.into_iter());
-        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1.into_iter());
+        let mem_val_0_0 = limb_from_bits_le_recursive(builder, mem_val_0_0);
+        let mem_val_1_0 = limb_from_bits_le_recursive(builder, mem_val_1_0);
+        let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1);
+        let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1);
 
         let diff1 = builder.sub_extension(mem, mem_val_0_0);
         let diff2 = builder.sub_extension(mem, mem_val_1_0);
@@ -1116,7 +1112,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
 
     // SC
     {
-        let rt_value = limb_from_bits_le_recursive(builder, rt_limbs.into_iter());
+        let rt_value = limb_from_bits_le_recursive(builder, rt_limbs);
         //yield_constr.constraint(filter * lv.general.io().micro_op[5] * (mem - rt_value));
         let diff1 = builder.sub_extension(mem, rt_value);
         let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[5], diff1]);

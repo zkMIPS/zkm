@@ -47,16 +47,6 @@ impl MemoryAddress {
 
 ///
 ///Memory Access, for simplicity, we extend the byte and halfword(2 bytes) to a word(4 bytes).
-///
-/// Opcode	Name	Action	Opcode bitfields
-/// LB rt,offset(rs)	Load Byte	rt=*(char*)(offset+rs)	100000	rs	rt	offset
-/// LBU rt,offset(rs)	Load Byte Unsigned	rt=*(Uchar*)(offset+rs)	100100	rs	rt	offset
-/// LH rt,offset(rs)	Load Halfword	rt=*(short*)(offset+rs)	100001	rs	rt	offset
-/// LBU rt,offset(rs)	Load Halfword Unsigned	rt=*(Ushort*)(offset+rs)	100101	rs	rt	offset
-/// LW rt,offset(rs)	Load Word	rt=*(int*)(offset+rs)	100011	rs	rt	offset
-/// SB rt,offset(rs)	Store Byte	*(char*)(offset+rs)=rt	101000	rs	rt	offset
-/// SH rt,offset(rs)	Store Halfword	*(short*)(offset+rs)=rt	101001	rs	rt	offset
-/// SW rt,offset(rs)	Store Word	*(int*)(offset+rs)=rt	101011	rs	rt	offset
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MemoryOpKind {
     Read,

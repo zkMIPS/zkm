@@ -188,8 +188,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arithmetic::columns::{IS_SLL, IS_SLLV, IS_SRL, IS_SRLV, NUM_ARITH_COLUMNS};
-    use crate::constraint_consumer::ConstraintConsumer;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::types::{Field, Sample};
     use rand::{Rng, SeedableRng};

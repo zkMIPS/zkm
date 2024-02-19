@@ -51,8 +51,8 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         state.traces.push_cpu(cpu_row);
     }
 
-    for (_i, addr) in page_addr.iter().enumerate() {
-        check_memory_page_hash(state, kernel, *addr);
+    for addr in page_addr {
+        check_memory_page_hash(state, kernel, addr);
     }
 
     check_image_id(state, kernel);
@@ -244,7 +244,7 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
     // If this is a bootloading row and the i'th memory channel is used, it must have the right
     // address, name context = 0, segment = Code, virt + 4 = next_virt
     let code_segment = F::from_canonical_usize(Segment::Code as usize);
-    for (_i, channel) in local_values.mem_channels.iter().enumerate() {
+    for channel in local_values.mem_channels.iter() {
         let filter = local_is_bootstrap * channel.used;
         yield_constr.constraint(filter * channel.addr_context);
         yield_constr.constraint(filter * (channel.addr_segment - code_segment));
@@ -298,7 +298,7 @@ pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, co
     // address, name context = 0, segment = Code, virt + 4 = next_virt
     let code_segment =
         builder.constant_extension(F::Extension::from_canonical_usize(Segment::Code as usize));
-    for (_i, channel) in local_values.mem_channels.iter().enumerate() {
+    for channel in local_values.mem_channels {
         let filter = builder.mul_extension(local_is_bootstrap, channel.used);
         let constraint = builder.mul_extension(filter, channel.addr_context);
         yield_constr.constraint(builder, constraint);

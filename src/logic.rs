@@ -57,22 +57,10 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     // will enforce that the reconstructed opcode value from the
     // opcode bits matches.
     let mut res = vec![Column::linear_combination([
-        (
-            columns::IS_AND,
-            F::from_canonical_u32(0b000000 + 0b100100 * (1 << 6)),
-        ),
-        (
-            columns::IS_OR,
-            F::from_canonical_u32(0b000000 + 0b100101 * (1 << 6)),
-        ),
-        (
-            columns::IS_XOR,
-            F::from_canonical_u32(0b000000 + 0b100110 * (1 << 6)),
-        ),
-        (
-            columns::IS_NOR,
-            F::from_canonical_u32(0b000000 + 0b100111 * (1 << 6)),
-        ),
+        (columns::IS_AND, F::from_canonical_u32(0b100100 * (1 << 6))),
+        (columns::IS_OR, F::from_canonical_u32(0b100101 * (1 << 6))),
+        (columns::IS_XOR, F::from_canonical_u32(0b100110 * (1 << 6))),
+        (columns::IS_NOR, F::from_canonical_u32(0b100111 * (1 << 6))),
     ])];
     res.extend(columns::limb_bit_cols_for_input(columns::INPUT0).map(Column::le_bits));
     res.extend(columns::limb_bit_cols_for_input(columns::INPUT1).map(Column::le_bits));

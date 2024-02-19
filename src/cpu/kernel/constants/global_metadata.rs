@@ -1,3 +1,5 @@
+#![allow(clippy::enum_variant_names)]
+
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub(crate) enum GlobalMetadata {
     /// A pointer to the root of the state trie within the `TrieData` buffer.

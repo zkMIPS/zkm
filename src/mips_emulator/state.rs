@@ -3,7 +3,6 @@ use crate::mips_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use crate::mips_emulator::witness::{Program, ProgramSegment};
 use elf::abi::PT_LOAD;
 use elf::endian::AnyEndian;
-use hex;
 use log::{debug, warn};
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -236,7 +235,7 @@ impl State {
 
         println!("count {} items {:?}", index, items);
         // init argc,  argv, aux on stack
-        store_mem(sp + 4 * 0, index);
+        store_mem(sp, index);
         store_mem(sp + 4 * (index + 1), 0x35); // argv[n] = 0 (terminating argv)
         store_mem(sp + 4 * (index + 2), 0x00); // envp[term] = 0 (no env vars)
         store_mem(sp + 4 * (index + 3), 0x06); // auxv[0] = _AT_PAGESZ = 6 (key)
@@ -284,7 +283,7 @@ impl State {
             )
         }
 
-        let hex_string = hex::encode(&hash_bytes);
+        let hex_string = hex::encode(hash_bytes);
         let mut preiamge_path = blockpath.clone();
         preiamge_path.push_str("0x");
         preiamge_path.push_str(hex_string.as_str());
@@ -350,17 +349,16 @@ impl Display for InstrumentedState {
 
 impl InstrumentedState {
     pub fn new(state: Box<State>, block_path: String) -> Box<Self> {
-        let is = Box::new(Self {
+        Box::new(Self {
             state,
             stdout_writer: Box::new(stdout()),
             stderr_writer: Box::new(stderr()),
-            block_path: block_path,
+            block_path,
             pre_pc: 0u32,
             pre_image_id: [0u8; 32],
             pre_hash_root: [0u8; 32],
             pre_segment_id: 0u32,
-        });
-        is
+        })
     }
 
     fn handle_syscall(&mut self) {
@@ -430,23 +428,19 @@ impl InstrumentedState {
                     // todo: track memory read
                     FD_STDOUT => {
                         self.state.memory.read_memory_range(a1, a2);
-                        match std::io::copy(self.state.memory.as_mut(), self.stdout_writer.as_mut())
+                        if let Err(e) =
+                            std::io::copy(self.state.memory.as_mut(), self.stdout_writer.as_mut())
                         {
-                            Err(e) => {
-                                panic!("read range from memory failed {}", e);
-                            }
-                            Ok(_) => {}
+                            panic!("read range from memory failed {}", e);
                         }
                         v0 = a2;
                     }
                     FD_STDERR => {
                         self.state.memory.read_memory_range(a1, a2);
-                        match std::io::copy(self.state.memory.as_mut(), self.stderr_writer.as_mut())
+                        if let Err(e) =
+                            std::io::copy(self.state.memory.as_mut(), self.stderr_writer.as_mut())
                         {
-                            Err(e) => {
-                                panic!("read range from memory failed {}", e);
-                            }
-                            Ok(_) => {}
+                            panic!("read range from memory failed {}", e);
                         }
                         v0 = a2;
                     }
@@ -485,7 +479,7 @@ impl InstrumentedState {
         self.state.registers[7] = v1;
 
         self.state.pc = self.state.next_pc;
-        self.state.next_pc = self.state.next_pc + 4;
+        self.state.next_pc += 4;
     }
 
     fn handle_branch(&mut self, opcode: u32, insn: u32, rt_reg: u32, rs: u32) {
@@ -594,7 +588,7 @@ impl InstrumentedState {
         }
 
         self.state.pc = self.state.next_pc;
-        self.state.next_pc = self.state.next_pc + 4;
+        self.state.next_pc += 4;
     }
 
     fn handle_rd(&mut self, store_reg: u32, val: u32, conditional: bool) {
@@ -606,7 +600,7 @@ impl InstrumentedState {
         }
 
         self.state.pc = self.state.next_pc;
-        self.state.next_pc = self.state.next_pc + 4;
+        self.state.next_pc += 4;
     }
 
     // this method executes a single mips instruction
@@ -660,7 +654,7 @@ impl InstrumentedState {
             rd_reg = rt_reg;
         }
 
-        if (opcode >= 4 && opcode < 8) || opcode == 1 {
+        if (4..8).contains(&opcode) || opcode == 1 {
             self.handle_branch(opcode, insn, rt_reg, rs);
             return;
         }
@@ -697,7 +691,7 @@ impl InstrumentedState {
         let val = self.execute(insn, rs, rt, mem);
 
         let fun = insn & 0x3f; // 6-bits
-        if opcode == 0 && fun >= 8 && fun < 0x1c {
+        if opcode == 0 && (8..0x1c).contains(&fun) {
             if fun == 8 || fun == 9 {
                 let link_reg = match fun {
                     9 => rd_reg,
@@ -726,7 +720,7 @@ impl InstrumentedState {
 
             // lo and hi registers
             // can write back
-            if fun >= 0x10 && fun < 0x1c {
+            if (0x10..0x1c).contains(&fun) {
                 self.handle_hilo(fun, rs, rt, rd_reg);
                 return;
             }
@@ -754,7 +748,6 @@ impl InstrumentedState {
 
         // write back the value to the destination register
         self.handle_rd(rd_reg, val, true);
-        return;
     }
 
     fn execute(&mut self, insn: u32, mut rs: u32, rt: u32, mem: u32) -> u32 {
@@ -764,7 +757,7 @@ impl InstrumentedState {
 
         if opcode < 0x20 {
             // transform ArithLogI
-            if opcode >= 8 && opcode < 0xf {
+            if (8..0xf).contains(&opcode) {
                 match opcode {
                     8 => {
                         fun = 0x20; // addi
@@ -972,7 +965,7 @@ impl InstrumentedState {
         self.pre_pc = self.state.pc;
         self.pre_image_id = image_id;
         self.pre_hash_root = page_hash_root;
-        let _ = self.state.load_registers(); // add to rtrace
+        self.state.load_registers(); // add to rtrace
     }
 }
 

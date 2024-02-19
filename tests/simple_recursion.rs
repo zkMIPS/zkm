@@ -38,11 +38,11 @@ fn split_elf_into_segs(
     state.patch_go(&file);
     state.patch_stack("");
 
-    let block_path = get_block_path(&basedir, &block_no, "");
+    let block_path = get_block_path(basedir, block_no, "");
     state.load_input(&block_path);
 
     let mut instrumented_state = InstrumentedState::new(state, block_path);
-    instrumented_state.split_segment(false, &seg_path);
+    instrumented_state.split_segment(false, seg_path);
     let mut segment_step: usize = seg_size;
     loop {
         if instrumented_state.state.exited {
@@ -52,11 +52,11 @@ fn split_elf_into_segs(
         segment_step -= 1;
         if segment_step == 0 {
             segment_step = seg_size;
-            instrumented_state.split_segment(true, &seg_path);
+            instrumented_state.split_segment(true, seg_path);
         }
     }
 
-    instrumented_state.split_segment(true, &seg_path);
+    instrumented_state.split_segment(true, seg_path);
     log::info!("Split done");
 }
 
