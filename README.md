@@ -37,8 +37,7 @@ To help filter out false positives, the PR description for a performance improve
 
 # Licenses
 
-LICENSE-APACHE is prefered. need to discuss.
-
+The ZKM is distributed under the terms of MIT license.
 
 # Security
 
