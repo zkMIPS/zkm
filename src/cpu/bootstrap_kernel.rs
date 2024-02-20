@@ -190,7 +190,6 @@ pub(crate) fn check_memory_page_hash<F: Field>(
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
     cpu_row.mem_channels[0].value[0] = F::ZERO; // context
     cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize);
-    //cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(page_data_addr[0].virt);
     let final_idx = page_addr_value_byte_be.len() / KECCAK_RATE_BYTES * KECCAK_RATE_U32S;
     cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(page_data_addr[final_idx].virt);
     cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(page_addr_value_byte_be.len()); // len
