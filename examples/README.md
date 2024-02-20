@@ -16,7 +16,7 @@ go build hello.go
 * Split the ELF hello into segments. Note that the flag `BLOCK_NO` is only necessary for minigeth.
 
 ```
-BASEDIR=test-vectors RUST_LOG=info ELF_PATH=test-vectors/hello BLOCK_NO=13284491 SEG_OUTPUT=/tmp/output SEG_SIZE=262144 \
+BASEDIR=test-vectors RUST_LOG=info ELF_PATH=test-vectors/hello BLOCK_NO=13284491 SEG_OUTPUT=/tmp/output SEG_SIZE=262144 ARGS="" \
     cargo run --release --example zkmips split
 ```
 
