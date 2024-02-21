@@ -1,10 +1,10 @@
 # ZKM
 
-ZKM is a general verifiable computing instructure based on [Plonky2](https://github.com/0xPolygonZero/plonky2) and the [MIPS microarchitecture](https://en.wikipedia.org/wiki/MIPS_architecture), empowering Ethereum as the Global Settlement Layer.
+ZKM is a general verifiable computing infrastructure based on [Plonky2](https://github.com/0xPolygonZero/plonky2) and the [MIPS microarchitecture](https://en.wikipedia.org/wiki/MIPS_architecture), empowering Ethereum as the Global Settlement Layer.
 
 # Building
 
-The zkm requires a latest nightly toolchain. Just run `cargo build --release` in zkm directory.
+In order to build the application, zkm requires a latest nightly toolchain. Just run `cargo build --release` in zkm directory.
 
 # Running the examples
 
