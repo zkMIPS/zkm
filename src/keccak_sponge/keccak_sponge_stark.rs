@@ -366,8 +366,8 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         virt.resize(KECCAK_RATE_U32S, 0);
         let virt: [usize; KECCAK_RATE_U32S] = virt.try_into().unwrap();
 
-        row.context = F::from_canonical_usize(op.base_address[idx].context);
-        row.segment = F::from_canonical_usize(op.base_address[idx].segment);
+        row.context = F::from_canonical_usize(op.base_address[0].context);
+        row.segment = F::from_canonical_usize(op.base_address[0].segment);
         row.virt = virt.map(F::from_canonical_usize);
         row.timestamp = F::from_canonical_usize(op.timestamp);
         row.len = F::from_canonical_usize(op.input.len());
