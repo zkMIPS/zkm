@@ -33,13 +33,14 @@ fn split_elf_into_segs() {
     let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
     let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
     let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
+    let args = env::var("ARGS").unwrap_or("".to_string());
 
     let data = fs::read(elf_path).expect("could not read file");
     let file =
         ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
     let (mut state, _) = State::load_elf(&file);
     state.patch_go(&file);
-    state.patch_stack("");
+    state.patch_stack(&args);
 
     let block_path = get_block_path(&basedir, &block_no, "");
     state.load_input(&block_path);
