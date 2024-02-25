@@ -7,10 +7,7 @@
 Write your own hello.go, and compile with
 
 ```
-export GOOS=linux
-export GOARCH=mips
-export GOMIPS=softfloat
-go build hello.go
+GOOS=linux GOARCH=mips GOMIPS=softfloat go build hello.go
 ```
 
 * Split the ELF hello into segments. Note that the flag `BLOCK_NO` is only necessary for minigeth.
