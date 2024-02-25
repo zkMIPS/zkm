@@ -20,6 +20,7 @@ use crate::cpu::kernel::keccak_util::keccakf_u32s;
 use crate::cross_table_lookup::Column;
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak_sponge::columns::*;
+use crate::memory::segments::Segment;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
@@ -367,7 +368,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         let virt: [usize; KECCAK_RATE_U32S] = virt.try_into().unwrap();
 
         row.context = F::from_canonical_usize(op.base_address[0].context);
-        row.segment = F::from_canonical_usize(op.base_address[0].segment);
+        row.segment = F::from_canonical_usize(op.base_address[Segment::Code as usize].segment);
         row.virt = virt.map(F::from_canonical_usize);
         row.timestamp = F::from_canonical_usize(op.timestamp);
         row.len = F::from_canonical_usize(op.input.len());

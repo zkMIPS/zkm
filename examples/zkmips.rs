@@ -79,7 +79,7 @@ fn prove_single_seg() {
 
     let allstark: AllStark<F, D> = AllStark::default();
     let config = StarkConfig::standard_fast_config();
-    let mut timing = TimingTree::new("prove", log::Level::Debug);
+    let mut timing = TimingTree::new("prove", log::Level::Info);
     let allproof: proof::AllProof<GoldilocksField, C, D> =
         prove(&allstark, &kernel, &config, &mut timing).unwrap();
     let mut count_bytes = 0;
@@ -88,6 +88,7 @@ fn prove_single_seg() {
         log::info!("row:{} proof bytes:{}", row, proof_str.len());
         count_bytes += proof_str.len();
     }
+    timing.filter(Duration::from_millis(100)).print();
     log::info!("total proof bytes:{}KB", count_bytes / 1024);
     verify_proof(&allstark, allproof, &config).unwrap();
     log::info!("Prove done");
