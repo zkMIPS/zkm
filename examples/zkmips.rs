@@ -29,7 +29,7 @@ fn split_elf_into_segs() {
     // 1. split ELF into segs
     let basedir = env::var("BASEDIR").unwrap_or("/tmp/cannon".to_string());
     let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
-    let block_no = env::var("BLOCK_NO").expect("Block number is missing");
+    let block_no = env::var("BLOCK_NO");
     let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
     let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
     let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
@@ -42,8 +42,14 @@ fn split_elf_into_segs() {
     state.patch_go(&file);
     state.patch_stack(&args);
 
-    let block_path = get_block_path(&basedir, &block_no, "");
-    state.load_input(&block_path);
+    let block_path = match block_no {
+        Ok(no) => {
+            let block_path = get_block_path(&basedir, &no, "");
+            state.load_input(&block_path);
+            block_path
+        }
+        _ => "".to_string(),
+    };
 
     let mut instrumented_state = InstrumentedState::new(state, block_path);
     instrumented_state.split_segment(false, &seg_path);
@@ -66,7 +72,7 @@ fn split_elf_into_segs() {
 
 fn prove_single_seg() {
     let basedir = env::var("BASEDIR").unwrap_or("/tmp/cannon".to_string());
-    let block = env::var("BLOCK_NO").expect("Block number is missing");
+    let block = env::var("BLOCK_NO").unwrap_or("".to_string());
     let file = env::var("BLOCK_FILE").unwrap_or(String::from(""));
     let seg_file = env::var("SEG_FILE").expect("Segment file is missing");
     let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
@@ -127,7 +133,7 @@ fn aggregate_proof() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
 
     let basedir = env::var("BASEDIR").unwrap_or("/tmp/cannon".to_string());
-    let block = env::var("BLOCK_NO").expect("Block number is missing");
+    let block = env::var("BLOCK_NO").unwrap_or("".to_string());
     let file = env::var("BLOCK_FILE").unwrap_or(String::from(""));
     let seg_file = env::var("SEG_FILE").expect("first segment file is missing");
     let seg_file2 = env::var("SEG_FILE2").expect("The next segment file is missing");
@@ -198,7 +204,7 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
 
     let basedir = env::var("BASEDIR").unwrap_or("/tmp/cannon".to_string());
-    let block = env::var("BLOCK_NO").expect("Block number is missing");
+    let block = env::var("BLOCK_NO").unwrap_or("".to_string());
     let file = env::var("BLOCK_FILE").unwrap_or(String::from(""));
     let seg_dir = env::var("SEG_FILE_DIR").expect("segment file dir is missing");
     let seg_file_number = env::var("SEG_FILE_NUM").expect("The segment file number is missing");
