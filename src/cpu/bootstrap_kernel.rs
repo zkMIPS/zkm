@@ -57,39 +57,6 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
 
     check_image_id(state, kernel);
 
-    let mut final_cpu_row = CpuColumnsView::default();
-    final_cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-    final_cpu_row.is_bootstrap_kernel = F::ONE;
-    final_cpu_row.is_keccak_sponge = F::ONE;
-
-    let mut image_addr_value_byte_be = vec![0u8; image_addr_value.len() * 4];
-    for (i, v) in image_addr_value.iter().enumerate() {
-        image_addr_value_byte_be[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_be_bytes());
-    }
-
-    // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
-    final_cpu_row.mem_channels[0].value[0] = F::ZERO; // context
-    final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize);
-    // align with the `already_absorbed_bytes/4` to avoid that the padding block bytes are not present in
-    // memory
-    let final_idx = image_addr_value_byte_be.len() / KECCAK_RATE_BYTES * KECCAK_RATE_U32S;
-    final_cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(image_addr[final_idx].virt);
-    final_cpu_row.mem_channels[3].value[0] =
-        F::from_canonical_usize(image_addr_value_byte_be.len()); // len
-
-    let code_hash_bytes = keccak(&image_addr_value_byte_be).0;
-    let code_hash_be = core::array::from_fn(|i| {
-        u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
-    });
-    let code_hash = code_hash_be.map(u32::from_be);
-    log::info!("code_hash: {:?}", code_hash);
-
-    final_cpu_row.mem_channels[4].value = code_hash.map(F::from_canonical_u32);
-    final_cpu_row.mem_channels[4].value.reverse();
-
-    keccak_sponge_log(state, image_addr, image_addr_value_byte_be);
-    state.traces.push_cpu(final_cpu_row);
-
     state.memory.apply_ops(&state.traces.memory_ops);
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
