@@ -19,8 +19,7 @@
 //! the equations, we proceed similarly to MUL for LUI.
 
 use crate::arithmetic::columns::{
-    INPUT_REGISTER_0, INPUT_REGISTER_1, INPUT_REGISTER_2, IS_LUI, NUM_ARITH_COLUMNS, N_LIMBS,
-    OUTPUT_REGISTER,
+    INPUT_REGISTER_0, INPUT_REGISTER_1, IS_LUI, NUM_ARITH_COLUMNS, N_LIMBS, OUTPUT_REGISTER,
 };
 use crate::arithmetic::mul;
 use crate::arithmetic::utils::{read_value, read_value_i64_limbs, u32_to_array};
@@ -33,16 +32,12 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 pub fn generate<F: PrimeField64>(lv: &mut [F], _nv: &mut [F], filter: usize, imm: u32, rt: u32) {
-    u32_to_array(&mut lv[INPUT_REGISTER_0], 1);
-    u32_to_array(&mut lv[INPUT_REGISTER_1], imm);
+    u32_to_array(&mut lv[INPUT_REGISTER_0], imm);
+    u32_to_array(&mut lv[INPUT_REGISTER_1], 1u32 << 16);
     u32_to_array(&mut lv[OUTPUT_REGISTER], rt);
 
-    let shifted_displacement = imm << 16;
-
-    u32_to_array(&mut lv[INPUT_REGISTER_2], shifted_displacement);
-
-    let input0 = read_value_i64_limbs(lv, INPUT_REGISTER_0); // 1
-    let input1 = read_value_i64_limbs(lv, INPUT_REGISTER_2); // imm << 16
+    let input0 = read_value_i64_limbs(lv, INPUT_REGISTER_0); // imm
+    let input1 = read_value_i64_limbs(lv, INPUT_REGISTER_1); // 1 << 16
 
     match filter {
         IS_LUI => {
@@ -70,10 +65,10 @@ fn eval_packed_lui<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let is_lui = lv[IS_LUI];
-    let one_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
-    let shifted_imm_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_2);
+    let left_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
+    let right_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
 
-    mul::eval_packed_generic_mul(lv, is_lui, one_limbs, shifted_imm_limbs, yield_constr);
+    mul::eval_packed_generic_mul(lv, is_lui, left_limbs, right_limbs, yield_constr);
 }
 
 pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -91,15 +86,8 @@ fn eval_ext_circuit_lui<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let is_lui = lv[IS_LUI];
-    let one_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
-    let shifted_imm_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_2);
+    let left_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
+    let right_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
 
-    mul::eval_ext_mul_circuit(
-        builder,
-        lv,
-        is_lui,
-        one_limbs,
-        shifted_imm_limbs,
-        yield_constr,
-    );
+    mul::eval_ext_mul_circuit(builder, lv, is_lui, left_limbs, right_limbs, yield_constr);
 }

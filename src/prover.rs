@@ -35,7 +35,7 @@ use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkPro
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 
-#[cfg(test)]
+#[cfg(any(feature = "test", test))]
 use crate::cross_table_lookup::testutils::check_ctls;
 
 /// Generate traces, then create all STARK proofs.
@@ -117,13 +117,15 @@ where
 
     log::debug!("trace_commitments: {}", trace_commitments.len());
 
-    #[cfg(test)]
+    #[cfg(any(feature = "test", test))]
     {
+        log::debug!("check_ctls...");
         check_ctls(
             &trace_poly_values,
             &all_stark.cross_table_lookups,
             // &get_memory_extra_looking_values(&public_values),
         );
+        log::debug!("check_ctls done.");
     }
 
     let trace_caps = trace_commitments

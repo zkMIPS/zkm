@@ -107,6 +107,7 @@ pub(crate) enum Operation {
     SetContext,
     MloadGeneral(MemOp, u8, u8, u32),
     MstoreGeneral(MemOp, u8, u8, u32),
+    Nop,
 }
 
 pub(crate) fn generate_cond_mov_op<F: Field>(
@@ -307,13 +308,40 @@ pub(crate) fn generate_binary_arithmetic_imm_op<F: Field>(
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
     let in1 = sign_extend::<16>(imm);
+    let log_in1 = reg_write_with_log(rt, 1, in1 as usize, state, &mut row)?;
     let operation = arithmetic::Operation::binary(operator, in0 as u32, in1);
+
+    let out = operation.result().0;
+    let log_out0 = reg_write_with_log(rt, 2, out as usize, state, &mut row)?;
+
+    state.traces.push_arithmetic(operation);
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_lui<F: Field>(
+    _rs: u8,
+    rt: u8,
+    imm: u32,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let in0 = sign_extend::<16>(imm);
+    let log_in0 = reg_write_with_log(_rs, 0, in0 as usize, state, &mut row)?;
+    let in1 = 1u32 << 16;
+    let log_in1 = reg_write_with_log(rt, 1, in1 as usize, state, &mut row)?;
+
+    let operation = arithmetic::Operation::binary(arithmetic::BinaryOperator::LUI, in0, in1);
     let out = operation.result().0;
 
     let log_out0 = reg_write_with_log(rt, 2, out as usize, state, &mut row)?;
 
-    //state.traces.push_arithmetic(operation);
+    state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
     state.traces.push_memory(log_out0);
     state.traces.push_cpu(row);
     Ok(())
@@ -1148,5 +1176,14 @@ pub(crate) fn generate_mstore_general<F: Field>(
     }
 
     state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_nop<F: Field>(
+    state: &mut GenerationState<F>,
+    row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    state.traces.push_cpu(row);
+
     Ok(())
 }

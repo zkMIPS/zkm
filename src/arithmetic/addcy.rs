@@ -148,6 +148,7 @@ pub fn eval_packed_generic<P: PackedField>(
     // let is_lt = lv[IS_LT];
     // let is_gt = lv[IS_GT];
     let is_addi = lv[IS_ADDI];
+    let is_addiu = lv[IS_ADDIU];
 
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
@@ -160,6 +161,7 @@ pub fn eval_packed_generic<P: PackedField>(
     // eval_packed_generic_addcy(yield_constr, is_lt, in1, aux, in0, out, false);
     // eval_packed_generic_addcy(yield_constr, is_gt, in0, aux, in1, out, false);
     eval_packed_generic_addcy(yield_constr, is_addi, in0, in1, out, aux, false);
+    eval_packed_generic_addcy(yield_constr, is_addiu, in0, in1, out, aux, false);
 }
 
 #[allow(clippy::needless_collect)]
@@ -238,6 +240,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     //let is_lt = lv[IS_LT];
     //let is_gt = lv[IS_GT];
     let is_addi = lv[IS_ADDI];
+    let is_addiu = lv[IS_ADDIU];
 
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
@@ -249,6 +252,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     //eval_ext_circuit_addcy(builder, yield_constr, is_lt, in1, aux, in0, out, false);
     //eval_ext_circuit_addcy(builder, yield_constr, is_gt, in0, aux, in1, out, false);
     eval_ext_circuit_addcy(builder, yield_constr, is_addi, in0, in1, out, aux, false);
+    eval_ext_circuit_addcy(builder, yield_constr, is_addiu, in0, in1, out, aux, false);
 }
 
 #[cfg(test)]
@@ -276,6 +280,7 @@ mod tests {
         // lv[IS_LT] = F::ZERO;
         // lv[IS_GT] = F::ZERO;
         lv[IS_ADDI] = F::ZERO;
+        lv[IS_ADDIU] = F::ZERO;
 
         let mut constrant_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -297,7 +302,7 @@ mod tests {
         const N_ITERS: usize = 1000;
 
         for _ in 0..N_ITERS {
-            for op_filter in [IS_ADD, IS_SUB, IS_ADDI] {
+            for op_filter in [IS_ADD, IS_SUB, IS_ADDI, IS_ADDIU] {
                 // set entire row to random 16-bit values
                 let mut lv = [F::default(); NUM_ARITH_COLUMNS]
                     .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
@@ -309,6 +314,7 @@ mod tests {
                 lv[IS_ADD] = F::ZERO;
                 lv[IS_SUB] = F::ZERO;
                 lv[IS_ADDI] = F::ZERO;
+                lv[IS_ADDIU] = F::ZERO;
                 lv[op_filter] = F::ONE;
 
                 let left_in = rng.gen::<u32>();
@@ -328,7 +334,7 @@ mod tests {
                 }
 
                 let expected = match op_filter {
-                    IS_ADD | IS_ADDI => left_in.overflowing_add(right_in).0,
+                    IS_ADD | IS_ADDI | IS_ADDIU => left_in.overflowing_add(right_in).0,
                     IS_SUB => left_in.overflowing_sub(right_in).0,
                     _ => panic!("unrecognised operation"),
                 };

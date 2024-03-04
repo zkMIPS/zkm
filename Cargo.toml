@@ -57,3 +57,6 @@ keccak-hash = "0.10.0"
 plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x",  branch = "zkm" }
 plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x-derive",  branch = "zkm" }
 curta = { git ="https://github.com/zkMIPS/curta.git", branch = "zkm" }
+
+[features]
+test = []
