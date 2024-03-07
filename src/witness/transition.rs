@@ -361,13 +361,13 @@ fn perform_op<F: Field>(
         }
 
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLL, sa, rt, rd) => {
-            generate_sll(sa, rt, rd, state, row)?
+            generate_shift_imm(arithmetic::BinaryOperator::SLL, sa, rt, rd, state, row)?
         }
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRL, sa, rt, rd) => {
-            generate_srl(sa, rt, rd, state, row)?
+            generate_shift_imm(arithmetic::BinaryOperator::SRL, sa, rt, rd, state, row)?
         }
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRA, sa, rt, rd) => {
-            generate_sra(sa, rt, rd, state, row)?
+            generate_shift_imm(arithmetic::BinaryOperator::SRA, sa, rt, rd, state, row)?
         }
 
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLLV, rs, rt, rd) => {
