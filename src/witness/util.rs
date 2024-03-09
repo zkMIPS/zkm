@@ -187,6 +187,34 @@ pub(crate) fn reg_write_with_log<F: Field>(
     Ok(op)
 }
 
+pub(crate) fn reg_zero_write_with_log<F: Field>(
+    channel: usize,
+    value: usize,
+    state: &mut GenerationState<F>,
+    row: &mut CpuColumnsView<F>,
+) -> MemoryOp {
+    let address = MemoryAddress::new(0, Segment::RegisterFile, 0);
+
+    let mut op = MemoryOp::new(
+        MemoryChannel::GeneralPurpose(channel),
+        state.traces.clock(),
+        address,
+        MemoryOpKind::Write,
+        value as u32,
+    );
+    op.filter = false;
+
+    let channel = &mut row.mem_channels[channel];
+    assert_eq!(channel.used, F::ZERO);
+    channel.used = F::ZERO;
+    channel.is_read = F::ZERO;
+    channel.addr_context = F::from_canonical_usize(address.context);
+    channel.addr_segment = F::from_canonical_usize(address.segment);
+    channel.addr_virtual = F::from_canonical_usize(address.virt);
+    channel.value[0] = F::from_canonical_u32(value as u32);
+    op
+}
+
 pub(crate) fn mem_read_with_log<F: Field>(
     channel: MemoryChannel,
     address: MemoryAddress,

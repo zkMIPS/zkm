@@ -20,7 +20,7 @@ use crate::mips_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::keccak_sponge_log;
 use crate::witness::util::mem_write_gp_log_and_fill;
-use crate::witness::util::reg_write_with_log;
+use crate::witness::util::reg_zero_write_with_log;
 
 pub(crate) fn generate_exit_kernel<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) {
     assert_eq!(kernel.program.end_pc, state.registers.program_counter);
@@ -29,7 +29,7 @@ pub(crate) fn generate_exit_kernel<F: Field>(state: &mut GenerationState<F>, ker
     cpu_row.is_kernel_mode = F::ONE;
     cpu_row.program_counter = F::from_canonical_usize(state.registers.program_counter);
 
-    let log_end_pc = reg_write_with_log(0, 0, kernel.program.end_pc, state, &mut cpu_row)?;
+    let log_end_pc = reg_zero_write_with_log(0, kernel.program.end_pc, state, &mut cpu_row);
     state.traces.push_memory(log_end_pc);
     state.traces.push_cpu(cpu_row);
 
