@@ -332,6 +332,7 @@ pub(crate) fn generate_lui<F: Field>(
     let in0 = sign_extend::<16>(imm);
     let log_in0 = reg_write_with_log(_rs, 0, in0 as usize, state, &mut row)?;
     let in1 = 1u32 << 16;
+    push_no_write(state, &mut row, in1, Some(1));
     let log_in1 = reg_write_with_log(rt, 1, in1 as usize, state, &mut row)?;
 
     let operation = arithmetic::Operation::binary(arithmetic::BinaryOperator::LUI, in0, in1);
@@ -583,9 +584,10 @@ pub(crate) fn generate_shift_imm<F: Field>(
     .contains(&op));
 
     let (input0, log_in0) = reg_read_with_log(rt, 1, state, &mut row)?;
+    state.traces.push_memory(log_in0);
+
     let shift = sa as u32;
-    let shift_log = reg_write_with_log(rd, 0, shift as usize, state, &mut row)?;
-    state.traces.push_memory(shift_log);
+    push_no_write(state, &mut row, shift, Some(0));
 
     let lookup_addr = MemoryAddress::new(0, Segment::ShiftTable, shift as usize);
     let (_, read) = mem_read_gp_with_log_and_fill(3, lookup_addr, state, &mut row);
@@ -597,7 +599,6 @@ pub(crate) fn generate_shift_imm<F: Field>(
     state.traces.push_arithmetic(operation);
     let outlog = reg_write_with_log(rd, 2, result as usize, state, &mut row)?;
 
-    state.traces.push_memory(log_in0);
     state.traces.push_memory(outlog);
     state.traces.push_cpu(row);
     Ok(())
