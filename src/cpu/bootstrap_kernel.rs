@@ -55,19 +55,19 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         check_memory_page_hash(state, kernel, addr);
     }
 
-    check_image_id(state, kernel);
+    check_pre_image_id(state, kernel);
 
     state.memory.apply_ops(&state.traces.memory_ops);
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
 
-pub(crate) fn check_image_id<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) {
+pub(crate) fn check_pre_image_id<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) {
     // push mem root and pc
-    let mut root_u32s: [u32; 9] = [kernel.program.end_pc as u32; 9];
+    let mut root_u32s: [u32; 9] = [kernel.program.entry as u32; 9];
     for i in 0..8 {
         let start = i * 4;
         root_u32s[i] = u32::from_be_bytes(
-            kernel.program.page_hash_root[start..(start + 4)]
+            kernel.program.pre_hash_root[start..(start + 4)]
                 .try_into()
                 .unwrap(),
         );
@@ -113,13 +113,13 @@ pub(crate) fn check_image_id<F: Field>(state: &mut GenerationState<F>, kernel: &
     cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(image_addr_value_byte_be.len()); // len
 
     let code_hash_bytes = keccak(&image_addr_value_byte_be).0;
-    log::debug!("actual image id: {:?}", code_hash_bytes);
-    log::debug!("expected image id: {:?}", kernel.program.image_id);
+    log::debug!("actual pre image id: {:?}", code_hash_bytes);
+    log::debug!("expected pre image id: {:?}", kernel.program.pre_image_id);
     let code_hash_be = core::array::from_fn(|i| {
         u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
     });
     let code_hash = code_hash_be.map(u32::from_be);
-    assert_eq!(code_hash_bytes, kernel.program.image_id);
+    assert_eq!(code_hash_bytes, kernel.program.pre_image_id);
 
     cpu_row.mem_channels[4].value = code_hash.map(F::from_canonical_u32);
     cpu_row.mem_channels[4].value.reverse();
@@ -171,7 +171,7 @@ pub(crate) fn check_memory_page_hash<F: Field>(
         log::debug!("actual root page hash: {:?}", code_hash_bytes);
         log::debug!(
             "expected root page hash: {:?}",
-            kernel.program.page_hash_root
+            kernel.program.pre_hash_root
         );
         assert_eq!(code_hash_bytes, kernel.program.pre_hash_root);
     } else {
