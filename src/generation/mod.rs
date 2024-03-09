@@ -12,6 +12,7 @@ use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::CpuColumnsView;
+use crate::cpu::exit_kernel::generate_exit_kernel;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
@@ -77,13 +78,6 @@ pub(crate) fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
         if halt {
             log::info!("CPU halted after {} cycles", state.traces.clock());
 
-            // Padding
-            let mut row = CpuColumnsView::<F>::default();
-            row.clock = F::from_canonical_usize(state.traces.clock());
-            row.context = F::from_canonical_usize(state.registers.context);
-            row.program_counter = F::from_canonical_usize(pc);
-            row.is_kernel_mode = F::ONE;
-
             // FIXME: should be quit if not matching
             if step == state.step && pc != kernel.program.end_pc {
                 log::error!(
@@ -93,6 +87,15 @@ pub(crate) fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
                     kernel.program.end_pc
                 )
             }
+
+            generate_exit_kernel::<F>(state, kernel);
+
+            // Padding
+            let mut row = CpuColumnsView::<F>::default();
+            row.clock = F::from_canonical_usize(state.traces.clock());
+            row.context = F::from_canonical_usize(state.registers.context);
+            row.program_counter = F::from_canonical_usize(pc);
+            row.is_exit_kernel = F::ONE;
 
             loop {
                 state.traces.push_cpu(row);
