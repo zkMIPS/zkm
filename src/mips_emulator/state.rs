@@ -404,7 +404,6 @@ impl InstrumentedState {
                 // exit group
                 self.state.exited = true;
                 self.state.exit_code = a0 as u8;
-                return;
             }
             4003 => {
                 // read
