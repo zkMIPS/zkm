@@ -6,14 +6,10 @@ use std::time::Duration;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use plonky2::util::timing::TimingTree;
-
 use plonky2x::backend::circuit::Groth16WrapperParameters;
-
 use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
-
 use plonky2x::prelude::DefaultParameters;
-
 use zkm::all_stark::AllStark;
 use zkm::config::StarkConfig;
 use zkm::cpu::kernel::assembler::segment_kernel;
