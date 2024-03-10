@@ -6,24 +6,20 @@ use std::time::Duration;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use plonky2::util::timing::TimingTree;
-
 use plonky2x::backend::circuit::Groth16WrapperParameters;
-
 use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
-
 use plonky2x::prelude::DefaultParameters;
-
-use mips_circuits::all_stark::AllStark;
-use mips_circuits::config::StarkConfig;
-use mips_circuits::cpu::kernel::assembler::segment_kernel;
-use mips_circuits::fixed_recursive_verifier::AllRecursiveCircuits;
-use mips_circuits::mips_emulator::state::{InstrumentedState, State, SEGMENT_STEPS};
-use mips_circuits::mips_emulator::utils::get_block_path;
-use mips_circuits::proof;
-use mips_circuits::proof::PublicValues;
-use mips_circuits::prover::prove;
-use mips_circuits::verifier::verify_proof;
+use zkm::all_stark::AllStark;
+use zkm::config::StarkConfig;
+use zkm::cpu::kernel::assembler::segment_kernel;
+use zkm::fixed_recursive_verifier::AllRecursiveCircuits;
+use zkm::mips_emulator::state::{InstrumentedState, State, SEGMENT_STEPS};
+use zkm::mips_emulator::utils::get_block_path;
+use zkm::proof;
+use zkm::proof::PublicValues;
+use zkm::prover::prove;
+use zkm::verifier::verify_proof;
 
 fn split_elf_into_segs() {
     // 1. split ELF into segs
