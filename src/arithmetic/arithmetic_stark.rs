@@ -81,9 +81,10 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         (columns::IS_SLLV, 0b000100 * (1 << 6)),
         (columns::IS_SRLV, 0b000110 * (1 << 6)),
         (columns::IS_SRAV, 0b000111 * (1 << 6)),
-        (columns::IS_SLL, 0b000000 + 0b000000 * (1 << 6)),
-        (columns::IS_SRL, 0b000000 + 0b000010 * (1 << 6)),
-        (columns::IS_SRA, 0b000000 + 0b000011 * (1 << 6)),
+        #[allow(clippy::erasing_op)]
+        (columns::IS_SLL, 0b000000 * (1 << 6)),
+        (columns::IS_SRL, 0b000010 * (1 << 6)),
+        (columns::IS_SRA, 0b000011 * (1 << 6)),
         (columns::IS_SLT, 0b101010 * (1 << 6)),
         (columns::IS_SLTU, 0b101011 * (1 << 6)),
         (columns::IS_SLTI, 0b001010),

@@ -576,7 +576,7 @@ pub(crate) fn generate_shift_imm<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    assert!(vec![
+    assert!([
         arithmetic::BinaryOperator::SLL,
         arithmetic::BinaryOperator::SRL,
         arithmetic::BinaryOperator::SRA
