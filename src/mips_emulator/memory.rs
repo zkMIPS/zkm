@@ -133,7 +133,7 @@ impl Memory {
             None => None,
             Some(cached_page) => {
                 self.last_page_keys[1] = self.last_page_keys[0];
-                self.last_page[1] = self.last_page[0].clone();
+                self.last_page[1] = self.last_page[0].take();
 
                 self.last_page_keys[0] = Some(page_index);
                 self.last_page[0] = Some(cached_page.clone());
