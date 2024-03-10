@@ -104,6 +104,7 @@ pub(crate) fn check_post_image_id<F: Field>(state: &mut GenerationState<F>, kern
         let mut cpu_row = CpuColumnsView::default();
         cpu_row.clock = F::from_canonical_usize(state.traces.clock());
         cpu_row.is_exit_kernel = F::ONE;
+        cpu_row.program_counter = F::from_canonical_usize(state.registers.program_counter);
 
         // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
         for (channel, (addr, val)) in chunk.enumerate() {
@@ -247,8 +248,8 @@ pub(crate) fn eval_exit_kernel_packed<F: Field, P: PackedField<Scalar = F>>(
     let next_is_exit = next_values.is_exit_kernel;
     yield_constr.constraint_last_row(local_is_exit - P::ONES);
     yield_constr.constraint_first_row(local_is_exit);
-    let delta_is_exit = local_is_exit - next_is_exit;
-    yield_constr.constraint_transition(delta_is_exit * (delta_is_exit + P::ONES));
+    let delta_is_exit = next_is_exit - local_is_exit;
+    yield_constr.constraint_transition(delta_is_exit * (delta_is_exit - P::ONES));
 
     // If this is a exit row and the i'th memory channel is used, it must have the right
     // address, name context = 0, segment = Code, virt + 4 = next_virt
@@ -262,8 +263,7 @@ pub(crate) fn eval_exit_kernel_packed<F: Field, P: PackedField<Scalar = F>>(
     // for the next is exit, the current pc should be end_pc
     // for the exit row, all the pc should be end_pc
     let input0 = local_values.mem_channels[0].value[0];
-    let filter = next_is_exit - local_is_exit;
-    yield_constr.constraint_transition(filter * (input0 - local_values.program_counter));
+    yield_constr.constraint_transition(delta_is_exit * (input0 - local_values.program_counter));
 
     yield_constr.constraint_transition(
         local_is_exit * (next_values.program_counter - local_values.program_counter),
@@ -281,11 +281,12 @@ pub(crate) fn eval_exit_kernel_ext_circuit<F: RichField + Extendable<D>, const D
     // IS_EXIT_KERNEL must have an init value of 0, a final value of 1, and a delta in {0, 1}.
     let local_is_exit = local_values.is_exit_kernel;
     let next_is_exit = next_values.is_exit_kernel;
-    let constraint = builder.sub_extension(next_is_exit, one);
+    let constraint = builder.sub_extension(local_is_exit, one);
     yield_constr.constraint_last_row(builder, constraint);
     yield_constr.constraint_first_row(builder, local_is_exit);
-    let delta_is_exit = builder.sub_extension(local_is_exit, next_is_exit);
-    let constraint = builder.mul_add_extension(delta_is_exit, delta_is_exit, delta_is_exit);
+    let delta_is_exit = builder.sub_extension(next_is_exit, local_is_exit);
+    let constraint = builder.sub_extension(delta_is_exit, one);
+    let constraint = builder.mul_extension(delta_is_exit, constraint);
     yield_constr.constraint_transition(builder, constraint);
 
     // If this is a exit row and the i'th memory channel is used, it must have the right
@@ -304,10 +305,9 @@ pub(crate) fn eval_exit_kernel_ext_circuit<F: RichField + Extendable<D>, const D
 
     // for the next is exit, the current pc should be end_pc
     // for the exit row, all the pc should be end_pc
-    let filter = builder.sub_extension(next_is_exit, local_is_exit);
     let input0 = local_values.mem_channels[0].value[0];
     let pc_constr = builder.sub_extension(input0, local_values.program_counter);
-    let pc_constr = builder.mul_extension(filter, pc_constr);
+    let pc_constr = builder.mul_extension(delta_is_exit, pc_constr);
     yield_constr.constraint_transition(builder, pc_constr);
 
     let pc_constr =
