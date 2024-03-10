@@ -23,6 +23,7 @@ use crate::witness::util::mem_write_gp_log_and_fill;
 use crate::witness::util::reg_zero_write_with_log;
 
 pub(crate) fn generate_exit_kernel<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) {
+    //  check exit pc = end pc
     assert_eq!(kernel.program.end_pc, state.registers.program_counter);
     let mut cpu_row = CpuColumnsView::default();
     cpu_row.clock = F::from_canonical_usize(state.traces.clock());
@@ -33,12 +34,52 @@ pub(crate) fn generate_exit_kernel<F: Field>(state: &mut GenerationState<F>, ker
     state.traces.push_memory(log_end_pc);
     state.traces.push_cpu(cpu_row);
 
+    // sync registers to memory
+    let registers_addr: Vec<_> = (0..=(36 << 2)- 1)
+        .step_by(4)
+        .collect::<Vec<u32>>();
+    let mut registers_value: [u32; 36] = [0; 36];
+    for i in 0..32 {
+        registers_value[i] = state.registers.gprs[i] as u32;
+    }
+    registers_value[32] = state.registers.lo as u32;
+    registers_value[33] = state.registers.hi as u32;
+    registers_value[34] = state.registers.heap as u32;
+    registers_value[35] = state.registers.program_counter as u32;
+
+    let register_addr_value: Vec<_> = registers_addr.iter().zip(registers_value).collect();
+    for chunk in &register_addr_value.iter().chunks(8) {
+        let mut cpu_row = CpuColumnsView::default();
+        cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+        cpu_row.is_exit_kernel = F::ONE;
+        cpu_row.program_counter = F::from_canonical_usize(state.registers.program_counter);
+
+        // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
+        for (channel, (addr, val)) in chunk.enumerate() {
+            // Both instruction and memory data are located in code section for MIPS
+            let address = MemoryAddress::new(0, Segment::Code, **addr as usize);
+            let write = mem_write_gp_log_and_fill(
+                channel,
+                address,
+                state,
+                &mut cpu_row,
+                *val,
+            );
+            state.traces.push_memory(write);
+        }
+
+        state.traces.push_cpu(cpu_row);
+    }
+    state.memory.apply_ops(&state.traces.memory_ops);
+
+    // update memory hash root
     for (addr, _) in kernel.program.image.iter() {
-        if (addr & PAGE_ADDR_MASK as u32) == 0 {
+        if (*addr & PAGE_ADDR_MASK as u32) == 0 {
             update_memory_page_hash(state, kernel, *addr);
         }
     }
 
+    // check post image
     check_post_image_id(state, kernel);
 }
 
