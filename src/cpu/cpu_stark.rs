@@ -116,7 +116,26 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Cpu,
         columns,
-        Some(Column::sum([COL_MAP.op.binary_op, COL_MAP.op.shift])),
+        Some(Column::sum([
+            COL_MAP.op.binary_op,
+            COL_MAP.op.shift,
+            COL_MAP.op.shift_imm,
+        ])),
+    )
+}
+
+pub fn ctl_arithmetic_imm_base_rows<F: Field>() -> TableWithColumns<F> {
+    // Instead of taking single columns, we reconstruct the entire opcode value directly.
+    let mut columns = vec![Column::le_bits(COL_MAP.opcode_bits)];
+    columns.extend(ctl_data_binops());
+
+    // Create the CPU Table whose columns are those with the two
+    // inputs and one output of the ternary operations listed in `ops`
+    // (also `ops` is used as the operation filter).
+    TableWithColumns::new(
+        Table::Cpu,
+        columns,
+        Some(Column::single(COL_MAP.op.binary_imm_op)),
     )
 }
 

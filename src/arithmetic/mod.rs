@@ -108,7 +108,7 @@ impl BinaryOperator {
                 }
             }
             BinaryOperator::LUI => {
-                let out = sign_extend::<16>(input1);
+                let out = sign_extend::<16>(input0);
                 (out.overflowing_shl(16).0, 0)
             }
 

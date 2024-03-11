@@ -174,12 +174,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             0,
             32,
         )), // MTLO: lo = rs
-        (0b000000, 0b001111, _) => Ok(Operation::BinaryArithmeticImm(
-            arithmetic::BinaryOperator::ADDI,
-            0,
-            0,
-            0,
-        )), // SYNC
+        (0b000000, 0b001111, _) => Ok(Operation::Nop),                                 // SYNC
         (0b011100, 0b100000, _) => Ok(Operation::Count(false, rs, rd)), // CLZ: rd = count_leading_zeros(rs)
         (0b011100, 0b100001, _) => Ok(Operation::Count(true, rs, rd)), // CLO: rd = count_leading_ones(rs)
         (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)),               // JR
@@ -303,6 +298,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::SetContext => &mut flags.set_context,
         Operation::MloadGeneral(..) => &mut flags.m_op_load,
         Operation::MstoreGeneral(..) => &mut flags.m_op_store,
+        Operation::Nop => &mut flags.nop,
     } = F::ONE;
 }
 
@@ -365,13 +361,13 @@ fn perform_op<F: Field>(
         }
 
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLL, sa, rt, rd) => {
-            generate_sll(sa, rt, rd, state, row)?
+            generate_shift_imm(arithmetic::BinaryOperator::SLL, sa, rt, rd, state, row)?
         }
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRL, sa, rt, rd) => {
-            generate_srl(sa, rt, rd, state, row)?
+            generate_shift_imm(arithmetic::BinaryOperator::SRL, sa, rt, rd, state, row)?
         }
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRA, sa, rt, rd) => {
-            generate_sra(sa, rt, rd, state, row)?
+            generate_shift_imm(arithmetic::BinaryOperator::SRA, sa, rt, rd, state, row)?
         }
 
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLLV, rs, rt, rd) => {
@@ -386,6 +382,9 @@ fn perform_op<F: Field>(
 
         Operation::BinaryArithmetic(op, rs, rt, rd) => {
             generate_binary_arithmetic_op(op, rs, rt, rd, state, row)?
+        }
+        Operation::BinaryArithmeticImm(arithmetic::BinaryOperator::LUI, rs, rt, imm) => {
+            generate_lui(rs, rt, imm, state, row)?
         }
         Operation::BinaryArithmeticImm(op, rs, rt, imm) => {
             generate_binary_arithmetic_imm_op(rs, rt, imm, op, state, row)?
@@ -405,6 +404,7 @@ fn perform_op<F: Field>(
         }
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
+        Operation::Nop => generate_nop(state, row)?,
     };
 
     state.registers.program_counter += match op {
