@@ -49,7 +49,7 @@ ff = { package = "ff", version = "0.13", features = ["derive"] }
 ethers = { version = "2.0" }
 dotenv = "0.15.0"
 # for debug
-prettytable-rs = "^0.8"
+#prettytable-rs = "^0.8"
 
 [dev-dependencies]
 env_logger = "0.10.0"

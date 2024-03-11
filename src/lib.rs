@@ -32,8 +32,3 @@ pub mod util;
 pub mod vanishing_poly;
 pub mod verifier;
 pub mod witness;
-
-//#[macro_use]
-extern crate prettytable;
-
-extern crate alloc;
