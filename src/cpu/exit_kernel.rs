@@ -35,9 +35,7 @@ pub(crate) fn generate_exit_kernel<F: Field>(state: &mut GenerationState<F>, ker
     state.traces.push_cpu(cpu_row);
 
     // sync registers to memory
-    let registers_addr: Vec<_> = (0..=(36 << 2)- 1)
-        .step_by(4)
-        .collect::<Vec<u32>>();
+    let registers_addr: Vec<_> = (0..=(36 << 2) - 1).step_by(4).collect::<Vec<u32>>();
     let mut registers_value: [u32; 36] = [0; 36];
     for i in 0..32 {
         registers_value[i] = state.registers.gprs[i] as u32;
@@ -58,13 +56,7 @@ pub(crate) fn generate_exit_kernel<F: Field>(state: &mut GenerationState<F>, ker
         for (channel, (addr, val)) in chunk.enumerate() {
             // Both instruction and memory data are located in code section for MIPS
             let address = MemoryAddress::new(0, Segment::Code, **addr as usize);
-            let write = mem_write_gp_log_and_fill(
-                channel,
-                address,
-                state,
-                &mut cpu_row,
-                *val,
-            );
+            let write = mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, *val);
             state.traces.push_memory(write);
         }
 
