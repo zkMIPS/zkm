@@ -45,38 +45,11 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
     Column::single(COL_MAP.is_keccak_sponge)
 }
 
-/*
-pub(crate) fn ctl_data_partial_memory<F: Field>() -> Vec<Column<F>> {
-    let channel_map = COL_MAP.partial_channel;
-    let values = COL_MAP.mem_channels[0].value;
-    let mut cols: Vec<_> = Column::singles([
-        channel_map.is_read,
-        channel_map.addr_context,
-        channel_map.addr_segment,
-        channel_map.addr_virtual,
-    ])
-    .collect();
-
-    cols.extend(Column::single(values));
-
-    cols.push(mem_time_and_channel(
-        MEM_GP_CHANNELS_IDX_START + NUM_GP_CHANNELS,
-    ));
-
-    cols
-}
-
-pub(crate) fn ctl_filter_partial_memory<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.partial_channel.used)
-}
-*/
-
 /// Create the vector of Columns corresponding to the two inputs and
 /// one output of a binary operation.
 /// FIXME: the column is unchecked. The in0 should starts from column 4 in looked table, and in1
 /// 36, out 68. But the looking table offers in0 77, in1 83, out 89.
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
-    log::debug!("{:?}", COL_MAP.mem_channels);
     // FIXME: select all values
     let mut res = Column::singles(vec![COL_MAP.mem_channels[0].value[0]]).collect_vec();
     res.extend(Column::singles(vec![COL_MAP.mem_channels[1].value[0]]));
