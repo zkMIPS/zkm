@@ -65,7 +65,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-
     crate::print_mem_usage("begin to prove");
     let (traces, public_values, outputs) = timed!(
         timing,
