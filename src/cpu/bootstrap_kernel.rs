@@ -63,7 +63,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
 
 pub(crate) fn check_pre_image_id<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) {
     // push mem root and pc
-    let mut root_u32s: [u32; 9] = [kernel.program.entry as u32; 9];
+    let mut root_u32s: [u32; 9] = [kernel.program.entry; 9];
     for i in 0..8 {
         let start = i * 4;
         root_u32s[i] = u32::from_be_bytes(

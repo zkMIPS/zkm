@@ -773,7 +773,7 @@ pub(crate) fn load_preimage<F: Field>(
         let addr = MemoryAddress::new(0, Segment::Code, map_addr);
         if len < WORD_SIZE {
             let origin_val = state.memory.get(addr);
-            word = word | ((origin_val >> (len * 8)) << (len * 8));
+            word |= (origin_val >> (len * 8)) << (len * 8);
         }
 
         log::debug!("{:X}: {:X}", map_addr, word);
