@@ -51,26 +51,43 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         state.traces.push_cpu(cpu_row);
     }
 
+    state.memory.apply_ops(&state.traces.memory_ops);
+
     for addr in page_addr {
-        check_memory_page_hash(state, kernel, addr);
+        check_memory_page_hash(state, kernel, addr, false);
     }
 
-    check_pre_image_id(state, kernel);
+    check_image_id(state, kernel, false);
 
-    state.memory.apply_ops(&state.traces.memory_ops);
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
 
-pub(crate) fn check_pre_image_id<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) {
+pub(crate) fn check_image_id<F: Field>(
+    state: &mut GenerationState<F>,
+    kernel: &Kernel,
+    post: bool,
+) {
     // push mem root and pc
     let mut root_u32s: [u32; 9] = [kernel.program.entry; 9];
+
+    if post {
+        root_u32s[8] = kernel.program.end_pc as u32;
+    }
     for i in 0..8 {
         let start = i * 4;
-        root_u32s[i] = u32::from_be_bytes(
-            kernel.program.pre_hash_root[start..(start + 4)]
-                .try_into()
-                .unwrap(),
-        );
+        if post {
+            root_u32s[i] = u32::from_be_bytes(
+                kernel.program.page_hash_root[start..(start + 4)]
+                    .try_into()
+                    .unwrap(),
+            );
+        } else {
+            root_u32s[i] = u32::from_be_bytes(
+                kernel.program.pre_hash_root[start..(start + 4)]
+                    .try_into()
+                    .unwrap(),
+            );
+        }
     }
     let root_hash_addr_value: Vec<_> = (ROOT_HASH_ADDRESS_BASE..=END_PC_ADDRESS)
         .step_by(4)
@@ -81,7 +98,12 @@ pub(crate) fn check_pre_image_id<F: Field>(state: &mut GenerationState<F>, kerne
     for chunk in &root_hash_addr_value.iter().chunks(8) {
         let mut cpu_row = CpuColumnsView::default();
         cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-        cpu_row.is_bootstrap_kernel = F::ONE;
+        if post {
+            cpu_row.is_exit_kernel = F::ONE;
+            cpu_row.program_counter = F::from_canonical_usize(state.registers.program_counter);
+        } else {
+            cpu_row.is_bootstrap_kernel = F::ONE;
+        }
 
         // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
         for (channel, (addr, val)) in chunk.enumerate() {
@@ -98,7 +120,13 @@ pub(crate) fn check_pre_image_id<F: Field>(state: &mut GenerationState<F>, kerne
 
     let mut cpu_row = CpuColumnsView::default();
     cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-    cpu_row.is_bootstrap_kernel = F::ONE;
+    if post {
+        cpu_row.is_exit_kernel = F::ONE;
+        cpu_row.program_counter = F::from_canonical_usize(state.registers.program_counter);
+    } else {
+        cpu_row.is_bootstrap_kernel = F::ONE;
+    }
+
     cpu_row.is_keccak_sponge = F::ONE;
 
     let mut image_addr_value_byte_be = vec![0u8; root_hash_addr_value.len() * 4];
@@ -113,13 +141,20 @@ pub(crate) fn check_pre_image_id<F: Field>(state: &mut GenerationState<F>, kerne
     cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(image_addr_value_byte_be.len()); // len
 
     let code_hash_bytes = keccak(&image_addr_value_byte_be).0;
-    log::debug!("actual pre image id: {:?}", code_hash_bytes);
-    log::debug!("expected pre image id: {:?}", kernel.program.pre_image_id);
+
     let code_hash_be = core::array::from_fn(|i| {
         u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
     });
     let code_hash = code_hash_be.map(u32::from_be);
-    assert_eq!(code_hash_bytes, kernel.program.pre_image_id);
+    if post {
+        log::debug!("actual post image id: {:?}", code_hash_bytes);
+        log::debug!("expected post image id: {:?}", kernel.program.image_id);
+        assert_eq!(code_hash_bytes, kernel.program.image_id);
+    } else {
+        log::debug!("actual pre image id: {:?}", code_hash_bytes);
+        log::debug!("expected pre image id: {:?}", kernel.program.pre_image_id);
+        assert_eq!(code_hash_bytes, kernel.program.pre_image_id);
+    }
 
     cpu_row.mem_channels[4].value = code_hash.map(F::from_canonical_u32);
     cpu_row.mem_channels[4].value.reverse();
@@ -132,6 +167,7 @@ pub(crate) fn check_memory_page_hash<F: Field>(
     state: &mut GenerationState<F>,
     kernel: &Kernel,
     addr: u32,
+    update: bool,
 ) {
     log::debug!("check page hash, addr: {:X}", addr);
     assert_eq!(addr & PAGE_ADDR_MASK as u32, 0u32);
@@ -143,23 +179,11 @@ pub(crate) fn check_memory_page_hash<F: Field>(
 
     let mut page_addr_value_byte_be = vec![0u8; PAGE_SIZE];
     for (i, addr) in page_data_addr_value.iter().enumerate() {
-        let v = kernel.program.image.get(addr).unwrap();
-        page_addr_value_byte_be[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_be_bytes());
         let address = MemoryAddress::new(0, Segment::Code, *addr as usize);
         page_data_addr.push(address);
+        let v = state.memory.get(address);
+        page_addr_value_byte_be[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_be_bytes());
     }
-
-    let mut cpu_row = CpuColumnsView::default();
-    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-    cpu_row.is_bootstrap_kernel = F::ONE;
-    cpu_row.is_keccak_sponge = F::ONE;
-
-    // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
-    cpu_row.mem_channels[0].value[0] = F::ZERO; // context
-    cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize);
-    let final_idx = page_addr_value_byte_be.len() / KECCAK_RATE_BYTES * KECCAK_RATE_U32S;
-    cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(page_data_addr[final_idx].virt);
-    cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(page_addr_value_byte_be.len()); // len
 
     let code_hash_bytes = keccak(&page_addr_value_byte_be).0;
     let code_hash_be = core::array::from_fn(|i| {
@@ -169,11 +193,50 @@ pub(crate) fn check_memory_page_hash<F: Field>(
 
     if addr == HASH_ADDRESS_END {
         log::debug!("actual root page hash: {:?}", code_hash_bytes);
-        log::debug!(
-            "expected root page hash: {:?}",
-            kernel.program.pre_hash_root
-        );
-        assert_eq!(code_hash_bytes, kernel.program.pre_hash_root);
+        if update {
+            log::debug!(
+                "expected post root page hash: {:?}",
+                kernel.program.page_hash_root
+            );
+            assert_eq!(code_hash_bytes, kernel.program.page_hash_root);
+        } else {
+            log::debug!(
+                "expected pre root page hash: {:?}",
+                kernel.program.pre_hash_root
+            );
+            assert_eq!(code_hash_bytes, kernel.program.pre_hash_root);
+        }
+    } else if update {
+        let start_hash_addr = HASH_ADDRESS_BASE + ((addr >> 12) << 5);
+        let hash_addr_value: Vec<_> = (start_hash_addr..=start_hash_addr + 31)
+            .step_by(4)
+            .collect::<Vec<u32>>();
+        let hash_addr_value: Vec<_> = hash_addr_value.iter().zip(code_hash_be).collect();
+
+        for chunk in &hash_addr_value.iter().chunks(8) {
+            let mut cpu_row = CpuColumnsView::default();
+            cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+            cpu_row.is_exit_kernel = F::ONE;
+            cpu_row.program_counter = F::from_canonical_usize(state.registers.program_counter);
+
+            // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
+            for (channel, (addr, val)) in chunk.enumerate() {
+                // Both instruction and memory data are located in code section for MIPS
+                let address = MemoryAddress::new(0, Segment::Code, **addr as usize);
+                let write = mem_write_gp_log_and_fill(
+                    channel,
+                    address,
+                    state,
+                    &mut cpu_row,
+                    (*val).to_be(),
+                );
+                state.traces.push_memory(write);
+            }
+
+            state.traces.push_cpu(cpu_row);
+        }
+
+        log::debug!("update page hash: {:?}", code_hash_bytes);
     } else {
         let mut expected_hash_byte = [0u8; 32];
         let hash_addr = HASH_ADDRESS_BASE + ((addr >> 12) << 5);
@@ -187,11 +250,31 @@ pub(crate) fn check_memory_page_hash<F: Field>(
         assert_eq!(code_hash_bytes, expected_hash_byte);
     }
 
+    let mut cpu_row = CpuColumnsView::default();
+    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+    if update {
+        cpu_row.is_exit_kernel = F::ONE;
+        cpu_row.program_counter = F::from_canonical_usize(state.registers.program_counter);
+    } else {
+        cpu_row.is_bootstrap_kernel = F::ONE;
+    }
+    cpu_row.is_keccak_sponge = F::ONE;
+
+    // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
+    cpu_row.mem_channels[0].value[0] = F::ZERO; // context
+    cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize);
+    let final_idx = page_addr_value_byte_be.len() / KECCAK_RATE_BYTES * KECCAK_RATE_U32S;
+    cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(page_data_addr[final_idx].virt);
+    cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(page_addr_value_byte_be.len()); // len
+
     cpu_row.mem_channels[4].value = code_hash.map(F::from_canonical_u32);
     cpu_row.mem_channels[4].value.reverse();
 
     keccak_sponge_log(state, page_data_addr, page_addr_value_byte_be);
     state.traces.push_cpu(cpu_row);
+    if update {
+        state.memory.apply_ops(&state.traces.memory_ops);
+    }
 }
 
 pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>(
