@@ -43,3 +43,8 @@ The ZKM is distributed under the terms of MIT license.
 
 This code has not yet been audited, and should not be used in any production systems.
 
+# Languages
+
+[Vietnamese](./READMEVietnamese.md).
+[Spanish](./READMESpanish.md).
+[Swedish](./READMEVietnamese.md).
