@@ -12,7 +12,7 @@ pub(crate) fn print_mem_usage(stage: &str) {
     let unit = 1024 * 1024;
     log::info!("current process memory: {} Mbytes", p.memory() / unit);
     log::info!(
-        "current process virtual memory : {} Mbytes",
+        "current process virtual memory: {} Mbytes",
         p.virtual_memory() / unit
     );
 
