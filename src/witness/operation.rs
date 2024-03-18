@@ -754,14 +754,15 @@ pub(crate) fn load_preimage<F: Field>(
             let byte = content.get(offset).context("Invalid block offset")?;
             word |= (*byte as u32) << (k * 8);
         }
+
+        let addr = MemoryAddress::new(0, Segment::Code, map_addr);
+        if len < WORD_SIZE {
+            let origin_val = state.memory.get(addr);
+            word |= (origin_val >> (len * 8)) << (len * 8);
+        }
+
         log::debug!("{:X}: {:X}", map_addr, word);
-        let mem_op = mem_write_gp_log_and_fill(
-            j,
-            MemoryAddress::new(0, Segment::Code, map_addr),
-            state,
-            &mut cpu_row,
-            word.to_be(),
-        );
+        let mem_op = mem_write_gp_log_and_fill(j, addr, state, &mut cpu_row, word.to_be());
         state.traces.push_memory(mem_op);
         map_addr += 4;
         j += 1;

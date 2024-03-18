@@ -3,6 +3,7 @@ pub mod columns;
 pub(crate) mod count;
 pub mod cpu_stark;
 pub(crate) mod decode;
+pub(crate) mod exit_kernel;
 pub(crate) mod jumps;
 pub mod kernel;
 pub(crate) mod membus;
