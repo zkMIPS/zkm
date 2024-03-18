@@ -840,7 +840,7 @@ pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: 
                 .iter()
                 .map(|table| *ctl_zs_openings[table.table as usize].next().unwrap())
                 .sum::<F>()
-                * extra_sum_vec[c];
+                + extra_sum_vec[c];
 
             let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
             ensure!(
