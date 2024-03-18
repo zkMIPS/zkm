@@ -82,6 +82,7 @@ fn prove_single_seg() {
     let allstark: AllStark<F, D> = AllStark::default();
     let config = StarkConfig::standard_fast_config();
     let mut timing = TimingTree::new("prove", log::Level::Info);
+    zkm::print_mem_usage("before prove");
     let allproof: proof::AllProof<GoldilocksField, C, D> =
         prove(&allstark, &kernel, &config, &mut timing).unwrap();
     let mut count_bytes = 0;
@@ -136,17 +137,21 @@ fn aggregate_proof() -> anyhow::Result<()> {
     let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
     let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
 
+    zkm::print_mem_usage("new all stark");
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
     // Preprocess all circuits.
+    zkm::print_mem_usage("before preprocess all circuit");
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[10..21, 12..22, 13..21, 8..21, 10..21, 13..23],
+        &[16..17, 12..13, 14..16, 9..12, 15..17, 17..19],
         &config,
     );
 
+    zkm::print_mem_usage("before segment kernel");
     let input_first = segment_kernel(&basedir, &block, &file, &seg_file, seg_size);
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
+    zkm::print_mem_usage("before prove first");
     let (root_proof_first, first_public_values) =
         all_circuits.prove_root(&all_stark, &input_first, &config, &mut timing)?;
 
@@ -155,6 +160,7 @@ fn aggregate_proof() -> anyhow::Result<()> {
 
     let input = segment_kernel(&basedir, &block, &file, &seg_file2, seg_size);
     let mut timing = TimingTree::new("prove root second", log::Level::Info);
+    zkm::print_mem_usage("before prove second");
     let (root_proof, public_values) =
         all_circuits.prove_root(&all_stark, &input, &config, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
@@ -218,7 +224,7 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
     // Preprocess all circuits.
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[10..21, 12..22, 13..21, 8..21, 10..21, 13..23],
+        &[16..17, 12..13, 14..16, 9..12, 15..17, 17..19],
         &config,
     );
 

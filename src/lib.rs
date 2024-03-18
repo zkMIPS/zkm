@@ -34,4 +34,4 @@ pub mod verifier;
 pub mod witness;
 
 pub mod profile;
-use profile::*;
+pub use profile::*;

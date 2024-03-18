@@ -752,7 +752,7 @@ where
         })?;
 
         let root_proof = self.root.circuit.prove(root_inputs)?;
-        crate::print_mem_usage("enf of prove root");
+        crate::print_mem_usage("end of prove root");
 
         Ok((root_proof, all_proof.public_values))
     }

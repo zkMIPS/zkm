@@ -34,7 +34,6 @@ pub struct TraceCheckpoint {
 #[derive(Debug, Clone)]
 pub(crate) struct Traces<T: Copy> {
     pub(crate) arithmetic_ops: Vec<arithmetic::Operation>,
-    //    pub(crate) byte_packing_ops: Vec<BytePackingOp>,
     pub(crate) cpu: Vec<CpuColumnsView<T>>,
     pub(crate) logic_ops: Vec<logic::Operation>,
     pub(crate) memory_ops: Vec<MemoryOp>,
@@ -46,7 +45,6 @@ impl<T: Copy> Traces<T> {
     pub fn new() -> Self {
         Traces {
             arithmetic_ops: vec![],
-            //            byte_packing_ops: vec![],
             cpu: vec![],
             logic_ops: vec![],
             memory_ops: vec![],
@@ -69,7 +67,6 @@ impl<T: Copy> Traces<T> {
                     },
                 })
                 .sum(),
-            // byte_packing_len: self.byte_packing_ops.iter().map(|op| op.bytes.len()).sum(),
             cpu_len: self.cpu.len(),
             keccak_len: self.keccak_inputs.len() * keccak_stark::NUM_ROUNDS,
             keccak_sponge_len: self
@@ -88,7 +85,6 @@ impl<T: Copy> Traces<T> {
     pub fn checkpoint(&self) -> TraceCheckpoint {
         TraceCheckpoint {
             arithmetic_len: self.arithmetic_ops.len(),
-            //         byte_packing_len: self.byte_packing_ops.len(),
             cpu_len: self.cpu.len(),
             keccak_len: self.keccak_inputs.len(),
             keccak_sponge_len: self.keccak_sponge_ops.len(),
@@ -99,7 +95,6 @@ impl<T: Copy> Traces<T> {
 
     pub fn rollback(&mut self, checkpoint: TraceCheckpoint) {
         self.arithmetic_ops.truncate(checkpoint.arithmetic_len);
-        //self.byte_packing_ops.truncate(checkpoint.byte_packing_len);
         self.cpu.truncate(checkpoint.cpu_len);
         self.keccak_inputs.truncate(checkpoint.keccak_len);
         self.keccak_sponge_ops
@@ -127,12 +122,6 @@ impl<T: Copy> Traces<T> {
     pub fn push_memory(&mut self, op: MemoryOp) {
         self.memory_ops.push(op);
     }
-
-    /*
-    pub fn push_byte_packing(&mut self, op: BytePackingOp) {
-        self.byte_packing_ops.push(op);
-    }
-    */
 
     pub fn push_keccak(&mut self, input: [u64; keccak_stark::NUM_INPUTS], clock: usize) {
         self.keccak_inputs.push((input, clock));
