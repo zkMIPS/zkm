@@ -21,6 +21,31 @@ use zkm::proof::PublicValues;
 use zkm::prover::prove;
 use zkm::verifier::verify_proof;
 
+const DEGREE_BITS_RANGE: [[std::ops::Range<usize>; 6]; 5] = [
+    [16..17, 12..13, 14..16, 9..12, 15..17, 17..19],
+    [16..17, 15..17, 15..17, 9..12, 15..17, 19..20],
+    [16..17, 15..17, 16..19, 11..14, 16..19, 19..21],
+    [16..17, 17..18, 16..19, 11..14, 16..19, 21..22],
+    [16..18, 16..18, 18..21, 14..15, 18..21, 22..23],
+];
+
+fn select_degree_bits(seg_size: usize) -> [std::ops::Range<usize>; 6] {
+    let seg_size_to_bits = std::collections::HashMap::from([
+        (1024, 0),
+        (16384, 1),
+        (32768, 2),
+        (65536, 3),
+        (262144, 4),
+    ]);
+    match seg_size_to_bits.get(&seg_size) {
+        Some(s) => DEGREE_BITS_RANGE[*s].clone(),
+        None => panic!(
+            "Invalid segment size, supported: {:?}",
+            seg_size_to_bits.keys()
+        ),
+    }
+}
+
 fn split_elf_into_segs() {
     // 1. split ELF into segs
     let basedir = env::var("BASEDIR").unwrap_or("/tmp/cannon".to_string());
@@ -142,11 +167,8 @@ fn aggregate_proof() -> anyhow::Result<()> {
     let config = StarkConfig::standard_fast_config();
     // Preprocess all circuits.
     zkm::print_mem_usage("before preprocess all circuit");
-    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
-        &all_stark,
-        &[16..17, 12..13, 14..16, 9..12, 15..17, 17..19],
-        &config,
-    );
+    let all_circuits =
+        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &select_degree_bits(seg_size), &config);
 
     zkm::print_mem_usage("before segment kernel");
     let input_first = segment_kernel(&basedir, &block, &file, &seg_file, seg_size);
@@ -222,11 +244,8 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
     // Preprocess all circuits.
-    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
-        &all_stark,
-        &[16..17, 12..13, 14..16, 9..12, 15..17, 17..19],
-        &config,
-    );
+    let all_circuits =
+        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &select_degree_bits(seg_size), &config);
 
     let seg_file = format!("{}/{}", seg_dir, 0);
     let input_first = segment_kernel(&basedir, &block, &file, &seg_file, seg_size);

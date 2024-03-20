@@ -3,7 +3,7 @@ use crate::mips_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use crate::mips_emulator::witness::{Program, ProgramSegment};
 use elf::abi::PT_LOAD;
 use elf::endian::AnyEndian;
-use log::{debug, warn};
+use log::{trace, warn};
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -386,10 +386,10 @@ impl InstrumentedState {
                 if a0 == 0 {
                     v0 = self.state.heap;
                     self.state.heap += size;
-                    debug!("mmap heap {:x?} size {:x?}", v0, size);
+                    trace!("mmap heap {:x?} size {:x?}", v0, size);
                 } else {
                     v0 = a0;
-                    debug!("mmap hint {:x?} size {:x?}", v0, size);
+                    trace!("mmap hint {:x?} size {:x?}", v0, size);
                 }
             }
             4045 => {

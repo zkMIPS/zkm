@@ -43,7 +43,7 @@ fn compute_const_hash_pages(hash: &mut [[u8; 4096]; 3], level: usize) -> [u8; 32
     }
 
     let base_hash = compute_const_hash_pages(hash, level - 1);
-    log::debug!("level {} base hash {:?}", level - 1, base_hash);
+    log::trace!("level {} base hash {:?}", level - 1, base_hash);
 
     for i in 0..(4096 >> 5) {
         hash[level - 1][i << 5..(i << 5) + 32].copy_from_slice(&base_hash);
@@ -329,7 +329,7 @@ impl Memory {
             Some(page) => page,
         };
 
-        log::debug!("{:X} hash : {:?}", hash_addr, page_hash);
+        log::trace!("{:X} hash : {:?}", hash_addr, page_hash);
 
         page.borrow_mut().data[hash_offset..hash_offset + 32].copy_from_slice(&page_hash);
 
@@ -378,9 +378,9 @@ impl Memory {
 
         let image_id = keccak(final_data).0;
 
-        log::debug!("page root hash: {:?}", hash);
-        log::debug!("end pc: {:?}", pc.to_le_bytes());
-        log::debug!("image id: {:?}", image_id);
+        log::trace!("page root hash: {:?}", hash);
+        log::trace!("end pc: {:?}", pc.to_le_bytes());
+        log::trace!("image id: {:?}", image_id);
 
         (image_id, hash)
     }
