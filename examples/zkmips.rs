@@ -30,7 +30,7 @@ const DEGREE_BITS_RANGE: [[std::ops::Range<usize>; 6]; 5] = [
 ];
 
 fn select_degree_bits(seg_size: usize) -> [std::ops::Range<usize>; 6] {
-    let seg_size_to_bits = std::collections::HashMap::from([
+    let seg_size_to_bits = std::collections::BTreeMap::from([
         (1024, 0),
         (16384, 1),
         (32768, 2),
