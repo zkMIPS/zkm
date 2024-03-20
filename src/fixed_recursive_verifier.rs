@@ -489,16 +489,16 @@ where
             }
         }
 
-        // Extra products to add to the looked last value.
+        // Extra sums to add to the looked last value.
         // Only necessary for the Memory values.
-        let extra_looking_products =
-            vec![vec![builder.one(); stark_config.num_challenges]; NUM_TABLES];
+        let extra_looking_sums =
+            vec![vec![builder.zero(); stark_config.num_challenges]; NUM_TABLES];
 
         // Memory
         /*
-        extra_looking_products[Table::Memory as usize] = (0..stark_config.num_challenges)
+        extra_looking_sums[Table::Memory as usize] = (0..stark_config.num_challenges)
             .map(|c| {
-                get_memory_extra_looking_products_circuit(
+                get_memory_extra_looking_sum_circuit(
                     &mut builder,
                     &public_values,
                     ctl_challenges.challenges[c],
@@ -512,7 +512,7 @@ where
             &mut builder,
             all_cross_table_lookups(),
             pis.map(|p| p.ctl_zs_first),
-            extra_looking_products,
+            extra_looking_sums,
             stark_config,
         );
 

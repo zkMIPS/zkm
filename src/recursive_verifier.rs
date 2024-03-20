@@ -416,7 +416,7 @@ fn verify_stark_proof_with_challenges_circuit<
 fn add_data_write<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     challenge: GrandProductChallenge<Target>,
-    running_product: Target,
+    running_sum: Target,
     segment: Target,
     idx: usize,
     val: &[Target],
@@ -450,7 +450,8 @@ fn add_data_write<F: RichField + Extendable<D>, const D: usize>(
     builder.connect(row[12], one);
 
     let combined = challenge.combine_base_circuit(builder, &row);
-    builder.mul(running_product, combined)
+    let inverse = builder.inverse(combined);
+    builder.add(running_sum, inverse)
 }
 
 fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(

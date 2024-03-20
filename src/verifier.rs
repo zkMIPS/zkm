@@ -111,13 +111,13 @@ where
 
     let public_values = all_proof.public_values;
 
-    // Extra products to add to the looked last value.
+    // Extra sums to add to the looked last value.
     // Only necessary for the Memory values.
-    let mut extra_looking_products = vec![vec![F::ONE; config.num_challenges]; NUM_TABLES];
+    let mut extra_looking_sums = vec![vec![F::ZERO; config.num_challenges]; NUM_TABLES];
 
     // Memory
-    extra_looking_products[Table::Memory as usize] = (0..config.num_challenges)
-        .map(|i| get_memory_extra_looking_products(&public_values, ctl_challenges.challenges[i]))
+    extra_looking_sums[Table::Memory as usize] = (0..config.num_challenges)
+        .map(|i| get_memory_extra_looking_sum(&public_values, ctl_challenges.challenges[i]))
         .collect_vec();
 
     verify_cross_table_lookups::<F, D>(
@@ -125,14 +125,14 @@ where
         all_proof
             .stark_proofs
             .map(|p| p.proof.openings.ctl_zs_first),
-        extra_looking_products,
+        extra_looking_sums,
         config,
     )
 }
 
 /// Computes the extra product to multiply to the looked value. It contains memory operations not in the CPU trace:
 /// - trie roots writes before kernel bootstrapping.
-pub(crate) fn get_memory_extra_looking_products<F, const D: usize>(
+pub(crate) fn get_memory_extra_looking_sum<F, const D: usize>(
     _public_values: &PublicValues,
     _challenge: GrandProductChallenge<F>,
 ) -> F
@@ -157,13 +157,13 @@ where
     fields.map(|(field, val)| prod = add_data_write(challenge, segment, prod, field as usize, val));
     */
 
-    F::ONE
+    F::ZERO
 }
 
 fn add_data_write<F, const D: usize>(
     challenge: GrandProductChallenge<F>,
     segment: F,
-    running_product: F,
+    running_sum: F,
     index: usize,
     val: u32,
 ) -> F
@@ -180,7 +180,7 @@ where
         row[j + 4] = F::from_canonical_u32(val >> (j * 32));
     }
     row[5] = F::ONE; // timestamp
-    running_product * challenge.combine(row.iter())
+    running_sum * challenge.combine(row.iter())
 }
 
 pub(crate) fn verify_stark_proof_with_challenges<
