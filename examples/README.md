@@ -34,7 +34,7 @@ BASEDIR=test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE="/tmp/output/0" SE
 * Aggregate proof all
 
 ```
-BASEDIR=test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" SEG_FILE_NUM=55 SEG_SIZE=1024 \
+BASEDIR=test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" SEG_FILE_NUM=299 SEG_SIZE=1024 \
     cargo run --release --example zkmips aggregate_proof_all
 ```
 
