@@ -21,6 +21,6 @@ For this repository, it is a MIPS emulator. It utilizes merkle tree to proof the
 
 Here is the roadmap:
 
-- [x] implement instruction interpreter, throughly tested.
+- [x] implement instruction interpreter, thoroughly tested.
 - [ ] substitute `keccak256` in merkle tree to `poseidon`.
 
