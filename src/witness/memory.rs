@@ -155,7 +155,7 @@ impl MemoryState {
 
         let _segment = Segment::all()[address.segment];
         let val = self.contexts[address.context].segments[address.segment].get(address.virt);
-        log::debug!("read mem {:X} : {:X} ({})", address.virt, val, val);
+        log::trace!("read mem {:X} : {:X} ({})", address.virt, val, val);
         /*
         assert!(
             u32::BITS as usize <= segment.bit_range(),

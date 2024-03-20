@@ -21,7 +21,7 @@ fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColum
 
     let address = MemoryAddress::new(code_context, Segment::Code, state.registers.program_counter);
     let (opcode, mem_log) = mem_read_code_with_log_and_fill(address, state, row);
-    log::debug!(
+    log::trace!(
         "read_code_memory: PC {:X} ({}) op: {:?}, {:?}",
         state.registers.program_counter,
         state.registers.program_counter,
@@ -42,7 +42,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
     let sa = ((insn >> 6) & 0x1F).to_le_bytes()[0];
     let offset = insn & 0xffff; // as known as imm
     let target = insn & 0x3ffffff;
-    log::debug!(
+    log::trace!(
         "op {}, func {}, rt {}, rs {}, rd {}",
         opcode,
         func,
@@ -50,7 +50,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         rs,
         rd
     );
-    log::debug!(
+    log::trace!(
         "decode: insn {:X}, opcode {:X}, func {:X}",
         insn,
         opcode,
@@ -308,7 +308,7 @@ fn perform_op<F: Field>(
     row: CpuColumnsView<F>,
     kernel: &Kernel,
 ) -> Result<(), ProgramError> {
-    log::debug!("perform_op {:?}", op);
+    log::trace!("perform_op {:?}", op);
     match op {
         Operation::Syscall => generate_syscall(state, row, kernel)?,
         Operation::CondMov(cond, rs, rt, rd) => generate_cond_mov_op(cond, rs, rt, rd, state, row)?,
@@ -416,14 +416,14 @@ fn perform_op<F: Field>(
 
     match op {
         Operation::Jump(_, _) | Operation::Jumpi(_, _) | Operation::Branch(_, _, _, _) => {
-            log::debug!(
+            log::trace!(
                 "states: pc {} registers: {:?}",
                 state.registers.program_counter,
                 state.registers.gprs
             );
         }
         Operation::Syscall => {
-            log::debug!(
+            log::trace!(
                 "states: pc {} registers: {:?}",
                 state.registers.program_counter + 4,
                 state.registers.gprs
@@ -459,7 +459,7 @@ fn try_perform_instruction<F: Field>(
     if state.registers.is_kernel {
         log_kernel_instruction(state, op, kernel);
     } else {
-        log::debug!("user instruction: {:?}", op);
+        log::trace!("user instruction: {:?}", op);
     }
 
     fill_op_flag(op, &mut row);

@@ -141,18 +141,17 @@ pub(crate) fn check_image_id<F: Field>(
     cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(image_addr_value_byte_be.len()); // len
 
     let code_hash_bytes = keccak(&image_addr_value_byte_be).0;
-
     let code_hash_be = core::array::from_fn(|i| {
         u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
     });
     let code_hash = code_hash_be.map(u32::from_be);
     if post {
-        log::debug!("actual post image id: {:?}", code_hash_bytes);
-        log::debug!("expected post image id: {:?}", kernel.program.image_id);
+        log::trace!("actual post image id: {:?}", code_hash_bytes);
+        log::trace!("expected post image id: {:?}", kernel.program.image_id);
         assert_eq!(code_hash_bytes, kernel.program.image_id);
     } else {
-        log::debug!("actual pre image id: {:?}", code_hash_bytes);
-        log::debug!("expected pre image id: {:?}", kernel.program.pre_image_id);
+        log::trace!("actual pre image id: {:?}", code_hash_bytes);
+        log::trace!("expected pre image id: {:?}", kernel.program.pre_image_id);
         assert_eq!(code_hash_bytes, kernel.program.pre_image_id);
     }
 
@@ -169,7 +168,7 @@ pub(crate) fn check_memory_page_hash<F: Field>(
     addr: u32,
     update: bool,
 ) {
-    log::debug!("check page hash, addr: {:X}", addr);
+    log::trace!("check page hash, addr: {:X}", addr);
     assert_eq!(addr & PAGE_ADDR_MASK as u32, 0u32);
     let page_data_addr_value: Vec<_> = (addr..addr + PAGE_SIZE as u32)
         .step_by(4)
@@ -194,13 +193,13 @@ pub(crate) fn check_memory_page_hash<F: Field>(
     if addr == HASH_ADDRESS_END {
         log::debug!("actual root page hash: {:?}", code_hash_bytes);
         if update {
-            log::debug!(
+            log::trace!(
                 "expected post root page hash: {:?}",
                 kernel.program.page_hash_root
             );
             assert_eq!(code_hash_bytes, kernel.program.page_hash_root);
         } else {
-            log::debug!(
+            log::trace!(
                 "expected pre root page hash: {:?}",
                 kernel.program.pre_hash_root
             );
@@ -236,7 +235,7 @@ pub(crate) fn check_memory_page_hash<F: Field>(
             state.traces.push_cpu(cpu_row);
         }
 
-        log::debug!("update page hash: {:?}", code_hash_bytes);
+        log::trace!("update page hash: {:?}", code_hash_bytes);
     } else {
         let mut expected_hash_byte = [0u8; 32];
         let hash_addr = HASH_ADDRESS_BASE + ((addr >> 12) << 5);
@@ -245,8 +244,8 @@ pub(crate) fn check_memory_page_hash<F: Field>(
             let v = kernel.program.image.get(&addr).unwrap();
             expected_hash_byte[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
         }
-        log::debug!("actual page hash: {:?}", code_hash_bytes);
-        log::debug!("expected page hash: {:?}", expected_hash_byte);
+        log::trace!("actual page hash: {:?}", code_hash_bytes);
+        log::trace!("expected page hash: {:?}", expected_hash_byte);
         assert_eq!(code_hash_bytes, expected_hash_byte);
     }
 
@@ -299,7 +298,7 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
         yield_constr.constraint(filter * (channel.addr_segment - code_segment));
         /* FIXME
         let delta_virt = channel.addr_virtual + P::from(F::from_canonical_u32(32)) - next_values.mem_channels[i].addr_virtual;
-        log::debug!("virt {:?} {:?} {:?} {:?} {}", channel.addr_virtual, delta_virt, local_values.clock, NUM_GP_CHANNELS, i);
+        log::trace!("virt {:?} {:?} {:?} {:?} {}", channel.addr_virtual, delta_virt, local_values.clock, NUM_GP_CHANNELS, i);
         yield_constr.constraint_transition(filter * delta_virt);
         */
     }

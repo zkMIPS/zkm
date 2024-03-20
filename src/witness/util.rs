@@ -110,7 +110,7 @@ pub(crate) fn reg_read_with_log<F: Field>(
             return Err(ProgramError::InvalidRegister);
         }
     };
-    log::debug!("read reg {} : {:X}({})", index, result, result);
+    log::trace!("read reg {} : {:X}({})", index, result, result);
     let address = MemoryAddress::new(0, Segment::RegisterFile, index as usize);
     let op = MemoryOp::new(
         MemoryChannel::GeneralPurpose(channel),
@@ -155,7 +155,7 @@ pub(crate) fn reg_write_with_log<F: Field>(
         return Err(ProgramError::InvalidRegister);
     }
 
-    log::debug!("write reg {} : {:X} ({})", index, value, value);
+    log::trace!("write reg {} : {:X} ({})", index, value, value);
 
     let address = MemoryAddress::new(0, Segment::RegisterFile, index as usize);
 

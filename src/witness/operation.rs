@@ -375,7 +375,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
             val as u8
         })
         .collect_vec();
-    log::debug!("Hashing {:?}", input);
+    log::trace!("Hashing {:?}", input);
 
     let hash = keccak(&input); // FIXME
     push_no_write(state, &mut row, hash[0], Some(NUM_GP_CHANNELS - 1));
@@ -717,7 +717,7 @@ pub(crate) fn load_preimage<F: Field>(
     let mut preiamge_path = kernel.blockpath.clone();
     preiamge_path.push_str("0x");
     preiamge_path.push_str(hex_string.as_str());
-    log::debug!("load file {}", preiamge_path);
+    log::trace!("load file {}", preiamge_path);
 
     let content = fs::read(preiamge_path).expect("Read file failed");
 
@@ -732,7 +732,7 @@ pub(crate) fn load_preimage<F: Field>(
         &mut cpu_row,
         content.len() as u32,
     );
-    log::debug!("{:X}: {:X}", 0x31000000, content.len() as u32);
+    log::trace!("{:X}: {:X}", 0x31000000, content.len() as u32);
     state.traces.push_memory(mem_op);
 
     let mut map_addr = 0x31000004;
@@ -754,14 +754,13 @@ pub(crate) fn load_preimage<F: Field>(
             let byte = content.get(offset).context("Invalid block offset")?;
             word |= (*byte as u32) << (k * 8);
         }
-
         let addr = MemoryAddress::new(0, Segment::Code, map_addr);
         if len < WORD_SIZE {
             let origin_val = state.memory.get(addr);
             word |= (origin_val >> (len * 8)) << (len * 8);
         }
 
-        log::debug!("{:X}: {:X}", map_addr, word);
+        log::trace!("{:X}: {:X}", map_addr, word);
         let mem_op = mem_write_gp_log_and_fill(j, addr, state, &mut cpu_row, word.to_be());
         state.traces.push_memory(mem_op);
         map_addr += 4;
@@ -1111,7 +1110,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
 
     let log_out0 = mem_write_gp_log_and_fill(3, address, state, &mut row, val);
 
-    log::debug!("write {:X} : {:X} ({})", address.virt, val, val);
+    log::trace!("write {:X} : {:X} ({})", address.virt, val, val);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_in3);

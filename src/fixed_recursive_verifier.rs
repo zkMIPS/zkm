@@ -709,6 +709,7 @@ where
         verify_proof(all_stark, all_proof.clone(), config).unwrap();
         let mut root_inputs = PartialWitness::new();
 
+        crate::print_mem_usage("begin to prove root");
         for table in 0..NUM_TABLES {
             let stark_proof = &all_proof.stark_proofs[table];
             let original_degree_bits = stark_proof.proof.recover_degree_bits(config);
@@ -741,7 +742,6 @@ where
             &self.aggregation.circuit.verifier_only,
         );
 
-        log::trace!("prove_root set_public_value_targets");
         set_public_value_targets(
             &mut root_inputs,
             &self.root.public_values,
@@ -752,6 +752,7 @@ where
         })?;
 
         let root_proof = self.root.circuit.prove(root_inputs)?;
+        crate::print_mem_usage("end of prove root");
 
         Ok((root_proof, all_proof.public_values))
     }
@@ -770,23 +771,19 @@ where
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let mut agg_inputs = PartialWitness::new();
 
-        log::trace!("set lhs agg proof");
         agg_inputs.set_bool_target(self.aggregation.lhs.is_agg, lhs_is_agg);
         agg_inputs.set_proof_with_pis_target(&self.aggregation.lhs.agg_proof, lhs_proof);
         agg_inputs.set_proof_with_pis_target(&self.aggregation.lhs.evm_proof, lhs_proof);
 
-        log::trace!("set rhs agg proof");
         agg_inputs.set_bool_target(self.aggregation.rhs.is_agg, rhs_is_agg);
         agg_inputs.set_proof_with_pis_target(&self.aggregation.rhs.agg_proof, rhs_proof);
         agg_inputs.set_proof_with_pis_target(&self.aggregation.rhs.evm_proof, rhs_proof);
 
-        log::trace!("set verifier proof");
         agg_inputs.set_verifier_data_target(
             &self.aggregation.cyclic_vk,
             &self.aggregation.circuit.verifier_only,
         );
 
-        log::trace!("prove_aggregation set_public_value_targets");
         set_public_value_targets(
             &mut agg_inputs,
             &self.aggregation.public_values,
@@ -796,8 +793,9 @@ where
             anyhow::Error::msg("Invalid conversion when setting public values targets.")
         })?;
 
-        log::trace!("aggregation proof");
+        crate::print_mem_usage("begin to prove aggregation");
         let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
+        crate::print_mem_usage("end of prove aggregation");
         Ok((aggregation_proof, public_values))
     }
 
@@ -854,24 +852,19 @@ where
             );
         }
 
-        log::trace!("set proof with pis");
         block_inputs.set_proof_with_pis_target(&self.block.agg_root_proof, agg_root_proof);
 
-        log::trace!("set verifier data");
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
-        log::trace!("prove_block set_public_value_targets");
         set_public_value_targets(&mut block_inputs, &self.block.public_values, &public_values)
             .map_err(|_| {
                 anyhow::Error::msg("Invalid conversion when setting public values targets.")
             })?;
-        log::trace!(
-            "block_inputs.get_targets().len() :{:?}",
-            block_inputs.target_values.len()
-        );
 
+        crate::print_mem_usage("begin to prove block");
         let block_proof = self.block.circuit.prove(block_inputs)?;
+        crate::print_mem_usage("end of prove block");
         Ok((block_proof, public_values))
     }
 
