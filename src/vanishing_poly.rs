@@ -17,7 +17,7 @@ use crate::stark::Stark;
 pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
     stark: &S,
     vars: &S::EvaluationFrame<FE, P, D2>,
-    lookups: &[Lookup],
+    lookups: &[Lookup<F>],
     lookup_vars: Option<LookupCheckVars<F, FE, P, D2>>,
     ctl_vars: &[CtlCheckVars<F, FE, P, D2>],
     consumer: &mut ConstraintConsumer<P>,
@@ -37,7 +37,12 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
             consumer,
         );
     }
-    eval_cross_table_lookup_checks::<F, FE, P, S, D, D2>(vars, ctl_vars, consumer);
+    eval_cross_table_lookup_checks::<F, FE, P, S, D, D2>(
+        vars,
+        ctl_vars,
+        consumer,
+        stark.constraint_degree(),
+    );
 }
 
 pub(crate) fn eval_vanishing_poly_circuit<F, S, const D: usize>(
@@ -55,5 +60,11 @@ pub(crate) fn eval_vanishing_poly_circuit<F, S, const D: usize>(
     if let Some(lookup_vars) = lookup_vars {
         eval_ext_lookups_circuit::<F, S, D>(builder, stark, vars, lookup_vars, consumer);
     }
-    eval_cross_table_lookup_checks_circuit::<S, F, D>(builder, vars, ctl_vars, consumer);
+    eval_cross_table_lookup_checks_circuit::<S, F, D>(
+        builder,
+        vars,
+        ctl_vars,
+        consumer,
+        stark.constraint_degree(),
+    );
 }

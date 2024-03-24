@@ -291,7 +291,10 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         auxiliary_polys_commitment: &PolynomialBatch<F, C, D>,
         quotient_commitment: &PolynomialBatch<F, C, D>,
         num_lookup_columns: usize,
+        num_ctl_polys: &[usize],
     ) -> Self {
+        let total_num_helper_cols: usize = num_ctl_polys.iter().sum();
+
         let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
             c.polynomials
                 .par_iter()
@@ -304,15 +307,16 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .map(|p| p.eval(z))
                 .collect::<Vec<_>>()
         };
+
+        let auxiliary_first = eval_commitment_base(F::ONE, auxiliary_polys_commitment);
+        let ctl_zs_first = auxiliary_first[num_lookup_columns + total_num_helper_cols..].to_vec();
         let zeta_next = zeta.scalar_mul(g);
         Self {
             local_values: eval_commitment(zeta, trace_commitment),
             next_values: eval_commitment(zeta_next, trace_commitment),
             auxiliary_polys: eval_commitment(zeta, auxiliary_polys_commitment),
             auxiliary_polys_next: eval_commitment(zeta_next, auxiliary_polys_commitment),
-            ctl_zs_first: eval_commitment_base(F::ONE, auxiliary_polys_commitment)
-                [num_lookup_columns..]
-                .to_vec(),
+            ctl_zs_first,
             quotient_polys: eval_commitment(zeta, quotient_commitment),
         }
     }

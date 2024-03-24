@@ -153,6 +153,7 @@ where
             &trace_poly_values,
             &all_stark.cross_table_lookups,
             &ctl_challenges,
+            all_stark.arithmetic_stark.constraint_degree()
         )
     );
 
@@ -357,9 +358,14 @@ where
     let num_lookup_columns = lookup_helper_columns.as_ref().map(|v| v.len()).unwrap_or(0);
 
     let auxiliary_polys = match lookup_helper_columns {
-        None => ctl_data.z_polys(),
+        None => {
+            let mut ctl_polys = ctl_data.ctl_helper_polys();
+            ctl_polys.extend(ctl_data.ctl_z_polys());
+            ctl_polys
+        }
         Some(mut lookup_columns) => {
-            lookup_columns.extend(ctl_data.z_polys());
+            lookup_columns.extend(ctl_data.ctl_helper_polys());
+            lookup_columns.extend(ctl_data.ctl_z_polys());
             lookup_columns
         }
     };
@@ -382,6 +388,7 @@ where
     challenger.observe_cap(&auxiliary_polys_cap);
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
+    let num_ctl_polys = ctl_data.num_ctl_helper_polys();
     if cfg!(test) {
         check_constraints(
             stark,
@@ -393,6 +400,7 @@ where
             alphas.clone(),
             degree_bits,
             num_lookup_columns,
+            &num_ctl_polys,
         );
     }
     let quotient_polys = timed!(
@@ -408,6 +416,7 @@ where
             alphas,
             degree_bits,
             num_lookup_columns,
+            &num_ctl_polys,
             config,
         )
     );
@@ -459,6 +468,7 @@ where
         &auxiliary_polys_commitment,
         &quotient_commitment,
         stark.num_lookup_helper_columns(config),
+        &num_ctl_polys,
     );
     challenger.observe_openings(&openings.to_fri_openings());
 
@@ -472,7 +482,7 @@ where
         timing,
         "compute openings proof",
         PolynomialBatch::prove_openings(
-            &stark.fri_instance(zeta, g, ctl_data.len(), config),
+            &stark.fri_instance(zeta, g, num_ctl_polys.iter().sum(), num_ctl_polys, config),
             &initial_merkle_trees,
             challenger,
             &fri_params,
@@ -500,11 +510,12 @@ fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     trace_commitment: &'a PolynomialBatch<F, C, D>,
     auxiliary_polys_commitment: &'a PolynomialBatch<F, C, D>,
     lookup_challenges: Option<&'a Vec<F>>,
-    lookups: &[Lookup],
+    lookups: &[Lookup<F>],
     ctl_data: &CtlData<F>,
     alphas: Vec<F>,
     degree_bits: usize,
     num_lookup_columns: usize,
+    num_ctl_columns: &[usize],
     config: &StarkConfig,
 ) -> Vec<PolynomialCoeffs<F>>
 where
@@ -515,6 +526,7 @@ where
 {
     let degree = 1 << degree_bits;
     let rate_bits = config.fri_config.rate_bits;
+    let total_num_helper_cols: usize = num_ctl_columns.iter().sum();
 
     let quotient_degree_bits = log2_ceil(stark.quotient_degree_factor());
     assert!(
@@ -577,18 +589,34 @@ where
                 next_values: auxiliary_polys_commitment.get_lde_values_packed(i_next_start, step),
                 challenges: challenges.to_vec(),
             });
+            let mut start_index = 0;
             let ctl_vars = ctl_data
                 .zs_columns
                 .iter()
                 .enumerate()
-                .map(|(i, zs_columns)| CtlCheckVars::<F, F, P, 1> {
-                    local_z: auxiliary_polys_commitment.get_lde_values_packed(i_start, step)
-                        [num_lookup_columns + i],
-                    next_z: auxiliary_polys_commitment.get_lde_values_packed(i_next_start, step)
-                        [num_lookup_columns + i],
-                    challenges: zs_columns.challenge,
-                    columns: &zs_columns.columns,
-                    filter_column: &zs_columns.filter_column,
+                .map(|(i, zs_columns)| {
+                    let num_ctl_helper_cols = num_ctl_columns[i];
+                    let helper_columns = auxiliary_polys_commitment
+                        .get_lde_values_packed(i_start, step)[num_lookup_columns
+                        + start_index
+                        ..num_lookup_columns + start_index + num_ctl_helper_cols]
+                        .to_vec();
+
+                    let ctl_vars = CtlCheckVars::<F, F, P, 1> {
+                        helper_columns,
+                        local_z: auxiliary_polys_commitment.get_lde_values_packed(i_start, step)
+                            [num_lookup_columns + total_num_helper_cols + i],
+                        next_z: auxiliary_polys_commitment
+                            .get_lde_values_packed(i_next_start, step)
+                            [num_lookup_columns + total_num_helper_cols + i],
+                        challenges: zs_columns.challenge,
+                        columns: zs_columns.columns.clone(),
+                        filter: zs_columns.filter.clone(),
+                    };
+
+                    start_index += num_ctl_helper_cols;
+
+                    ctl_vars
                 })
                 .collect::<Vec<_>>();
             eval_vanishing_poly::<F, F, P, S, D, 1>(
@@ -630,11 +658,12 @@ fn check_constraints<'a, F, C, S, const D: usize>(
     trace_commitment: &'a PolynomialBatch<F, C, D>,
     auxiliary_commitment: &'a PolynomialBatch<F, C, D>,
     lookup_challenges: Option<&'a Vec<F>>,
-    lookups: &[Lookup],
+    lookups: &[Lookup<F>],
     ctl_data: &CtlData<F>,
     alphas: Vec<F>,
     degree_bits: usize,
     num_lookup_columns: usize,
+    num_ctl_helper_cols: &[usize],
 ) where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -642,6 +671,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
 {
     let degree = 1 << degree_bits;
     let rate_bits = 0; // Set this to higher value to check constraint degree.
+    let total_num_helper_cols: usize = num_ctl_helper_cols.iter().sum();
 
     let size = degree << rate_bits;
     let step = 1 << rate_bits;
@@ -694,16 +724,31 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 challenges: challenges.to_vec(),
             });
 
+            let mut start_index = 0;
             let ctl_vars = ctl_data
                 .zs_columns
                 .iter()
                 .enumerate()
-                .map(|(iii, zs_columns)| CtlCheckVars::<F, F, F, 1> {
-                    local_z: auxiliary_subgroup_evals[i][num_lookup_columns + iii],
-                    next_z: auxiliary_subgroup_evals[i_next][num_lookup_columns + iii],
-                    challenges: zs_columns.challenge,
-                    columns: &zs_columns.columns,
-                    filter_column: &zs_columns.filter_column,
+                .map(|(iii, zs_columns)| {
+                    let num_helper_cols = num_ctl_helper_cols[iii];
+                    let helper_columns = auxiliary_subgroup_evals[i][num_lookup_columns
+                        + start_index
+                        ..num_lookup_columns + start_index + num_helper_cols]
+                        .to_vec();
+                    let ctl_vars = CtlCheckVars::<F, F, F, 1> {
+                        helper_columns,
+                        local_z: auxiliary_subgroup_evals[i]
+                            [num_lookup_columns + total_num_helper_cols + iii],
+                        next_z: auxiliary_subgroup_evals[i_next]
+                            [num_lookup_columns + total_num_helper_cols + iii],
+                        challenges: zs_columns.challenge,
+                        columns: zs_columns.columns.clone(),
+                        filter: zs_columns.filter.clone(),
+                    };
+
+                    start_index += num_helper_cols;
+
+                    ctl_vars
                 })
                 .collect::<Vec<_>>();
             eval_vanishing_poly::<F, F, F, S, D, 1>(

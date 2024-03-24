@@ -11,14 +11,14 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::util::transpose;
 use static_assertions::const_assert;
 
-use super::columns::NUM_ARITH_COLUMNS;
+use super::columns::{NUM_ARITH_COLUMNS, NUM_SHARED_COLS};
 use super::shift;
 use crate::all_stark::Table;
 use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 //use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
 use crate::arithmetic::{addcy, columns, div, lo_hi, lui, mul, mult, slt, sra, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::{Column, TableWithColumns};
+use crate::cross_table_lookup::{Column, Filter, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::Lookup;
 use crate::stark::Stark;
@@ -102,7 +102,9 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         columns::OUTPUT_REGISTER,
     ];
 
-    let filter_column = Some(Column::sum(COMBINED_OPS.iter().map(|(c, _v)| *c)));
+    let filter = Some(Filter::new_simple(Column::sum(
+        COMBINED_OPS.iter().map(|(c, _v)| *c),
+    )));
 
     // Create the Arithmetic Table whose columns are those of the
     // operations listed in `ops` whose inputs and outputs are given
@@ -112,7 +114,7 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Arithmetic,
         cpu_arith_data_link(&COMBINED_OPS, &REGISTER_MAP),
-        filter_column,
+        filter,
     )
 }
 
@@ -275,11 +277,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         3
     }
 
-    fn lookups(&self) -> Vec<Lookup> {
+    fn lookups(&self) -> Vec<Lookup<F>> {
         vec![Lookup {
-            columns: SHARED_COLS.collect(),
-            table_column: RANGE_COUNTER,
-            frequencies_column: RC_FREQUENCIES,
+            columns: Column::singles(SHARED_COLS).collect(),
+            table_column: Column::single(RANGE_COUNTER),
+            frequencies_column: Column::single(RC_FREQUENCIES),
+            filter_columns: vec![None; NUM_SHARED_COLS],
         }]
     }
 }
