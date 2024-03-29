@@ -281,7 +281,7 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
     next_values: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    // IS_BOOTSTRAP_KERNEL must have an init value of 1, a final value of 0, and a delta in {0, -1}.
+    // IS_BOOTSTRAP_KERNEL must be setup with an init value of 1, a final value of 0, and a delta in {0, -1}.
     let local_is_bootstrap = local_values.is_bootstrap_kernel;
     let next_is_bootstrap = next_values.is_bootstrap_kernel;
     yield_constr.constraint_first_row(local_is_bootstrap - P::ONES);
@@ -296,11 +296,9 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
         let filter = local_is_bootstrap * channel.used;
         yield_constr.constraint(filter * channel.addr_context);
         yield_constr.constraint(filter * (channel.addr_segment - code_segment));
-        /* FIXME
         let delta_virt = channel.addr_virtual + P::from(F::from_canonical_u32(32)) - next_values.mem_channels[i].addr_virtual;
         log::trace!("virt {:?} {:?} {:?} {:?} {}", channel.addr_virtual, delta_virt, local_values.clock, NUM_GP_CHANNELS, i);
         yield_constr.constraint_transition(filter * delta_virt);
-        */
     }
 
     // If this is the final bootstrap row (i.e. delta_is_bootstrap = 1), check that
@@ -355,13 +353,11 @@ pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, co
         let constraint = builder.mul_extension(filter, segment_diff);
         yield_constr.constraint(builder, constraint);
 
-        /*
         let i_ext = builder.constant_extension(F::Extension::from_canonical_u32(32));
         let prev_virt = builder.add_extension(channel.addr_virtual, i_ext);
         let virt_diff = builder.sub_extension(prev_virt, next_values.mem_channels[i].addr_virtual);
         let constraint = builder.mul_extension(filter, virt_diff);
         yield_constr.constraint_transition(builder, constraint);
-        */
     }
 
     // If this is the final bootstrap row (i.e. delta_is_bootstrap = 1), check that
