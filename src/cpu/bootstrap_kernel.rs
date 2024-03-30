@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use keccak_hash::keccak;
+use crate::cpu::membus::NUM_GP_CHANNELS;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -292,7 +293,8 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
     // If this is a bootloading row and the i'th memory channel is used, it must have the right
     // address, name context = 0, segment = Code, virt + 4 = next_virt
     let code_segment = F::from_canonical_usize(Segment::Code as usize);
-    for channel in local_values.mem_channels.iter() {
+    for i in 0..8 {
+        let channel = local_values.mem_channels[i];
         let filter = local_is_bootstrap * channel.used;
         yield_constr.constraint(filter * channel.addr_context);
         yield_constr.constraint(filter * (channel.addr_segment - code_segment));
@@ -344,7 +346,8 @@ pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, co
     // address, name context = 0, segment = Code, virt + 4 = next_virt
     let code_segment =
         builder.constant_extension(F::Extension::from_canonical_usize(Segment::Code as usize));
-    for channel in local_values.mem_channels {
+    for i in 0..8 {
+        let channel = local_values.mem_channels[i];
         let filter = builder.mul_extension(local_is_bootstrap, channel.used);
         let constraint = builder.mul_extension(filter, channel.addr_context);
         yield_constr.constraint(builder, constraint);
