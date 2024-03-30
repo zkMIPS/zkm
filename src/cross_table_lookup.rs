@@ -1616,13 +1616,13 @@ pub(crate) mod testutils {
         let looked = TableWithColumns::<F>::new(
             Table::Arithmetic,
             looked_col,
-            Some(Column::single(3)), // t: (1, 0)
+            Some(Filter::new_simple(Column::single(3))), // t: (1, 0)
         );
 
         let lookings = vec![TableWithColumns::<F>::new(
             Table::Arithmetic,
             looking_col,
-            Some(Column::single(2)), // f: (0, 1)
+            Some(Filter::new_simple(Column::single(2))), // f: (0, 1)
         )];
 
         // select_f * f = trace[looking_col[i]][row] * \sum_{row=0..n, i=0..m}, where n is domain size, m is the looking_col.size,
