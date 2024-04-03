@@ -68,12 +68,12 @@ impl BinaryOperator {
                 (sout as u32, 0)
             }
 
-            BinaryOperator::SLLV => (if input1 > 31 { 0 } else { input0 << input1 }, 0),
-            BinaryOperator::SRLV => (if input1 > 31 { 0 } else { input0 >> input1 }, 0),
+            BinaryOperator::SLLV => (input0 << (input1 & 0x1f), 0),
+            BinaryOperator::SRLV => (input0 >> (input1 & 0x1F), 0),
             BinaryOperator::SRAV => {
                 // same as SRA
                 let sin = input0 as i32;
-                let sout = if input1 > 31 { 0 } else { sin >> input1 };
+                let sout = sin >> (input1 & 0x1f);
                 (sout as u32, 0)
             }
             BinaryOperator::MUL => (input0.overflowing_mul(input1).0, 0),
