@@ -301,7 +301,13 @@ mod tests {
                 full_input = lv[ai].to_canonical_u64() as u32 + full_input * (1 << 16);
             }
 
-            generate(&mut lv, &mut nv, filter, shift, full_input, 0);
+            let output = if filter == IS_SLL || filter == IS_SLLV {
+                full_input << (shift & 0x1F)
+            } else {
+                full_input >> (shift & 0x1F)
+            };
+
+            generate(&mut lv, &mut nv, filter, shift, full_input, output);
 
             let mut constraint_consumer = ConstraintConsumer::new(
                 vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
