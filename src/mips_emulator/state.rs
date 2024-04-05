@@ -966,6 +966,34 @@ impl InstrumentedState {
         self.pre_hash_root = page_hash_root;
         self.state.load_registers(); // add to rtrace
     }
+
+    pub fn get_split_segments(&mut self, proof: bool) -> Vec<Segment> {
+        let mut segments = vec![];
+        self.state.sync_registers();
+        let (image_id, page_hash_root) = self.state.memory.compute_image_id(self.state.pc);
+        let image = self.state.memory.get_input_image();
+
+        if proof {
+            let segment = Segment {
+                mem_image: image,
+                segment_id: self.pre_segment_id,
+                pc: self.pre_pc,
+                pre_hash_root: self.pre_hash_root,
+                pre_image_id: self.pre_image_id,
+                image_id,
+                end_pc: self.state.pc,
+                page_hash_root,
+            };
+            segments.push(segment);
+            self.pre_segment_id += 1;
+        }
+
+        self.pre_pc = self.state.pc;
+        self.pre_image_id = image_id;
+        self.pre_hash_root = page_hash_root;
+        self.state.load_registers(); // add to rtrace
+        return segments;
+    }
 }
 
 /// se extends the number to 32 bit with sign.
