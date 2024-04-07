@@ -61,6 +61,87 @@ fn sign_extend_ext<F: RichField + Extendable<D>, const D: usize, const N: usize>
     out
 }
 
+//yield_constr.constraint(filter * lv.general.io().micro_op[2] * (mem - mem_value));
+#[inline]
+fn enforce_word<P: PackedField>(
+    yield_constr: &mut ConstraintConsumer<P>,
+    lv: &CpuColumnsView<P>,
+    filter: P,
+    op: usize,
+    mem: P,
+    mem_value: P,
+) {
+    let filter_op = filter * lv.general.io().micro_op[op];
+    let filter_op_aux = lv.mem_channels[0].value[5];
+    yield_constr.constraint(filter_op - filter_op_aux);
+    yield_constr.constraint(filter_op_aux * (mem - mem_value));
+}
+
+//let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
+//yield_constr.constraint(filter * lv.general.io().micro_op[0] * sum);
+#[inline]
+fn enforce_half_word<P: PackedField>(
+    yield_constr: &mut ConstraintConsumer<P>,
+    lv: &CpuColumnsView<P>,
+    filter: P,
+    op: usize,
+    rs_limbs: &[P],
+    mem: P,
+    mem_val_1: P,
+    mem_val_0: P,
+) {
+    let lh_sum_a_aux = lv.mem_channels[0].value[3];
+    let lh_sum_a = rs_limbs[1] * (mem - mem_val_1);
+    yield_constr.constraint(lh_sum_a - lh_sum_a_aux);
+
+    let lh_sum_b_aux = lv.mem_channels[0].value[4];
+    let lh_sum_b = (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
+    yield_constr.constraint(lh_sum_b - lh_sum_b_aux);
+
+    let filter_op = filter * lv.general.io().micro_op[op];
+    let filter_op_aux = lv.mem_channels[0].value[5];
+    yield_constr.constraint(filter_op - filter_op_aux);
+
+    yield_constr.constraint(filter_op_aux * (lh_sum_a_aux + lh_sum_b_aux));
+}
+
+//let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
+//    + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
+//    + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
+//    + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
+//yield_constr.constraint(filter * lv.general.io().micro_op[1] * sum);
+#[inline]
+fn enforce_byte<P: PackedField>(
+    yield_constr: &mut ConstraintConsumer<P>,
+    lv: &CpuColumnsView<P>,
+    filter: P,
+    op: usize,
+    rs_limbs: &[P],
+    mem: P,
+    mem_val_0_0: P,
+    mem_val_1_0: P,
+    mem_val_0_1: P,
+    mem_val_1_1: P,
+) {
+    let rs_limbs_1_rs_limbs_0 = rs_limbs[0] * rs_limbs[1];
+    let rs_limbs_1_rs_limbs_0_aux = lv.mem_channels[0].value[3];
+    yield_constr.constraint(rs_limbs_1_rs_limbs_0 - rs_limbs_1_rs_limbs_0_aux);
+
+    let sum = (mem - mem_val_0_0)
+        * (rs_limbs_1_rs_limbs_0_aux - rs_limbs[1] - rs_limbs[0] + P::ONES)
+        + (mem - mem_val_1_0) * (rs_limbs_1_rs_limbs_0_aux - rs_limbs[0])
+        + (mem - mem_val_0_1) * (rs_limbs_1_rs_limbs_0_aux - rs_limbs[1])
+        + (mem - mem_val_1_1) * (rs_limbs_1_rs_limbs_0_aux);
+    let sum_aux = lv.mem_channels[0].value[4];
+    yield_constr.constraint(sum - sum_aux);
+
+    let filter_op = filter * lv.general.io().micro_op[op];
+    let filter_op_aux = lv.mem_channels[0].value[5];
+    yield_constr.constraint(filter_op - filter_op_aux);
+
+    yield_constr.constraint(sum_aux * filter_op_aux);
+}
+
 /// Constant -4
 const GOLDILOCKS_INVERSE_NEG4: u64 = 18446744069414584317;
 
@@ -98,8 +179,12 @@ fn eval_packed_load<P: PackedField>(
     // May raise overflow here since wrapping_add used in simulator
     let rs_from_bits = limb_from_bits_le(rs_limbs);
     let u32max = P::Scalar::from_canonical_u64(1u64 << 32);
-    yield_constr
-        .constraint(filter * (rs_from_bits - virt_raw) * (rs_from_bits + u32max - virt_raw));
+
+    // All the AUXs are stored in values[1..7]
+    let virt_raw_check = filter * (rs_from_bits - virt_raw);
+    let virt_raw_check_aux = lv.mem_channels[0].value[1];
+    yield_constr.constraint(virt_raw_check - virt_raw_check_aux);
+    yield_constr.constraint(virt_raw_check_aux * (rs_from_bits + u32max - virt_raw));
 
     let rt_from_bits = limb_from_bits_le(rt_limbs);
     yield_constr.constraint(filter * (rt_from_bits - rt));
@@ -117,7 +202,10 @@ fn eval_packed_load<P: PackedField>(
     // Verify op
     let op_inv = lv.general.io().diff_inv;
     let op = lv.mem_channels[4].value[0];
-    yield_constr.constraint(filter * (P::ONES - op * op_inv));
+    let filter_op = filter * op;
+    let filter_op_aux = lv.mem_channels[0].value[2];
+    yield_constr.constraint(filter_op - filter_op_aux);
+    yield_constr.constraint(filter - filter_op_aux * op_inv);
 
     // Constrain mem value
     // LH: micro_op[0] * sign_extend::<16>((mem >> (16 - (rs & 2) * 8)) & 0xffff)
@@ -136,8 +224,16 @@ fn eval_packed_load<P: PackedField>(
         let mem_val_0 = limb_from_bits_le(mem_val_0);
 
         // Range check
-        let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
-        yield_constr.constraint(filter * lv.general.io().micro_op[0] * sum);
+        enforce_half_word(
+            yield_constr,
+            lv,
+            filter,
+            0,
+            &rs_limbs,
+            mem,
+            mem_val_1,
+            mem_val_0,
+        );
     }
 
     // LWL:
@@ -168,17 +264,24 @@ fn eval_packed_load<P: PackedField>(
         let mem_val_0_1 = limb_from_bits_le(mem_val_0_1);
         let mem_val_1_1 = limb_from_bits_le(mem_val_1_1);
 
-        let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
-            + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
-            + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
-            + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
-        yield_constr.constraint(filter * lv.general.io().micro_op[1] * sum);
+        enforce_byte(
+            yield_constr,
+            lv,
+            filter,
+            1,
+            &rs_limbs,
+            mem,
+            mem_val_0_0,
+            mem_val_1_0,
+            mem_val_0_1,
+            mem_val_1_1,
+        );
     }
 
     // LW:
     {
         let mem_value = limb_from_bits_le(mem_limbs);
-        yield_constr.constraint(filter * lv.general.io().micro_op[2] * (mem - mem_value));
+        enforce_word(yield_constr, lv, filter, 2, mem, mem_value);
     }
 
     // LBU: (mem >> (24 - (rs & 3) * 8)) & 0xff
@@ -198,11 +301,18 @@ fn eval_packed_load<P: PackedField>(
         let mem_val_0_1 = limb_from_bits_le(mem_val_0_1);
         let mem_val_1_1 = limb_from_bits_le(mem_val_1_1);
 
-        let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
-            + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
-            + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
-            + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
-        yield_constr.constraint(filter * lv.general.io().micro_op[3] * sum);
+        enforce_byte(
+            yield_constr,
+            lv,
+            filter,
+            3,
+            &rs_limbs,
+            mem,
+            mem_val_0_0,
+            mem_val_1_0,
+            mem_val_0_1,
+            mem_val_1_1,
+        );
     }
 
     // LHU: (mem >> (16 - (rs & 2) * 8)) & 0xffff
@@ -216,8 +326,16 @@ fn eval_packed_load<P: PackedField>(
         let mem_val_1 = limb_from_bits_le(mem_val_1);
         let mem_val_0 = limb_from_bits_le(mem_val_0);
 
-        let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
-        yield_constr.constraint(filter * lv.general.io().micro_op[4] * sum);
+        enforce_half_word(
+            yield_constr,
+            lv,
+            filter,
+            4,
+            &rs_limbs,
+            mem,
+            mem_val_1,
+            mem_val_0,
+        );
     }
 
     // LWR:
@@ -246,17 +364,24 @@ fn eval_packed_load<P: PackedField>(
         let mem_val_0_1 = limb_from_bits_le(mem_val_0_1);
         let mem_val_1_1 = limb_from_bits_le(mem_val_1_1);
 
-        let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
-            + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
-            + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
-            + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
-        yield_constr.constraint(filter * lv.general.io().micro_op[5] * sum);
+        enforce_byte(
+            yield_constr,
+            lv,
+            filter,
+            6,
+            &rs_limbs,
+            mem,
+            mem_val_0_0,
+            mem_val_1_0,
+            mem_val_0_1,
+            mem_val_1_1,
+        );
     }
 
     // LL:
     {
         let mem_value = limb_from_bits_le(mem_limbs);
-        yield_constr.constraint(filter * lv.general.io().micro_op[6] * (mem - mem_value));
+        enforce_word(yield_constr, lv, filter, 6, mem, mem_value);
     }
 
     // LB: sign_extend::<8>((mem >> (24 - (rs & 3) * 8)) & 0xff)
@@ -281,11 +406,18 @@ fn eval_packed_load<P: PackedField>(
         let mem_val_0_1 = limb_from_bits_le(mem_val_0_1);
         let mem_val_1_1 = limb_from_bits_le(mem_val_1_1);
 
-        let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
-            + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
-            + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
-            + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
-        yield_constr.constraint(filter * lv.general.io().micro_op[7] * sum);
+        enforce_byte(
+            yield_constr,
+            lv,
+            filter,
+            7,
+            &rs_limbs,
+            mem,
+            mem_val_0_0,
+            mem_val_1_0,
+            mem_val_0_1,
+            mem_val_1_1,
+        );
     }
 
     // Disable remaining memory channels, if any.
@@ -681,8 +813,11 @@ fn eval_packed_store<P: PackedField>(
 
     let rs_from_bits = limb_from_bits_le(rs_limbs);
     let u32max = P::Scalar::from_canonical_u64(1u64 << 32);
-    yield_constr
-        .constraint(filter * (rs_from_bits - virt_raw) * (rs_from_bits + u32max - virt_raw));
+
+    let virt_raw_check = filter * (rs_from_bits - virt_raw);
+    let virt_raw_check_aux = lv.mem_channels[0].value[1];
+    yield_constr.constraint(virt_raw_check - virt_raw_check_aux);
+    yield_constr.constraint(virt_raw_check_aux * (rs_from_bits + u32max - virt_raw));
 
     let rt_from_bits = limb_from_bits_le(rt_limbs);
     yield_constr.constraint(filter * (rt_from_bits - rt));
@@ -700,7 +835,10 @@ fn eval_packed_store<P: PackedField>(
     // Verify op
     let op_inv = lv.general.io().diff_inv;
     let op = lv.mem_channels[5].value[0];
-    yield_constr.constraint(filter * (P::ONES - op * op_inv));
+    let filter_op = filter * op;
+    let filter_op_aux = lv.mem_channels[0].value[2];
+    yield_constr.constraint(filter_op - filter_op_aux);
+    yield_constr.constraint(filter - filter_op_aux * op_inv);
 
     // Constrain mem value
     // SB:
@@ -733,11 +871,18 @@ fn eval_packed_store<P: PackedField>(
         let mem_val_0_1 = limb_from_bits_le(mem_val_0_1);
         let mem_val_1_1 = limb_from_bits_le(mem_val_1_1);
 
-        let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
-            + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
-            + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
-            + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
-        yield_constr.constraint(filter * lv.general.io().micro_op[0] * sum);
+        enforce_byte(
+            yield_constr,
+            lv,
+            filter,
+            0,
+            &rs_limbs,
+            mem,
+            mem_val_0_0,
+            mem_val_1_0,
+            mem_val_0_1,
+            mem_val_1_1,
+        );
     }
 
     // SH
@@ -757,8 +902,16 @@ fn eval_packed_store<P: PackedField>(
         let mem_val_1 = limb_from_bits_le(mem_val_1);
         let mem_val_0 = limb_from_bits_le(mem_val_0);
 
-        let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
-        yield_constr.constraint(filter * lv.general.io().micro_op[1] * sum);
+        enforce_half_word(
+            yield_constr,
+            lv,
+            filter,
+            1,
+            &rs_limbs,
+            mem,
+            mem_val_1,
+            mem_val_0,
+        );
     }
 
     // SWL
@@ -788,17 +941,24 @@ fn eval_packed_store<P: PackedField>(
         let mem_val_0_1 = limb_from_bits_le(mem_val_0_1);
         let mem_val_1_1 = limb_from_bits_le(mem_val_1_1);
 
-        let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
-            + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
-            + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
-            + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
-        yield_constr.constraint(filter * lv.general.io().micro_op[2] * sum);
+        enforce_byte(
+            yield_constr,
+            lv,
+            filter,
+            2,
+            &rs_limbs,
+            mem,
+            mem_val_0_0,
+            mem_val_1_0,
+            mem_val_0_1,
+            mem_val_1_1,
+        );
     }
 
     // SW
     {
         let rt_value = limb_from_bits_le(rt_limbs);
-        yield_constr.constraint(filter * lv.general.io().micro_op[3] * (mem - rt_value));
+        enforce_word(yield_constr, lv, filter, 3, mem, rt_value);
     }
 
     // SWR
@@ -828,18 +988,25 @@ fn eval_packed_store<P: PackedField>(
         let mem_val_0_1 = limb_from_bits_le(mem_val_0_1);
         let mem_val_1_1 = limb_from_bits_le(mem_val_1_1);
 
-        let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
-            + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
-            + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
-            + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
-        yield_constr.constraint(filter * lv.general.io().micro_op[4] * sum);
+        enforce_byte(
+            yield_constr,
+            lv,
+            filter,
+            4,
+            &rs_limbs,
+            mem,
+            mem_val_0_0,
+            mem_val_1_0,
+            mem_val_0_1,
+            mem_val_1_1,
+        );
     }
 
     // SC:
     //  TODO: write back rt register
     {
         let rt_value = limb_from_bits_le(rt_limbs);
-        yield_constr.constraint(filter * lv.general.io().micro_op[5] * (mem - rt_value));
+        enforce_word(yield_constr, lv, filter, 5, mem, rt_value);
     }
 
     // Disable remaining memory channels, if any.
