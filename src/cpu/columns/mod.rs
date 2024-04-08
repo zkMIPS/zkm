@@ -16,6 +16,22 @@ pub(crate) mod ops;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CpuBranchView<T: Copy> {
+    // A flag.
+    pub should_jump: T,
+    pub gt: T,
+    pub lt: T,
+    pub eq: T,
+    pub is_gt: T,
+    pub is_lt: T,
+    pub is_eq: T,
+    pub is_ge: T,
+    pub is_le: T,
+    pub is_ne: T,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MemoryChannelView<T: Copy> {
     /// 1 if this row includes a memory operation in the `i`th channel of the memory bus, otherwise
     /// 0.
@@ -53,6 +69,8 @@ pub struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: flags for EVM instructions (a few cannot be shared; see the comments in
     /// `OpsColumnsView`).
     pub op: OpsColumnsView<T>,
+
+    pub branch: CpuBranchView<T>,
 
     /// If CPU cycle: the opcode, broken up into bits in little-endian order.
     pub opcode_bits: [T; 6], // insn[31:26]

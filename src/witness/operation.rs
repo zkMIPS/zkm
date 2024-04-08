@@ -37,6 +37,12 @@ impl BranchCond {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MovCond {
+    EQ,
+    NE,
+}
+
 pub fn generate_pinv_diff<F: Field>(val0: u32, val1: u32, lv: &mut CpuColumnsView<F>) {
     let num_unequal_limbs = if val0 != val1 { 1 } else { 0 };
     let _equal = num_unequal_limbs == 0;
@@ -97,7 +103,7 @@ pub(crate) enum Operation {
     BinaryArithmetic(arithmetic::BinaryOperator, u8, u8, u8),
     BinaryArithmeticImm(arithmetic::BinaryOperator, u8, u8, u32),
     Count(bool, u8, u8),
-    CondMov(BranchCond, u8, u8, u8),
+    CondMov(MovCond, u8, u8, u8),
     KeccakGeneral,
     Jump(u8, u8),
     Jumpi(u8, u32),
@@ -111,7 +117,7 @@ pub(crate) enum Operation {
 }
 
 pub(crate) fn generate_cond_mov_op<F: Field>(
-    cond: BranchCond,
+    cond: MovCond,
     rs: u8,
     rt: u8,
     rd: u8,
@@ -123,9 +129,8 @@ pub(crate) fn generate_cond_mov_op<F: Field>(
     let (in2, log_in2) = reg_read_with_log(rd, 2, state, &mut row)?;
 
     let mov = match cond {
-        BranchCond::EQ => in1 == 0,
-        BranchCond::NE => in1 != 0,
-        _ => true,
+        MovCond::EQ => in1 == 0,
+        MovCond::NE => in1 != 0,
     };
 
     let out = if mov { in0 } else { in2 };
@@ -133,11 +138,13 @@ pub(crate) fn generate_cond_mov_op<F: Field>(
     generate_pinv_diff(in1 as u32, 0, &mut row);
 
     let log_out0 = reg_write_with_log(rd, 3, out, state, &mut row)?;
+    let log_out1 = reg_write_with_log(0, 4, mov as usize, state, &mut row)?;
 
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_out0);
+    state.traces.push_memory(log_out1);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -397,7 +404,6 @@ pub(crate) fn generate_jump<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (target_pc, target_op) = reg_read_with_log(target, 0, state, &mut row)?;
-    row.general.jumps_mut().should_jump = F::ONE;
     let next_pc = state.registers.program_counter.wrapping_add(8);
     let link_op = reg_write_with_log(link, 1, next_pc, state, &mut row)?;
     state.traces.push_cpu(row);
@@ -418,25 +424,44 @@ pub(crate) fn generate_branch<F: Field>(
     let (src1, src1_op) = reg_read_with_log(src1, 0, state, &mut row)?;
     let (src2, src2_op) = reg_read_with_log(src2, 1, state, &mut row)?;
     let should_jump = cond.result(src1 as i32, src2 as i32);
+
+    match cond {
+        BranchCond::EQ => row.branch.is_eq = F::ONE,
+        BranchCond::NE => row.branch.is_ne = F::ONE,
+        BranchCond::GE => row.branch.is_ge = F::ONE,
+        BranchCond::LE => row.branch.is_le = F::ONE,
+        BranchCond::GT => row.branch.is_gt = F::ONE,
+        BranchCond::LT => row.branch.is_lt = F::ONE,
+    };
+
+    if src1 == src2 {
+        row.branch.eq = F::ONE;
+    } else if src1 > src2 {
+        row.branch.gt = F::ONE;
+    } else if src1 < src2 {
+        row.branch.lt = F::ONE;
+    }
+
     //log::info!("jump: {} c0: {}, c1: {}, aux1: {}, aux2: {}", should_jump, src1, src2, src1.wrapping_sub(src2), src2.wrapping_sub(src1));
     let aux1 = src1.wrapping_sub(src2);
     let aux2 = src2.wrapping_sub(src1);
     let aux3 = (src1 ^ src2) & 0x80000000 > 0;
-
+    let target = sign_extend::<16>(target);
+    let (mut target_pc, _) = target.overflowing_shl(2);
+    let aux4 = target_pc;
     let log_out0 = reg_write_with_log(0, 2, aux1, state, &mut row)?;
     let log_out1 = reg_write_with_log(0, 3, aux2, state, &mut row)?;
     let log_out2 = reg_write_with_log(0, 4, aux3 as usize, state, &mut row)?;
+    let log_out3 = reg_write_with_log(0, 5, aux4 as usize, state, &mut row)?;
     let pc = state.registers.program_counter as u32;
     if should_jump {
-        let target = sign_extend::<16>(target);
-        let (mut target_pc, _) = target.overflowing_shl(2);
         target_pc = target_pc.wrapping_add(pc + 4);
-        row.general.jumps_mut().should_jump = F::ONE;
+        row.branch.should_jump = F::ONE;
         state.traces.push_cpu(row);
         state.jump_to(target_pc as usize);
     } else {
         let next_pc = pc.wrapping_add(8);
-        row.general.jumps_mut().should_jump = F::ZERO;
+        row.branch.should_jump = F::ZERO;
         state.traces.push_cpu(row);
         state.jump_to(next_pc as usize);
     }
@@ -445,6 +470,7 @@ pub(crate) fn generate_branch<F: Field>(
     state.traces.push_memory(log_out0);
     state.traces.push_memory(log_out1);
     state.traces.push_memory(log_out2);
+    state.traces.push_memory(log_out3);
     Ok(())
 }
 
@@ -461,7 +487,6 @@ pub(crate) fn generate_jumpi<F: Field>(
     let pc_result = operation.result as usize;
     let result_op = reg_write_with_log(0, 7, pc_result, state, &mut row)?;
     target_pc = target_pc.wrapping_add(pc_result);
-    row.general.jumps_mut().should_jump = F::ONE;
     let next_pc = pc.wrapping_add(8);
     let link_op = reg_write_with_log(link, 1, next_pc, state, &mut row)?;
     // FIXME: skip for lookup check
