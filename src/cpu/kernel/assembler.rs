@@ -2,7 +2,7 @@ use super::elf::Program;
 use crate::mips_emulator::utils::get_block_path;
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Read};
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Kernel {
@@ -19,37 +19,15 @@ pub struct Kernel {
 
 pub const MAX_MEM: u32 = 0x80000000;
 
-pub fn segment_kernel(
+pub fn segment_kernel<T: Read>(
     basedir: &str,
     block: &str,
     file: &str,
-    seg_file: &str,
+    seg_reader: T,
     steps: usize,
 ) -> Kernel {
     crate::print_mem_usage("before load segment");
-    let p: Program = Program::load_segment(seg_file).unwrap();
-    crate::print_mem_usage("after load segment");
-    let blockpath = get_block_path(basedir, block, file);
-    crate::print_mem_usage("after get block");
-
-    Kernel {
-        program: p,
-        ordered_labels: vec![],
-        global_labels: HashMap::new(),
-        blockpath,
-        steps,
-    }
-}
-
-pub fn segment_kernel_with_data(
-    basedir: &str,
-    block: &str,
-    file: &str,
-    seg_file_data: Vec<u8>,
-    steps: usize,
-) -> Kernel {
-    crate::print_mem_usage("before load segment");
-    let p: Program = Program::load_segment_from_data(seg_file_data).unwrap();
+    let p: Program = Program::load_segment(seg_reader).unwrap();
     crate::print_mem_usage("after load segment");
     let blockpath = get_block_path(basedir, block, file);
     crate::print_mem_usage("after get block");

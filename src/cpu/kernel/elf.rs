@@ -5,8 +5,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use elf::{endian::BigEndian, file::Class, ElfBytes};
 use keccak_hash::keccak;
 use serde::{Deserialize, Serialize};
-use std::fs::{self, File};
-use std::io::BufReader;
+use std::fs::{self};
+use std::io::Read;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
 pub const INIT_SP: u32 = 0x7fffd000;
@@ -229,58 +229,8 @@ impl Program {
         })
     }
 
-    pub fn load_segment(name: &str) -> Result<Program> {
-        log::trace!("load segment from {}", name);
-        let f = File::open(name).unwrap();
-        let reader = BufReader::new(f);
-
+    pub fn load_segment<T: Read>(reader: T) -> Result<Program> {
         let segment: Segment = serde_json::from_reader(reader).unwrap();
-
-        let entry = segment.pc;
-        let image = segment.mem_image;
-        let end_pc = segment.end_pc as usize;
-
-        let mut gprs: [usize; 32] = [0; 32];
-
-        for i in 0..32 {
-            let data = image.get(&((i << 2) as u32)).unwrap();
-            gprs[i] = data.to_be() as usize;
-        }
-
-        let lo: usize = image.get(&((32 << 2) as u32)).unwrap().to_be() as usize;
-        let hi: usize = image.get(&((33 << 2) as u32)).unwrap().to_be() as usize;
-        let heap: usize = image.get(&((34 << 2) as u32)).unwrap().to_be() as usize;
-        let pc: usize = image.get(&((35 << 2) as u32)).unwrap().to_be() as usize;
-        let page_hash_root = segment.page_hash_root;
-
-        log::trace!(
-            "load segment pc: {} image: {:?} gprs: {:?} lo: {} hi: {} heap:{} range: ({} -> {})",
-            segment.pc,
-            segment.image_id,
-            gprs,
-            lo,
-            hi,
-            heap,
-            pc,
-            end_pc
-        );
-        Ok(Program {
-            entry,
-            image,
-            gprs,
-            lo,
-            hi,
-            heap,
-            end_pc,
-            image_id: segment.image_id,
-            pre_image_id: segment.pre_image_id,
-            pre_hash_root: segment.pre_hash_root,
-            page_hash_root,
-        })
-    }
-
-    pub fn load_segment_from_data(data: Vec<u8>) -> Result<Program> {
-        let segment: Segment = serde_json::from_slice(&data).unwrap();
 
         let entry = segment.pc;
         let image = segment.mem_image;
@@ -330,7 +280,8 @@ impl Program {
 mod test {
     use crate::cpu::kernel::elf::*;
     use crate::mips_emulator::utils::get_block_path;
-    use std::io::Read;
+    use std::fs::File;
+    use std::io::BufReader;
 
     #[test]
     fn load_and_check_mips_elf() {
