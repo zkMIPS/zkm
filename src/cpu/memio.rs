@@ -72,7 +72,7 @@ fn enforce_word<P: PackedField>(
     mem_value: P,
 ) {
     let filter_op = filter * lv.general.io().micro_op[op];
-    let filter_op_aux = lv.mem_channels[0].value[5];
+    let filter_op_aux = lv.mem_channels[0].value[2];
     yield_constr.constraint(filter_op - filter_op_aux);
     yield_constr.constraint(filter_op_aux * (mem - mem_value));
 }
@@ -88,7 +88,7 @@ fn enforce_word_ext<F: RichField + Extendable<D>, const D: usize>(
     mem_value: ExtensionTarget<D>,
 ) {
     let filter_op = builder.mul_extension(filter, lv.general.io().micro_op[op]);
-    let filter_op_aux = lv.mem_channels[0].value[5];
+    let filter_op_aux = lv.mem_channels[0].value[3];
     let fc = builder.sub_extension(filter_op, filter_op_aux);
     yield_constr.constraint(builder, fc);
     let fc = builder.sub_extension(mem, mem_value);
@@ -118,7 +118,7 @@ fn enforce_half_word<P: PackedField>(
     yield_constr.constraint(lh_sum_b - lh_sum_b_aux);
 
     let filter_op = filter * lv.general.io().micro_op[op];
-    let filter_op_aux = lv.mem_channels[0].value[5];
+    let filter_op_aux = lv.mem_channels[0].value[2];
     yield_constr.constraint(filter_op - filter_op_aux);
 
     yield_constr.constraint(filter_op_aux * (lh_sum_a_aux + lh_sum_b_aux));
@@ -150,7 +150,7 @@ fn enforce_half_word_ext<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, fc);
 
     let filter_op = builder.mul_extension(filter, lv.general.io().micro_op[op]);
-    let filter_op_aux = lv.mem_channels[0].value[5];
+    let filter_op_aux = lv.mem_channels[0].value[2];
     let fc = builder.sub_extension(filter_op, filter_op_aux);
     yield_constr.constraint(builder, fc);
 
@@ -190,7 +190,7 @@ fn enforce_byte<P: PackedField>(
     yield_constr.constraint(sum - sum_aux);
 
     let filter_op = filter * lv.general.io().micro_op[op];
-    let filter_op_aux = lv.mem_channels[0].value[5];
+    let filter_op_aux = lv.mem_channels[0].value[2];
     yield_constr.constraint(filter_op - filter_op_aux);
 
     yield_constr.constraint(sum_aux * filter_op_aux);
@@ -210,7 +210,6 @@ fn enforce_byte_ext<F: RichField + Extendable<D>, const D: usize>(
     mem_val_0_1: ExtensionTarget<D>,
     mem_val_1_1: ExtensionTarget<D>,
 ) {
-
     let rs_limbs_1_rs_limbs_0 = builder.mul_extension(rs_limbs[0], rs_limbs[1]);
     let rs_limbs_1_rs_limbs_0_aux = lv.mem_channels[0].value[3];
     let fc = builder.sub_extension(rs_limbs_1_rs_limbs_0, rs_limbs_1_rs_limbs_0_aux);
@@ -240,7 +239,7 @@ fn enforce_byte_ext<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, fc);
 
     let filter_op = builder.mul_extension(filter, lv.general.io().micro_op[op]);
-    let filter_op_aux = lv.mem_channels[0].value[5];
+    let filter_op_aux = lv.mem_channels[0].value[2];
     let fc = builder.sub_extension(filter_op, filter_op_aux);
     yield_constr.constraint(builder, fc);
 
@@ -574,11 +573,15 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     //yield_constr.constraint(filter * (rs_from_bits - virt_raw) * (rs_from_bits + u32max - virt_raw));
     let rs_from_bits = limb_from_bits_le_recursive(builder, rs_limbs);
     let diff1 = builder.sub_extension(rs_from_bits, virt_raw);
+    let virt_raw_check = builder.mul_extension(filter, diff1);
+    let virt_raw_check_aux = lv.mem_channels[0].value[1];
+    let constr = builder.sub_extension(virt_raw_check, virt_raw_check_aux);
+    yield_constr.constraint(builder, constr);
 
     let diff2 = builder.add_const_extension(rs_from_bits, u32max);
     let diff2 = builder.sub_extension(diff2, virt_raw);
 
-    let constr = builder.mul_many_extension([filter, diff1, diff2]);
+    let constr = builder.mul_many_extension([virt_raw_check_aux, diff2]);
     yield_constr.constraint(builder, constr);
 
     let rt_from_bits = limb_from_bits_le_recursive(builder, rt_limbs);
@@ -601,9 +604,11 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     // Verify op
     let op_inv = lv.general.io().diff_inv;
     let op = lv.mem_channels[4].value[0];
-    let mul = builder.mul_extension(op, op_inv);
-    let diff = builder.sub_extension(ones, mul);
-    let constr = builder.mul_extension(filter, diff);
+    let filter_op = builder.mul_extension(filter, op);
+    let filter_op_aux = lv.mem_channels[0].value[2];
+
+    let filter_op_mul_inv = builder.mul_extension(filter_op_aux, op_inv);
+    let constr = builder.sub_extension(filter, filter_op_mul_inv);
     yield_constr.constraint(builder, constr);
 
     // Constrain mem value
@@ -625,13 +630,17 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         // Range check
         // let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
         // yield_constr.constraint(filter * lv.general.io().micro_op[0] * sum);
-        let diff1 = builder.sub_extension(mem, mem_val_1);
-        let diff2 = builder.sub_extension(mem, mem_val_0);
-        let coff2 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let mult2 = builder.mul_extension(diff2, coff2);
-        let sum = builder.arithmetic_extension(F::ONES, F::ONES, rs_limbs[1], diff1, mult2);
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[0], sum]);
-        yield_constr.constraint(builder, mult);
+        enforce_half_word_ext(
+            builder,
+            yield_constr,
+            lv,
+            filter,
+            0,
+            &rs_limbs,
+            mem,
+            mem_val_1,
+            mem_val_0,
+        );
     }
 
     // LWL:
@@ -668,36 +677,26 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         //     (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES) +
         //     (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
         // yield_constr.constraint(filter * lv.general.io().micro_op[1] * sum);
-        let diff1 = builder.sub_extension(mem, mem_val_0_0);
-        let diff2 = builder.sub_extension(mem, mem_val_1_0);
-        let diff3 = builder.sub_extension(mem, mem_val_0_1);
-        let diff4 = builder.sub_extension(mem, mem_val_1_1);
-
-        let coff10 = builder.add_const_extension(rs_limbs[0], -F::ONES);
-        let coff11 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let sum1 = builder.mul_many_extension([diff1, coff10, coff11]);
-
-        let coff21 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let sum2 = builder.mul_many_extension([diff2, coff21, rs_limbs[0]]);
-
-        let coff30 = builder.add_const_extension(rs_limbs[0], -F::ONES);
-        let sum3 = builder.mul_many_extension([diff3, rs_limbs[1], coff30]);
-
-        let sum4 = builder.mul_many_extension([diff4, rs_limbs[1], rs_limbs[0]]);
-
-        let sum = builder.add_many_extension([sum1, sum2, sum3, sum4]);
-
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[1], sum]);
-        yield_constr.constraint(builder, mult);
+        enforce_byte_ext(
+            builder,
+            yield_constr,
+            lv,
+            filter,
+            1,
+            &rs_limbs,
+            mem,
+            mem_val_0_0,
+            mem_val_1_0,
+            mem_val_0_1,
+            mem_val_1_1,
+        );
     }
 
     // LW:
     {
         let mem_value = limb_from_bits_le_recursive(builder, mem_limbs);
         // yield_constr.constraint(filter * lv.general.io().micro_op[2] * (mem - mem_value));
-        let diff1 = builder.sub_extension(mem, mem_value);
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[2], diff1]);
-        yield_constr.constraint(builder, mult);
+        enforce_word_ext(builder, yield_constr, lv, filter, 2, mem, mem_value);
     }
 
     // LBU: (mem >> (24 - (rs & 3) * 8)) & 0xff
@@ -717,39 +716,19 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1);
         let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1);
 
-        /*
-        //yield_constr.constraint(filter * lv.general.io().micro_op[3]
-        //    * (mem - mem_val_0_0) * (mem - mem_val_0_1)
-        //    * (mem - mem_val_1_0) * (mem - mem_val_1_1));
-        let diff1 = builder.sub_extension(mem, mem_val_0_0);
-        let diff2 = builder.sub_extension(mem, mem_val_0_1);
-        let diff3 = builder.sub_extension(mem, mem_val_1_0);
-        let diff4 = builder.sub_extension(mem, mem_val_1_1);
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[3], diff1, diff2, diff3, diff4]);
-        yield_constr.constraint(builder, mult);
-        */
-
-        let diff1 = builder.sub_extension(mem, mem_val_0_0);
-        let diff2 = builder.sub_extension(mem, mem_val_1_0);
-        let diff3 = builder.sub_extension(mem, mem_val_0_1);
-        let diff4 = builder.sub_extension(mem, mem_val_1_1);
-
-        let coff10 = builder.add_const_extension(rs_limbs[0], -F::ONES);
-        let coff11 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let sum1 = builder.mul_many_extension([diff1, coff10, coff11]);
-
-        let coff21 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let sum2 = builder.mul_many_extension([diff2, coff21, rs_limbs[0]]);
-
-        let coff30 = builder.add_const_extension(rs_limbs[0], -F::ONES);
-        let sum3 = builder.mul_many_extension([diff3, rs_limbs[1], coff30]);
-
-        let sum4 = builder.mul_many_extension([diff4, rs_limbs[1], rs_limbs[0]]);
-
-        let sum = builder.add_many_extension([sum1, sum2, sum3, sum4]);
-
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[3], sum]);
-        yield_constr.constraint(builder, mult);
+        enforce_byte_ext(
+            builder,
+            yield_constr,
+            lv,
+            filter,
+            3,
+            &rs_limbs,
+            mem,
+            mem_val_0_0,
+            mem_val_1_0,
+            mem_val_0_1,
+            mem_val_1_1,
+        );
     }
 
     // LHU: (mem >> (16 - (rs & 2) * 8)) & 0xffff
@@ -763,13 +742,17 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         let mem_val_1 = limb_from_bits_le_recursive(builder, mem_val_1);
         let mem_val_0 = limb_from_bits_le_recursive(builder, mem_val_0);
 
-        let diff1 = builder.sub_extension(mem, mem_val_1);
-        let diff2 = builder.sub_extension(mem, mem_val_0);
-        let coff2 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let mult2 = builder.mul_extension(diff2, coff2);
-        let sum = builder.arithmetic_extension(F::ONES, F::ONES, rs_limbs[1], diff1, mult2);
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[4], sum]);
-        yield_constr.constraint(builder, mult);
+        enforce_half_word_ext(
+            builder,
+            yield_constr,
+            lv,
+            filter,
+            4,
+            &rs_limbs,
+            mem,
+            mem_val_1,
+            mem_val_0,
+        );
     }
 
     // LWR:
@@ -798,41 +781,25 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1);
         let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1);
 
-        //let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
-        //    + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
-        //    + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
-        //    + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
-        //yield_constr.constraint(filter * lv.general.io().micro_op[5] * sum);
-        let diff1 = builder.sub_extension(mem, mem_val_0_0);
-        let diff2 = builder.sub_extension(mem, mem_val_1_0);
-        let diff3 = builder.sub_extension(mem, mem_val_0_1);
-        let diff4 = builder.sub_extension(mem, mem_val_1_1);
-
-        let coff10 = builder.add_const_extension(rs_limbs[0], -F::ONES);
-        let coff11 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let sum1 = builder.mul_many_extension([diff1, coff10, coff11]);
-
-        let coff21 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let sum2 = builder.mul_many_extension([diff2, coff21, rs_limbs[0]]);
-
-        let coff30 = builder.add_const_extension(rs_limbs[0], -F::ONES);
-        let sum3 = builder.mul_many_extension([diff3, rs_limbs[1], coff30]);
-
-        let sum4 = builder.mul_many_extension([diff4, rs_limbs[1], rs_limbs[0]]);
-
-        let sum = builder.add_many_extension([sum1, sum2, sum3, sum4]);
-
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[5], sum]);
-        yield_constr.constraint(builder, mult);
+        enforce_byte_ext(
+            builder,
+            yield_constr,
+            lv,
+            filter,
+            5,
+            &rs_limbs,
+            mem,
+            mem_val_0_0,
+            mem_val_1_0,
+            mem_val_0_1,
+            mem_val_1_1,
+        );
     }
 
     // LL:
     {
         let mem_value = limb_from_bits_le_recursive(builder, mem_limbs);
-        // yield_constr.constraint(filter * lv.general.io().micro_op[6] * (mem - mem_value));
-        let diff1 = builder.sub_extension(mem, mem_value);
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[6], diff1]);
-        yield_constr.constraint(builder, mult);
+        enforce_word_ext(builder, yield_constr, lv, filter, 6, mem, mem_value);
     }
 
     // LB: sign_extend::<8>((mem >> (24 - (rs & 3) * 8)) & 0xff)
@@ -857,27 +824,19 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1);
         let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1);
 
-        let diff1 = builder.sub_extension(mem, mem_val_0_0);
-        let diff2 = builder.sub_extension(mem, mem_val_1_0);
-        let diff3 = builder.sub_extension(mem, mem_val_0_1);
-        let diff4 = builder.sub_extension(mem, mem_val_1_1);
-
-        let coff10 = builder.add_const_extension(rs_limbs[0], -F::ONES);
-        let coff11 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let sum1 = builder.mul_many_extension([diff1, coff10, coff11]);
-
-        let coff21 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let sum2 = builder.mul_many_extension([diff2, coff21, rs_limbs[0]]);
-
-        let coff30 = builder.add_const_extension(rs_limbs[0], -F::ONES);
-        let sum3 = builder.mul_many_extension([diff3, rs_limbs[1], coff30]);
-
-        let sum4 = builder.mul_many_extension([diff4, rs_limbs[1], rs_limbs[0]]);
-
-        let sum = builder.add_many_extension([sum1, sum2, sum3, sum4]);
-
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[7], sum]);
-        yield_constr.constraint(builder, mult);
+        enforce_byte_ext(
+            builder,
+            yield_constr,
+            lv,
+            filter,
+            7,
+            &rs_limbs,
+            mem,
+            mem_val_0_0,
+            mem_val_1_0,
+            mem_val_0_1,
+            mem_val_1_1,
+        );
     }
 
     // Disable remaining memory channels, if any.
@@ -1163,10 +1122,15 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     let rs_from_bits = limb_from_bits_le_recursive(builder, rs_limbs);
     let diff1 = builder.sub_extension(rs_from_bits, virt_raw);
 
+    let virt_raw_check = builder.mul_extension(filter, diff1);
+    let virt_raw_check_aux = lv.mem_channels[0].value[1];
+    let constr = builder.sub_extension(virt_raw_check, virt_raw_check_aux);
+    yield_constr.constraint(builder, constr);
+
     let diff2 = builder.add_const_extension(rs_from_bits, u32max);
     let diff2 = builder.sub_extension(diff2, virt_raw);
 
-    let constr = builder.mul_many_extension([filter, diff1, diff2]);
+    let constr = builder.mul_many_extension([virt_raw_check_aux, diff2]);
     yield_constr.constraint(builder, constr);
 
     let rt_from_bits = limb_from_bits_le_recursive(builder, rt_limbs);
@@ -1189,9 +1153,11 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     // Verify op
     let op_inv = lv.general.io().diff_inv;
     let op = lv.mem_channels[5].value[0];
-    let mul = builder.mul_extension(op, op_inv);
-    let diff = builder.sub_extension(ones, mul);
-    let constr = builder.mul_extension(filter, diff);
+    let filter_op = builder.mul_extension(filter, op);
+    let filter_op_aux = lv.mem_channels[0].value[2];
+
+    let filter_op_mul_inv = builder.mul_extension(filter_op_aux, op_inv);
+    let constr = builder.sub_extension(filter, filter_op_mul_inv);
     yield_constr.constraint(builder, constr);
 
     // Constrain mem value
@@ -1225,27 +1191,19 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1);
         let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1);
 
-        let diff1 = builder.sub_extension(mem, mem_val_0_0);
-        let diff2 = builder.sub_extension(mem, mem_val_1_0);
-        let diff3 = builder.sub_extension(mem, mem_val_0_1);
-        let diff4 = builder.sub_extension(mem, mem_val_1_1);
-
-        let coff10 = builder.add_const_extension(rs_limbs[0], -F::ONES);
-        let coff11 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let sum1 = builder.mul_many_extension([diff1, coff10, coff11]);
-
-        let coff21 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let sum2 = builder.mul_many_extension([diff2, coff21, rs_limbs[0]]);
-
-        let coff30 = builder.add_const_extension(rs_limbs[0], -F::ONES);
-        let sum3 = builder.mul_many_extension([diff3, rs_limbs[1], coff30]);
-
-        let sum4 = builder.mul_many_extension([diff4, rs_limbs[1], rs_limbs[0]]);
-
-        let sum = builder.add_many_extension([sum1, sum2, sum3, sum4]);
-
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[0], sum]);
-        yield_constr.constraint(builder, mult);
+        enforce_byte_ext(
+            builder,
+            yield_constr,
+            lv,
+            filter,
+            0,
+            &rs_limbs,
+            mem,
+            mem_val_0_0,
+            mem_val_1_0,
+            mem_val_0_1,
+            mem_val_1_1,
+        );
     }
 
     // SH
@@ -1265,13 +1223,17 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         let mem_val_1 = limb_from_bits_le_recursive(builder, mem_val_1);
         let mem_val_0 = limb_from_bits_le_recursive(builder, mem_val_0);
 
-        let diff1 = builder.sub_extension(mem, mem_val_1);
-        let diff2 = builder.sub_extension(mem, mem_val_0);
-        let coff2 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let mult2 = builder.mul_extension(diff2, coff2);
-        let sum = builder.arithmetic_extension(F::ONES, F::ONES, rs_limbs[1], diff1, mult2);
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[1], sum]);
-        yield_constr.constraint(builder, mult);
+        enforce_half_word_ext(
+            builder,
+            yield_constr,
+            lv,
+            filter,
+            1,
+            &rs_limbs,
+            mem,
+            mem_val_1,
+            mem_val_0,
+        );
     }
 
     // SWL
@@ -1301,36 +1263,26 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1);
         let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1);
 
-        let diff1 = builder.sub_extension(mem, mem_val_0_0);
-        let diff2 = builder.sub_extension(mem, mem_val_1_0);
-        let diff3 = builder.sub_extension(mem, mem_val_0_1);
-        let diff4 = builder.sub_extension(mem, mem_val_1_1);
-
-        let coff10 = builder.add_const_extension(rs_limbs[0], -F::ONES);
-        let coff11 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let sum1 = builder.mul_many_extension([diff1, coff10, coff11]);
-
-        let coff21 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let sum2 = builder.mul_many_extension([diff2, coff21, rs_limbs[0]]);
-
-        let coff30 = builder.add_const_extension(rs_limbs[0], -F::ONES);
-        let sum3 = builder.mul_many_extension([diff3, rs_limbs[1], coff30]);
-
-        let sum4 = builder.mul_many_extension([diff4, rs_limbs[1], rs_limbs[0]]);
-
-        let sum = builder.add_many_extension([sum1, sum2, sum3, sum4]);
-
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[2], sum]);
-        yield_constr.constraint(builder, mult);
+        enforce_byte_ext(
+            builder,
+            yield_constr,
+            lv,
+            filter,
+            2,
+            &rs_limbs,
+            mem,
+            mem_val_0_0,
+            mem_val_1_0,
+            mem_val_0_1,
+            mem_val_1_1,
+        );
     }
 
     // SW
     {
         let rt_value = limb_from_bits_le_recursive(builder, rt_limbs);
         //yield_constr.constraint(filter * lv.general.io().micro_op[3] * (mem - rt_value));
-        let diff1 = builder.sub_extension(mem, rt_value);
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[3], diff1]);
-        yield_constr.constraint(builder, mult);
+        enforce_word_ext(builder, yield_constr, lv, filter, 3, mem, rt_value);
     }
 
     // SWR
@@ -1360,36 +1312,25 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         let mem_val_0_1 = limb_from_bits_le_recursive(builder, mem_val_0_1);
         let mem_val_1_1 = limb_from_bits_le_recursive(builder, mem_val_1_1);
 
-        let diff1 = builder.sub_extension(mem, mem_val_0_0);
-        let diff2 = builder.sub_extension(mem, mem_val_1_0);
-        let diff3 = builder.sub_extension(mem, mem_val_0_1);
-        let diff4 = builder.sub_extension(mem, mem_val_1_1);
-
-        let coff10 = builder.add_const_extension(rs_limbs[0], -F::ONES);
-        let coff11 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let sum1 = builder.mul_many_extension([diff1, coff10, coff11]);
-
-        let coff21 = builder.add_const_extension(rs_limbs[1], -F::ONES);
-        let sum2 = builder.mul_many_extension([diff2, coff21, rs_limbs[0]]);
-
-        let coff30 = builder.add_const_extension(rs_limbs[0], -F::ONES);
-        let sum3 = builder.mul_many_extension([diff3, rs_limbs[1], coff30]);
-
-        let sum4 = builder.mul_many_extension([diff4, rs_limbs[1], rs_limbs[0]]);
-
-        let sum = builder.add_many_extension([sum1, sum2, sum3, sum4]);
-
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[4], sum]);
-        yield_constr.constraint(builder, mult);
+        enforce_byte_ext(
+            builder,
+            yield_constr,
+            lv,
+            filter,
+            4,
+            &rs_limbs,
+            mem,
+            mem_val_0_0,
+            mem_val_1_0,
+            mem_val_0_1,
+            mem_val_1_1,
+        );
     }
 
     // SC
     {
         let rt_value = limb_from_bits_le_recursive(builder, rt_limbs);
-        //yield_constr.constraint(filter * lv.general.io().micro_op[5] * (mem - rt_value));
-        let diff1 = builder.sub_extension(mem, rt_value);
-        let mult = builder.mul_many_extension([filter, lv.general.io().micro_op[5], diff1]);
-        yield_constr.constraint(builder, mult);
+        enforce_word_ext(builder, yield_constr, lv, filter, 5, mem, rt_value);
     }
 
     // Disable remaining memory channels, if any.

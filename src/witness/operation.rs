@@ -913,11 +913,14 @@ pub(crate) fn generate_mload_general<F: Field>(
 ) -> Result<(), ProgramError> {
     let (rs, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
     let (rt, log_in2) = reg_read_with_log(rt_reg, 1, state, &mut row)?;
+    let mut extra_auxs: Vec<(usize, u32)> = vec![];
 
     let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
     let virt = virt_raw & 0xFFFF_FFFC;
     let address = MemoryAddress::new(0, Segment::Code, virt as usize);
     let (mem, log_in3) = mem_read_gp_with_log_and_fill(2, address, state, &mut row);
+
+    extra_auxs.push((1, rs - virt_raw));
 
     row.general
         .io_mut()
@@ -949,15 +952,16 @@ pub(crate) fn generate_mload_general<F: Field>(
         });
 
     let diff = op as u32;
+    extra_auxs.push((2, diff));
 
     let val = match op {
         MemOp::LH => {
-            //diff = op as u32 - MemOp::LH as u32;
             row.general.io_mut().micro_op[0] = F::ONE;
+            extra_auxs.push((3, ));
+            extra_auxs.push((4, diff));
             sign_extend::<16>((mem >> (16 - (rs & 2) * 8)) & 0xffff)
         }
         MemOp::LWL => {
-            //diff = op as u32 - MemOp::LWL as u32;
             row.general.io_mut().micro_op[1] = F::ONE;
             let val = mem << ((rs & 3) * 8);
             let mask = 0xffFFffFFu32 << ((rs & 3) * 8);
@@ -965,33 +969,27 @@ pub(crate) fn generate_mload_general<F: Field>(
         }
         MemOp::LW => {
             row.general.io_mut().micro_op[2] = F::ONE;
-            //diff = op as u32 - MemOp::LW as u32;
             mem
         }
         MemOp::LBU => {
-            //diff = op as u32 - MemOp::LBU as u32;
             row.general.io_mut().micro_op[3] = F::ONE;
             (mem >> (24 - (rs & 3) * 8)) & 0xff
         }
         MemOp::LHU => {
-            //diff = op as u32 - MemOp::LHU as u32;
             row.general.io_mut().micro_op[4] = F::ONE;
             (mem >> (16 - (rs & 2) * 8)) & 0xffff
         }
         MemOp::LWR => {
-            //diff = op as u32 - MemOp::LWR as u32;
             row.general.io_mut().micro_op[5] = F::ONE;
             let val = mem >> (24 - (rs & 3) * 8);
             let mask = 0xffFFffFFu32 >> (24 - (rs & 3) * 8);
             (rt & (!mask)) | val
         }
         MemOp::LL => {
-            //diff = op as u32 - MemOp::LL as u32;
             row.general.io_mut().micro_op[6] = F::ONE;
             mem
         }
         MemOp::LB => {
-            //diff = op as u32 - MemOp::LB as u32;
             row.general.io_mut().micro_op[7] = F::ONE;
             sign_extend::<8>((mem >> (24 - (rs & 3) * 8)) & 0xff)
         }
@@ -1068,40 +1066,34 @@ pub(crate) fn generate_mstore_general<F: Field>(
 
     let val = match op {
         MemOp::SB => {
-            //diff = op as u32 - MemOp::SB as u32;
             row.general.io_mut().micro_op[0] = F::ONE;
             let val = (rt & 0xff) << (24 - (rs & 3) * 8);
             let mask = 0xffFFffFFu32 ^ (0xff << (24 - (rs & 3) * 8));
             (mem & mask) | val
         }
         MemOp::SH => {
-            //diff = op as u32 - MemOp::SH as u32;
             row.general.io_mut().micro_op[1] = F::ONE;
             let val = (rt & 0xffff) << (16 - (rs & 2) * 8);
             let mask = 0xffFFffFFu32 ^ (0xffff << (16 - (rs & 2) * 8));
             (mem & mask) | val
         }
         MemOp::SWL => {
-            //diff = op as u32 - MemOp::SWL as u32;
             row.general.io_mut().micro_op[2] = F::ONE;
             let val = rt >> ((rs & 3) * 8);
             let mask = 0xffFFffFFu32 >> ((rs & 3) * 8);
             (mem & (!mask)) | val
         }
         MemOp::SW => {
-            //diff = op as u32 - MemOp::SW as u32;
             row.general.io_mut().micro_op[3] = F::ONE;
             rt
         }
         MemOp::SWR => {
-            //diff = op as u32 - MemOp::SWR as u32;
             row.general.io_mut().micro_op[4] = F::ONE;
             let val = rt << (24 - (rs & 3) * 8);
             let mask = 0xffFFffFFu32 << (24 - (rs & 3) * 8);
             (mem & (!mask)) | val
         }
         MemOp::SC => {
-            //diff = op as u32 - MemOp::SC as u32;
             row.general.io_mut().micro_op[5] = F::ONE;
             rt
         }
