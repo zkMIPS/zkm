@@ -77,6 +77,25 @@ fn enforce_word<P: PackedField>(
     yield_constr.constraint(filter_op_aux * (mem - mem_value));
 }
 
+#[inline]
+fn enforce_word_ext<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
+    filter: ExtensionTarget<D>,
+    op: usize,
+    mem: ExtensionTarget<D>,
+    mem_value: ExtensionTarget<D>,
+) {
+    let filter_op = builder.mul_extension(filter, lv.general.io().micro_op[op]);
+    let filter_op_aux = lv.mem_channels[0].value[5];
+    let fc = builder.sub_extension(filter_op, filter_op_aux);
+    yield_constr.constraint(builder, fc);
+    let fc = builder.sub_extension(mem, mem_value);
+    let fc = builder.mul_extension(filter_op_aux, fc);
+    yield_constr.constraint(builder, fc);
+}
+
 //let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
 //yield_constr.constraint(filter * lv.general.io().micro_op[0] * sum);
 #[inline]
@@ -103,6 +122,41 @@ fn enforce_half_word<P: PackedField>(
     yield_constr.constraint(filter_op - filter_op_aux);
 
     yield_constr.constraint(filter_op_aux * (lh_sum_a_aux + lh_sum_b_aux));
+}
+
+#[inline]
+fn enforce_half_word_ext<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
+    filter: ExtensionTarget<D>,
+    op: usize,
+    rs_limbs: &[ExtensionTarget<D>],
+    mem: ExtensionTarget<D>,
+    mem_val_1: ExtensionTarget<D>,
+    mem_val_0: ExtensionTarget<D>,
+) {
+    let lh_sum_a_aux = lv.mem_channels[0].value[3];
+    let fc = builder.sub_extension(mem, mem_val_1);
+    let lh_sum_a = builder.mul_extension(rs_limbs[1], fc);
+    let fc = builder.sub_extension(lh_sum_a, lh_sum_a_aux);
+    yield_constr.constraint(builder, fc);
+
+    let lh_sum_b_aux = lv.mem_channels[0].value[4];
+    let fc = builder.add_const_extension(rs_limbs[1], -F::ONES);
+    let fc2 = builder.sub_extension(mem, mem_val_0);
+    let lh_sum_b = builder.mul_extension(fc, fc2);
+    let fc = builder.sub_extension(lh_sum_b, lh_sum_b_aux);
+    yield_constr.constraint(builder, fc);
+
+    let filter_op = builder.mul_extension(filter, lv.general.io().micro_op[op]);
+    let filter_op_aux = lv.mem_channels[0].value[5];
+    let fc = builder.sub_extension(filter_op, filter_op_aux);
+    yield_constr.constraint(builder, fc);
+
+    let fc = builder.add_extension(lh_sum_a_aux, lh_sum_b_aux);
+    let fc = builder.mul_extension(filter_op_aux, fc);
+    yield_constr.constraint(builder, fc);
 }
 
 //let sum = (mem - mem_val_0_0) * (rs_limbs[1] - P::ONES) * (rs_limbs[0] - P::ONES)
@@ -140,6 +194,58 @@ fn enforce_byte<P: PackedField>(
     yield_constr.constraint(filter_op - filter_op_aux);
 
     yield_constr.constraint(sum_aux * filter_op_aux);
+}
+
+#[inline]
+fn enforce_byte_ext<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
+    filter: ExtensionTarget<D>,
+    op: usize,
+    rs_limbs: &[ExtensionTarget<D>],
+    mem: ExtensionTarget<D>,
+    mem_val_0_0: ExtensionTarget<D>,
+    mem_val_1_0: ExtensionTarget<D>,
+    mem_val_0_1: ExtensionTarget<D>,
+    mem_val_1_1: ExtensionTarget<D>,
+) {
+
+    let rs_limbs_1_rs_limbs_0 = builder.mul_extension(rs_limbs[0], rs_limbs[1]);
+    let rs_limbs_1_rs_limbs_0_aux = lv.mem_channels[0].value[3];
+    let fc = builder.sub_extension(rs_limbs_1_rs_limbs_0, rs_limbs_1_rs_limbs_0_aux);
+    yield_constr.constraint(builder, fc);
+
+    let mem00 = builder.sub_extension(mem, mem_val_0_0);
+    let fc0 = builder.add_const_extension(rs_limbs_1_rs_limbs_0_aux, F::ONES);
+    let fc1 = builder.add_extension(rs_limbs[1], rs_limbs[0]);
+    let fc00 = builder.sub_extension(fc0, fc1);
+    let fc00 = builder.mul_extension(mem00, fc00);
+
+    let mem10 = builder.sub_extension(mem, mem_val_1_0);
+    let fc2 = builder.sub_extension(rs_limbs_1_rs_limbs_0_aux, rs_limbs[0]);
+    let fc10 = builder.mul_extension(mem10, fc2);
+
+    let mem01 = builder.sub_extension(mem, mem_val_0_1);
+    let fc3 = builder.sub_extension(rs_limbs_1_rs_limbs_0_aux, rs_limbs[1]);
+    let fc01 = builder.mul_extension(mem01, fc3);
+
+    let mem11 = builder.sub_extension(mem, mem_val_1_1);
+    let fc11 = builder.mul_extension(mem11, rs_limbs_1_rs_limbs_0_aux);
+
+    let sum = builder.add_many_extension([fc00, fc01, fc10, fc11]);
+
+    let sum_aux = lv.mem_channels[0].value[4];
+    let fc = builder.sub_extension(sum, sum_aux);
+    yield_constr.constraint(builder, fc);
+
+    let filter_op = builder.mul_extension(filter, lv.general.io().micro_op[op]);
+    let filter_op_aux = lv.mem_channels[0].value[5];
+    let fc = builder.sub_extension(filter_op, filter_op_aux);
+    yield_constr.constraint(builder, fc);
+
+    let fc = builder.mul_extension(filter_op_aux, sum_aux);
+    yield_constr.constraint(builder, fc);
 }
 
 /// Constant -4
