@@ -43,8 +43,11 @@ fn split_elf_into_segs(
     state.load_input(&block_path);
 
     let mut instrumented_state = InstrumentedState::new(state, block_path);
-    instrumented_state.split_segment(false, seg_path);
+    std::fs::create_dir_all(seg_path).unwrap();
+    let new_writer = |_: &str| -> Option<std::fs::File> { None };
+    instrumented_state.split_segment(false, seg_path, new_writer);
     let mut segment_step: usize = seg_size;
+    let new_writer = |name: &str| -> Option<std::fs::File> { File::create(name).ok() };
     loop {
         if instrumented_state.state.exited {
             break;
@@ -53,11 +56,11 @@ fn split_elf_into_segs(
         segment_step -= 1;
         if segment_step == 0 {
             segment_step = seg_size;
-            instrumented_state.split_segment(true, seg_path);
+            instrumented_state.split_segment(true, seg_path, new_writer);
         }
     }
 
-    instrumented_state.split_segment(true, seg_path);
+    instrumented_state.split_segment(true, seg_path, new_writer);
     log::info!("Split done");
 }
 

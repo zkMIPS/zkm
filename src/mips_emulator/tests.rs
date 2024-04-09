@@ -2,6 +2,7 @@
 #[cfg(test)]
 mod tests {
     use elf::{endian::AnyEndian, ElfBytes};
+    use std::fs::File;
     use std::{
         fs,
         path::{Path, PathBuf},
@@ -88,8 +89,11 @@ mod tests {
         state.load_input(&block_path);
 
         let mut instrumented_state = InstrumentedState::new(state, block_path);
-        instrumented_state.split_segment(false, OUTPUT);
+        std::fs::create_dir_all(OUTPUT).unwrap();
+        let new_writer = |_: &str| -> Option<std::fs::File> { None };
+        instrumented_state.split_segment(false, OUTPUT, new_writer);
         let mut segment_step = SEGMENT_STEPS;
+        let new_writer = |name: &str| -> Option<std::fs::File> { File::create(name).ok() };
         loop {
             if instrumented_state.state.exited {
                 break;
@@ -98,11 +102,11 @@ mod tests {
             segment_step -= 1;
             if segment_step == 0 {
                 segment_step = SEGMENT_STEPS;
-                instrumented_state.split_segment(true, OUTPUT);
+                instrumented_state.split_segment(true, OUTPUT, new_writer);
             }
         }
 
-        instrumented_state.split_segment(true, OUTPUT);
+        instrumented_state.split_segment(true, OUTPUT, new_writer);
     }
 
     #[test]
@@ -117,8 +121,11 @@ mod tests {
         state.patch_stack("");
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
-        instrumented_state.split_segment(false, OUTPUT);
+        std::fs::create_dir_all(OUTPUT).unwrap();
+        let new_writer = |_: &str| -> Option<std::fs::File> { None };
+        instrumented_state.split_segment(false, OUTPUT, new_writer);
         let mut segment_step = SEGMENT_STEPS;
+        let new_writer = |name: &str| -> Option<std::fs::File> { File::create(name).ok() };
         loop {
             if instrumented_state.state.exited {
                 break;
@@ -127,11 +134,11 @@ mod tests {
             segment_step -= 1;
             if segment_step == 0 {
                 segment_step = SEGMENT_STEPS;
-                instrumented_state.split_segment(true, OUTPUT);
+                instrumented_state.split_segment(true, OUTPUT, new_writer);
             }
         }
 
-        instrumented_state.split_segment(true, OUTPUT);
+        instrumented_state.split_segment(true, OUTPUT, new_writer);
     }
 
     #[test]
