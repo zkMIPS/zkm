@@ -913,14 +913,11 @@ pub(crate) fn generate_mload_general<F: Field>(
 ) -> Result<(), ProgramError> {
     let (rs, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
     let (rt, log_in2) = reg_read_with_log(rt_reg, 1, state, &mut row)?;
-    let mut extra_auxs: Vec<(usize, u32)> = vec![];
 
     let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
     let virt = virt_raw & 0xFFFF_FFFC;
     let address = MemoryAddress::new(0, Segment::Code, virt as usize);
     let (mem, log_in3) = mem_read_gp_with_log_and_fill(2, address, state, &mut row);
-
-    extra_auxs.push((1, rs - virt_raw));
 
     row.general
         .io_mut()
@@ -952,13 +949,10 @@ pub(crate) fn generate_mload_general<F: Field>(
         });
 
     let diff = op as u32;
-    extra_auxs.push((2, diff));
 
     let val = match op {
         MemOp::LH => {
             row.general.io_mut().micro_op[0] = F::ONE;
-            extra_auxs.push((3, ));
-            extra_auxs.push((4, diff));
             sign_extend::<16>((mem >> (16 - (rs & 2) * 8)) & 0xffff)
         }
         MemOp::LWL => {

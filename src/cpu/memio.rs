@@ -72,7 +72,7 @@ fn enforce_word<P: PackedField>(
     mem_value: P,
 ) {
     let filter_op = filter * lv.general.io().micro_op[op];
-    let filter_op_aux = lv.mem_channels[0].value[2];
+    let filter_op_aux = lv.general.io().aux_filter_op;
     yield_constr.constraint(filter_op - filter_op_aux);
     yield_constr.constraint(filter_op_aux * (mem - mem_value));
 }
@@ -88,7 +88,7 @@ fn enforce_word_ext<F: RichField + Extendable<D>, const D: usize>(
     mem_value: ExtensionTarget<D>,
 ) {
     let filter_op = builder.mul_extension(filter, lv.general.io().micro_op[op]);
-    let filter_op_aux = lv.mem_channels[0].value[3];
+    let filter_op_aux = lv.general.io().aux_filter_op;
     let fc = builder.sub_extension(filter_op, filter_op_aux);
     yield_constr.constraint(builder, fc);
     let fc = builder.sub_extension(mem, mem_value);
@@ -109,16 +109,16 @@ fn enforce_half_word<P: PackedField>(
     mem_val_1: P,
     mem_val_0: P,
 ) {
-    let lh_sum_a_aux = lv.mem_channels[0].value[3];
+    let lh_sum_a_aux = lv.general.io().aux_extra[0];
     let lh_sum_a = rs_limbs[1] * (mem - mem_val_1);
     yield_constr.constraint(lh_sum_a - lh_sum_a_aux);
 
-    let lh_sum_b_aux = lv.mem_channels[0].value[4];
+    let lh_sum_b_aux = lv.general.io().aux_extra[1];
     let lh_sum_b = (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
     yield_constr.constraint(lh_sum_b - lh_sum_b_aux);
 
     let filter_op = filter * lv.general.io().micro_op[op];
-    let filter_op_aux = lv.mem_channels[0].value[2];
+    let filter_op_aux = lv.general.io().aux_filter_op;
     yield_constr.constraint(filter_op - filter_op_aux);
 
     yield_constr.constraint(filter_op_aux * (lh_sum_a_aux + lh_sum_b_aux));
@@ -136,13 +136,13 @@ fn enforce_half_word_ext<F: RichField + Extendable<D>, const D: usize>(
     mem_val_1: ExtensionTarget<D>,
     mem_val_0: ExtensionTarget<D>,
 ) {
-    let lh_sum_a_aux = lv.mem_channels[0].value[3];
+    let lh_sum_a_aux = lv.general.io().aux_extra[0];
     let fc = builder.sub_extension(mem, mem_val_1);
     let lh_sum_a = builder.mul_extension(rs_limbs[1], fc);
     let fc = builder.sub_extension(lh_sum_a, lh_sum_a_aux);
     yield_constr.constraint(builder, fc);
 
-    let lh_sum_b_aux = lv.mem_channels[0].value[4];
+    let lh_sum_b_aux = lv.general.io().aux_extra[1];
     let fc = builder.add_const_extension(rs_limbs[1], -F::ONES);
     let fc2 = builder.sub_extension(mem, mem_val_0);
     let lh_sum_b = builder.mul_extension(fc, fc2);
@@ -150,7 +150,7 @@ fn enforce_half_word_ext<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, fc);
 
     let filter_op = builder.mul_extension(filter, lv.general.io().micro_op[op]);
-    let filter_op_aux = lv.mem_channels[0].value[2];
+    let filter_op_aux = lv.general.io().aux_filter_op;
     let fc = builder.sub_extension(filter_op, filter_op_aux);
     yield_constr.constraint(builder, fc);
 
@@ -178,7 +178,7 @@ fn enforce_byte<P: PackedField>(
     mem_val_1_1: P,
 ) {
     let rs_limbs_1_rs_limbs_0 = rs_limbs[0] * rs_limbs[1];
-    let rs_limbs_1_rs_limbs_0_aux = lv.mem_channels[0].value[3];
+    let rs_limbs_1_rs_limbs_0_aux = lv.general.io().aux_extra[0];
     yield_constr.constraint(rs_limbs_1_rs_limbs_0 - rs_limbs_1_rs_limbs_0_aux);
 
     let sum = (mem - mem_val_0_0)
@@ -186,11 +186,11 @@ fn enforce_byte<P: PackedField>(
         + (mem - mem_val_1_0) * (rs_limbs_1_rs_limbs_0_aux - rs_limbs[0])
         + (mem - mem_val_0_1) * (rs_limbs_1_rs_limbs_0_aux - rs_limbs[1])
         + (mem - mem_val_1_1) * (rs_limbs_1_rs_limbs_0_aux);
-    let sum_aux = lv.mem_channels[0].value[4];
+    let sum_aux = lv.general.io().aux_extra[1];
     yield_constr.constraint(sum - sum_aux);
 
     let filter_op = filter * lv.general.io().micro_op[op];
-    let filter_op_aux = lv.mem_channels[0].value[2];
+    let filter_op_aux = lv.general.io().aux_filter_op;
     yield_constr.constraint(filter_op - filter_op_aux);
 
     yield_constr.constraint(sum_aux * filter_op_aux);
@@ -211,7 +211,7 @@ fn enforce_byte_ext<F: RichField + Extendable<D>, const D: usize>(
     mem_val_1_1: ExtensionTarget<D>,
 ) {
     let rs_limbs_1_rs_limbs_0 = builder.mul_extension(rs_limbs[0], rs_limbs[1]);
-    let rs_limbs_1_rs_limbs_0_aux = lv.mem_channels[0].value[3];
+    let rs_limbs_1_rs_limbs_0_aux = lv.general.io().aux_extra[0];
     let fc = builder.sub_extension(rs_limbs_1_rs_limbs_0, rs_limbs_1_rs_limbs_0_aux);
     yield_constr.constraint(builder, fc);
 
@@ -234,12 +234,12 @@ fn enforce_byte_ext<F: RichField + Extendable<D>, const D: usize>(
 
     let sum = builder.add_many_extension([fc00, fc01, fc10, fc11]);
 
-    let sum_aux = lv.mem_channels[0].value[4];
+    let sum_aux = lv.general.io().aux_extra[1];
     let fc = builder.sub_extension(sum, sum_aux);
     yield_constr.constraint(builder, fc);
 
     let filter_op = builder.mul_extension(filter, lv.general.io().micro_op[op]);
-    let filter_op_aux = lv.mem_channels[0].value[2];
+    let filter_op_aux = lv.general.io().aux_filter_op;
     let fc = builder.sub_extension(filter_op, filter_op_aux);
     yield_constr.constraint(builder, fc);
 
@@ -285,10 +285,10 @@ fn eval_packed_load<P: PackedField>(
     let rs_from_bits = limb_from_bits_le(rs_limbs);
     let u32max = P::Scalar::from_canonical_u64(1u64 << 32);
 
-    // All the AUXs are stored in values[1..7]
     let virt_raw_check = filter * (rs_from_bits - virt_raw);
-    let virt_raw_check_aux = lv.mem_channels[0].value[1];
+    let virt_raw_check_aux = lv.general.io().aux_rs;
     yield_constr.constraint(virt_raw_check - virt_raw_check_aux);
+
     yield_constr.constraint(virt_raw_check_aux * (rs_from_bits + u32max - virt_raw));
 
     let rt_from_bits = limb_from_bits_le(rt_limbs);
@@ -308,7 +308,7 @@ fn eval_packed_load<P: PackedField>(
     let op_inv = lv.general.io().diff_inv;
     let op = lv.mem_channels[4].value[0];
     let filter_op = filter * op;
-    let filter_op_aux = lv.mem_channels[0].value[2];
+    let filter_op_aux = lv.general.io().aux_filter_op;
     yield_constr.constraint(filter_op - filter_op_aux);
     yield_constr.constraint(filter - filter_op_aux * op_inv);
 
@@ -473,7 +473,7 @@ fn eval_packed_load<P: PackedField>(
             yield_constr,
             lv,
             filter,
-            6,
+            5,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -515,7 +515,7 @@ fn eval_packed_load<P: PackedField>(
             yield_constr,
             lv,
             filter,
-            7,
+            6,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -574,10 +574,9 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     let rs_from_bits = limb_from_bits_le_recursive(builder, rs_limbs);
     let diff1 = builder.sub_extension(rs_from_bits, virt_raw);
     let virt_raw_check = builder.mul_extension(filter, diff1);
-    let virt_raw_check_aux = lv.mem_channels[0].value[1];
+    let virt_raw_check_aux = lv.general.io().aux_rs;
     let constr = builder.sub_extension(virt_raw_check, virt_raw_check_aux);
     yield_constr.constraint(builder, constr);
-
     let diff2 = builder.add_const_extension(rs_from_bits, u32max);
     let diff2 = builder.sub_extension(diff2, virt_raw);
 
@@ -605,7 +604,9 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     let op_inv = lv.general.io().diff_inv;
     let op = lv.mem_channels[4].value[0];
     let filter_op = builder.mul_extension(filter, op);
-    let filter_op_aux = lv.mem_channels[0].value[2];
+    let filter_op_aux = lv.general.io().aux_filter_op;
+    let constr = builder.sub_extension(filter_op, filter_op_aux);
+    yield_constr.constraint(builder, constr);
 
     let filter_op_mul_inv = builder.mul_extension(filter_op_aux, op_inv);
     let constr = builder.sub_extension(filter, filter_op_mul_inv);
@@ -829,7 +830,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
             yield_constr,
             lv,
             filter,
-            7,
+            6,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -880,7 +881,7 @@ fn eval_packed_store<P: PackedField>(
     let u32max = P::Scalar::from_canonical_u64(1u64 << 32);
 
     let virt_raw_check = filter * (rs_from_bits - virt_raw);
-    let virt_raw_check_aux = lv.mem_channels[0].value[1];
+    let virt_raw_check_aux = lv.general.io().aux_rs;
     yield_constr.constraint(virt_raw_check - virt_raw_check_aux);
     yield_constr.constraint(virt_raw_check_aux * (rs_from_bits + u32max - virt_raw));
 
@@ -901,7 +902,7 @@ fn eval_packed_store<P: PackedField>(
     let op_inv = lv.general.io().diff_inv;
     let op = lv.mem_channels[5].value[0];
     let filter_op = filter * op;
-    let filter_op_aux = lv.mem_channels[0].value[2];
+    let filter_op_aux = lv.general.io().aux_filter_op;
     yield_constr.constraint(filter_op - filter_op_aux);
     yield_constr.constraint(filter - filter_op_aux * op_inv);
 
@@ -1123,7 +1124,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     let diff1 = builder.sub_extension(rs_from_bits, virt_raw);
 
     let virt_raw_check = builder.mul_extension(filter, diff1);
-    let virt_raw_check_aux = lv.mem_channels[0].value[1];
+    let virt_raw_check_aux = lv.general.io().aux_rs;
     let constr = builder.sub_extension(virt_raw_check, virt_raw_check_aux);
     yield_constr.constraint(builder, constr);
 
@@ -1154,7 +1155,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     let op_inv = lv.general.io().diff_inv;
     let op = lv.mem_channels[5].value[0];
     let filter_op = builder.mul_extension(filter, op);
-    let filter_op_aux = lv.mem_channels[0].value[2];
+    let filter_op_aux = lv.general.io().aux_filter_op;
 
     let filter_op_mul_inv = builder.mul_extension(filter_op_aux, op_inv);
     let constr = builder.sub_extension(filter, filter_op_mul_inv);

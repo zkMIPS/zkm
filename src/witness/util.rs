@@ -138,7 +138,6 @@ pub(crate) fn reg_write_with_log<F: Field>(
     value: usize,
     state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
-    extra_auxs: &[(usize, u32)]
 ) -> Result<MemoryOp, ProgramError> {
     if index == 0 {
         // Ignore write to r0
@@ -185,10 +184,6 @@ pub(crate) fn reg_write_with_log<F: Field>(
     channel.addr_segment = F::from_canonical_usize(address.segment);
     channel.addr_virtual = F::from_canonical_usize(address.virt);
     channel.value[0] = F::from_canonical_u32(value as u32);
-    for (k, v) in extra_auxs.iter() {
-        assert!(k != 0);
-        channel.value[k] = F::from_canonical_u32(val);
-    }
     Ok(op)
 }
 
@@ -283,7 +278,6 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     state: &GenerationState<F>,
     row: &mut CpuColumnsView<F>,
     val: u32, // LE
-    extra_auxs: &[(usize, u32)]
 ) -> MemoryOp {
     let op = mem_write_log(MemoryChannel::GeneralPurpose(n), address, state, val);
 
@@ -295,10 +289,6 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     channel.addr_segment = F::from_canonical_usize(address.segment);
     channel.addr_virtual = F::from_canonical_usize(address.virt);
     channel.value[0] = F::from_canonical_u32(val);
-    for (k, v) in extra_auxs.iter() {
-        assert!(k != 0);
-        channel.value[k] = F::from_canonical_u32(val);
-    }
     op
 }
 

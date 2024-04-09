@@ -126,7 +126,10 @@ pub(crate) struct CpuIoView<T: Copy> {
     pub(crate) rt_le: [T; 32],
     pub(crate) mem_le: [T; 32],
     pub(crate) micro_op: [T; 8],
+    pub(crate) aux_extra: [T; 2],
     pub(crate) diff_inv: T,
+    pub(crate) aux_rs: T,
+    pub(crate) aux_filter_op: T,
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.
