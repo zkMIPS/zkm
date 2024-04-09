@@ -1156,6 +1156,8 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     let op = lv.mem_channels[5].value[0];
     let filter_op = builder.mul_extension(filter, op);
     let filter_op_aux = lv.general.io().aux_filter_op;
+    let constr = builder.sub_extension(filter_op, filter_op_aux);
+    yield_constr.constraint(builder, constr);
 
     let filter_op_mul_inv = builder.mul_extension(filter_op_aux, op_inv);
     let constr = builder.sub_extension(filter, filter_op_mul_inv);
