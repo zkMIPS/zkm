@@ -436,9 +436,13 @@ pub(crate) fn generate_branch<F: Field>(
 
     if src1 == src2 {
         row.branch.eq = F::ONE;
-    } else if src1 > src2 {
+    }
+
+    if src1 > src2 {
         row.branch.gt = F::ONE;
-    } else if src1 < src2 {
+    }
+
+    if src1 < src2 {
         row.branch.lt = F::ONE;
     }
 
