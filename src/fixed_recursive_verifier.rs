@@ -353,6 +353,7 @@ where
                 *table = MaybeUninit::new(value);
             }
             unsafe {
+                #[allow(clippy::missing_transmute_annotations)]
                 mem::transmute::<_, [RecursiveCircuitsForTable<F, C, D>; NUM_TABLES]>(by_table)
             }
         };
