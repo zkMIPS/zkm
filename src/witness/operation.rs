@@ -928,6 +928,8 @@ pub(crate) fn generate_mload_general<F: Field>(
             *v = F::from_canonical_u32((mem >> i) & 1);
         });
 
+    row.general.io_mut().aux_rs = F::from_canonical_u32(rs as u32 - virt_raw);
+
     let rs = virt_raw;
     let rt = rt as u32;
 
@@ -949,10 +951,15 @@ pub(crate) fn generate_mload_general<F: Field>(
         });
 
     let diff = op as u32;
+    row.general.io_mut().aux_filter_op = F::from_canonical_u32(diff);
 
     let val = match op {
         MemOp::LH => {
             row.general.io_mut().micro_op[0] = F::ONE;
+            //row.general.io_mut().aux_extra[1] =
+            //    (rs&2) * sign_extend::<16>((mem >> (16 - (rs & 2) * 8)) & 0xffff);
+            //row.general.io_mut().aux_extra[0] =
+            //    (rs&2 - 1) * sign_extend::<16>((mem >> (16 - (rs & 0) * 8)) & 0xffff);
             sign_extend::<16>((mem >> (16 - (rs & 2) * 8)) & 0xffff)
         }
         MemOp::LWL => {

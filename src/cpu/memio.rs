@@ -109,11 +109,11 @@ fn enforce_half_word<P: PackedField>(
     mem_val_1: P,
     mem_val_0: P,
 ) {
-    let lh_sum_a_aux = lv.general.io().aux_extra[0];
+    let lh_sum_a_aux = lv.general.io().aux_extra[1];
     let lh_sum_a = rs_limbs[1] * (mem - mem_val_1);
     yield_constr.constraint(lh_sum_a - lh_sum_a_aux);
 
-    let lh_sum_b_aux = lv.general.io().aux_extra[1];
+    let lh_sum_b_aux = lv.general.io().aux_extra[0];
     let lh_sum_b = (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
     yield_constr.constraint(lh_sum_b - lh_sum_b_aux);
 
@@ -136,13 +136,13 @@ fn enforce_half_word_ext<F: RichField + Extendable<D>, const D: usize>(
     mem_val_1: ExtensionTarget<D>,
     mem_val_0: ExtensionTarget<D>,
 ) {
-    let lh_sum_a_aux = lv.general.io().aux_extra[0];
+    let lh_sum_a_aux = lv.general.io().aux_extra[1];
     let fc = builder.sub_extension(mem, mem_val_1);
     let lh_sum_a = builder.mul_extension(rs_limbs[1], fc);
     let fc = builder.sub_extension(lh_sum_a, lh_sum_a_aux);
     yield_constr.constraint(builder, fc);
 
-    let lh_sum_b_aux = lv.general.io().aux_extra[1];
+    let lh_sum_b_aux = lv.general.io().aux_extra[0];
     let fc = builder.add_const_extension(rs_limbs[1], -F::ONES);
     let fc2 = builder.sub_extension(mem, mem_val_0);
     let lh_sum_b = builder.mul_extension(fc, fc2);
