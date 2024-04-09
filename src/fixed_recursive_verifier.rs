@@ -323,6 +323,7 @@ where
         Ok(buffer)
     }
 
+    #[allow(clippy::missing_transmute_annotations)]
     pub fn from_bytes(
         bytes: &[u8],
         gate_serializer: &dyn GateSerializer<F, D>,
