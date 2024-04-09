@@ -1,6 +1,6 @@
 #![allow(clippy::upper_case_acronyms)]
 use elf::{endian::AnyEndian, ElfBytes};
-use std::fs;
+use std::fs::{self, File};
 use std::time::Duration;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -9,6 +9,7 @@ use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use std::io::BufReader;
 use zkm::all_stark::AllStark;
 use zkm::config::StarkConfig;
 use zkm::cpu::kernel::assembler::segment_kernel;
@@ -42,8 +43,11 @@ fn split_elf_into_segs(
     state.load_input(&block_path);
 
     let mut instrumented_state = InstrumentedState::new(state, block_path);
-    instrumented_state.split_segment(false, seg_path);
+    std::fs::create_dir_all(seg_path).unwrap();
+    let new_writer = |_: &str| -> Option<std::fs::File> { None };
+    instrumented_state.split_segment(false, seg_path, new_writer);
     let mut segment_step: usize = seg_size;
+    let new_writer = |name: &str| -> Option<std::fs::File> { File::create(name).ok() };
     loop {
         if instrumented_state.state.exited {
             break;
@@ -52,11 +56,11 @@ fn split_elf_into_segs(
         segment_step -= 1;
         if segment_step == 0 {
             segment_step = seg_size;
-            instrumented_state.split_segment(true, seg_path);
+            instrumented_state.split_segment(true, seg_path, new_writer);
         }
     }
 
-    instrumented_state.split_segment(true, seg_path);
+    instrumented_state.split_segment(true, seg_path, new_writer);
     log::info!("Split done");
 }
 
@@ -164,7 +168,8 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     );
 
     let seg_file = format!("{}/0", seg_output);
-    let input_first = segment_kernel(basedir, block_no, "", &seg_file, seg_size);
+    let seg_reader = BufReader::new(File::open(seg_file)?);
+    let input_first = segment_kernel(basedir, block_no, "", seg_reader, seg_size);
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
     let (root_proof_first, first_public_values) =
         all_circuits.prove_root(&all_stark, &input_first, &config, &mut timing)?;
@@ -173,7 +178,8 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     all_circuits.verify_root(root_proof_first.clone())?;
 
     let seg_file = format!("{}/1", seg_output);
-    let input = segment_kernel(basedir, block_no, "", &seg_file, seg_size);
+    let seg_reader = BufReader::new(File::open(seg_file)?);
+    let input = segment_kernel(basedir, block_no, "", seg_reader, seg_size);
     let mut timing = TimingTree::new("prove root second", log::Level::Info);
     let (root_proof, public_values) =
         all_circuits.prove_root(&all_stark, &input, &config, &mut timing)?;

@@ -5,8 +5,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use elf::{endian::BigEndian, file::Class, ElfBytes};
 use keccak_hash::keccak;
 use serde::{Deserialize, Serialize};
-use std::fs::{self, File};
-use std::io::BufReader;
+use std::fs::{self};
+use std::io::Read;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
 pub const INIT_SP: u32 = 0x7fffd000;
@@ -229,11 +229,7 @@ impl Program {
         })
     }
 
-    pub fn load_segment(name: &str) -> Result<Program> {
-        log::trace!("load segment from {}", name);
-        let f = File::open(name).unwrap();
-        let reader = BufReader::new(f);
-
+    pub fn load_segment<T: Read>(reader: T) -> Result<Program> {
         let segment: Segment = serde_json::from_reader(reader).unwrap();
 
         let entry = segment.pc;
@@ -284,7 +280,8 @@ impl Program {
 mod test {
     use crate::cpu::kernel::elf::*;
     use crate::mips_emulator::utils::get_block_path;
-    use std::io::Read;
+    use std::fs::File;
+    use std::io::BufReader;
 
     #[test]
     fn load_and_check_mips_elf() {
