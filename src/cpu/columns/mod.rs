@@ -6,12 +6,14 @@ use std::ops::{Index, IndexMut};
 use plonky2::field::types::Field;
 
 use crate::cpu::columns::general::CpuGeneralColumnsView;
+use crate::cpu::columns::memio::MemIOView;
 use crate::cpu::columns::ops::OpsColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::VALUE_LIMBS;
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
 mod general;
+pub(crate) mod memio;
 pub(crate) mod ops;
 
 #[repr(C)]
@@ -68,6 +70,7 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_keccak_sponge: T,
 
     pub(crate) general: CpuGeneralColumnsView<T>,
+    pub(crate) memio: MemIOView<T>,
 
     pub(crate) clock: T,
     pub mem_channels: [MemoryChannelView<T>; NUM_GP_CHANNELS],
