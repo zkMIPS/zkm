@@ -953,49 +953,82 @@ pub(crate) fn generate_mload_general<F: Field>(
     let diff = op as u32;
     row.general.io_mut().aux_filter_op = F::from_canonical_u32(diff);
 
-    let val = match op {
+    let rs1 = rs & 2;
+    let rs0 = rs & 1;
+    let aux_rs_1_rs_0 = (rs & 2) * (rs & 1);
+
+    let aux_sum = |mem_val: &dyn Fn(u32, u32, u32) -> u32| -> (u32, u32) {
+        let mem_ = mem_val(rs, 3, mem);
+        let rs_limbs_1_rs_limbs_0_aux = aux_rs_1_rs_0;
+        let mem_val_0_0 = mem_val(rs, 0, mem);
+        let mem_val_1_0 = mem_val(rs, 1, mem);
+        let mem_val_0_1 = mem_val(rs, 2, mem);
+        let mem_val_1_1 = mem_val(rs, 3, mem);
+
+        let sum = (mem_ - mem_val_0_0) * (rs_limbs_1_rs_limbs_0_aux - rs1 - rs0 + 1)
+            + (mem_ - mem_val_1_0) * (rs_limbs_1_rs_limbs_0_aux - rs0)
+            + (mem_ - mem_val_0_1) * (rs_limbs_1_rs_limbs_0_aux - rs1)
+            + (mem_ - mem_val_1_1) * (rs_limbs_1_rs_limbs_0_aux);
+        (sum, mem_)
+    };
+
+    let (aux_a, aux_b, val) = match op {
         MemOp::LH => {
             row.general.io_mut().micro_op[0] = F::ONE;
-            //row.general.io_mut().aux_extra[1] =
-            //    (rs&2) * sign_extend::<16>((mem >> (16 - (rs & 2) * 8)) & 0xffff);
-            //row.general.io_mut().aux_extra[0] =
-            //    (rs&2 - 1) * sign_extend::<16>((mem >> (16 - (rs & 0) * 8)) & 0xffff);
-            sign_extend::<16>((mem >> (16 - (rs & 2) * 8)) & 0xffff)
+            let out = |i: u32| -> u32 { sign_extend::<16>((mem >> (16 - i * 8)) & 0xffff) };
+            (out(0), out(2), out(rs & 2))
         }
         MemOp::LWL => {
             row.general.io_mut().micro_op[1] = F::ONE;
-            let val = mem << ((rs & 3) * 8);
-            let mask = 0xffFFffFFu32 << ((rs & 3) * 8);
-            (rt & (!mask)) | val
+            let out = |rs: u32, i: u32, mem_: u32| -> u32 {
+                let val = mem_ << ((rs & i) * 8);
+                let mask: u32 = 0xffFFffFFu32 << ((rs & i) * 8);
+                (rt & (!mask)) | val
+            };
+            let (aux_b, out_val) = aux_sum(&out);
+            (aux_rs_1_rs_0, aux_b, out_val)
         }
         MemOp::LW => {
             row.general.io_mut().micro_op[2] = F::ONE;
-            mem
+            (0, 0, mem)
         }
         MemOp::LBU => {
             row.general.io_mut().micro_op[3] = F::ONE;
-            (mem >> (24 - (rs & 3) * 8)) & 0xff
+            let out = |rs: u32, i: u32, mem_: u32| -> u32 { (mem_ >> (24 - (rs & i) * 8)) & 0xff };
+            let (aux_b, out_val) = aux_sum(&out);
+            (aux_rs_1_rs_0, aux_b, out_val)
         }
         MemOp::LHU => {
             row.general.io_mut().micro_op[4] = F::ONE;
-            (mem >> (16 - (rs & 2) * 8)) & 0xffff
+            let out = |i: u32| -> u32 { (mem >> (16 - i * 8)) & 0xffff };
+            (out(0), out(2), out(rs & 2))
         }
         MemOp::LWR => {
             row.general.io_mut().micro_op[5] = F::ONE;
-            let val = mem >> (24 - (rs & 3) * 8);
-            let mask = 0xffFFffFFu32 >> (24 - (rs & 3) * 8);
-            (rt & (!mask)) | val
+            let out = |rs: u32, i: u32, mem_: u32| -> u32 {
+                let val = mem_ >> (24 - (rs & i) * 8);
+                let mask = 0xffFFffFFu32 >> (24 - (rs & i) * 8);
+                (rt & (!mask)) | val
+            };
+            let (aux_b, out_val) = aux_sum(&out);
+            (aux_rs_1_rs_0, aux_b, out_val)
         }
         MemOp::LL => {
             row.general.io_mut().micro_op[6] = F::ONE;
-            mem
+            (0, 0, mem)
         }
         MemOp::LB => {
             row.general.io_mut().micro_op[7] = F::ONE;
-            sign_extend::<8>((mem >> (24 - (rs & 3) * 8)) & 0xff)
+            let out = |rs: u32, i: u32, mem_: u32| -> u32 {
+                sign_extend::<8>((mem_ >> (24 - (rs & i) * 8)) & 0xff)
+            };
+            let (aux_b, out_val) = aux_sum(&out);
+            (aux_rs_1_rs_0, aux_b, out_val)
         }
         _ => todo!(),
     };
+
+    row.general.io_mut().aux_extra = [F::from_canonical_u32(aux_a), F::from_canonical_u32(aux_b)];
 
     let log_out0 = reg_write_with_log(rt_reg, 3, val as usize, state, &mut row)?;
 
@@ -1044,6 +1077,8 @@ pub(crate) fn generate_mstore_general<F: Field>(
             *v = F::from_canonical_u32((mem >> i) & 1);
         });
 
+    row.general.io_mut().aux_rs = F::from_canonical_u32(rs as u32 - virt_raw);
+
     let rs = virt_raw;
     let rt = rt as u32;
 
@@ -1064,42 +1099,79 @@ pub(crate) fn generate_mstore_general<F: Field>(
             *v = F::from_canonical_u32((rt >> i) & 1);
         });
     let diff = op as u32;
+    row.general.io_mut().aux_filter_op = F::from_canonical_u32(diff);
 
-    let val = match op {
+    let rs1 = rs & 2;
+    let rs0 = rs & 1;
+    let aux_rs_1_rs_0 = (rs & 2) * (rs & 1);
+
+    let aux_sum = |mem_val: &dyn Fn(u32, u32, u32) -> u32| -> (u32, u32) {
+        let mem_ = mem_val(rs, 3, mem);
+        let rs_limbs_1_rs_limbs_0_aux = aux_rs_1_rs_0;
+        let mem_val_0_0 = mem_val(rs, 0, mem);
+        let mem_val_1_0 = mem_val(rs, 1, mem);
+        let mem_val_0_1 = mem_val(rs, 2, mem);
+        let mem_val_1_1 = mem_val(rs, 3, mem);
+
+        let sum = (mem_ - mem_val_0_0) * (rs_limbs_1_rs_limbs_0_aux - rs1 - rs0 + 1)
+            + (mem_ - mem_val_1_0) * (rs_limbs_1_rs_limbs_0_aux - rs0)
+            + (mem_ - mem_val_0_1) * (rs_limbs_1_rs_limbs_0_aux - rs1)
+            + (mem_ - mem_val_1_1) * (rs_limbs_1_rs_limbs_0_aux);
+        (sum, mem_)
+    };
+
+    let (aux_a, aux_b, val) = match op {
         MemOp::SB => {
             row.general.io_mut().micro_op[0] = F::ONE;
-            let val = (rt & 0xff) << (24 - (rs & 3) * 8);
-            let mask = 0xffFFffFFu32 ^ (0xff << (24 - (rs & 3) * 8));
-            (mem & mask) | val
+            let out = |rs: u32, i: u32, mem_: u32| -> u32 {
+                let val = (rt & 0xff) << (24 - (rs & i) * 8);
+                let mask = 0xffFFffFFu32 ^ (0xff << (24 - (rs & i) * 8));
+                (mem_ & mask) | val
+            };
+            let (aux_b, out_val) = aux_sum(&out);
+            (aux_rs_1_rs_0, aux_b, out_val)
         }
         MemOp::SH => {
             row.general.io_mut().micro_op[1] = F::ONE;
-            let val = (rt & 0xffff) << (16 - (rs & 2) * 8);
-            let mask = 0xffFFffFFu32 ^ (0xffff << (16 - (rs & 2) * 8));
-            (mem & mask) | val
+            let out = |i: u32| -> u32 {
+                let val = (rt & 0xffff) << (16 - i * 8);
+                let mask = 0xffFFffFFu32 ^ (0xffff << (16 - i * 8));
+                (mem & mask) | val
+            };
+            (out(0), out(2), out(rs & 2))
         }
         MemOp::SWL => {
             row.general.io_mut().micro_op[2] = F::ONE;
-            let val = rt >> ((rs & 3) * 8);
-            let mask = 0xffFFffFFu32 >> ((rs & 3) * 8);
-            (mem & (!mask)) | val
+            let out = |rs: u32, i: u32, mem_: u32| -> u32 {
+                let val = rt >> ((rs & i) * 8);
+                let mask = 0xffFFffFFu32 >> ((rs & i) * 8);
+                (mem_ & (!mask)) | val
+            };
+            let (aux_b, out_val) = aux_sum(&out);
+            (aux_rs_1_rs_0, aux_b, out_val)
         }
         MemOp::SW => {
             row.general.io_mut().micro_op[3] = F::ONE;
-            rt
+            (0, 0, rt)
         }
         MemOp::SWR => {
             row.general.io_mut().micro_op[4] = F::ONE;
-            let val = rt << (24 - (rs & 3) * 8);
-            let mask = 0xffFFffFFu32 << (24 - (rs & 3) * 8);
-            (mem & (!mask)) | val
+            let out = |rs: u32, i: u32, mem_: u32| -> u32 {
+                let val = rt << (24 - (rs & i) * 8);
+                let mask = 0xffFFffFFu32 << (24 - (rs & i) * 8);
+                (mem_ & (!mask)) | val
+            };
+            let (aux_b, out_val) = aux_sum(&out);
+            (aux_rs_1_rs_0, aux_b, out_val)
         }
         MemOp::SC => {
             row.general.io_mut().micro_op[5] = F::ONE;
-            rt
+            (0, 0, rt)
         }
         _ => todo!(),
     };
+
+    row.general.io_mut().aux_extra = [F::from_canonical_u32(aux_a), F::from_canonical_u32(aux_b)];
 
     let log_out0 = mem_write_gp_log_and_fill(3, address, state, &mut row, val);
 

@@ -539,7 +539,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let zeros = builder.zero_extension();
-    let ones = builder.one_extension();
+    //let ones = builder.one_extension();
     let filter = builder.mul_extension(lv.op.m_op_load, lv.opcode_bits[5]);
 
     // Check mem channel segment is register
@@ -1088,7 +1088,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let zeros = builder.zero_extension();
-    let ones = builder.one_extension();
+    //let ones = builder.one_extension();
     let filter = builder.mul_extension(lv.op.m_op_store, lv.opcode_bits[5]);
 
     // Check mem channel segment is register
