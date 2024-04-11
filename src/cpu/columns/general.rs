@@ -8,7 +8,6 @@ use std::mem::{size_of, transmute};
 pub(crate) union CpuGeneralColumnsView<T: Copy> {
     syscall: CpuSyscallView<T>,
     logic: CpuLogicView<T>,
-    jumps: CpuJumpsView<T>,
     shift: CpuShiftView<T>,
     io: CpuIoView<T>,
 }
@@ -32,16 +31,6 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn logic_mut(&mut self) -> &mut CpuLogicView<T> {
         unsafe { &mut self.logic }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn jumps(&self) -> &CpuJumpsView<T> {
-        unsafe { &self.jumps }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn jumps_mut(&mut self) -> &mut CpuJumpsView<T> {
-        unsafe { &mut self.jumps }
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
@@ -105,12 +94,6 @@ pub(crate) struct CpuSyscallView<T: Copy> {
 pub(crate) struct CpuLogicView<T: Copy> {
     // Pseudoinverse of `(input0 - input1)`. Used prove that they are unequal. Assumes 32-bit limbs.
     pub(crate) diff_pinv: T,
-}
-
-#[derive(Copy, Clone)]
-pub(crate) struct CpuJumpsView<T: Copy> {
-    // A flag.
-    pub(crate) should_jump: T,
 }
 
 #[derive(Copy, Clone)]
