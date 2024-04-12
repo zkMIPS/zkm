@@ -9,7 +9,7 @@ pub(crate) union CpuGeneralColumnsView<T: Copy> {
     syscall: CpuSyscallView<T>,
     logic: CpuLogicView<T>,
     shift: CpuShiftView<T>,
-    io: CpuIoView<T>,
+    io: CpuIOAuxView<T>,
 }
 
 impl<T: Copy> CpuGeneralColumnsView<T> {
@@ -44,12 +44,12 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn io(&self) -> &CpuIoView<T> {
+    pub(crate) fn io(&self) -> &CpuIOAuxView<T> {
         unsafe { &self.io }
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn io_mut(&mut self) -> &mut CpuIoView<T> {
+    pub(crate) fn io_mut(&mut self) -> &mut CpuIOAuxView<T> {
         unsafe { &mut self.io }
     }
 }
@@ -104,12 +104,11 @@ pub(crate) struct CpuShiftView<T: Copy> {
 }
 
 #[derive(Copy, Clone)]
-pub(crate) struct CpuIoView<T: Copy> {
+pub(crate) struct CpuIOAuxView<T: Copy> {
     pub(crate) rs_le: [T; 32],
     pub(crate) rt_le: [T; 32],
     pub(crate) mem_le: [T; 32],
-    pub(crate) micro_op: [T; 8],
-    pub(crate) diff_inv: T,
+    pub(crate) aux_rs0_mul_rs1: T,
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.

@@ -289,7 +289,6 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     channel.addr_segment = F::from_canonical_usize(address.segment);
     channel.addr_virtual = F::from_canonical_usize(address.virt);
     channel.value[0] = F::from_canonical_u32(val);
-
     op
 }
 
