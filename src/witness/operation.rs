@@ -919,21 +919,36 @@ pub(crate) fn generate_mload_general<F: Field>(
     let address = MemoryAddress::new(0, Segment::Code, virt as usize);
     let (mem, log_in3) = mem_read_gp_with_log_and_fill(2, address, state, &mut row);
 
-    row.memio.mem_le.iter_mut().enumerate().for_each(|(i, v)| {
-        *v = F::from_canonical_u32((mem >> i) & 1);
-    });
+    row.general
+        .io_mut()
+        .mem_le
+        .iter_mut()
+        .enumerate()
+        .for_each(|(i, v)| {
+            *v = F::from_canonical_u32((mem >> i) & 1);
+        });
 
     let rs = virt_raw;
     let rt = rt as u32;
 
     let rs_from_bits = rs;
-    row.memio.rs_le.iter_mut().enumerate().for_each(|(i, v)| {
-        *v = F::from_canonical_u32((rs >> i) & 1);
-    });
-    row.memio.rt_le.iter_mut().enumerate().for_each(|(i, v)| {
-        *v = F::from_canonical_u32((rt >> i) & 1);
-    });
-    row.memio.aux_filter = row.op.m_op_load * row.opcode_bits[5];
+    row.general
+        .io_mut()
+        .rs_le
+        .iter_mut()
+        .enumerate()
+        .for_each(|(i, v)| {
+            *v = F::from_canonical_u32((rs >> i) & 1);
+        });
+    row.general
+        .io_mut()
+        .rt_le
+        .iter_mut()
+        .enumerate()
+        .for_each(|(i, v)| {
+            *v = F::from_canonical_u32((rt >> i) & 1);
+        });
+    row.general.io_mut().aux_filter = row.op.m_op_load * row.opcode_bits[5];
 
     let rs1 = (rs_from_bits >> 1) & 1;
     let rs0 = rs_from_bits & 1;
@@ -941,12 +956,12 @@ pub(crate) fn generate_mload_general<F: Field>(
 
     let (aux_a, val) = match op {
         MemOp::LH => {
-            row.memio.is_lh = F::ONE;
+            row.general.io_mut().is_lh = F::ONE;
             let mem_fc = |i: u32| -> u32 { sign_extend::<16>((mem >> (16 - i * 8)) & 0xffff) };
             (0, mem_fc(rs & 2))
         }
         MemOp::LWL => {
-            row.memio.is_lwl = F::ONE;
+            row.general.io_mut().is_lwl = F::ONE;
             let out = |i: u32| -> u32 {
                 let val = mem << (i * 8);
                 let mask: u32 = 0xffFFffFFu32 << (i * 8);
@@ -955,21 +970,21 @@ pub(crate) fn generate_mload_general<F: Field>(
             (aux_rs_1_rs_0, out(rs & 3))
         }
         MemOp::LW => {
-            row.memio.is_lw = F::ONE;
+            row.general.io_mut().is_lw = F::ONE;
             (0, mem)
         }
         MemOp::LBU => {
-            row.memio.is_lbu = F::ONE;
+            row.general.io_mut().is_lbu = F::ONE;
             let out = |i: u32| -> u32 { (mem >> (24 - i * 8)) & 0xff };
             (aux_rs_1_rs_0, out(rs & 3))
         }
         MemOp::LHU => {
-            row.memio.is_lhu = F::ONE;
+            row.general.io_mut().is_lhu = F::ONE;
             let mem_fc = |i: u32| -> u32 { (mem >> (16 - i * 8)) & 0xffff };
             (0, mem_fc(rs & 2))
         }
         MemOp::LWR => {
-            row.memio.is_lwr = F::ONE;
+            row.general.io_mut().is_lwr = F::ONE;
             let out = |i: u32| -> u32 {
                 let val = mem >> (24 - i * 8);
                 let mask = 0xffFFffFFu32 >> (24 - i * 8);
@@ -978,18 +993,18 @@ pub(crate) fn generate_mload_general<F: Field>(
             (aux_rs_1_rs_0, out(rs & 3))
         }
         MemOp::LL => {
-            row.memio.is_ll = F::ONE;
+            row.general.io_mut().is_ll = F::ONE;
             (0, mem)
         }
         MemOp::LB => {
-            row.memio.is_lb = F::ONE;
+            row.general.io_mut().is_lb = F::ONE;
             let out = |i: u32| -> u32 { sign_extend::<8>((mem >> (24 - i * 8)) & 0xff) };
             (aux_rs_1_rs_0, out(rs & 3))
         }
         _ => todo!(),
     };
 
-    row.memio.aux_rs0_mul_rs1 = F::from_canonical_u32(aux_a);
+    row.general.io_mut().aux_rs0_mul_rs1 = F::from_canonical_u32(aux_a);
 
     let log_out0 = reg_write_with_log(rt_reg, 3, val as usize, state, &mut row)?;
 
@@ -1018,21 +1033,36 @@ pub(crate) fn generate_mstore_general<F: Field>(
     let address = MemoryAddress::new(0, Segment::Code, virt as usize);
     let (mem, log_in3) = mem_read_gp_with_log_and_fill(2, address, state, &mut row);
 
-    row.memio.mem_le.iter_mut().enumerate().for_each(|(i, v)| {
-        *v = F::from_canonical_u32((mem >> i) & 1);
-    });
+    row.general
+        .io_mut()
+        .mem_le
+        .iter_mut()
+        .enumerate()
+        .for_each(|(i, v)| {
+            *v = F::from_canonical_u32((mem >> i) & 1);
+        });
 
     let rs = virt_raw;
     let rt = rt as u32;
 
     let rs_from_bits = rs;
-    row.memio.rs_le.iter_mut().enumerate().for_each(|(i, v)| {
-        *v = F::from_canonical_u32((rs >> i) & 1);
-    });
-    row.memio.rt_le.iter_mut().enumerate().for_each(|(i, v)| {
-        *v = F::from_canonical_u32((rt >> i) & 1);
-    });
-    row.memio.aux_filter = row.op.m_op_store * row.opcode_bits[5];
+    row.general
+        .io_mut()
+        .rs_le
+        .iter_mut()
+        .enumerate()
+        .for_each(|(i, v)| {
+            *v = F::from_canonical_u32((rs >> i) & 1);
+        });
+    row.general
+        .io_mut()
+        .rt_le
+        .iter_mut()
+        .enumerate()
+        .for_each(|(i, v)| {
+            *v = F::from_canonical_u32((rt >> i) & 1);
+        });
+    row.general.io_mut().aux_filter = row.op.m_op_store * row.opcode_bits[5];
 
     let rs1 = (rs_from_bits >> 1) & 1;
     let rs0 = rs_from_bits & 1;
@@ -1040,7 +1070,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
 
     let (aux_a, val) = match op {
         MemOp::SB => {
-            row.memio.is_sb = F::ONE;
+            row.general.io_mut().is_sb = F::ONE;
             let out = |i: u32| -> u32 {
                 let val = (rt & 0xff) << (24 - i * 8);
                 let mask = 0xffFFffFFu32 ^ (0xff << (24 - i * 8));
@@ -1049,7 +1079,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
             (aux_rs_1_rs_0, out(rs & 3))
         }
         MemOp::SH => {
-            row.memio.is_sh = F::ONE;
+            row.general.io_mut().is_sh = F::ONE;
             let mem_fc = |i: u32| -> u32 {
                 let val = (rt & 0xffff) << (16 - i * 8);
                 let mask = 0xffFFffFFu32 ^ (0xffff << (16 - i * 8));
@@ -1058,7 +1088,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
             (0, mem_fc(rs & 2))
         }
         MemOp::SWL => {
-            row.memio.is_swl = F::ONE;
+            row.general.io_mut().is_swl = F::ONE;
             let out = |i: u32| -> u32 {
                 let val = rt >> (i * 8);
                 let mask = 0xffFFffFFu32 >> (i * 8);
@@ -1067,11 +1097,11 @@ pub(crate) fn generate_mstore_general<F: Field>(
             (aux_rs_1_rs_0, out(rs & 3))
         }
         MemOp::SW => {
-            row.memio.is_sw = F::ONE;
+            row.general.io_mut().is_sw = F::ONE;
             (0, rt)
         }
         MemOp::SWR => {
-            row.memio.is_swr = F::ONE;
+            row.general.io_mut().is_swr = F::ONE;
             let out = |i: u32| -> u32 {
                 let val = rt << (24 - (rs & i) * 8);
                 let mask = 0xffFFffFFu32 << (24 - i * 8);
@@ -1080,13 +1110,13 @@ pub(crate) fn generate_mstore_general<F: Field>(
             (aux_rs_1_rs_0, out(rs & 3))
         }
         MemOp::SC => {
-            row.memio.is_sc = F::ONE;
+            row.general.io_mut().is_sc = F::ONE;
             (0, rt)
         }
         _ => todo!(),
     };
 
-    row.memio.aux_rs0_mul_rs1 = F::from_canonical_u32(aux_a);
+    row.general.io_mut().aux_rs0_mul_rs1 = F::from_canonical_u32(aux_a);
 
     let log_out0 = mem_write_gp_log_and_fill(3, address, state, &mut row, val);
 

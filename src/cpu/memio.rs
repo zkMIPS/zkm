@@ -60,7 +60,7 @@ fn sign_extend_ext<F: RichField + Extendable<D>, const D: usize, const N: usize>
 }
 
 //let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
-//yield_constr.constraint(filter * lv.memio.micro_op[0] * sum);
+//yield_constr.constraint(filter * lv.general.io().micro_op[0] * sum);
 #[inline]
 fn enforce_half_word<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
@@ -101,7 +101,7 @@ fn enforce_half_word_ext<F: RichField + Extendable<D>, const D: usize>(
 //    + (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0]
 //    + (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES)
 //    + (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
-//yield_constr.constraint(filter * lv.memio.micro_op[1] * sum);
+//yield_constr.constraint(filter * lv.general.io().micro_op[1] * sum);
 #[inline]
 fn enforce_byte<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
@@ -115,7 +115,7 @@ fn enforce_byte<P: PackedField>(
     mem_val_1_1: P,
 ) {
     let rs_limbs_1_rs_limbs_0 = rs_limbs[0] * rs_limbs[1];
-    let rs_limbs_1_rs_limbs_0_aux = lv.memio.aux_rs0_mul_rs1;
+    let rs_limbs_1_rs_limbs_0_aux = lv.general.io().aux_rs0_mul_rs1;
     yield_constr.constraint(rs_limbs_1_rs_limbs_0 - rs_limbs_1_rs_limbs_0_aux);
 
     let sum = (mem - mem_val_0_0)
@@ -141,7 +141,7 @@ fn enforce_byte_ext<F: RichField + Extendable<D>, const D: usize>(
     mem_val_1_1: ExtensionTarget<D>,
 ) {
     let rs_limbs_1_rs_limbs_0 = builder.mul_extension(rs_limbs[0], rs_limbs[1]);
-    let rs_limbs_1_rs_limbs_0_aux = lv.memio.aux_rs0_mul_rs1;
+    let rs_limbs_1_rs_limbs_0_aux = lv.general.io().aux_rs0_mul_rs1;
     let fc = builder.sub_extension(rs_limbs_1_rs_limbs_0, rs_limbs_1_rs_limbs_0_aux);
     yield_constr.constraint(builder, fc);
 
@@ -178,7 +178,7 @@ fn eval_packed_load<P: PackedField>(
 ) {
     // If the operation is MLOAD_GENERAL, lv.opcode_bits[5] = 1
     let filter = lv.op.m_op_load * lv.opcode_bits[5];
-    let aux_filter = lv.memio.aux_filter;
+    let aux_filter = lv.general.io().aux_filter;
     yield_constr.constraint(filter * (P::ONES - aux_filter));
 
     // Check mem channel segment is register
@@ -195,9 +195,9 @@ fn eval_packed_load<P: PackedField>(
     let rs = lv.mem_channels[0].value[0];
     let rt = lv.mem_channels[1].value[0];
     let mem = lv.mem_channels[3].value[0];
-    let rs_limbs = lv.memio.rs_le;
-    let rt_limbs = lv.memio.rt_le;
-    let mem_limbs = lv.memio.mem_le;
+    let rs_limbs = lv.general.io().rs_le;
+    let rt_limbs = lv.general.io().rt_le;
+    let mem_limbs = lv.general.io().mem_le;
 
     // Calculate rs:
     //    let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
@@ -242,7 +242,7 @@ fn eval_packed_load<P: PackedField>(
         // Range check
         enforce_half_word(
             yield_constr,
-            lv.memio.is_lh,
+            lv.general.io().is_lh,
             &rs_limbs,
             mem,
             mem_val_1,
@@ -281,7 +281,7 @@ fn eval_packed_load<P: PackedField>(
         enforce_byte(
             yield_constr,
             lv,
-            lv.memio.is_lwl,
+            lv.general.io().is_lwl,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -294,7 +294,7 @@ fn eval_packed_load<P: PackedField>(
     // LW:
     {
         let mem_value = limb_from_bits_le(mem_limbs);
-        yield_constr.constraint(lv.memio.is_lw * (mem - mem_value));
+        yield_constr.constraint(lv.general.io().is_lw * (mem - mem_value));
     }
 
     // LBU: (mem >> (24 - (rs & 3) * 8)) & 0xff
@@ -317,7 +317,7 @@ fn eval_packed_load<P: PackedField>(
         enforce_byte(
             yield_constr,
             lv,
-            lv.memio.is_lbu,
+            lv.general.io().is_lbu,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -340,7 +340,7 @@ fn eval_packed_load<P: PackedField>(
 
         enforce_half_word(
             yield_constr,
-            lv.memio.is_lhu,
+            lv.general.io().is_lhu,
             &rs_limbs,
             mem,
             mem_val_1,
@@ -377,7 +377,7 @@ fn eval_packed_load<P: PackedField>(
         enforce_byte(
             yield_constr,
             lv,
-            lv.memio.is_lwr,
+            lv.general.io().is_lwr,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -390,7 +390,7 @@ fn eval_packed_load<P: PackedField>(
     // LL:
     {
         let mem_value = limb_from_bits_le(mem_limbs);
-        yield_constr.constraint(lv.memio.is_ll * (mem - mem_value));
+        yield_constr.constraint(lv.general.io().is_ll * (mem - mem_value));
     }
 
     // LB: sign_extend::<8>((mem >> (24 - (rs & 3) * 8)) & 0xff)
@@ -418,7 +418,7 @@ fn eval_packed_load<P: PackedField>(
         enforce_byte(
             yield_constr,
             lv,
-            lv.memio.is_lb,
+            lv.general.io().is_lb,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -444,7 +444,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     let zeros = builder.zero_extension();
     let ones = builder.one_extension();
     let filter = builder.mul_extension(lv.op.m_op_load, lv.opcode_bits[5]);
-    let aux_filter = lv.memio.aux_filter;
+    let aux_filter = lv.general.io().aux_filter;
     let constr = builder.sub_extension(ones, aux_filter);
     let constr = builder.mul_extension(filter, constr);
     yield_constr.constraint(builder, constr);
@@ -467,9 +467,9 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     let rs = lv.mem_channels[0].value[0];
     let rt = lv.mem_channels[1].value[0];
     let mem = lv.mem_channels[3].value[0];
-    let rs_limbs = lv.memio.rs_le;
-    let rt_limbs = lv.memio.rt_le;
-    let mem_limbs = lv.memio.mem_le;
+    let rs_limbs = lv.general.io().rs_le;
+    let rt_limbs = lv.general.io().rt_le;
+    let mem_limbs = lv.general.io().mem_le;
 
     // Calculate rs:
     //    let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
@@ -521,11 +521,11 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
 
         // Range check
         // let sum = rs_limbs[1] * (mem - mem_val_1) + (rs_limbs[1] - P::ONES) * (mem - mem_val_0);
-        // yield_constr.constraint(filter * lv.memio.micro_op[0] * sum);
+        // yield_constr.constraint(filter * lv.general.io().micro_op[0] * sum);
         enforce_half_word_ext(
             builder,
             yield_constr,
-            lv.memio.is_lh,
+            lv.general.io().is_lh,
             &rs_limbs,
             mem,
             mem_val_1,
@@ -566,12 +566,12 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         //     (mem - mem_val_1_0) * (rs_limbs[1] - P::ONES) * rs_limbs[0] +
         //     (mem - mem_val_0_1) * rs_limbs[1] * (rs_limbs[0] - P::ONES) +
         //     (mem - mem_val_1_1) * rs_limbs[1] * rs_limbs[0];
-        // yield_constr.constraint(filter * lv.memio.micro_op[1] * sum);
+        // yield_constr.constraint(filter * lv.general.io().micro_op[1] * sum);
         enforce_byte_ext(
             builder,
             yield_constr,
             lv,
-            lv.memio.is_lwl,
+            lv.general.io().is_lwl,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -584,9 +584,9 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     // LW:
     {
         let mem_value = limb_from_bits_le_recursive(builder, mem_limbs);
-        // yield_constr.constraint(filter * lv.memio.micro_op[2] * (mem - mem_value));
+        // yield_constr.constraint(filter * lv.general.io().micro_op[2] * (mem - mem_value));
         let fc = builder.sub_extension(mem, mem_value);
-        let fc = builder.mul_extension(lv.memio.is_lw, fc);
+        let fc = builder.mul_extension(lv.general.io().is_lw, fc);
         yield_constr.constraint(builder, fc);
     }
 
@@ -611,7 +611,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
             builder,
             yield_constr,
             lv,
-            lv.memio.is_lbu,
+            lv.general.io().is_lbu,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -635,7 +635,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         enforce_half_word_ext(
             builder,
             yield_constr,
-            lv.memio.is_lhu,
+            lv.general.io().is_lhu,
             &rs_limbs,
             mem,
             mem_val_1,
@@ -673,7 +673,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
             builder,
             yield_constr,
             lv,
-            lv.memio.is_lwr,
+            lv.general.io().is_lwr,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -687,7 +687,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     {
         let mem_value = limb_from_bits_le_recursive(builder, mem_limbs);
         let fc = builder.sub_extension(mem, mem_value);
-        let fc = builder.mul_extension(lv.memio.is_ll, fc);
+        let fc = builder.mul_extension(lv.general.io().is_ll, fc);
         yield_constr.constraint(builder, fc);
     }
 
@@ -717,7 +717,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
             builder,
             yield_constr,
             lv,
-            lv.memio.is_lb,
+            lv.general.io().is_lb,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -740,7 +740,7 @@ fn eval_packed_store<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let filter = lv.op.m_op_store * lv.opcode_bits[5];
-    let aux_filter = lv.memio.aux_filter;
+    let aux_filter = lv.general.io().aux_filter;
     yield_constr.constraint(filter * (P::ONES - aux_filter));
 
     // Check mem channel segment is register
@@ -757,9 +757,9 @@ fn eval_packed_store<P: PackedField>(
     let rs = lv.mem_channels[0].value[0];
     let rt = lv.mem_channels[1].value[0];
     let mem = lv.mem_channels[3].value[0];
-    let rs_limbs = lv.memio.rs_le;
-    let rt_limbs = lv.memio.rt_le;
-    let mem_limbs = lv.memio.mem_le;
+    let rs_limbs = lv.general.io().rs_le;
+    let rt_limbs = lv.general.io().rt_le;
+    let mem_limbs = lv.general.io().mem_le;
 
     // Calculate rs:
     //    let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
@@ -818,7 +818,7 @@ fn eval_packed_store<P: PackedField>(
         enforce_byte(
             yield_constr,
             lv,
-            lv.memio.is_sb,
+            lv.general.io().is_sb,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -847,7 +847,7 @@ fn eval_packed_store<P: PackedField>(
 
         enforce_half_word(
             yield_constr,
-            lv.memio.is_sh,
+            lv.general.io().is_sh,
             &rs_limbs,
             mem,
             mem_val_1,
@@ -885,7 +885,7 @@ fn eval_packed_store<P: PackedField>(
         enforce_byte(
             yield_constr,
             lv,
-            lv.memio.is_swl,
+            lv.general.io().is_swl,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -898,7 +898,7 @@ fn eval_packed_store<P: PackedField>(
     // SW
     {
         let rt_value = limb_from_bits_le(rt_limbs);
-        yield_constr.constraint(lv.memio.is_sw * (mem - rt_value));
+        yield_constr.constraint(lv.general.io().is_sw * (mem - rt_value));
     }
 
     // SWR
@@ -931,7 +931,7 @@ fn eval_packed_store<P: PackedField>(
         enforce_byte(
             yield_constr,
             lv,
-            lv.memio.is_swr,
+            lv.general.io().is_swr,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -945,7 +945,7 @@ fn eval_packed_store<P: PackedField>(
     //  TODO: write back rt register
     {
         let rt_value = limb_from_bits_le(rt_limbs);
-        yield_constr.constraint(lv.memio.is_sc * (mem - rt_value));
+        yield_constr.constraint(lv.general.io().is_sc * (mem - rt_value));
     }
 
     // Disable remaining memory channels, if any.
@@ -963,7 +963,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     let zeros = builder.zero_extension();
     let ones = builder.one_extension();
     let filter = builder.mul_extension(lv.op.m_op_store, lv.opcode_bits[5]);
-    let aux_filter = lv.memio.aux_filter;
+    let aux_filter = lv.general.io().aux_filter;
     let constr = builder.sub_extension(ones, aux_filter);
     let constr = builder.mul_extension(filter, constr);
     yield_constr.constraint(builder, constr);
@@ -986,9 +986,9 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     let rs = lv.mem_channels[0].value[0];
     let rt = lv.mem_channels[1].value[0];
     let mem = lv.mem_channels[3].value[0];
-    let rs_limbs = lv.memio.rs_le;
-    let rt_limbs = lv.memio.rt_le;
-    let mem_limbs = lv.memio.mem_le;
+    let rs_limbs = lv.general.io().rs_le;
+    let rt_limbs = lv.general.io().rt_le;
+    let mem_limbs = lv.general.io().mem_le;
 
     // Calculate rs:
     //    let virt_raw = (rs as u32).wrapping_add(sign_extend::<16>(offset));
@@ -1057,7 +1057,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
             builder,
             yield_constr,
             lv,
-            lv.memio.is_sb,
+            lv.general.io().is_sb,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -1087,7 +1087,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         enforce_half_word_ext(
             builder,
             yield_constr,
-            lv.memio.is_sh,
+            lv.general.io().is_sh,
             &rs_limbs,
             mem,
             mem_val_1,
@@ -1126,7 +1126,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
             builder,
             yield_constr,
             lv,
-            lv.memio.is_swl,
+            lv.general.io().is_swl,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -1139,9 +1139,9 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     // SW
     {
         let rt_value = limb_from_bits_le_recursive(builder, rt_limbs);
-        //yield_constr.constraint(filter * lv.memio.micro_op[3] * (mem - rt_value));
+        //yield_constr.constraint(filter * lv.general.io().micro_op[3] * (mem - rt_value));
         let fc = builder.sub_extension(mem, rt_value);
-        let fc = builder.mul_extension(lv.memio.is_sw, fc);
+        let fc = builder.mul_extension(lv.general.io().is_sw, fc);
         yield_constr.constraint(builder, fc);
     }
 
@@ -1176,7 +1176,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
             builder,
             yield_constr,
             lv,
-            lv.memio.is_swr,
+            lv.general.io().is_swr,
             &rs_limbs,
             mem,
             mem_val_0_0,
@@ -1190,7 +1190,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     {
         let rt_value = limb_from_bits_le_recursive(builder, rt_limbs);
         let fc = builder.sub_extension(mem, rt_value);
-        let fc = builder.mul_extension(lv.memio.is_sc, fc);
+        let fc = builder.mul_extension(lv.general.io().is_sc, fc);
         yield_constr.constraint(builder, fc);
     }
 
