@@ -10,7 +10,7 @@ pub(crate) union CpuGeneralColumnsView<T: Copy> {
     logic: CpuLogicView<T>,
     jumps: CpuJumpsView<T>,
     shift: CpuShiftView<T>,
-    io: CpuIoView<T>,
+    io: CpuIOAuxView<T>,
 }
 
 impl<T: Copy> CpuGeneralColumnsView<T> {
@@ -55,12 +55,12 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn io(&self) -> &CpuIoView<T> {
+    pub(crate) fn io(&self) -> &CpuIOAuxView<T> {
         unsafe { &self.io }
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn io_mut(&mut self) -> &mut CpuIoView<T> {
+    pub(crate) fn io_mut(&mut self) -> &mut CpuIOAuxView<T> {
         unsafe { &mut self.io }
     }
 }
@@ -121,26 +121,11 @@ pub(crate) struct CpuShiftView<T: Copy> {
 }
 
 #[derive(Copy, Clone)]
-pub(crate) struct CpuIoView<T: Copy> {
+pub(crate) struct CpuIOAuxView<T: Copy> {
     pub(crate) rs_le: [T; 32],
     pub(crate) rt_le: [T; 32],
     pub(crate) mem_le: [T; 32],
     pub(crate) aux_rs0_mul_rs1: T,
-    pub(crate) aux_filter: T,
-    pub(crate) is_lh: T,
-    pub(crate) is_lwl: T,
-    pub(crate) is_lw: T,
-    pub(crate) is_lbu: T,
-    pub(crate) is_lhu: T,
-    pub(crate) is_lwr: T,
-    pub(crate) is_sb: T,
-    pub(crate) is_sh: T,
-    pub(crate) is_swl: T,
-    pub(crate) is_sw: T,
-    pub(crate) is_swr: T,
-    pub(crate) is_ll: T,
-    pub(crate) is_sc: T,
-    pub(crate) is_lb: T,
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.

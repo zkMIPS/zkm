@@ -28,6 +28,26 @@ pub struct MemoryChannelView<T: Copy> {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MemIOView<T: Copy> {
+    pub(crate) is_lh: T,
+    pub(crate) is_lwl: T,
+    pub(crate) is_lw: T,
+    pub(crate) is_lbu: T,
+    pub(crate) is_lhu: T,
+    pub(crate) is_lwr: T,
+    pub(crate) is_sb: T,
+    pub(crate) is_sh: T,
+    pub(crate) is_swl: T,
+    pub(crate) is_sw: T,
+    pub(crate) is_swr: T,
+    pub(crate) is_ll: T,
+    pub(crate) is_sc: T,
+    pub(crate) is_lb: T,
+    pub(crate) aux_filter: T,
+}
+
+#[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct CpuColumnsView<T: Copy> {
     /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
@@ -68,6 +88,8 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_keccak_sponge: T,
 
     pub(crate) general: CpuGeneralColumnsView<T>,
+
+    pub(crate) memio: MemIOView<T>,
 
     pub(crate) clock: T,
     pub mem_channels: [MemoryChannelView<T>; NUM_GP_CHANNELS],
