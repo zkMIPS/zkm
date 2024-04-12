@@ -32,37 +32,51 @@ pub fn eval_packed<P: PackedField>(
     let sz = a1;
     let sz_in_sz_mid_not_zero = syscall.sysnum[9]; //the value of sz_mid
     let is_a0_zero = syscall.a0[0];
-    let is_a0_not_zero = syscall.a0[1];
+    let is_a0_not_zero = syscall.a0[2];
     let heap_in_a0_zero = lv.mem_channels[6].value[0];
+    let result_heap = lv.mem_channels[7].value[0];
+    let is_sysmap_a0_zero = syscall.cond[0];
+    let is_sysmap_a0_zero_sz_nz = syscall.cond[1];
+    let is_sysmap_a0_zero_sz_zero = syscall.cond[2];
+    let is_sysmap_a0_nz = syscall.cond[3];
+    let is_sysread_a0_not_stdin = syscall.cond[4];
+    let is_sysread_a0_stdin = syscall.cond[5];
+    let is_syswrite_a0_not_stdout_err = syscall.cond[6];
+    let is_syswrite_a0_stdout_or_err = syscall.cond[7];
+    let is_sysfcntl_a0_stdin = syscall.cond[8];
+    let is_sysfcntl_a0_stdout_or_err = syscall.cond[9];
+
     let v0_in_a0_zero = heap_in_a0_zero;
     let heap_in_a0_zero_and_in_sz_mid_not_zero = heap_in_a0_zero + sz_in_sz_mid_not_zero; // branch1:sz&fff!=0 & a0==0
-    let result_heap = lv.mem_channels[7].value[0];
 
     let heap_in_a0_zero_and_not_in_sz_mid_not_zero = heap_in_a0_zero + sz; // branch2: sz&fff==0 &a0 ==0
-                                                                           //check:
-                                                                           //1 is_syscall
-                                                                           //2 sysnum==sysmap
-                                                                           //3 a0 is zero
-                                                                           //4 heap value is right
-                                                                           //5 sz & 0xFFF != 0
+
+    //check:
+    //1 is_syscall
+    //2 sysnum==sysmap
+    //3 a0 is zero
+    //4 heap value is right
+    //5 sz & 0xFFF != 0
+    yield_constr.constraint(filter * (is_sysmap_a0_zero - is_sysmap * is_a0_zero));
+
+    yield_constr
+        .constraint(filter * (is_sysmap_a0_zero_sz_nz - is_sysmap_a0_zero * is_sz_mid_not_zero));
+
     yield_constr.constraint(
-        filter
-            * is_sysmap
-            * is_sz_mid_not_zero
-            * is_a0_zero
-            * (heap_in_a0_zero_and_in_sz_mid_not_zero - result_heap),
+        filter * is_sysmap_a0_zero_sz_nz * (heap_in_a0_zero_and_in_sz_mid_not_zero - result_heap),
     );
+
     //check:
     //1 is_syscall
     //2 sysnum==sysmap
     //3 a0 is zero
     //4 heap value is right
     //5 sz & 0xFFF == 0
+    yield_constr
+        .constraint(filter * (is_sysmap_a0_zero_sz_zero - is_sysmap_a0_zero * is_sz_mid_zero));
     yield_constr.constraint(
         filter
-            * is_sysmap
-            * is_sz_mid_zero
-            * is_a0_zero
+            * is_sysmap_a0_zero_sz_zero
             * (heap_in_a0_zero_and_not_in_sz_mid_not_zero - result_heap),
     );
     //check:
@@ -70,13 +84,14 @@ pub fn eval_packed<P: PackedField>(
     //2 sysnum==sysmap
     //3 a0 is zero
     //4 v0 value is right
-    yield_constr.constraint(filter * is_sysmap * is_a0_zero * (v0_in_a0_zero - result_v0));
+    yield_constr.constraint(filter * is_sysmap_a0_zero * (v0_in_a0_zero - result_v0));
     //check:
     //1 is_syscall
     //2 sysnum==sysmap
     //3 a0 is not zero
     //4 v0 value is right
-    yield_constr.constraint(filter * is_sysmap * is_a0_not_zero * (a0 - result_v0));
+    yield_constr.constraint(filter * (is_sysmap_a0_nz - is_sysmap * is_a0_not_zero));
+    yield_constr.constraint(filter * is_sysmap_a0_nz * (a0 - result_v0));
 
     //sysbrk
     let is_sysbrk = syscall.sysnum[2];
@@ -86,7 +101,7 @@ pub fn eval_packed<P: PackedField>(
     //2 sysnum==sysbrk
     //3 v0&v1 are right
     yield_constr.constraint(filter * is_sysbrk * (v0_in_sysbrk - result_v0));
-    yield_constr.constraint(filter * (v1 - result_v1));
+    yield_constr.constraint(filter * is_sysbrk * (v1 - result_v1));
 
     //sysclone
     let is_sysclone = syscall.sysnum[3];
@@ -111,24 +126,24 @@ pub fn eval_packed<P: PackedField>(
     //2 sysnum==sysread
     //3 v0&v1 are right
     //4 a0 != fd_stdin
-    yield_constr.constraint(
-        filter * is_sysread * a0_is_not_fd_stdin * (v0_in_a0_is_not_fd_stdin - result_v0),
-    );
-    yield_constr.constraint(
-        filter * is_sysread * a0_is_not_fd_stdin * (v1_in_a0_is_not_fd_stdin - result_v1),
-    );
+    yield_constr.constraint(filter * (is_sysread_a0_not_stdin - is_sysread * a0_is_not_fd_stdin));
+    yield_constr
+        .constraint(filter * is_sysread_a0_not_stdin * (v0_in_a0_is_not_fd_stdin - result_v0));
+    yield_constr
+        .constraint(filter * is_sysread_a0_not_stdin * (v1_in_a0_is_not_fd_stdin - result_v1));
     //check:
     //1 is_syscall
     //2 sysnum==sysread
     //3 v0&v1 are right
     //4 a0 == fd_stdin
-    yield_constr.constraint(filter * is_sysread * a0_is_fd_stdin * (v0 - result_v0));
-    yield_constr.constraint(filter * is_sysread * a0_is_fd_stdin * (v1 - result_v1));
+    yield_constr.constraint(filter * (is_sysread_a0_stdin - is_sysread * a0_is_fd_stdin));
+    yield_constr.constraint(filter * is_sysread_a0_stdin * (v0 - result_v0));
+    yield_constr.constraint(filter * is_sysread_a0_stdin * (v1 - result_v1));
 
     //syswrite
     let is_syswrite = syscall.sysnum[6];
     let a0_is_fd_stdout_or_fd_stderr = syscall.a0[1];
-    let a0_is_not_fd_stderr_and_fd_stderr = syscall.a0[2];
+    let a0_is_not_fd_stdout_and_fd_stderr = syscall.a0[2];
 
     let v0_in_a0_is_not_fd_stdout_and_fd_stderr = P::Scalar::from_canonical_usize(0xFFFFFFFF);
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr = P::Scalar::from_canonical_usize(MIPSEBADF);
@@ -138,15 +153,16 @@ pub fn eval_packed<P: PackedField>(
     //3 v0&v1 are right
     //4 a0 =! fd_stderr and a0 != fd_stderr
     yield_constr.constraint(
+        filter * (is_syswrite_a0_not_stdout_err - is_syswrite * a0_is_not_fd_stdout_and_fd_stderr),
+    );
+    yield_constr.constraint(
         filter
-            * is_syswrite
-            * a0_is_not_fd_stderr_and_fd_stderr
+            * is_syswrite_a0_not_stdout_err
             * (v0_in_a0_is_not_fd_stdout_and_fd_stderr - result_v0),
     );
     yield_constr.constraint(
         filter
-            * is_syswrite
-            * a0_is_not_fd_stderr_and_fd_stderr
+            * is_syswrite_a0_not_stdout_err
             * (v1_in_a0_is_not_fd_stdin_and_fd_stderr - result_v1),
     );
     //check:
@@ -154,8 +170,11 @@ pub fn eval_packed<P: PackedField>(
     //2 sysnum==syswrite
     //3 v0&v1 are right
     //4 a0 ==fd_stderr or a0 == fd_stderr
-    yield_constr.constraint(filter * is_syswrite * a0_is_fd_stdout_or_fd_stderr * (a2 - result_v0));
-    yield_constr.constraint(filter * is_syswrite * a0_is_fd_stdout_or_fd_stderr * (v1 - result_v1));
+    yield_constr.constraint(
+        filter * (is_syswrite_a0_stdout_or_err - is_syswrite * a0_is_fd_stdout_or_fd_stderr),
+    );
+    yield_constr.constraint(filter * is_syswrite_a0_stdout_or_err * (a2 - result_v0));
+    yield_constr.constraint(filter * is_syswrite_a0_stdout_or_err * (v1 - result_v1));
 
     //sysfcntl
     let is_sysfcntl = syscall.sysnum[7];
@@ -168,27 +187,36 @@ pub fn eval_packed<P: PackedField>(
         P::Scalar::from_canonical_usize(0xFFFFFFFF);
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr_and_fd_stdin =
         P::Scalar::from_canonical_usize(MIPSEBADF);
-    yield_constr
-        .constraint(filter * is_sysfcntl * a0_is_fd_stdin * (v0_in_a0_is_fd_stdin - result_v0));
 
-    yield_constr.constraint(filter * is_sysfcntl * a0_is_fd_stdin * (v1 - result_v1));
+    yield_constr.constraint(filter * (is_sysfcntl_a0_stdin - is_sysfcntl * a0_is_fd_stdin));
 
-    yield_constr
-        .constraint(filter * is_sysfcntl * a0_is_fd_stdout_or_fd_stderr * (P::ONES - result_v0));
+    yield_constr.constraint(filter * is_sysfcntl_a0_stdin * (v0_in_a0_is_fd_stdin - result_v0));
 
-    yield_constr.constraint(filter * is_sysfcntl * a0_is_fd_stdout_or_fd_stderr * (v1 - result_v1));
+    yield_constr.constraint(filter * is_sysfcntl_a0_stdin * (v1 - result_v1));
+
+    yield_constr.constraint(
+        filter * (is_sysfcntl_a0_stdout_or_err - is_sysfcntl * a0_is_fd_stdout_or_fd_stderr),
+    );
+    yield_constr.constraint(filter * is_sysfcntl_a0_stdout_or_err * (P::ONES - result_v0));
+
+    yield_constr.constraint(filter * is_sysfcntl_a0_stdout_or_err * (v1 - result_v1));
 
     yield_constr.constraint(
         filter
-            * is_sysfcntl
-            * a0_is_else
+            * (is_sysfcntl
+                - is_sysfcntl_a0_stdin
+                - is_sysfcntl_a0_stdout_or_err
+                - is_sysfcntl * a0_is_else),
+    );
+    yield_constr.constraint(
+        filter
+            * (is_sysfcntl - is_sysfcntl_a0_stdin - is_sysfcntl_a0_stdout_or_err)
             * (v0_in_a0_is_not_fd_stdout_and_fd_stderr_and_fd_stdin - result_v0),
     );
 
     yield_constr.constraint(
         filter
-            * is_sysfcntl
-            * a0_is_else
+            * (is_sysfcntl - is_sysfcntl_a0_stdin - is_sysfcntl_a0_stdout_or_err)
             * (v1_in_a0_is_not_fd_stdin_and_fd_stderr_and_fd_stdin - result_v1),
     );
 }
@@ -216,55 +244,87 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let sz = a1;
     let sz_in_sz_mid_not_zero = syscall.sysnum[9]; //the value of sz_mid
     let is_a0_zero = syscall.a0[0];
-    let is_a0_not_zero = syscall.a0[1];
+    let is_a0_not_zero = syscall.a0[2];
     let heap_in_a0_zero = lv.mem_channels[6].value[0];
+    let result_heap = lv.mem_channels[7].value[0];
+    let is_sysmap_a0_zero = syscall.cond[0];
+    let is_sysmap_a0_zero_sz_nz = syscall.cond[1];
+    let is_sysmap_a0_zero_sz_zero = syscall.cond[2];
+    let is_sysmap_a0_nz = syscall.cond[3];
+    let is_sysread_a0_not_stdin = syscall.cond[4];
+    let is_sysread_a0_stdin = syscall.cond[5];
+    let is_syswrite_a0_not_stdout_err = syscall.cond[6];
+    let is_syswrite_a0_stdout_or_err = syscall.cond[7];
+    let is_sysfcntl_a0_stdin = syscall.cond[8];
+    let is_sysfcntl_a0_stdout_or_err = syscall.cond[9];
+
     let v0_in_a0_zero = heap_in_a0_zero;
     let heap_in_a0_zero_and_in_sz_mid_not_zero =
         builder.add_extension(heap_in_a0_zero, sz_in_sz_mid_not_zero); // branch1:sz&fff!=0 & a0==0
     let heap_in_a0_zero_and_not_in_sz_mid_not_zero = builder.add_extension(heap_in_a0_zero, sz); // branch2: sz&fff==0 &a0 ==0
-    let result_heap = lv.mem_channels[7].value[0];
 
-    let filter_0 = builder.mul_extension(filter, is_sysmap);
-    let constr_1 = builder.mul_extension(filter_0, is_a0_zero);
-    let constr_2 = builder.mul_extension(constr_1, is_sz_mid_not_zero);
-    let constr_3 = builder.sub_extension(heap_in_a0_zero_and_in_sz_mid_not_zero, result_heap);
-    let constr = builder.mul_extension(constr_2, constr_3);
-    yield_constr.constraint(builder, constr);
-    let constr_4 = builder.mul_extension(constr_1, is_sz_mid_zero);
-    let constr_5 = builder.sub_extension(heap_in_a0_zero_and_not_in_sz_mid_not_zero, result_heap);
-    let constr = builder.mul_extension(constr_4, constr_5);
+    let filter_1 = builder.mul_extension(is_sysmap, is_a0_zero);
+    let constr = builder.sub_extension(is_sysmap_a0_zero, filter_1);
+    let constr = builder.mul_extension(filter, constr);
     yield_constr.constraint(builder, constr);
 
-    let constr_6 = builder.sub_extension(v0_in_a0_zero, result_v0);
-    let constr = builder.mul_extension(constr_1, constr_6);
+    let filter_1 = builder.mul_extension(is_sysmap_a0_zero, is_sz_mid_not_zero);
+    let constr = builder.sub_extension(is_sysmap_a0_zero_sz_nz, filter_1);
+    let constr = builder.mul_extension(filter, constr);
     yield_constr.constraint(builder, constr);
-    let constr_7 = builder.sub_extension(a0, result_v0);
-    let constr_8 = builder.mul_extension(filter_0, is_a0_not_zero);
-    // let constr_9 = builder.mul_extension(constr_8, filter_0);
 
-    let constr = builder.mul_extension(constr_7, constr_8);
+    let constr_1 = builder.mul_extension(filter, is_sysmap_a0_zero_sz_nz);
+    let constr_2 = builder.sub_extension(heap_in_a0_zero_and_in_sz_mid_not_zero, result_heap);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
+
+    let filter_1 = builder.mul_extension(is_sysmap_a0_zero, is_sz_mid_zero);
+    let constr = builder.sub_extension(is_sysmap_a0_zero_sz_zero, filter_1);
+    let constr = builder.mul_extension(filter, constr);
+    yield_constr.constraint(builder, constr);
+
+    let constr_1 = builder.mul_extension(filter, is_sysmap_a0_zero_sz_zero);
+    let constr_2 = builder.sub_extension(heap_in_a0_zero_and_not_in_sz_mid_not_zero, result_heap);
+    let constr = builder.mul_extension(constr_1, constr_2);
+    yield_constr.constraint(builder, constr);
+
+    let constr = builder.sub_extension(v0_in_a0_zero, result_v0);
+    let constr = builder.mul_extension(is_sysmap_a0_zero, constr);
+    let constr = builder.mul_extension(filter, constr);
+    yield_constr.constraint(builder, constr);
+
+    let filter_1 = builder.mul_extension(is_sysmap, is_a0_not_zero);
+    let constr = builder.sub_extension(is_sysmap_a0_nz, filter_1);
+    let constr = builder.mul_extension(filter, constr);
+    yield_constr.constraint(builder, constr);
+
+    let constr = builder.sub_extension(a0, result_v0);
+    let constr = builder.mul_extension(constr, is_sysmap_a0_nz);
+    let constr = builder.mul_extension(filter, constr);
+    yield_constr.constraint(builder, constr);
+
     //sysbrk
-
     let is_sysbrk = syscall.sysnum[2];
     let v0_in_sysbrk = builder.constant_extension(F::Extension::from_canonical_u64(0x40000000u64));
-    let constr_8 = builder.mul_extension(filter, is_sysbrk);
-    let constr_9 = builder.sub_extension(v0_in_sysbrk, result_v0);
-    let constr = builder.mul_extension(constr_8, constr_9);
+    let constr_1 = builder.mul_extension(filter, is_sysbrk);
+    let constr_2 = builder.sub_extension(v0_in_sysbrk, result_v0);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
-    let constr_10 = builder.sub_extension(v1, result_v1);
-    let constr = builder.mul_extension(filter, constr_10);
+
+    let constr_2 = builder.sub_extension(v1, result_v1);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
 
     //sysclone
     let is_sysclone = syscall.sysnum[3];
     let v0_in_sysclone = builder.one_extension();
-    let constr_12 = builder.mul_extension(filter, is_sysclone);
-    let constr_13 = builder.sub_extension(v0_in_sysclone, result_v0);
-    let constr = builder.mul_extension(constr_12, constr_13);
+    let constr_1 = builder.mul_extension(filter, is_sysclone);
+    let constr_2 = builder.sub_extension(v0_in_sysclone, result_v0);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
-    let constr_14 = builder.sub_extension(v1, result_v1);
-    let constr = builder.mul_extension(constr_12, constr_14);
+
+    let constr_2 = builder.sub_extension(v1, result_v1);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
 
     // let is_SYSEXITGROUP =sys_num.is_equal_private(P::Scalar::from_canonical_usize(SYSEXITGROUP),Equal);
@@ -277,49 +337,73 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         builder.constant_extension(F::Extension::from_canonical_usize(0xFFFFFFFF));
     let v1_in_a0_is_not_fd_stdin =
         builder.constant_extension(F::Extension::from_canonical_usize(MIPSEBADF));
-    let filter_0 = builder.mul_extension(filter, is_sysread);
-    let constr_15 = builder.mul_extension(filter_0, a0_is_not_fd_stdin);
-    let constr_16 = builder.sub_extension(v0_in_a0_is_not_fd_stdin, result_v0);
-    let constr = builder.mul_extension(constr_15, constr_16);
+
+    let filter_1 = builder.mul_extension(is_sysread, a0_is_not_fd_stdin);
+    let constr = builder.sub_extension(is_sysread_a0_not_stdin, filter_1);
+    let constr = builder.mul_extension(filter, constr);
     yield_constr.constraint(builder, constr);
-    let constr_17 = builder.sub_extension(v1_in_a0_is_not_fd_stdin, result_v1);
-    let constr = builder.mul_extension(constr_15, constr_17);
+
+    let constr_1 = builder.mul_extension(filter, is_sysread_a0_not_stdin);
+    let constr_2 = builder.sub_extension(v0_in_a0_is_not_fd_stdin, result_v0);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
-    let constr_19 = builder.mul_extension(filter_0, a0_is_fd_stdin);
-    let constr_20 = builder.sub_extension(v0, result_v0);
-    let constr = builder.mul_extension(constr_19, constr_20);
+
+    let constr_2 = builder.sub_extension(v1_in_a0_is_not_fd_stdin, result_v1);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
-    let constr_21 = builder.sub_extension(v1, result_v1);
-    let constr = builder.mul_extension(constr_19, constr_21);
+
+    let filter_1 = builder.mul_extension(is_sysread, a0_is_fd_stdin);
+    let constr = builder.sub_extension(is_sysread_a0_stdin, filter_1);
+    let constr = builder.mul_extension(filter, constr);
+    yield_constr.constraint(builder, constr);
+
+    let constr_1 = builder.mul_extension(filter, is_sysread_a0_stdin);
+    let constr_2 = builder.sub_extension(v0, result_v0);
+    let constr = builder.mul_extension(constr_1, constr_2);
+    yield_constr.constraint(builder, constr);
+
+    let constr_2 = builder.sub_extension(v1, result_v1);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
 
     //syswrite
-
     let is_syswrite = syscall.sysnum[6];
     let a0_is_fd_stdout_or_fd_stderr = syscall.a0[1];
-    let a0_is_not_fd_stderr_and_fd_stderr = syscall.a0[2];
+    let a0_is_not_fd_stdout_and_fd_stderr = syscall.a0[2];
     let v0_in_a0_is_not_fd_stdout_and_fd_stderr =
         builder.constant_extension(F::Extension::from_canonical_usize(0xFFFFFFFF));
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr =
         builder.constant_extension(F::Extension::from_canonical_usize(MIPSEBADF));
-    let filter_0 = builder.mul_extension(filter, is_syswrite);
-    let constr_22 = builder.mul_extension(filter_0, a0_is_not_fd_stderr_and_fd_stderr);
-    let constr_25 = builder.sub_extension(v0_in_a0_is_not_fd_stdout_and_fd_stderr, result_v0);
-    let constr = builder.mul_extension(constr_22, constr_25);
+
+    let filter_1 = builder.mul_extension(is_syswrite, a0_is_not_fd_stdout_and_fd_stderr);
+    let constr = builder.sub_extension(is_syswrite_a0_not_stdout_err, filter_1);
+    let constr = builder.mul_extension(filter, constr);
     yield_constr.constraint(builder, constr);
-    let constr_26 = builder.sub_extension(v1_in_a0_is_not_fd_stdin_and_fd_stderr, result_v1);
-    let constr = builder.mul_extension(constr_22, constr_26);
+
+    let constr_1 = builder.mul_extension(filter, is_syswrite_a0_not_stdout_err);
+    let constr_2 = builder.sub_extension(v0_in_a0_is_not_fd_stdout_and_fd_stderr, result_v0);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
-    let constr_27 = builder.mul_extension(filter_0, a0_is_fd_stdout_or_fd_stderr);
-    let constr_28 = builder.sub_extension(a2, result_v0);
-    let constr = builder.mul_extension(constr_27, constr_28);
+
+    let constr_2 = builder.sub_extension(v1_in_a0_is_not_fd_stdin_and_fd_stderr, result_v1);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
-    let constr_29 = builder.sub_extension(v1, result_v1);
-    let constr = builder.mul_extension(constr_27, constr_29);
+
+    let filter_1 = builder.mul_extension(is_syswrite, a0_is_fd_stdout_or_fd_stderr);
+    let constr = builder.sub_extension(is_syswrite_a0_stdout_or_err, filter_1);
+    let constr = builder.mul_extension(filter, constr);
+    yield_constr.constraint(builder, constr);
+
+    let constr_1 = builder.mul_extension(filter, is_syswrite_a0_stdout_or_err);
+    let constr_2 = builder.sub_extension(a2, result_v0);
+    let constr = builder.mul_extension(constr_1, constr_2);
+    yield_constr.constraint(builder, constr);
+
+    let constr_2 = builder.sub_extension(v1, result_v1);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
 
     //sysfcntl
-
     let is_sysfcntl = syscall.sysnum[7];
     let a0_is_fd_stdin = syscall.a0[0];
     let v0_in_a0_is_fd_stdin = builder.zero_extension();
@@ -330,37 +414,54 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         builder.constant_extension(F::Extension::from_canonical_usize(0xFFFFFFFF));
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr_and_fd_stdin =
         builder.constant_extension(F::Extension::from_canonical_usize(MIPSEBADF));
-    let filter_0 = builder.mul_extension(filter, is_sysfcntl);
-    let constr_30 = builder.mul_extension(filter_0, a0_is_fd_stdin);
-    let constr_32 = builder.sub_extension(v0_in_a0_is_fd_stdin, result_v0);
-    let constr = builder.mul_extension(constr_30, constr_32);
+
+    let filter_1 = builder.mul_extension(is_sysfcntl, a0_is_fd_stdin);
+    let constr = builder.sub_extension(is_sysfcntl_a0_stdin, filter_1);
+    let constr = builder.mul_extension(filter, constr);
     yield_constr.constraint(builder, constr);
 
-    let constr_33 = builder.sub_extension(v1, result_v1);
-    let constr = builder.mul_extension(constr_30, constr_33);
+    let constr_1 = builder.mul_extension(filter, is_sysfcntl_a0_stdin);
+    let constr_2 = builder.sub_extension(v0_in_a0_is_fd_stdin, result_v0);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
 
-    let constr_34 = builder.mul_extension(filter_0, a0_is_fd_stdout_or_fd_stderr);
-    let constr_36 = builder.sub_extension(v0_in_a0_is_fd_stdout_or_fd_stderr, result_v0);
-    let constr = builder.mul_extension(constr_34, constr_36);
+    let constr_2 = builder.sub_extension(v1, result_v1);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
 
-    let constr_37 = builder.sub_extension(v1, result_v1);
-    let constr = builder.mul_extension(constr_34, constr_37);
+    let filter_1 = builder.mul_extension(is_sysfcntl, a0_is_fd_stdout_or_fd_stderr);
+    let constr = builder.sub_extension(is_sysfcntl_a0_stdout_or_err, filter_1);
+    let constr = builder.mul_extension(filter, constr);
     yield_constr.constraint(builder, constr);
 
-    let constr_38 = builder.mul_extension(filter_0, a0_is_else);
-    let constr_40 = builder.sub_extension(
+    let constr_1 = builder.mul_extension(filter, is_sysfcntl_a0_stdout_or_err);
+    let constr_2 = builder.sub_extension(v0_in_a0_is_fd_stdout_or_fd_stderr, result_v0);
+    let constr = builder.mul_extension(constr_1, constr_2);
+    yield_constr.constraint(builder, constr);
+
+    let constr_2 = builder.sub_extension(v1, result_v1);
+    let constr = builder.mul_extension(constr_1, constr_2);
+    yield_constr.constraint(builder, constr);
+
+    let filter_1 = builder.mul_extension(is_sysfcntl, a0_is_else);
+    let filter_2 = builder.sub_extension(is_sysfcntl, is_sysfcntl_a0_stdin);
+    let filter_2 = builder.sub_extension(filter_2, is_sysfcntl_a0_stdout_or_err);
+    let constr = builder.sub_extension(filter_2, filter_1);
+    let constr = builder.mul_extension(filter, constr);
+    yield_constr.constraint(builder, constr);
+
+    let constr_1 = builder.mul_extension(filter, filter_2);
+    let constr_2 = builder.sub_extension(
         v0_in_a0_is_not_fd_stdout_and_fd_stderr_and_fd_stdin,
         result_v0,
     );
-    let constr = builder.mul_extension(constr_38, constr_40);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
 
-    let constr_41 = builder.sub_extension(
+    let constr_2 = builder.sub_extension(
         v1_in_a0_is_not_fd_stdin_and_fd_stderr_and_fd_stdin,
         result_v1,
     );
-    let constr = builder.mul_extension(constr_38, constr_41);
+    let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
 }
