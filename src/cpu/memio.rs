@@ -116,7 +116,7 @@ fn enforce_byte<P: PackedField>(
 ) {
     let rs_limbs_1_rs_limbs_0 = rs_limbs[0] * rs_limbs[1];
     let rs_limbs_1_rs_limbs_0_aux = lv.general.io().aux_rs0_mul_rs1;
-    yield_constr.constraint(rs_limbs_1_rs_limbs_0 - rs_limbs_1_rs_limbs_0_aux);
+    yield_constr.constraint(op * (rs_limbs_1_rs_limbs_0 - rs_limbs_1_rs_limbs_0_aux));
 
     let sum = (mem - mem_val_0_0)
         * (rs_limbs_1_rs_limbs_0_aux - rs_limbs[1] - rs_limbs[0] + P::ONES)
@@ -143,6 +143,7 @@ fn enforce_byte_ext<F: RichField + Extendable<D>, const D: usize>(
     let rs_limbs_1_rs_limbs_0 = builder.mul_extension(rs_limbs[0], rs_limbs[1]);
     let rs_limbs_1_rs_limbs_0_aux = lv.general.io().aux_rs0_mul_rs1;
     let fc = builder.sub_extension(rs_limbs_1_rs_limbs_0, rs_limbs_1_rs_limbs_0_aux);
+    let fc = builder.mul_extension(op, fc);
     yield_constr.constraint(builder, fc);
 
     let mem00 = builder.sub_extension(mem, mem_val_0_0);
