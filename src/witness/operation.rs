@@ -815,32 +815,32 @@ pub(crate) fn generate_syscall<F: Field>(
     let mut is_load_preimage = false;
     let result = match sys_num {
         SYSGETPID => {
-            row.general.syscall_mut().sysnum[0] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[0] = F::ONE;
             is_load_preimage = true;
             Ok(())
         }
         SYSMMAP => {
-            row.general.syscall_mut().sysnum[1] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[1] = F::ONE;
             let mut sz = a1;
             let mut sz_not_page_align = false;
             if sz & 0xFFF != 0 {
-                row.general.syscall_mut().a1 = F::from_canonical_u32(1u32);
+                row.general.syscall_mut().a1 = F::ONE;
                 sz += 0x1000 - (sz & 0xFFF);
                 row.general.syscall_mut().sysnum[9] = F::from_canonical_usize(sz);
                 //use sysnum[9] to mark sz value
                 sz_not_page_align = true;
             } else {
-                row.general.syscall_mut().sysnum[10] = F::from_canonical_u32(1u32);
+                row.general.syscall_mut().sysnum[10] = F::ONE;
                 //use sysnum[10] to mark sz&0xfff == 0
                 // row.general.syscall_mut().sysnum[10] = F::from_canonical_usize(sz.clone());//use sysnum[9] to mark sz
             }
             if a0 == 0 {
-                row.general.syscall_mut().cond[0] = F::from_canonical_u32(1u32);
-                row.general.syscall_mut().a0[0] = F::from_canonical_u32(1u32);
+                row.general.syscall_mut().cond[0] = F::ONE;
+                row.general.syscall_mut().a0[0] = F::ONE;
                 if sz_not_page_align {
-                    row.general.syscall_mut().cond[1] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().cond[1] = F::ONE;
                 } else {
-                    row.general.syscall_mut().cond[2] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().cond[2] = F::ONE;
                 }
                 let (heap, log_in5) = reg_read_with_log(34, 6, state, &mut row)?;
                 v0 = heap;
@@ -849,39 +849,39 @@ pub(crate) fn generate_syscall<F: Field>(
                 state.traces.push_memory(log_in5);
                 state.traces.push_memory(outlog);
             } else {
-                row.general.syscall_mut().cond[3] = F::from_canonical_u32(1u32);
-                row.general.syscall_mut().a0[2] = F::from_canonical_u32(1u32);
+                row.general.syscall_mut().cond[3] = F::ONE;
+                row.general.syscall_mut().a0[2] = F::ONE;
                 v0 = a0;
             };
             Ok(())
         }
         SYSBRK => {
-            row.general.syscall_mut().sysnum[2] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[2] = F::ONE;
             v0 = 0x40000000;
             Ok(())
         }
         SYSCLONE => {
             // clone (not supported)
-            row.general.syscall_mut().sysnum[3] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[3] = F::ONE;
             v0 = 1;
             Ok(())
         }
         SYSEXITGROUP => {
-            row.general.syscall_mut().sysnum[4] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[4] = F::ONE;
             state.registers.exited = true;
             state.registers.exit_code = a0 as u8;
             Ok(())
         }
         SYSREAD => {
-            row.general.syscall_mut().sysnum[5] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[5] = F::ONE;
             match a0 {
                 FD_STDIN => {
-                    row.general.syscall_mut().a0[0] = F::from_canonical_u32(1u32);
-                    row.general.syscall_mut().cond[5] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[0] = F::ONE;
+                    row.general.syscall_mut().cond[5] = F::ONE;
                 } // fdStdin
                 _ => {
-                    row.general.syscall_mut().a0[2] = F::from_canonical_u32(1u32);
-                    row.general.syscall_mut().cond[4] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[2] = F::ONE;
+                    row.general.syscall_mut().cond[4] = F::ONE;
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -889,17 +889,17 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSWRITE => {
-            row.general.syscall_mut().sysnum[6] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[6] = F::ONE;
             match a0 {
                 // fdStdout
                 FD_STDOUT | FD_STDERR => {
-                    row.general.syscall_mut().a0[1] = F::from_canonical_u32(1u32);
-                    row.general.syscall_mut().cond[7] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[1] = F::ONE;
+                    row.general.syscall_mut().cond[7] = F::ONE;
                     v0 = a2;
                 } // fdStdout
                 _ => {
-                    row.general.syscall_mut().a0[2] = F::from_canonical_u32(1u32);
-                    row.general.syscall_mut().cond[6] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[2] = F::ONE;
+                    row.general.syscall_mut().cond[6] = F::ONE;
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -907,20 +907,20 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSFCNTL => {
-            row.general.syscall_mut().sysnum[7] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[7] = F::ONE;
             match a0 {
                 FD_STDIN => {
-                    row.general.syscall_mut().a0[0] = F::from_canonical_u32(1u32);
-                    row.general.syscall_mut().cond[8] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[0] = F::ONE;
+                    row.general.syscall_mut().cond[8] = F::ONE;
                     v0 = 0;
                 } // fdStdin
                 FD_STDOUT | FD_STDERR => {
-                    row.general.syscall_mut().a0[1] = F::from_canonical_u32(1u32);
-                    row.general.syscall_mut().cond[9] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[1] = F::ONE;
+                    row.general.syscall_mut().cond[9] = F::ONE;
                     v0 = 1;
                 } // fdStdout / fdStderr
                 _ => {
-                    row.general.syscall_mut().a0[2] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[2] = F::ONE;
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -928,7 +928,7 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         _ => {
-            row.general.syscall_mut().sysnum[8] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[8] = F::ONE;
             Ok(())
         }
     };
