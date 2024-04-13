@@ -85,6 +85,7 @@ impl<T: Copy> BorrowMut<[T; NUM_SHARED_COLUMNS]> for CpuGeneralColumnsView<T> {
 
 #[derive(Copy, Clone)]
 pub(crate) struct CpuSyscallView<T: Copy> {
+    pub(crate) cond: [T; 10],
     pub(crate) sysnum: [T; 11],
     pub(crate) a0: [T; 3],
     pub(crate) a1: T,
