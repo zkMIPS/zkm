@@ -280,7 +280,8 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Syscall => &mut flags.syscall,
         Operation::CondMov(MovCond::EQ, _, _, _) => &mut flags.movz_op,
         Operation::CondMov(MovCond::NE, _, _, _) => &mut flags.movn_op,
-        Operation::Count(_, _, _) => &mut flags.count_op,
+        Operation::Count(false, _, _) => &mut flags.clz_op,
+        Operation::Count(true, _, _) => &mut flags.clo_op,
         Operation::BinaryLogic(_, _, _, _) => &mut flags.logic_op,
         Operation::BinaryLogicImm(_, _, _, _) => &mut flags.logic_imm_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLL, ..)
@@ -314,7 +315,7 @@ fn perform_op<F: Field>(
     match op {
         Operation::Syscall => generate_syscall(state, row, kernel)?,
         Operation::CondMov(cond, rs, rt, rd) => generate_cond_mov_op(cond, rs, rt, rd, state, row)?,
-        Operation::Count(ones, rs, rd) => generate_count_op(ones, rs, rd, state, row)?,
+        Operation::Count(is_clo, rs, rd) => generate_count_op(is_clo, rs, rd, state, row)?,
         Operation::BinaryLogic(binary_logic_op, rs, rt, rd) => {
             generate_binary_logic_op(binary_logic_op, rs, rt, rd, state, row)?
         }

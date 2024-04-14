@@ -243,7 +243,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
     }
 
     fn constraint_degree(&self) -> usize {
-        7
+        3
     }
 }
 
