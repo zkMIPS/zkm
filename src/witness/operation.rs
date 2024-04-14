@@ -179,11 +179,12 @@ pub(crate) fn generate_count_op<F: Field>(
         let x = in0 >> i;
         conds.push(F::from_bool(x == 1));
 
-        let b = F::from_canonical_u32(in0) - F::ONE;
+        let b = F::from_canonical_u32(x) - F::ONE;
         inv.push(b.try_inverse().unwrap_or(F::ZERO));
     }
     conds.push(F::from_bool(in0 == 0));
     inv.push(F::from_canonical_u32(in0).try_inverse().unwrap_or(F::ZERO));
+    // Used for aux data, nothing to do with `le`
     row.general.io_mut().rt_le = conds.try_into().unwrap();
     row.general.io_mut().mem_le = inv.try_into().unwrap();
 
