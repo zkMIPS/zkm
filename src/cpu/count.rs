@@ -1,19 +1,3 @@
-/**
-static inline __attribute((always_inline))
-unsigned clz(uint32_t x)
-{
-    // *INDENT-OFF*
-    if (x == 0) return 32;
-    int n = 1;
-    if ((x >> 16) == 0) { n += 16; x <<= 16; }
-    if ((x >> 24) == 0) { n += 8; x <<= 8; }
-    if ((x >> 28) == 0) { n += 4; x <<= 4; }
-    if ((x >> 30) == 0) { n += 2; x <<= 2; }
-    n = n - (x >> 31);
-    return n;
-    // *INDENT-ON*
-}
-*/
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
@@ -22,15 +6,6 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
-
-const LIMB_SIZE: usize = 32;
-const ALL_1_LIMB: u64 = (1 << LIMB_SIZE) - 1;
-
-const GOLDILOCKS_INVERSE_2EXP16: u64 = 18446462594437939201;
-const GOLDILOCKS_INVERSE_2EXP24: u64 = 18446742969902956801;
-const GOLDILOCKS_INVERSE_2EXP28: u64 = 18446744000695107601;
-const GOLDILOCKS_INVERSE_2EXP30: u64 = 18446744052234715141;
-const GOLDILOCKS_INVERSE_2EXP31: u64 = 18446744060824649731;
 
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
