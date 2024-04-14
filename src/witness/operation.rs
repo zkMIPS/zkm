@@ -10,6 +10,7 @@ use anyhow::{Context, Result};
 
 use plonky2::field::types::Field;
 
+use itertools::Itertools;
 use std::fs;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
@@ -150,30 +151,44 @@ pub(crate) fn generate_cond_mov_op<F: Field>(
 }
 
 pub(crate) fn generate_count_op<F: Field>(
-    ones: bool,
+    is_clo: bool,
     rs: u8,
     rd: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
-
-    let mut src = in0 as u32;
-    if !ones {
-        src = !src;
-    }
-
-    let mut out: usize = 0;
-    while src & 0x80000000 != 0 {
-        src <<= 1;
-        out += 1;
-    }
+    let in0 = if is_clo { !(in0 as u32) } else { in0 as u32 };
+    let out = in0.leading_zeros() as usize;
 
     let log_out0 = reg_write_with_log(rd, 1, out, state, &mut row)?;
-
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_out0);
+
+    let bits_le = (0..32)
+        .map(|i| {
+            let bit = (in0 >> i) & 0x01;
+            F::from_canonical_u32(bit)
+        })
+        .collect_vec();
+    row.general.io_mut().rs_le = bits_le.try_into().unwrap();
+
+    let mut conds = vec![];
+    let mut inv = vec![];
+    for i in (0..31).rev() {
+        let x = in0 >> i;
+        conds.push(F::from_bool(x == 1));
+
+        let b = F::from_canonical_u32(in0) - F::ONE;
+        inv.push(b.try_inverse().unwrap_or(F::ZERO));
+    }
+    conds.push(F::from_bool(in0 == 0));
+    inv.push(F::from_canonical_u32(in0).try_inverse().unwrap_or(F::ZERO));
+    row.general.io_mut().rt_le = conds.try_into().unwrap();
+    row.general.io_mut().mem_le = inv.try_into().unwrap();
+
     state.traces.push_cpu(row);
+
     Ok(())
 }
 

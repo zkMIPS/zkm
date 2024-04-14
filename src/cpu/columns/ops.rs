@@ -14,7 +14,8 @@ pub struct OpsColumnsView<T: Copy> {
     pub logic_imm_op: T,  // Combines ANDI, ORI, XORI flags.
     pub movz_op: T,
     pub movn_op: T,
-    pub count_op: T,
+    pub clz_op: T,
+    pub clo_op: T,
     pub shift: T,     // Combines SHL and SHR flags.
     pub shift_imm: T, // Combines SHL and SHR flags.
     pub keccak_general: T,
