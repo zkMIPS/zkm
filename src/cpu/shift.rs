@@ -51,7 +51,7 @@ pub(crate) fn eval_packed_variable<P: PackedField>(
     // the shift table lookup (will be zero if displacement >= 256).
     yield_constr.constraint(is_shift * two_exp.addr_context); // read from kernel memory
     yield_constr.constraint(is_shift * (two_exp.addr_segment - shift_table_segment));
-    yield_constr.constraint(is_shift * (two_exp.addr_virtual - displacement.value[0]));
+    yield_constr.constraint(is_shift * (two_exp.addr_virtual - displacement.value));
 
     // // Other channels must be unused
     // for chan in &lv.mem_channels[4..NUM_GP_CHANNELS - 1] {
@@ -181,7 +181,7 @@ pub(crate) fn eval_variable_ext_circuit<F: RichField + Extendable<D>, const D: u
         is_shift,
     );
     yield_constr.constraint(builder, t);
-    let t = builder.sub_extension(two_exp.addr_virtual, displacement.value[0]);
+    let t = builder.sub_extension(two_exp.addr_virtual, displacement.value);
     let t = builder.mul_extension(is_shift, t);
     yield_constr.constraint(builder, t);
 

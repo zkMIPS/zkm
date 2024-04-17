@@ -37,7 +37,7 @@ pub fn eval_packed<P: PackedField>(
         yield_constr.constraint(filter * (rd_reg - rd_dst));
     }
 
-    let rs = lv.mem_channels[0].value[0];
+    let rs = lv.mem_channels[0].value;
     let bits_le = lv.general.io().rs_le;
     for bit in bits_le {
         yield_constr.constraint(filter * bit * (P::ONES - bit));
@@ -47,7 +47,7 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(filter_clz * (rs - sum));
     yield_constr.constraint(filter_clo * (P::Scalar::from_canonical_u32(0xffffffff) - rs - sum));
 
-    let rd = lv.mem_channels[1].value[0];
+    let rd = lv.mem_channels[1].value;
     let mut is_eqs = lv.general.io().rt_le.iter();
     let mut invs = lv.general.io().mem_le.iter();
 
@@ -119,7 +119,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     let one = builder.one_extension();
-    let rs = lv.mem_channels[0].value[0];
+    let rs = lv.mem_channels[0].value;
     let bits_le = lv.general.io().rs_le;
     for bit in bits_le {
         let bit_neg = builder.sub_extension(one, bit);
@@ -138,7 +138,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let t = builder.mul_extension(filter_clo, t3);
     yield_constr.constraint(builder, t);
 
-    let rd = lv.mem_channels[1].value[0];
+    let rd = lv.mem_channels[1].value;
     let mut is_eqs = lv.general.io().rt_le.iter();
     let mut invs = lv.general.io().mem_le.iter();
 

@@ -135,10 +135,10 @@ pub(crate) fn check_image_id<F: Field>(
     }
 
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
-    cpu_row.mem_channels[0].value[0] = F::ZERO; // context
-    cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize);
-    cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(root_hash_addr[0].virt);
-    cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(image_addr_value_byte_be.len()); // len
+    cpu_row.mem_channels[0].value = F::ZERO; // context
+    cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
+    cpu_row.mem_channels[2].value = F::from_canonical_usize(root_hash_addr[0].virt);
+    cpu_row.mem_channels[3].value = F::from_canonical_usize(image_addr_value_byte_be.len()); // len
 
     let code_hash_bytes = keccak(&image_addr_value_byte_be).0;
     let code_hash_be = core::array::from_fn(|i| {
@@ -260,11 +260,11 @@ pub(crate) fn check_memory_page_hash<F: Field>(
     cpu_row.is_keccak_sponge = F::ONE;
 
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
-    cpu_row.mem_channels[0].value[0] = F::ZERO; // context
-    cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize);
+    cpu_row.mem_channels[0].value = F::ZERO; // context
+    cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
     let final_idx = page_addr_value_byte_be.len() / KECCAK_RATE_BYTES * KECCAK_RATE_U32S;
-    cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(page_data_addr[final_idx].virt);
-    cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(page_addr_value_byte_be.len()); // len
+    cpu_row.mem_channels[2].value = F::from_canonical_usize(page_data_addr[final_idx].virt);
+    cpu_row.mem_channels[3].value = F::from_canonical_usize(page_addr_value_byte_be.len()); // len
 
     cpu_row.general.hash_mut().value = code_hash.map(F::from_canonical_u32);
     cpu_row.general.hash_mut().value.reverse();
