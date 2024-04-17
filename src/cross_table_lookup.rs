@@ -1395,7 +1395,7 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
             let combined = builder.mul_sub_extension(combin1, z_diff, f1);
             let combined = builder.mul_extension(combined, combin0);
             let constr = builder.arithmetic_extension(F::NEG_ONE, F::ONE, f0, combin1, combined);
-            consumer.constraint_last_row(builder, constr);
+            consumer.constraint_transition(builder, constr);
         } else {
             let combin0 = challenges.combine_circuit(builder, &evals[0]);
             let f0 = if let Some(filter0) = &filter[0] {
