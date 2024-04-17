@@ -155,8 +155,8 @@ pub(crate) fn check_image_id<F: Field>(
         assert_eq!(code_hash_bytes, kernel.program.pre_image_id);
     }
 
-    cpu_row.mem_channels[4].value = code_hash.map(F::from_canonical_u32);
-    cpu_row.mem_channels[4].value.reverse();
+    cpu_row.general.hash_mut().value = code_hash.map(F::from_canonical_u32);
+    cpu_row.general.hash_mut().value.reverse();
 
     keccak_sponge_log(state, root_hash_addr, image_addr_value_byte_be);
     state.traces.push_cpu(cpu_row);
@@ -266,8 +266,8 @@ pub(crate) fn check_memory_page_hash<F: Field>(
     cpu_row.mem_channels[2].value[0] = F::from_canonical_usize(page_data_addr[final_idx].virt);
     cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(page_addr_value_byte_be.len()); // len
 
-    cpu_row.mem_channels[4].value = code_hash.map(F::from_canonical_u32);
-    cpu_row.mem_channels[4].value.reverse();
+    cpu_row.general.hash_mut().value = code_hash.map(F::from_canonical_u32);
+    cpu_row.general.hash_mut().value.reverse();
 
     keccak_sponge_log(state, page_data_addr, page_addr_value_byte_be);
     state.traces.push_cpu(cpu_row);

@@ -109,7 +109,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     res.push(lc);
 
     // Since we're reading a single byte, the higher limbs must be zero.
-    res.extend((1..8).map(|_| Column::zero()));
+    // res.extend((1..8).map(|_| Column::zero()));
 
     res.push(Column::single(cols.timestamp));
 

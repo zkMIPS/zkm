@@ -39,7 +39,7 @@ pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
 
     let mut cols = vec![context, segment, virt, len, timestamp];
-    cols.extend(COL_MAP.mem_channels[4].value.map(Column::single));
+    cols.extend(COL_MAP.general.hash().value.map(Column::single));
     cols
 }
 
