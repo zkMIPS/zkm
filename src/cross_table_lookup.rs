@@ -397,7 +397,7 @@ impl<F: Field> CrossTableLookup<F> {
         for (i, ctl) in ctls.iter().enumerate() {
             let all_tables = std::iter::once(&ctl.looked_table).chain(&ctl.looking_tables);
             let num_appearances = all_tables.filter(|twc| twc.table == table).count();
-            let is_helpers = num_appearances > 2;
+            let is_helpers = num_appearances > 1;
             if is_helpers {
                 num_helpers_by_ctl[i] = ceil_div_usize(num_appearances, constraint_degree - 1);
                 num_helpers += num_helpers_by_ctl[i];
@@ -620,7 +620,7 @@ pub(crate) fn num_ctl_helper_columns_by_table<F: Field>(
 
         for (table, group) in grouped_lookups.into_iter() {
             let sum = group.count();
-            if sum > 2 {
+            if sum > 1 {
                 // We only need helper columns if there are more than 2 columns.
                 num_by_table[table as usize] = ceil_div_usize(sum, constraint_degree - 1);
             }
@@ -864,7 +864,7 @@ fn partial_sums<F: Field>(
         z.push(z[z.len() - 1] + x);
     }
     z.reverse();
-    if columns_filters.len() > 2 {
+    if columns_filters.len() > 1 {
         helper_columns.push(z.into());
     } else {
         helper_columns = vec![z.into()];
