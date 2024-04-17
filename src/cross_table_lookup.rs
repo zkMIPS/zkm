@@ -612,7 +612,7 @@ pub(crate) fn num_ctl_helper_columns_by_table<F: Field>(
     for (i, ctl) in ctls.iter().enumerate() {
         let CrossTableLookup {
             looking_tables,
-            looked_table,
+            looked_table: _,
         } = ctl;
         let mut num_by_table = [0; NUM_TABLES];
 
@@ -640,7 +640,7 @@ pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize>(
     let mut ctl_data_per_table = [0; NUM_TABLES].map(|_| CtlData::default());
     for CrossTableLookup {
         looking_tables,
-        looked_table: _,
+        looked_table,
     } in cross_table_lookups
     {
         log::debug!("Processing CTL for {:?}", looked_table.table);
