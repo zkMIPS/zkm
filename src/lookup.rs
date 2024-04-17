@@ -60,7 +60,6 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     assert!(BigUint::from(num_total_logup_entries) < F::characteristic());
 
     let num_helper_columns = lookup.num_helper_columns(constraint_degree);
-    let mut helper_columns: Vec<PolynomialValues<F>> = Vec::with_capacity(num_helper_columns);
 
     let looking_cols = lookup
         .columns
@@ -215,7 +214,6 @@ pub(crate) fn eval_ext_lookups_circuit<
     lookup_vars: LookupCheckVarsTarget<D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let one = builder.one_extension();
     let degree = stark.constraint_degree();
     let lookups = stark.lookups();
 

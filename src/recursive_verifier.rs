@@ -342,7 +342,6 @@ fn verify_stark_proof_with_challenges_circuit<
         .iter()
         .map(|ctl| ctl.helper_columns.len())
         .sum::<usize>();
-    let num_ctl_z_polys = ctl_vars.len();
 
     let StarkOpeningSetTarget {
         local_values,

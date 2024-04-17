@@ -640,7 +640,7 @@ pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize>(
     let mut ctl_data_per_table = [0; NUM_TABLES].map(|_| CtlData::default());
     for CrossTableLookup {
         looking_tables,
-        looked_table,
+        looked_table: _,
     } in cross_table_lookups
     {
         log::debug!("Processing CTL for {:?}", looked_table.table);
@@ -652,7 +652,7 @@ pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize>(
                 constraint_degree,
             );
 
-            let mut z_looked = partial_sums(
+            let z_looked = partial_sums(
                 &trace_poly_values[looked_table.table as usize],
                 &[(&looked_table.columns, &looked_table.filter)],
                 challenge,
@@ -717,7 +717,6 @@ pub(crate) fn get_helper_cols<F: Field>(
 
     let mut helper_columns = Vec::with_capacity(num_helper_columns);
 
-    let mut filter_index = 0;
     for mut cols_filts in &columns_filters.iter().chunks(constraint_degree - 1) {
         let (first_col, first_filter) = cols_filts.next().unwrap();
 
@@ -810,7 +809,6 @@ fn ctl_helper_zs_cols<F: Field>(
     grouped_lookups
         .into_iter()
         .map(|(table, group)| {
-            let degree = all_stark_traces[table as usize][0].len();
             let columns_filters = group
                 .map(|table| (&table.columns[..], &table.filter))
                 .collect::<Vec<(&[Column<F>], &Option<Filter<F>>)>>();
@@ -906,7 +904,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         }
 
         // Get all cross-table lookup polynomial openings for each STARK proof.
-        let mut ctl_zs = proofs
+        let ctl_zs = proofs
             .iter()
             .zip(num_lookup_columns)
             .map(|(p, &num_lookup)| {
@@ -941,7 +939,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                     }
                 }
 
-                for (i, &table) in filtered_looking_tables.iter().enumerate() {
+                for &table in filtered_looking_tables.iter() {
                     // We have first all the helper polynomials, then all the z polynomials.
                     let (looking_z, looking_z_next) =
                         ctl_zs[table][total_num_helper_cols_by_table[table] + z_indices[table]];
@@ -1172,7 +1170,7 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
         num_helper_ctl_columns: &[usize],
     ) -> Vec<Self> {
         // Get all cross-table lookup polynomial openings for each STARK proof.
-        let mut ctl_zs = {
+        let ctl_zs = {
             let openings = &proof.openings;
             let ctl_zs = openings.auxiliary_polys.iter().skip(num_lookup_columns);
             let ctl_zs_next = openings
