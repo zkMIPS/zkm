@@ -8,7 +8,6 @@ use plonky2::field::types::Field;
 use crate::cpu::columns::general::CpuGeneralColumnsView;
 use crate::cpu::columns::ops::OpsColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::memory::VALUE_LIMBS;
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
 mod general;
@@ -40,7 +39,7 @@ pub struct MemoryChannelView<T: Copy> {
     pub addr_context: T,
     pub addr_segment: T,
     pub addr_virtual: T,
-    pub value: [T; VALUE_LIMBS],
+    pub value: T,
 }
 
 #[repr(C)]

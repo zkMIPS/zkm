@@ -15,14 +15,14 @@ pub fn eval_packed<P: PackedField>(
 ) {
     let filter = lv.op.syscall; // syscall
                                 // let _sys_num = lv.mem_channels[0].value;
-    let a0 = lv.mem_channels[1].value[0];
-    let a1 = lv.mem_channels[2].value[0];
-    let a2 = lv.mem_channels[3].value[0];
+    let a0 = lv.mem_channels[1].value;
+    let a1 = lv.mem_channels[2].value;
+    let a2 = lv.mem_channels[3].value;
     let v0 = P::ZEROS;
     let v1 = P::ZEROS;
     let syscall = lv.general.syscall();
-    let result_v0 = lv.mem_channels[4].value[0];
-    let result_v1 = lv.mem_channels[5].value[0];
+    let result_v0 = lv.mem_channels[4].value;
+    let result_v1 = lv.mem_channels[5].value;
 
     //sysmap
     // is_sysmap|is_sz_mid_not_zero|is_a0_zero is calculated outside and written in the mem_channels.
@@ -33,8 +33,8 @@ pub fn eval_packed<P: PackedField>(
     let sz_in_sz_mid_not_zero = syscall.sysnum[9]; //the value of sz_mid
     let is_a0_zero = syscall.a0[0];
     let is_a0_not_zero = syscall.a0[2];
-    let heap_in_a0_zero = lv.mem_channels[6].value[0];
-    let result_heap = lv.mem_channels[7].value[0];
+    let heap_in_a0_zero = lv.mem_channels[6].value;
+    let result_heap = lv.mem_channels[7].value;
     let is_sysmap_a0_zero = syscall.cond[0];
     let is_sysmap_a0_zero_sz_nz = syscall.cond[1];
     let is_sysmap_a0_zero_sz_zero = syscall.cond[2];
@@ -228,14 +228,14 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 ) {
     let filter = lv.op.syscall;
     // let _sys_num = lv.mem_channels[0].value;
-    let a0 = lv.mem_channels[1].value[0];
-    let a1 = lv.mem_channels[2].value[0];
-    let a2 = lv.mem_channels[3].value[0];
+    let a0 = lv.mem_channels[1].value;
+    let a1 = lv.mem_channels[2].value;
+    let a2 = lv.mem_channels[3].value;
     let v0 = builder.zero_extension();
     let v1 = builder.zero_extension();
     let syscall = lv.general.syscall();
-    let result_v0 = lv.mem_channels[4].value[0];
-    let result_v1 = lv.mem_channels[5].value[0];
+    let result_v0 = lv.mem_channels[4].value;
+    let result_v1 = lv.mem_channels[5].value;
 
     //sysmap
     let is_sysmap = syscall.sysnum[1];
@@ -245,8 +245,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let sz_in_sz_mid_not_zero = syscall.sysnum[9]; //the value of sz_mid
     let is_a0_zero = syscall.a0[0];
     let is_a0_not_zero = syscall.a0[2];
-    let heap_in_a0_zero = lv.mem_channels[6].value[0];
-    let result_heap = lv.mem_channels[7].value[0];
+    let heap_in_a0_zero = lv.mem_channels[6].value;
+    let result_heap = lv.mem_channels[7].value;
     let is_sysmap_a0_zero = syscall.cond[0];
     let is_sysmap_a0_zero_sz_nz = syscall.cond[1];
     let is_sysmap_a0_zero_sz_zero = syscall.cond[2];
