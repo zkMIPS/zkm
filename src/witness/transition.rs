@@ -58,8 +58,8 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
     );
 
     match (opcode, func, registers.is_kernel) {
-        (0b000000, 0b001010, _) => Ok(Operation::CondMov(BranchCond::EQ, rs, rt, rd)), // MOVZ: rd = rs if rt == 0
-        (0b000000, 0b001011, _) => Ok(Operation::CondMov(BranchCond::NE, rs, rt, rd)), // MOVN: rd = rs if rt != 0
+        (0b000000, 0b001010, _) => Ok(Operation::CondMov(MovCond::EQ, rs, rt, rd)), // MOVZ: rd = rs if rt == 0
+        (0b000000, 0b001011, _) => Ok(Operation::CondMov(MovCond::NE, rs, rt, rd)), // MOVN: rd = rs if rt != 0
         (0b000000, 0b100000, _) => Ok(Operation::BinaryArithmetic(
             arithmetic::BinaryOperator::ADD,
             rs,
@@ -174,7 +174,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             0,
             32,
         )), // MTLO: lo = rs
-        (0b000000, 0b001111, _) => Ok(Operation::Nop),                                 // SYNC
+        (0b000000, 0b001111, _) => Ok(Operation::Nop),                              // SYNC
         (0b011100, 0b100000, _) => Ok(Operation::Count(false, rs, rd)), // CLZ: rd = count_leading_zeros(rs)
         (0b011100, 0b100001, _) => Ok(Operation::Count(true, rs, rd)), // CLO: rd = count_leading_ones(rs)
         (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)),               // JR
@@ -278,8 +278,10 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
     let flags = &mut row.op;
     *match op {
         Operation::Syscall => &mut flags.syscall,
-        Operation::CondMov(_, _, _, _) => &mut flags.condmov_op,
-        Operation::Count(_, _, _) => &mut flags.count_op,
+        Operation::CondMov(MovCond::EQ, _, _, _) => &mut flags.movz_op,
+        Operation::CondMov(MovCond::NE, _, _, _) => &mut flags.movn_op,
+        Operation::Count(false, _, _) => &mut flags.clz_op,
+        Operation::Count(true, _, _) => &mut flags.clo_op,
         Operation::BinaryLogic(_, _, _, _) => &mut flags.logic_op,
         Operation::BinaryLogicImm(_, _, _, _) => &mut flags.logic_imm_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLL, ..)
@@ -291,7 +293,8 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryArithmetic(..) => &mut flags.binary_op,
         Operation::BinaryArithmeticImm(..) => &mut flags.binary_imm_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
-        Operation::Jump(_, _) | Operation::Jumpi(_, _) => &mut flags.jumps,
+        Operation::Jump(_, _) => &mut flags.jumps,
+        Operation::Jumpi(_, _) => &mut flags.jumpi,
         Operation::Branch(_, _, _, _) => &mut flags.branch,
         Operation::Pc => &mut flags.pc,
         Operation::GetContext => &mut flags.get_context,
@@ -312,7 +315,7 @@ fn perform_op<F: Field>(
     match op {
         Operation::Syscall => generate_syscall(state, row, kernel)?,
         Operation::CondMov(cond, rs, rt, rd) => generate_cond_mov_op(cond, rs, rt, rd, state, row)?,
-        Operation::Count(ones, rs, rd) => generate_count_op(ones, rs, rd, state, row)?,
+        Operation::Count(is_clo, rs, rd) => generate_count_op(is_clo, rs, rd, state, row)?,
         Operation::BinaryLogic(binary_logic_op, rs, rt, rd) => {
             generate_binary_logic_op(binary_logic_op, rs, rt, rd, state, row)?
         }

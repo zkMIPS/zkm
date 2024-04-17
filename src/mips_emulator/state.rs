@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 use std::fs;
-use std::fs::File;
 use std::io::{stderr, stdout, Write};
 use std::path::Path;
 
@@ -937,8 +936,13 @@ impl InstrumentedState {
         self.mips_step()
     }
 
-    pub fn split_segment(&mut self, proof: bool, output: &str) {
-        std::fs::create_dir_all(output).unwrap();
+    /// the caller should provide a write to write segemnt if proof is true
+    pub fn split_segment<W: Write>(
+        &mut self,
+        proof: bool,
+        output: &str,
+        new_writer: fn(&str) -> Option<W>,
+    ) {
         self.state.sync_registers();
         let (image_id, page_hash_root) = self.state.memory.compute_image_id(self.state.pc);
         let image = self.state.memory.get_input_image();
@@ -956,8 +960,9 @@ impl InstrumentedState {
             };
             let name = format!("{output}/{}", self.pre_segment_id);
             log::trace!("split: file {}", name);
-            let f = File::create(name).unwrap();
-            serde_json::to_writer(f, &segment).unwrap();
+            let mut f = new_writer(&name).unwrap();
+            let data = serde_json::to_vec(&segment).unwrap();
+            f.write_all(data.as_slice()).unwrap();
             self.pre_segment_id += 1;
         }
 

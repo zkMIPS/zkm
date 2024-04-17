@@ -10,6 +10,7 @@ use anyhow::{Context, Result};
 
 use plonky2::field::types::Field;
 
+use itertools::Itertools;
 use std::fs;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
@@ -35,6 +36,12 @@ impl BranchCond {
             BranchCond::LT => input0 < input1,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MovCond {
+    EQ,
+    NE,
 }
 
 pub fn generate_pinv_diff<F: Field>(val0: u32, val1: u32, lv: &mut CpuColumnsView<F>) {
@@ -97,7 +104,7 @@ pub(crate) enum Operation {
     BinaryArithmetic(arithmetic::BinaryOperator, u8, u8, u8),
     BinaryArithmeticImm(arithmetic::BinaryOperator, u8, u8, u32),
     Count(bool, u8, u8),
-    CondMov(BranchCond, u8, u8, u8),
+    CondMov(MovCond, u8, u8, u8),
     KeccakGeneral,
     Jump(u8, u8),
     Jumpi(u8, u32),
@@ -111,7 +118,7 @@ pub(crate) enum Operation {
 }
 
 pub(crate) fn generate_cond_mov_op<F: Field>(
-    cond: BranchCond,
+    cond: MovCond,
     rs: u8,
     rt: u8,
     rd: u8,
@@ -123,9 +130,8 @@ pub(crate) fn generate_cond_mov_op<F: Field>(
     let (in2, log_in2) = reg_read_with_log(rd, 2, state, &mut row)?;
 
     let mov = match cond {
-        BranchCond::EQ => in1 == 0,
-        BranchCond::NE => in1 != 0,
-        _ => true,
+        MovCond::EQ => in1 == 0,
+        MovCond::NE => in1 != 0,
     };
 
     let out = if mov { in0 } else { in2 };
@@ -133,40 +139,57 @@ pub(crate) fn generate_cond_mov_op<F: Field>(
     generate_pinv_diff(in1 as u32, 0, &mut row);
 
     let log_out0 = reg_write_with_log(rd, 3, out, state, &mut row)?;
+    let log_out1 = reg_write_with_log(0, 4, mov as usize, state, &mut row)?;
 
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_out0);
+    state.traces.push_memory(log_out1);
     state.traces.push_cpu(row);
     Ok(())
 }
 
 pub(crate) fn generate_count_op<F: Field>(
-    ones: bool,
+    is_clo: bool,
     rs: u8,
     rd: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
-
-    let mut src = in0 as u32;
-    if !ones {
-        src = !src;
-    }
-
-    let mut out: usize = 0;
-    while src & 0x80000000 != 0 {
-        src <<= 1;
-        out += 1;
-    }
+    let in0 = if is_clo { !(in0 as u32) } else { in0 as u32 };
+    let out = in0.leading_zeros() as usize;
 
     let log_out0 = reg_write_with_log(rd, 1, out, state, &mut row)?;
-
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_out0);
+
+    let bits_le = (0..32)
+        .map(|i| {
+            let bit = (in0 >> i) & 0x01;
+            F::from_canonical_u32(bit)
+        })
+        .collect_vec();
+    row.general.io_mut().rs_le = bits_le.try_into().unwrap();
+
+    let mut conds = vec![];
+    let mut inv = vec![];
+    for i in (0..31).rev() {
+        let x = in0 >> i;
+        conds.push(F::from_bool(x == 1));
+
+        let b = F::from_canonical_u32(x) - F::ONE;
+        inv.push(b.try_inverse().unwrap_or(F::ZERO));
+    }
+    conds.push(F::from_bool(in0 == 0));
+    inv.push(F::from_canonical_u32(in0).try_inverse().unwrap_or(F::ZERO));
+    // Used for aux data, nothing to do with `le`
+    row.general.io_mut().rt_le = conds.try_into().unwrap();
+    row.general.io_mut().mem_le = inv.try_into().unwrap();
+
     state.traces.push_cpu(row);
+
     Ok(())
 }
 
@@ -397,7 +420,6 @@ pub(crate) fn generate_jump<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (target_pc, target_op) = reg_read_with_log(target, 0, state, &mut row)?;
-    row.general.jumps_mut().should_jump = F::ONE;
     let next_pc = state.registers.program_counter.wrapping_add(8);
     let link_op = reg_write_with_log(link, 1, next_pc, state, &mut row)?;
     state.traces.push_cpu(row);
@@ -418,25 +440,48 @@ pub(crate) fn generate_branch<F: Field>(
     let (src1, src1_op) = reg_read_with_log(src1, 0, state, &mut row)?;
     let (src2, src2_op) = reg_read_with_log(src2, 1, state, &mut row)?;
     let should_jump = cond.result(src1 as i32, src2 as i32);
+
+    match cond {
+        BranchCond::EQ => row.branch.is_eq = F::ONE,
+        BranchCond::NE => row.branch.is_ne = F::ONE,
+        BranchCond::GE => row.branch.is_ge = F::ONE,
+        BranchCond::LE => row.branch.is_le = F::ONE,
+        BranchCond::GT => row.branch.is_gt = F::ONE,
+        BranchCond::LT => row.branch.is_lt = F::ONE,
+    };
+
+    if src1 == src2 {
+        row.branch.eq = F::ONE;
+    }
+
+    if src1 > src2 {
+        row.branch.gt = F::ONE;
+    }
+
+    if src1 < src2 {
+        row.branch.lt = F::ONE;
+    }
+
     //log::info!("jump: {} c0: {}, c1: {}, aux1: {}, aux2: {}", should_jump, src1, src2, src1.wrapping_sub(src2), src2.wrapping_sub(src1));
     let aux1 = src1.wrapping_sub(src2);
     let aux2 = src2.wrapping_sub(src1);
     let aux3 = (src1 ^ src2) & 0x80000000 > 0;
-
+    let target = sign_extend::<16>(target);
+    let (mut target_pc, _) = target.overflowing_shl(2);
+    let aux4 = target_pc;
     let log_out0 = reg_write_with_log(0, 2, aux1, state, &mut row)?;
     let log_out1 = reg_write_with_log(0, 3, aux2, state, &mut row)?;
     let log_out2 = reg_write_with_log(0, 4, aux3 as usize, state, &mut row)?;
+    let log_out3 = reg_write_with_log(0, 5, aux4 as usize, state, &mut row)?;
     let pc = state.registers.program_counter as u32;
     if should_jump {
-        let target = sign_extend::<16>(target);
-        let (mut target_pc, _) = target.overflowing_shl(2);
         target_pc = target_pc.wrapping_add(pc + 4);
-        row.general.jumps_mut().should_jump = F::ONE;
+        row.branch.should_jump = F::ONE;
         state.traces.push_cpu(row);
         state.jump_to(target_pc as usize);
     } else {
         let next_pc = pc.wrapping_add(8);
-        row.general.jumps_mut().should_jump = F::ZERO;
+        row.branch.should_jump = F::ZERO;
         state.traces.push_cpu(row);
         state.jump_to(next_pc as usize);
     }
@@ -445,6 +490,7 @@ pub(crate) fn generate_branch<F: Field>(
     state.traces.push_memory(log_out0);
     state.traces.push_memory(log_out1);
     state.traces.push_memory(log_out2);
+    state.traces.push_memory(log_out3);
     Ok(())
 }
 
@@ -461,7 +507,6 @@ pub(crate) fn generate_jumpi<F: Field>(
     let pc_result = operation.result as usize;
     let result_op = reg_write_with_log(0, 7, pc_result, state, &mut row)?;
     target_pc = target_pc.wrapping_add(pc_result);
-    row.general.jumps_mut().should_jump = F::ONE;
     let next_pc = pc.wrapping_add(8);
     let link_op = reg_write_with_log(link, 1, next_pc, state, &mut row)?;
     // FIXME: skip for lookup check
@@ -786,25 +831,33 @@ pub(crate) fn generate_syscall<F: Field>(
     let mut is_load_preimage = false;
     let result = match sys_num {
         SYSGETPID => {
-            row.general.syscall_mut().sysnum[0] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[0] = F::ONE;
             is_load_preimage = true;
             Ok(())
         }
         SYSMMAP => {
-            row.general.syscall_mut().sysnum[1] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[1] = F::ONE;
             let mut sz = a1;
+            let mut sz_not_page_align = false;
             if sz & 0xFFF != 0 {
-                row.general.syscall_mut().a1 = F::from_canonical_u32(1u32);
+                row.general.syscall_mut().a1 = F::ONE;
                 sz += 0x1000 - (sz & 0xFFF);
                 row.general.syscall_mut().sysnum[9] = F::from_canonical_usize(sz);
                 //use sysnum[9] to mark sz value
+                sz_not_page_align = true;
             } else {
-                row.general.syscall_mut().sysnum[10] = F::from_canonical_u32(1u32);
+                row.general.syscall_mut().sysnum[10] = F::ONE;
                 //use sysnum[10] to mark sz&0xfff == 0
                 // row.general.syscall_mut().sysnum[10] = F::from_canonical_usize(sz.clone());//use sysnum[9] to mark sz
             }
             if a0 == 0 {
-                row.general.syscall_mut().a0[0] = F::from_canonical_u32(1u32);
+                row.general.syscall_mut().cond[0] = F::ONE;
+                row.general.syscall_mut().a0[0] = F::ONE;
+                if sz_not_page_align {
+                    row.general.syscall_mut().cond[1] = F::ONE;
+                } else {
+                    row.general.syscall_mut().cond[2] = F::ONE;
+                }
                 let (heap, log_in5) = reg_read_with_log(34, 6, state, &mut row)?;
                 v0 = heap;
                 let heap = heap + sz;
@@ -812,36 +865,39 @@ pub(crate) fn generate_syscall<F: Field>(
                 state.traces.push_memory(log_in5);
                 state.traces.push_memory(outlog);
             } else {
-                row.general.syscall_mut().a0[2] = F::from_canonical_u32(1u32);
+                row.general.syscall_mut().cond[3] = F::ONE;
+                row.general.syscall_mut().a0[2] = F::ONE;
                 v0 = a0;
             };
             Ok(())
         }
         SYSBRK => {
-            row.general.syscall_mut().sysnum[2] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[2] = F::ONE;
             v0 = 0x40000000;
             Ok(())
         }
         SYSCLONE => {
             // clone (not supported)
-            row.general.syscall_mut().sysnum[3] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[3] = F::ONE;
             v0 = 1;
             Ok(())
         }
         SYSEXITGROUP => {
-            row.general.syscall_mut().sysnum[4] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[4] = F::ONE;
             state.registers.exited = true;
             state.registers.exit_code = a0 as u8;
             Ok(())
         }
         SYSREAD => {
-            row.general.syscall_mut().sysnum[5] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[5] = F::ONE;
             match a0 {
                 FD_STDIN => {
-                    row.general.syscall_mut().a0[0] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[0] = F::ONE;
+                    row.general.syscall_mut().cond[5] = F::ONE;
                 } // fdStdin
                 _ => {
-                    row.general.syscall_mut().a0[2] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[2] = F::ONE;
+                    row.general.syscall_mut().cond[4] = F::ONE;
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -849,15 +905,17 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSWRITE => {
-            row.general.syscall_mut().sysnum[6] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[6] = F::ONE;
             match a0 {
                 // fdStdout
                 FD_STDOUT | FD_STDERR => {
-                    row.general.syscall_mut().a0[1] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[1] = F::ONE;
+                    row.general.syscall_mut().cond[7] = F::ONE;
                     v0 = a2;
                 } // fdStdout
                 _ => {
-                    row.general.syscall_mut().a0[2] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[2] = F::ONE;
+                    row.general.syscall_mut().cond[6] = F::ONE;
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -865,18 +923,20 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         SYSFCNTL => {
-            row.general.syscall_mut().sysnum[7] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[7] = F::ONE;
             match a0 {
                 FD_STDIN => {
-                    row.general.syscall_mut().a0[0] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[0] = F::ONE;
+                    row.general.syscall_mut().cond[8] = F::ONE;
                     v0 = 0;
                 } // fdStdin
                 FD_STDOUT | FD_STDERR => {
-                    row.general.syscall_mut().a0[1] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[1] = F::ONE;
+                    row.general.syscall_mut().cond[9] = F::ONE;
                     v0 = 1;
                 } // fdStdout / fdStderr
                 _ => {
-                    row.general.syscall_mut().a0[2] = F::from_canonical_u32(1u32);
+                    row.general.syscall_mut().a0[2] = F::ONE;
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -884,7 +944,7 @@ pub(crate) fn generate_syscall<F: Field>(
             Ok(())
         }
         _ => {
-            row.general.syscall_mut().sysnum[8] = F::from_canonical_u32(1u32);
+            row.general.syscall_mut().sysnum[8] = F::ONE;
             Ok(())
         }
     };
@@ -931,6 +991,7 @@ pub(crate) fn generate_mload_general<F: Field>(
     let rs = virt_raw;
     let rt = rt as u32;
 
+    let rs_from_bits = rs;
     row.general
         .io_mut()
         .rs_le
@@ -947,56 +1008,63 @@ pub(crate) fn generate_mload_general<F: Field>(
         .for_each(|(i, v)| {
             *v = F::from_canonical_u32((rt >> i) & 1);
         });
+    row.memio.aux_filter = row.op.m_op_load * row.opcode_bits[5];
 
-    let diff = op as u32;
+    let rs1 = (rs_from_bits >> 1) & 1;
+    let rs0 = rs_from_bits & 1;
+    let aux_rs_1_rs_0 = rs1 * rs0;
 
-    let val = match op {
+    let (aux_a, val) = match op {
         MemOp::LH => {
-            //diff = op as u32 - MemOp::LH as u32;
-            row.general.io_mut().micro_op[0] = F::ONE;
-            sign_extend::<16>((mem >> (16 - (rs & 2) * 8)) & 0xffff)
+            row.memio.is_lh = F::ONE;
+            let mem_fc = |i: u32| -> u32 { sign_extend::<16>((mem >> (16 - i * 8)) & 0xffff) };
+            (0, mem_fc(rs & 2))
         }
         MemOp::LWL => {
-            //diff = op as u32 - MemOp::LWL as u32;
-            row.general.io_mut().micro_op[1] = F::ONE;
-            let val = mem << ((rs & 3) * 8);
-            let mask = 0xffFFffFFu32 << ((rs & 3) * 8);
-            (rt & (!mask)) | val
+            row.memio.is_lwl = F::ONE;
+            let out = |i: u32| -> u32 {
+                let val = mem << (i * 8);
+                let mask: u32 = 0xffFFffFFu32 << (i * 8);
+                (rt & (!mask)) | val
+            };
+            (aux_rs_1_rs_0, out(rs & 3))
         }
         MemOp::LW => {
-            row.general.io_mut().micro_op[2] = F::ONE;
-            //diff = op as u32 - MemOp::LW as u32;
-            mem
+            row.memio.is_lw = F::ONE;
+            (0, mem)
         }
         MemOp::LBU => {
-            //diff = op as u32 - MemOp::LBU as u32;
-            row.general.io_mut().micro_op[3] = F::ONE;
-            (mem >> (24 - (rs & 3) * 8)) & 0xff
+            row.memio.is_lbu = F::ONE;
+            let out = |i: u32| -> u32 { (mem >> (24 - i * 8)) & 0xff };
+            (aux_rs_1_rs_0, out(rs & 3))
         }
         MemOp::LHU => {
-            //diff = op as u32 - MemOp::LHU as u32;
-            row.general.io_mut().micro_op[4] = F::ONE;
-            (mem >> (16 - (rs & 2) * 8)) & 0xffff
+            row.memio.is_lhu = F::ONE;
+            let mem_fc = |i: u32| -> u32 { (mem >> (16 - i * 8)) & 0xffff };
+            (0, mem_fc(rs & 2))
         }
         MemOp::LWR => {
-            //diff = op as u32 - MemOp::LWR as u32;
-            row.general.io_mut().micro_op[5] = F::ONE;
-            let val = mem >> (24 - (rs & 3) * 8);
-            let mask = 0xffFFffFFu32 >> (24 - (rs & 3) * 8);
-            (rt & (!mask)) | val
+            row.memio.is_lwr = F::ONE;
+            let out = |i: u32| -> u32 {
+                let val = mem >> (24 - i * 8);
+                let mask = 0xffFFffFFu32 >> (24 - i * 8);
+                (rt & (!mask)) | val
+            };
+            (aux_rs_1_rs_0, out(rs & 3))
         }
         MemOp::LL => {
-            //diff = op as u32 - MemOp::LL as u32;
-            row.general.io_mut().micro_op[6] = F::ONE;
-            mem
+            row.memio.is_ll = F::ONE;
+            (0, mem)
         }
         MemOp::LB => {
-            //diff = op as u32 - MemOp::LB as u32;
-            row.general.io_mut().micro_op[7] = F::ONE;
-            sign_extend::<8>((mem >> (24 - (rs & 3) * 8)) & 0xff)
+            row.memio.is_lb = F::ONE;
+            let out = |i: u32| -> u32 { sign_extend::<8>((mem >> (24 - i * 8)) & 0xff) };
+            (aux_rs_1_rs_0, out(rs & 3))
         }
         _ => todo!(),
     };
+
+    row.general.io_mut().aux_rs0_mul_rs1 = F::from_canonical_u32(aux_a);
 
     let log_out0 = reg_write_with_log(rt_reg, 3, val as usize, state, &mut row)?;
 
@@ -1004,17 +1072,6 @@ pub(crate) fn generate_mload_general<F: Field>(
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_in3);
     state.traces.push_memory(log_out0);
-
-    // aux1: op
-    let log_aux1 = reg_write_with_log(0, 4, op as usize, state, &mut row)?;
-    state.traces.push_memory(log_aux1);
-
-    let diff = F::from_canonical_u32(diff);
-    if let Some(inv) = diff.try_inverse() {
-        row.general.io_mut().diff_inv = inv;
-    } else {
-        row.general.io_mut().diff_inv = F::ZERO;
-    }
 
     state.traces.push_cpu(row);
     Ok(())
@@ -1048,6 +1105,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
     let rs = virt_raw;
     let rt = rt as u32;
 
+    let rs_from_bits = rs;
     row.general
         .io_mut()
         .rs_le
@@ -1064,49 +1122,61 @@ pub(crate) fn generate_mstore_general<F: Field>(
         .for_each(|(i, v)| {
             *v = F::from_canonical_u32((rt >> i) & 1);
         });
-    let diff = op as u32;
+    row.memio.aux_filter = row.op.m_op_store * row.opcode_bits[5];
 
-    let val = match op {
+    let rs1 = (rs_from_bits >> 1) & 1;
+    let rs0 = rs_from_bits & 1;
+    let aux_rs_1_rs_0 = rs1 * rs0;
+
+    let (aux_a, val) = match op {
         MemOp::SB => {
-            //diff = op as u32 - MemOp::SB as u32;
-            row.general.io_mut().micro_op[0] = F::ONE;
-            let val = (rt & 0xff) << (24 - (rs & 3) * 8);
-            let mask = 0xffFFffFFu32 ^ (0xff << (24 - (rs & 3) * 8));
-            (mem & mask) | val
+            row.memio.is_sb = F::ONE;
+            let out = |i: u32| -> u32 {
+                let val = (rt & 0xff) << (24 - i * 8);
+                let mask = 0xffFFffFFu32 ^ (0xff << (24 - i * 8));
+                (mem & mask) | val
+            };
+            (aux_rs_1_rs_0, out(rs & 3))
         }
         MemOp::SH => {
-            //diff = op as u32 - MemOp::SH as u32;
-            row.general.io_mut().micro_op[1] = F::ONE;
-            let val = (rt & 0xffff) << (16 - (rs & 2) * 8);
-            let mask = 0xffFFffFFu32 ^ (0xffff << (16 - (rs & 2) * 8));
-            (mem & mask) | val
+            row.memio.is_sh = F::ONE;
+            let mem_fc = |i: u32| -> u32 {
+                let val = (rt & 0xffff) << (16 - i * 8);
+                let mask = 0xffFFffFFu32 ^ (0xffff << (16 - i * 8));
+                (mem & mask) | val
+            };
+            (0, mem_fc(rs & 2))
         }
         MemOp::SWL => {
-            //diff = op as u32 - MemOp::SWL as u32;
-            row.general.io_mut().micro_op[2] = F::ONE;
-            let val = rt >> ((rs & 3) * 8);
-            let mask = 0xffFFffFFu32 >> ((rs & 3) * 8);
-            (mem & (!mask)) | val
+            row.memio.is_swl = F::ONE;
+            let out = |i: u32| -> u32 {
+                let val = rt >> (i * 8);
+                let mask = 0xffFFffFFu32 >> (i * 8);
+                (mem & (!mask)) | val
+            };
+            (aux_rs_1_rs_0, out(rs & 3))
         }
         MemOp::SW => {
-            //diff = op as u32 - MemOp::SW as u32;
-            row.general.io_mut().micro_op[3] = F::ONE;
-            rt
+            row.memio.is_sw = F::ONE;
+            (0, rt)
         }
         MemOp::SWR => {
-            //diff = op as u32 - MemOp::SWR as u32;
-            row.general.io_mut().micro_op[4] = F::ONE;
-            let val = rt << (24 - (rs & 3) * 8);
-            let mask = 0xffFFffFFu32 << (24 - (rs & 3) * 8);
-            (mem & (!mask)) | val
+            row.memio.is_swr = F::ONE;
+            let out = |i: u32| -> u32 {
+                let val = rt << (24 - (rs & i) * 8);
+                let mask = 0xffFFffFFu32 << (24 - i * 8);
+                (mem & (!mask)) | val
+            };
+            (aux_rs_1_rs_0, out(rs & 3))
         }
         MemOp::SC => {
-            //diff = op as u32 - MemOp::SC as u32;
-            row.general.io_mut().micro_op[5] = F::ONE;
-            rt
+            row.memio.is_sc = F::ONE;
+            (0, rt)
         }
         _ => todo!(),
     };
+
+    row.general.io_mut().aux_rs0_mul_rs1 = F::from_canonical_u32(aux_a);
 
     let log_out0 = mem_write_gp_log_and_fill(3, address, state, &mut row, val);
 
@@ -1119,17 +1189,6 @@ pub(crate) fn generate_mstore_general<F: Field>(
     if op == MemOp::SC {
         let log_out1 = reg_write_with_log(rt_reg, 4, 1, state, &mut row)?;
         state.traces.push_memory(log_out1);
-    }
-
-    // aux1: op
-    let log_aux1 = reg_write_with_log(0, 5, op as usize, state, &mut row)?;
-    state.traces.push_memory(log_aux1);
-
-    let diff = F::from_canonical_u32(diff);
-    if let Some(inv) = diff.try_inverse() {
-        row.general.io_mut().diff_inv = inv;
-    } else {
-        row.general.io_mut().diff_inv = F::ZERO;
     }
 
     state.traces.push_cpu(row);

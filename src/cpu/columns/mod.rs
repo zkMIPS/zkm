@@ -8,11 +8,26 @@ use plonky2::field::types::Field;
 use crate::cpu::columns::general::CpuGeneralColumnsView;
 use crate::cpu::columns::ops::OpsColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::memory::VALUE_LIMBS;
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
 mod general;
 pub(crate) mod ops;
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CpuBranchView<T: Copy> {
+    // A flag.
+    pub should_jump: T,
+    pub gt: T,
+    pub lt: T,
+    pub eq: T,
+    pub is_gt: T,
+    pub is_lt: T,
+    pub is_eq: T,
+    pub is_ge: T,
+    pub is_le: T,
+    pub is_ne: T,
+}
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -24,7 +39,27 @@ pub struct MemoryChannelView<T: Copy> {
     pub addr_context: T,
     pub addr_segment: T,
     pub addr_virtual: T,
-    pub value: [T; VALUE_LIMBS],
+    pub value: T,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MemIOView<T: Copy> {
+    pub(crate) is_lh: T,
+    pub(crate) is_lwl: T,
+    pub(crate) is_lw: T,
+    pub(crate) is_lbu: T,
+    pub(crate) is_lhu: T,
+    pub(crate) is_lwr: T,
+    pub(crate) is_sb: T,
+    pub(crate) is_sh: T,
+    pub(crate) is_swl: T,
+    pub(crate) is_sw: T,
+    pub(crate) is_swr: T,
+    pub(crate) is_ll: T,
+    pub(crate) is_sc: T,
+    pub(crate) is_lb: T,
+    pub(crate) aux_filter: T,
 }
 
 #[repr(C)]
@@ -54,6 +89,8 @@ pub struct CpuColumnsView<T: Copy> {
     /// `OpsColumnsView`).
     pub op: OpsColumnsView<T>,
 
+    pub branch: CpuBranchView<T>,
+
     /// If CPU cycle: the opcode, broken up into bits in little-endian order.
     pub opcode_bits: [T; 6], // insn[31:26]
     pub rs_bits: [T; 5],    // insn[25:21]
@@ -68,6 +105,8 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_keccak_sponge: T,
 
     pub(crate) general: CpuGeneralColumnsView<T>,
+
+    pub(crate) memio: MemIOView<T>,
 
     pub(crate) clock: T,
     pub mem_channels: [MemoryChannelView<T>; NUM_GP_CHANNELS],

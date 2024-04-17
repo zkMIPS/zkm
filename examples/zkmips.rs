@@ -1,6 +1,6 @@
 use elf::{endian::AnyEndian, ElfBytes};
 use std::env;
-use std::fs;
+use std::fs::{self, File};
 use std::time::Duration;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -10,6 +10,7 @@ use plonky2x::backend::circuit::Groth16WrapperParameters;
 use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::prelude::DefaultParameters;
+use std::io::BufReader;
 use zkm::all_stark::AllStark;
 use zkm::config::StarkConfig;
 use zkm::cpu::kernel::assembler::segment_kernel;
@@ -22,11 +23,12 @@ use zkm::prover::prove;
 use zkm::verifier::verify_proof;
 
 const DEGREE_BITS_RANGE: [[std::ops::Range<usize>; 6]; 5] = [
-    [16..17, 12..13, 14..16, 9..12, 15..17, 17..19],
+    [16..17, 12..13, 12..16, 8..12, 14..17, 17..19],
     [16..17, 15..17, 15..17, 9..12, 15..17, 19..20],
     [16..17, 15..17, 16..19, 11..14, 16..19, 19..21],
     [16..17, 17..18, 16..19, 11..14, 16..19, 21..22],
-    [16..18, 16..20, 18..21, 14..15, 18..21, 21..23],
+    // [10..21, 12..22, 13..21, 8..21, 10..21, 13..23],
+    [16..20, 15..22, 16..21, 11..16, 16..21, 19..23],
 ];
 
 fn select_degree_bits(seg_size: usize) -> [std::ops::Range<usize>; 6] {
@@ -73,8 +75,11 @@ fn split_elf_into_segs() {
     };
 
     let mut instrumented_state = InstrumentedState::new(state, block_path);
-    instrumented_state.split_segment(false, &seg_path);
+    std::fs::create_dir_all(&seg_path).unwrap();
+    let new_writer = |_: &str| -> Option<std::fs::File> { None };
+    instrumented_state.split_segment(false, &seg_path, new_writer);
     let mut segment_step: usize = seg_size;
+    let new_writer = |name: &str| -> Option<std::fs::File> { File::create(name).ok() };
     loop {
         if instrumented_state.state.exited {
             break;
@@ -83,11 +88,11 @@ fn split_elf_into_segs() {
         segment_step -= 1;
         if segment_step == 0 {
             segment_step = seg_size;
-            instrumented_state.split_segment(true, &seg_path);
+            instrumented_state.split_segment(true, &seg_path, new_writer);
         }
     }
 
-    instrumented_state.split_segment(true, &seg_path);
+    instrumented_state.split_segment(true, &seg_path, new_writer);
     log::info!("Split done");
 }
 
@@ -98,7 +103,8 @@ fn prove_single_seg() {
     let seg_file = env::var("SEG_FILE").expect("Segment file is missing");
     let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
     let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
-    let kernel = segment_kernel(&basedir, &block, &file, &seg_file, seg_size);
+    let seg_reader = BufReader::new(File::open(seg_file).unwrap());
+    let kernel = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -171,7 +177,8 @@ fn aggregate_proof() -> anyhow::Result<()> {
         AllRecursiveCircuits::<F, C, D>::new(&all_stark, &select_degree_bits(seg_size), &config);
 
     zkm::print_mem_usage("before segment kernel");
-    let input_first = segment_kernel(&basedir, &block, &file, &seg_file, seg_size);
+    let seg_reader = BufReader::new(File::open(seg_file)?);
+    let input_first = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
     zkm::print_mem_usage("before prove first");
     let (root_proof_first, first_public_values) =
@@ -180,7 +187,8 @@ fn aggregate_proof() -> anyhow::Result<()> {
     timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_root(root_proof_first.clone())?;
 
-    let input = segment_kernel(&basedir, &block, &file, &seg_file2, seg_size);
+    let seg_reader = BufReader::new(File::open(seg_file2)?);
+    let input = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
     let mut timing = TimingTree::new("prove root second", log::Level::Info);
     zkm::print_mem_usage("before prove second");
     let (root_proof, public_values) =
@@ -248,7 +256,8 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
         AllRecursiveCircuits::<F, C, D>::new(&all_stark, &select_degree_bits(seg_size), &config);
 
     let seg_file = format!("{}/{}", seg_dir, 0);
-    let input_first = segment_kernel(&basedir, &block, &file, &seg_file, seg_size);
+    let seg_reader = BufReader::new(File::open(seg_file)?);
+    let input_first = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
     let (mut agg_proof, mut updated_agg_public_values) =
         all_circuits.prove_root(&all_stark, &input_first, &config, &mut timing)?;
@@ -261,7 +270,8 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
 
     if seg_file_number % 2 == 0 {
         let seg_file = format!("{}/{}", seg_dir, 1);
-        let input = segment_kernel(&basedir, &block, &file, &seg_file, seg_size);
+        let seg_reader = BufReader::new(File::open(seg_file)?);
+        let input = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
         timing = TimingTree::new("prove root second", log::Level::Info);
         let (root_proof, public_values) =
             all_circuits.prove_root(&all_stark, &input, &config, &mut timing)?;
@@ -292,7 +302,8 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
 
     for i in 0..(seg_file_number - base_seg) / 2 {
         let seg_file = format!("{}/{}", seg_dir, base_seg + (i << 1));
-        let input_first = segment_kernel(&basedir, &block, &file, &seg_file, seg_size);
+        let seg_reader = BufReader::new(File::open(&seg_file)?);
+        let input_first = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
         let mut timing = TimingTree::new("prove root first", log::Level::Info);
         let (root_proof_first, first_public_values) =
             all_circuits.prove_root(&all_stark, &input_first, &config, &mut timing)?;
@@ -301,7 +312,8 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
         all_circuits.verify_root(root_proof_first.clone())?;
 
         let seg_file = format!("{}/{}", seg_dir, base_seg + (i << 1) + 1);
-        let input = segment_kernel(&basedir, &block, &file, &seg_file, seg_size);
+        let seg_reader = BufReader::new(File::open(&seg_file)?);
+        let input = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
         let mut timing = TimingTree::new("prove root second", log::Level::Info);
         let (root_proof, public_values) =
             all_circuits.prove_root(&all_stark, &input, &config, &mut timing)?;

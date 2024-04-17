@@ -8,12 +8,22 @@ use std::mem::{size_of, transmute};
 pub(crate) union CpuGeneralColumnsView<T: Copy> {
     syscall: CpuSyscallView<T>,
     logic: CpuLogicView<T>,
-    jumps: CpuJumpsView<T>,
     shift: CpuShiftView<T>,
-    io: CpuIoView<T>,
+    io: CpuIOAuxView<T>,
+    hash: CpuHashView<T>,
 }
 
 impl<T: Copy> CpuGeneralColumnsView<T> {
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn hash(&self) -> &CpuHashView<T> {
+        unsafe { &self.hash }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn hash_mut(&mut self) -> &mut CpuHashView<T> {
+        unsafe { &mut self.hash }
+    }
+
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn syscall(&self) -> &CpuSyscallView<T> {
         unsafe { &self.syscall }
@@ -35,16 +45,6 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn jumps(&self) -> &CpuJumpsView<T> {
-        unsafe { &self.jumps }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn jumps_mut(&mut self) -> &mut CpuJumpsView<T> {
-        unsafe { &mut self.jumps }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn shift(&self) -> &CpuShiftView<T> {
         unsafe { &self.shift }
     }
@@ -55,12 +55,12 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn io(&self) -> &CpuIoView<T> {
+    pub(crate) fn io(&self) -> &CpuIOAuxView<T> {
         unsafe { &self.io }
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn io_mut(&mut self) -> &mut CpuIoView<T> {
+    pub(crate) fn io_mut(&mut self) -> &mut CpuIOAuxView<T> {
         unsafe { &mut self.io }
     }
 }
@@ -96,6 +96,7 @@ impl<T: Copy> BorrowMut<[T; NUM_SHARED_COLUMNS]> for CpuGeneralColumnsView<T> {
 
 #[derive(Copy, Clone)]
 pub(crate) struct CpuSyscallView<T: Copy> {
+    pub(crate) cond: [T; 10],
     pub(crate) sysnum: [T; 11],
     pub(crate) a0: [T; 3],
     pub(crate) a1: T,
@@ -108,12 +109,6 @@ pub(crate) struct CpuLogicView<T: Copy> {
 }
 
 #[derive(Copy, Clone)]
-pub(crate) struct CpuJumpsView<T: Copy> {
-    // A flag.
-    pub(crate) should_jump: T,
-}
-
-#[derive(Copy, Clone)]
 pub(crate) struct CpuShiftView<T: Copy> {
     // For a shift amount of displacement: [T], this is the inverse of
     // sum(displacement[1..]) or zero if the sum is zero.
@@ -121,12 +116,16 @@ pub(crate) struct CpuShiftView<T: Copy> {
 }
 
 #[derive(Copy, Clone)]
-pub(crate) struct CpuIoView<T: Copy> {
+pub(crate) struct CpuIOAuxView<T: Copy> {
     pub(crate) rs_le: [T; 32],
     pub(crate) rt_le: [T; 32],
     pub(crate) mem_le: [T; 32],
-    pub(crate) micro_op: [T; 8],
-    pub(crate) diff_inv: T,
+    pub(crate) aux_rs0_mul_rs1: T,
+}
+
+#[derive(Copy, Clone)]
+pub(crate) struct CpuHashView<T: Copy> {
+    pub(crate) value: [T; 8],
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.

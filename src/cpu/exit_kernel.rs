@@ -94,7 +94,7 @@ pub(crate) fn eval_exit_kernel_packed<F: Field, P: PackedField<Scalar = F>>(
 
     // for the next is exit, the current pc should be end_pc
     // for the exit row, all the pc should be end_pc
-    let input0 = local_values.mem_channels[0].value[0];
+    let input0 = local_values.mem_channels[0].value;
     yield_constr.constraint_transition(delta_is_exit * (input0 - local_values.program_counter));
 
     yield_constr.constraint_transition(
@@ -137,7 +137,7 @@ pub(crate) fn eval_exit_kernel_ext_circuit<F: RichField + Extendable<D>, const D
 
     // for the next is exit, the current pc should be end_pc
     // for the exit row, all the pc should be end_pc
-    let input0 = local_values.mem_channels[0].value[0];
+    let input0 = local_values.mem_channels[0].value;
     let pc_constr = builder.sub_extension(input0, local_values.program_counter);
     let pc_constr = builder.mul_extension(delta_is_exit, pc_constr);
     yield_constr.constraint_transition(builder, pc_constr);

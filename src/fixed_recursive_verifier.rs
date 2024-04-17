@@ -323,6 +323,7 @@ where
         Ok(buffer)
     }
 
+    #[allow(clippy::missing_transmute_annotations)]
     pub fn from_bytes(
         bytes: &[u8],
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -353,6 +354,7 @@ where
                 *table = MaybeUninit::new(value);
             }
             unsafe {
+                #[allow(clippy::missing_transmute_annotations)]
                 mem::transmute::<_, [RecursiveCircuitsForTable<F, C, D>; NUM_TABLES]>(by_table)
             }
         };
