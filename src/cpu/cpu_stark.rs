@@ -17,7 +17,7 @@ use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::{
     bootstrap_kernel, count, decode, exit_kernel, jumps, membus, memio, shift, syscall,
 };
-use crate::cross_table_lookup::{Column, TableWithColumns};
+use crate::cross_table_lookup::{Column, Filter, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
@@ -43,8 +43,8 @@ pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     cols
 }
 
-pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.is_keccak_sponge)
+pub fn ctl_filter_keccak_sponge<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.is_keccak_sponge))
 }
 
 /// Create the vector of Columns corresponding to the two inputs and
@@ -70,8 +70,8 @@ pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     res
 }
 
-pub fn ctl_filter_logic<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.op.logic_op)
+pub fn ctl_filter_logic<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.op.logic_op))
 }
 
 // If an arithmetic operation is happening on the CPU side, the CTL
@@ -91,11 +91,11 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Cpu,
         columns,
-        Some(Column::sum([
+        Some(Filter::new_simple(Column::sum([
             COL_MAP.op.binary_op,
             COL_MAP.op.shift,
             COL_MAP.op.shift_imm,
-        ])),
+        ]))),
     )
 }
 
@@ -110,7 +110,7 @@ pub fn ctl_arithmetic_imm_base_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Cpu,
         columns,
-        Some(Column::single(COL_MAP.op.binary_imm_op)),
+        Some(Filter::new_simple(Column::single(COL_MAP.op.binary_imm_op))),
     )
 }
 
@@ -171,8 +171,8 @@ pub fn ctl_filter_code_memory<F: Field>() -> Column<F> {
     Column::sum(COL_MAP.op.iter())
 }
 
-pub fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Column<F> {
-    Column::single(COL_MAP.mem_channels[channel].used)
+pub fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.mem_channels[channel].used))
 }
 
 #[derive(Copy, Clone, Default)]

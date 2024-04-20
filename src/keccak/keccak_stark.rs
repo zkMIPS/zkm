@@ -13,7 +13,7 @@ use plonky2::util::timing::TimingTree;
 
 use super::columns::reg_input_limb;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak::columns::{
     reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
@@ -45,12 +45,12 @@ pub fn ctl_data_outputs<F: Field>() -> Vec<Column<F>> {
     res
 }
 
-pub fn ctl_filter_inputs<F: Field>() -> Column<F> {
-    Column::single(reg_step(0))
+pub fn ctl_filter_inputs<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(reg_step(0)))
 }
 
-pub fn ctl_filter_outputs<F: Field>() -> Column<F> {
-    Column::single(reg_step(NUM_ROUNDS - 1))
+pub fn ctl_filter_outputs<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(reg_step(NUM_ROUNDS - 1)))
 }
 
 #[derive(Copy, Clone, Default)]
@@ -629,7 +629,7 @@ mod tests {
 
     use crate::config::StarkConfig;
     use crate::cross_table_lookup::{
-        Column, CtlData, CtlZData, GrandProductChallenge, GrandProductChallengeSet,
+        Column, CtlData, CtlZData, Filter, GrandProductChallenge, GrandProductChallengeSet,
     };
     use crate::keccak::columns::reg_output_limb;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
@@ -738,13 +738,14 @@ mod tests {
 
         // Fake CTL data.
         let ctl_z_data = CtlZData {
+            helper_columns: vec![PolynomialValues::zero(degree)],
             z: PolynomialValues::zero(degree),
             challenge: GrandProductChallenge {
                 beta: F::ZERO,
                 gamma: F::ZERO,
             },
             columns: vec![],
-            filter_column: Some(Column::constant(F::ZERO)),
+            filter: vec![Some(Filter::new_simple(Column::constant(F::ZERO)))],
         };
         let ctl_data = CtlData {
             zs_columns: vec![ctl_z_data.clone(); config.num_challenges],

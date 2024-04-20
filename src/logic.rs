@@ -12,7 +12,7 @@ use plonky2::util::timing::TimingTree;
 use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::logic::columns::NUM_COLUMNS;
 use crate::stark::Stark;
@@ -68,13 +68,13 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     res
 }
 
-pub fn ctl_filter<F: Field>() -> Column<F> {
-    Column::sum([
+pub fn ctl_filter<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::sum([
         columns::IS_AND,
         columns::IS_OR,
         columns::IS_XOR,
         columns::IS_NOR,
-    ])
+    ]))
 }
 
 #[derive(Copy, Clone, Default)]

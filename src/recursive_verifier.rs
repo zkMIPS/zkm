@@ -222,10 +222,23 @@ where
     let zero_target = builder.zero();
 
     let num_lookup_columns = stark.num_lookup_helper_columns(inner_config);
-    let num_ctl_zs =
-        CrossTableLookup::num_ctl_zs(cross_table_lookups, table, inner_config.num_challenges);
-    let proof_target =
-        add_virtual_stark_proof(&mut builder, stark, inner_config, degree_bits, num_ctl_zs);
+    let (total_num_helpers, num_ctl_zs, num_helpers_by_ctl) =
+        CrossTableLookup::num_ctl_helpers_zs_all(
+            cross_table_lookups,
+            table,
+            inner_config.num_challenges,
+            stark.constraint_degree(),
+        );
+    let num_ctl_helper_zs = num_ctl_zs + total_num_helpers;
+
+    let proof_target = add_virtual_stark_proof(
+        &mut builder,
+        stark,
+        inner_config,
+        degree_bits,
+        num_ctl_helper_zs,
+        num_ctl_zs,
+    );
     builder.register_public_inputs(
         &proof_target
             .trace_cap
@@ -250,6 +263,8 @@ where
         cross_table_lookups,
         &ctl_challenges_target,
         num_lookup_columns,
+        total_num_helpers,
+        &num_helpers_by_ctl,
     );
 
     let init_challenger_state_target =
@@ -322,6 +337,11 @@ fn verify_stark_proof_with_challenges_circuit<
 {
     let zero = builder.zero();
     let one = builder.one_extension();
+
+    let num_ctl_polys = ctl_vars
+        .iter()
+        .map(|ctl| ctl.helper_columns.len())
+        .sum::<usize>();
 
     let StarkOpeningSetTarget {
         local_values,
@@ -400,6 +420,7 @@ fn verify_stark_proof_with_challenges_circuit<
         builder,
         challenges.stark_zeta,
         F::primitive_root_of_unity(degree_bits),
+        num_ctl_polys,
         ctl_zs_first.len(),
         inner_config,
     );
@@ -500,6 +521,7 @@ pub(crate) fn add_virtual_stark_proof<
     stark: &S,
     config: &StarkConfig,
     degree_bits: usize,
+    num_ctl_helper_zs: usize,
     num_ctl_zs: usize,
 ) -> StarkProofTarget<D> {
     let fri_params = config.fri_params(degree_bits);
@@ -507,7 +529,7 @@ pub(crate) fn add_virtual_stark_proof<
 
     let num_leaves_per_oracle = vec![
         S::COLUMNS,
-        stark.num_lookup_helper_columns(config) + num_ctl_zs,
+        stark.num_lookup_helper_columns(config) + num_ctl_helper_zs,
         stark.quotient_degree_factor() * config.num_challenges,
     ];
 
@@ -517,7 +539,13 @@ pub(crate) fn add_virtual_stark_proof<
         trace_cap: builder.add_virtual_cap(cap_height),
         auxiliary_polys_cap,
         quotient_polys_cap: builder.add_virtual_cap(cap_height),
-        openings: add_virtual_stark_opening_set::<F, S, D>(builder, stark, num_ctl_zs, config),
+        openings: add_virtual_stark_opening_set::<F, S, D>(
+            builder,
+            stark,
+            num_ctl_helper_zs,
+            num_ctl_zs,
+            config,
+        ),
         opening_proof: builder.add_virtual_fri_proof(&num_leaves_per_oracle, &fri_params),
     }
 }
@@ -525,6 +553,7 @@ pub(crate) fn add_virtual_stark_proof<
 fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
+    num_ctl_helper_zs: usize,
     num_ctl_zs: usize,
     config: &StarkConfig,
 ) -> StarkOpeningSetTarget<D> {
@@ -532,10 +561,12 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
     StarkOpeningSetTarget {
         local_values: builder.add_virtual_extension_targets(S::COLUMNS),
         next_values: builder.add_virtual_extension_targets(S::COLUMNS),
-        auxiliary_polys: builder
-            .add_virtual_extension_targets(stark.num_lookup_helper_columns(config) + num_ctl_zs),
-        auxiliary_polys_next: builder
-            .add_virtual_extension_targets(stark.num_lookup_helper_columns(config) + num_ctl_zs),
+        auxiliary_polys: builder.add_virtual_extension_targets(
+            stark.num_lookup_helper_columns(config) + num_ctl_helper_zs,
+        ),
+        auxiliary_polys_next: builder.add_virtual_extension_targets(
+            stark.num_lookup_helper_columns(config) + num_ctl_helper_zs,
+        ),
         ctl_zs_first: builder.add_virtual_targets(num_ctl_zs),
         quotient_polys: builder
             .add_virtual_extension_targets(stark.quotient_degree_factor() * num_challenges),

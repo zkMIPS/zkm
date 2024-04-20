@@ -13,7 +13,7 @@ use plonky2::util::transpose;
 use plonky2_maybe_rayon::*;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::Lookup;
 use crate::memory::columns::{
@@ -36,8 +36,8 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     res
 }
 
-pub fn ctl_filter<F: Field>() -> Column<F> {
-    Column::single(FILTER)
+pub fn ctl_filter<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(FILTER))
 }
 
 #[derive(Copy, Clone, Default)]
@@ -479,11 +479,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         3
     }
 
-    fn lookups(&self) -> Vec<Lookup> {
+    fn lookups(&self) -> Vec<Lookup<F>> {
         vec![Lookup {
-            columns: vec![RANGE_CHECK],
-            table_column: COUNTER,
-            frequencies_column: FREQUENCIES,
+            columns: vec![Column::single(RANGE_CHECK)],
+            table_column: Column::single(COUNTER),
+            frequencies_column: Column::single(FREQUENCIES),
+            filter_columns: vec![None],
         }]
     }
 }
