@@ -290,11 +290,31 @@ impl State {
         let data = fs::read(preiamge_path).expect("could not read file");
         let data: Box<&[u8]> = Box::new(data.as_slice());
 
-        self.memory.set_memory(0x31000000, data.len() as u32);
+        log::info!("load preimage {}", data.len());
+
+        let data_len = data.len();
+        self.memory.set_memory(0x31000000, data_len as u32);
 
         self.memory
             .set_memory_range(0x31000004, data)
             .expect("set memory range failed");
+
+        let len = data_len & 3;
+        let end = data_len % 136;
+        if len != 0 {
+            let mut bytes = [0u8; 4];
+            let final_addr = 0x31000004 + data_len - len;
+            let word = self.memory.get_memory(final_addr as u32);
+            bytes[0..len].copy_from_slice(&word.to_be_bytes()[0..len]);
+            bytes[len] = 1;
+            if end + 4 > 136 {
+                bytes[3] |= 0b10000000;
+            }
+
+            self.memory.set_memory(final_addr as u32, u32::from_be_bytes(bytes));
+        }
+
+
     }
 
     pub fn load_input(&mut self, blockpath: &str) {

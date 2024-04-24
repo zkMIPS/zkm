@@ -345,9 +345,15 @@ pub(crate) fn keccak_sponge_log<F: Field>(
     }
 
     let rem = input_blocks.remainder();
+
+    // patch data to match sponge logic
+    let mut rem_data = [0u8; KECCAK_RATE_BYTES];
+    rem_data[0..rem.len()].copy_from_slice(&rem[0..rem.len()]);
+    rem_data[rem.len()] = 1;
+    rem_data[KECCAK_RATE_BYTES - 1] |= 0b10000000;
     for i in 0..rem.len() {
         let align = (i / 4) * 4;
-        let val = u32::from_le_bytes(rem[align..(align + 4)].try_into().unwrap());
+        let val = u32::from_le_bytes(rem_data[align..align + 4].try_into().unwrap());
         let addr_idx = absorbed_bytes / 4;
         state.traces.push_memory(MemoryOp::new(
             MemoryChannel::GeneralPurpose(n_gp),
