@@ -357,7 +357,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
     rem_data[KECCAK_RATE_BYTES - 1] |= 0b10000000;
     for i in 0..rem.len() {
         let align = (i / 4) * 4;
-        let val = u32::from_le_bytes(rem_data[align..align + 4].try_into().unwrap());
+        let mut val = u32::from_le_bytes(rem_data[align..align + 4].try_into().unwrap());
         let addr_idx = absorbed_bytes / 4;
         if !be {
             val = val.to_be();
