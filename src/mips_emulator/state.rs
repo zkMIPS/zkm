@@ -979,7 +979,7 @@ impl InstrumentedState {
                 page_hash_root,
             };
             let name = format!("{output}/{}", self.pre_segment_id);
-            log::trace!("split: file {}", name);
+            log::info!("split: file {}", name);
             let mut f = new_writer(&name).unwrap();
             let data = serde_json::to_vec(&segment).unwrap();
             f.write_all(data.as_slice()).unwrap();

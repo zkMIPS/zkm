@@ -159,7 +159,7 @@ pub(crate) fn check_image_id<F: Field>(
     cpu_row.general.hash_mut().value = code_hash.map(F::from_canonical_u32);
     cpu_row.general.hash_mut().value.reverse();
 
-    keccak_sponge_log(state, root_hash_addr, image_addr_value_byte_be);
+    keccak_sponge_log(state, root_hash_addr, image_addr_value_byte_be, true);
     state.traces.push_cpu(cpu_row);
 }
 
@@ -270,7 +270,7 @@ pub(crate) fn check_memory_page_hash<F: Field>(
     cpu_row.general.hash_mut().value = code_hash.map(F::from_canonical_u32);
     cpu_row.general.hash_mut().value.reverse();
 
-    keccak_sponge_log(state, page_data_addr, page_addr_value_byte_be);
+    keccak_sponge_log(state, page_data_addr, page_addr_value_byte_be, true);
     state.traces.push_cpu(cpu_row);
     if update {
         state.memory.apply_ops(&state.traces.memory_ops);
