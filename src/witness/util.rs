@@ -359,6 +359,9 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         let align = (i / 4) * 4;
         let val = u32::from_le_bytes(rem_data[align..align + 4].try_into().unwrap());
         let addr_idx = absorbed_bytes / 4;
+        if !be {
+            val = val.to_be();
+        }
         state.traces.push_memory(MemoryOp::new(
             MemoryChannel::GeneralPurpose(n_gp),
             clock,
