@@ -851,7 +851,7 @@ pub(crate) fn load_preimage<F: Field>(
     cpu_row.general.hash_mut().value = hash_data.map(F::from_canonical_u32);
     cpu_row.general.hash_mut().value.reverse();
 
-    keccak_sponge_log(state, preimage_data_addr, preimage_addr_value_byte_be, false);
+    keccak_sponge_log(state, preimage_data_addr, preimage_addr_value_byte_be);
     state.traces.push_cpu(cpu_row);
 
     Ok(())

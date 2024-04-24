@@ -311,7 +311,6 @@ pub(crate) fn keccak_sponge_log<F: Field>(
     state: &mut GenerationState<F>,
     base_address: Vec<MemoryAddress>,
     input: Vec<u8>, // BE
-    be: bool,
 ) {
     let clock = state.traces.clock();
 
@@ -326,16 +325,14 @@ pub(crate) fn keccak_sponge_log<F: Field>(
             //for &byte in block {
             let align = (i / 4) * 4;
             let mut val = u32::from_le_bytes(block[align..(align + 4)].try_into().unwrap());
-            if !be {
-                val = val.to_be();
-            }
+
             let addr_idx = absorbed_bytes / 4;
             state.traces.push_memory(MemoryOp::new(
                 MemoryChannel::GeneralPurpose(n_gp),
                 clock,
                 base_address[addr_idx],
                 MemoryOpKind::Read,
-                val,
+                val.to_be(),
             ));
             n_gp += 1;
             n_gp %= NUM_GP_CHANNELS - 1;
@@ -359,15 +356,13 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         let align = (i / 4) * 4;
         let mut val = u32::from_le_bytes(rem_data[align..align + 4].try_into().unwrap());
         let addr_idx = absorbed_bytes / 4;
-        if !be {
-            val = val.to_be();
-        }
+
         state.traces.push_memory(MemoryOp::new(
             MemoryChannel::GeneralPurpose(n_gp),
             clock,
             base_address[addr_idx],
             MemoryOpKind::Read,
-            val,
+            val.to_be(),
         ));
         n_gp += 1;
         n_gp %= NUM_GP_CHANNELS - 1;

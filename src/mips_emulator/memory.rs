@@ -1,9 +1,11 @@
 #![allow(clippy::extra_unused_lifetimes)]
 use std::cell::RefCell;
 
+use crate::cpu::kernel::elf::WORD_SIZE;
 use crate::mips_emulator::page::{CachedPage, PAGE_ADDR_MASK, PAGE_ADDR_SIZE, PAGE_SIZE};
 use keccak_hash::keccak;
 use lazy_static::lazy_static;
+use num::traits::ToBytes;
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::rc::Rc;
@@ -22,13 +24,7 @@ pub enum MemoryOperation {
 }
 
 pub fn hash_page(data: &[u8; 4096]) -> [u8; 32] {
-    let mut swap_data = [0u8; 4096];
-    for i in 0..1024 {
-        let bytes: [u8; 4] = data[i * 4..(i * 4 + 4)].try_into().unwrap();
-        let v = u32::from_be_bytes(bytes);
-        swap_data[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
-    }
-    keccak(swap_data).0
+    keccak(data).0
 }
 
 fn zero_hash() -> [u8; 32] {
@@ -373,8 +369,13 @@ impl Memory {
         };
 
         let mut final_data = [0u8; 36];
-        final_data[0..32].copy_from_slice(&hash);
-        final_data[32..].copy_from_slice(&pc.to_be_bytes());
+
+        for i in (0..32).step_by(WORD_SIZE) {
+            let data = u32::from_le_bytes(hash[i..i+WORD_SIZE].try_into()
+            .unwrap());
+            final_data[i..i + WORD_SIZE].copy_from_slice(&data.to_be_bytes());
+        }
+        final_data[32..].copy_from_slice(&pc.to_le_bytes());
 
         let image_id = keccak(final_data).0;
 
