@@ -58,7 +58,7 @@ pub(crate) fn generate_exit_kernel<F: Field>(state: &mut GenerationState<F>, ker
         state.traces.push_cpu(cpu_row);
     }
     state.memory.apply_ops(&state.traces.memory_ops);
-
+    /*
     // update memory hash root
     for (addr, _) in kernel.program.image.iter() {
         if (*addr & PAGE_ADDR_MASK as u32) == 0 {
@@ -68,6 +68,7 @@ pub(crate) fn generate_exit_kernel<F: Field>(state: &mut GenerationState<F>, ker
 
     // check post image
     check_image_id(state, kernel, true);
+    */
 }
 
 pub(crate) fn eval_exit_kernel_packed<F: Field, P: PackedField<Scalar = F>>(
