@@ -55,10 +55,9 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
 
     for addr in page_addr {
        check_memory_page_hash(state, kernel, addr, false);
-       break;
     }
 
-    //check_image_id(state, kernel, false);
+    check_image_id(state, kernel, false);
 
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
