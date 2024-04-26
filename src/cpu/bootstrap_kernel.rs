@@ -131,7 +131,7 @@ pub(crate) fn check_image_id<F: Field>(
 
     let mut image_addr_value_byte_be = vec![0u8; root_hash_addr_value.len() * 4];
     for (i, (_, v)) in root_hash_addr_value.iter().enumerate() {
-        image_addr_value_byte_be[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_be_bytes());
+        image_addr_value_byte_be[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
     }
 
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
@@ -181,7 +181,7 @@ pub(crate) fn check_memory_page_hash<F: Field>(
         let address = MemoryAddress::new(0, Segment::Code, *addr as usize);
         page_data_addr.push(address);
         let v = state.memory.get(address);
-        page_addr_value_byte_be[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_be_bytes());
+        page_addr_value_byte_be[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
     }
 
     let code_hash_bytes = keccak(&page_addr_value_byte_be).0;

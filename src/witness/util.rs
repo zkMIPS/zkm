@@ -325,13 +325,14 @@ pub(crate) fn keccak_sponge_log<F: Field>(
             //for &byte in block {
             let align = (i / 4) * 4;
             let val = u32::from_le_bytes(block[align..(align + 4)].try_into().unwrap());
+
             let addr_idx = absorbed_bytes / 4;
             state.traces.push_memory(MemoryOp::new(
                 MemoryChannel::GeneralPurpose(n_gp),
                 clock,
                 base_address[addr_idx],
                 MemoryOpKind::Read,
-                val,
+                val.to_be(),
             ));
             n_gp += 1;
             n_gp %= NUM_GP_CHANNELS - 1;
@@ -345,16 +346,23 @@ pub(crate) fn keccak_sponge_log<F: Field>(
     }
 
     let rem = input_blocks.remainder();
+
+    // patch data to match sponge logic
+    let mut rem_data = [0u8; KECCAK_RATE_BYTES];
+    rem_data[0..rem.len()].copy_from_slice(&rem[0..rem.len()]);
+    rem_data[rem.len()] = 1;
+    rem_data[KECCAK_RATE_BYTES - 1] |= 0b10000000;
     for i in 0..rem.len() {
         let align = (i / 4) * 4;
-        let val = u32::from_le_bytes(rem[align..(align + 4)].try_into().unwrap());
+        let val = u32::from_le_bytes(rem_data[align..align + 4].try_into().unwrap());
         let addr_idx = absorbed_bytes / 4;
+
         state.traces.push_memory(MemoryOp::new(
             MemoryChannel::GeneralPurpose(n_gp),
             clock,
             base_address[addr_idx],
             MemoryOpKind::Read,
-            val,
+            val.to_be(),
         ));
         n_gp += 1;
         n_gp %= NUM_GP_CHANNELS - 1;
