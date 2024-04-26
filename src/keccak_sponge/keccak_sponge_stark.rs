@@ -109,7 +109,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
         cols.block_bytes[start + 3],
         cols.block_bytes[start + 2],
         cols.block_bytes[start + 1],
-        cols.block_bytes[start + 0],
+        cols.block_bytes[start],
     ]);
     res.push(lc);
 
