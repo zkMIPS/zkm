@@ -290,7 +290,7 @@ impl State {
         let data = fs::read(preiamge_path).expect("could not read file");
         let data: Box<&[u8]> = Box::new(data.as_slice());
 
-        log::info!("load preimage {}", data.len());
+        log::debug!("load preimage {}", data.len());
 
         let data_len = data.len();
         self.memory.set_memory(0x31000000, data_len as u32);
@@ -978,7 +978,7 @@ impl InstrumentedState {
                 page_hash_root,
             };
             let name = format!("{output}/{}", self.pre_segment_id);
-            log::info!("split: file {}", name);
+            log::debug!("split: file {}", name);
             let mut f = new_writer(&name).unwrap();
             let data = serde_json::to_vec(&segment).unwrap();
             f.write_all(data.as_slice()).unwrap();
