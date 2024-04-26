@@ -2,12 +2,12 @@ use super::util::*;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::state::GenerationState;
+use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_RATE_U32S};
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
 use crate::{arithmetic, logic};
 use anyhow::{Context, Result};
-use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_RATE_U32S};
 use keccak_hash::keccak;
 
 use plonky2::field::types::Field;

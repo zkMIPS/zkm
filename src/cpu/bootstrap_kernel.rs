@@ -54,7 +54,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     state.memory.apply_ops(&state.traces.memory_ops);
 
     for addr in page_addr {
-       check_memory_page_hash(state, kernel, addr, false);
+        check_memory_page_hash(state, kernel, addr, false);
     }
 
     check_image_id(state, kernel, false);

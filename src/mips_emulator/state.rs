@@ -311,10 +311,9 @@ impl State {
                 bytes[3] |= 0b10000000;
             }
 
-            self.memory.set_memory(final_addr as u32, u32::from_be_bytes(bytes));
+            self.memory
+                .set_memory(final_addr as u32, u32::from_be_bytes(bytes));
         }
-
-
     }
 
     pub fn load_input(&mut self, blockpath: &str) {

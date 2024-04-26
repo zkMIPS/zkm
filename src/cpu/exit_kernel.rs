@@ -68,7 +68,6 @@ pub(crate) fn generate_exit_kernel<F: Field>(state: &mut GenerationState<F>, ker
 
     // check post image
     check_image_id(state, kernel, true);
-
 }
 
 pub(crate) fn eval_exit_kernel_packed<F: Field, P: PackedField<Scalar = F>>(

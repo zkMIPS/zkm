@@ -5,7 +5,6 @@ use crate::cpu::kernel::elf::WORD_SIZE;
 use crate::mips_emulator::page::{CachedPage, PAGE_ADDR_MASK, PAGE_ADDR_SIZE, PAGE_SIZE};
 use keccak_hash::keccak;
 use lazy_static::lazy_static;
-use num::traits::ToBytes;
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::rc::Rc;
@@ -371,8 +370,7 @@ impl Memory {
         let mut final_data = [0u8; 36];
 
         for i in (0..32).step_by(WORD_SIZE) {
-            let data = u32::from_le_bytes(hash[i..i+WORD_SIZE].try_into()
-            .unwrap());
+            let data = u32::from_le_bytes(hash[i..i + WORD_SIZE].try_into().unwrap());
             final_data[i..i + WORD_SIZE].copy_from_slice(&data.to_be_bytes());
         }
         final_data[32..].copy_from_slice(&pc.to_le_bytes());
