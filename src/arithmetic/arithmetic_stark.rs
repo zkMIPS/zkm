@@ -342,16 +342,6 @@ mod tests {
         // 123 * 456 == 56088
         let multu = Operation::binary(BinaryOperator::MULTU, 123, 456);
 
-        // 128 < 13 == 0
-        //let lt1 = Operation::binary(BinaryOperator::Lt, 128, 13);
-        // 13 < 128 == 1
-        //let lt2 = Operation::binary(BinaryOperator::Lt, 13, 128);
-        // 128 < 128 == 0
-        //let lt3 = Operation::binary(BinaryOperator::Lt, 128, 128);
-
-        // byte(30, 0xABCD) = 0xAB
-        // let byte = Operation::binary(BinaryOperator::Byte, U256::from(30), U256::from(0xABCD));
-
         let ops: Vec<Operation> = vec![add, mul, div0, div1, divu, mult0, mult1, multu];
 
         let pols = stark.generate_trace(ops);
@@ -416,28 +406,5 @@ mod tests {
             pols.len() == columns::NUM_ARITH_COLUMNS
                 && pols.iter().all(|v| v.len() == super::RANGE_MAX)
         );
-
-        /*
-        let ops = (0..super::RANGE_MAX)
-            .map(|_| {
-                Operation::ternary(
-                    TernaryOperator::MulMod,
-                    rng.gen::<u32>(),
-                    rng.gen::<u32>(),
-                    rng.gen::<u32>(),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        let pols = stark.generate_trace(ops);
-
-        // Trace should always have NUM_ARITH_COLUMNS columns and
-        // min(RANGE_MAX, operations.len()) rows. In this case there
-        // are RANGE_MAX operations with two rows each, so 2*RANGE_MAX.
-        assert!(
-            pols.len() == columns::NUM_ARITH_COLUMNS
-                && pols.iter().all(|v| v.len() == 2 * super::RANGE_MAX)
-        );
-        */
     }
 }

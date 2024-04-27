@@ -217,15 +217,15 @@ pub(crate) fn eval_packed_generic_mult<P: PackedField>(
         result
     };
     let left_in_limbs = sign_extend(
-        AUX_EXTRA.start,        //INPUT_REGISTER_2.start,
-        INPUT_REGISTER_2.start, // MULT_AUX_HI.end,
+        AUX_EXTRA.start,
+        INPUT_REGISTER_2.start,
         &left_in_limbs,
         yield_constr,
     );
 
     let right_in_limbs = sign_extend(
-        AUX_EXTRA.start + 1,        //INPUT_REGISTER_2.start + 1,
-        INPUT_REGISTER_2.start + 1, //MULT_AUX_HI.end + 1,
+        AUX_EXTRA.start + 1,
+        INPUT_REGISTER_2.start + 1,
         &right_in_limbs,
         yield_constr,
     );
@@ -370,15 +370,15 @@ pub(crate) fn eval_ext_mult_circuit<F: RichField + Extendable<D>, const D: usize
     };
     let left_in_limbs = sign_extend(
         builder,
-        AUX_EXTRA.start,        //INPUT_REGISTER_2.start,
-        INPUT_REGISTER_2.start, // MULT_AUX_HI.end,
+        AUX_EXTRA.start,
+        INPUT_REGISTER_2.start,
         &left_in_limbs,
         yield_constr,
     );
     let right_in_limbs = sign_extend(
         builder,
-        AUX_EXTRA.start + 1,        //INPUT_REGISTER_2.start + 1,
-        INPUT_REGISTER_2.start + 1, //MULT_AUX_HI.end + 1,
+        AUX_EXTRA.start + 1,
+        INPUT_REGISTER_2.start + 1,
         &right_in_limbs,
         yield_constr,
     );
