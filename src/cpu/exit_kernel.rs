@@ -12,6 +12,7 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
+use crate::mips_emulator::state::REGISTERS_START;
 use crate::mips_emulator::page::PAGE_ADDR_MASK;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::mem_write_gp_log_and_fill;
@@ -30,7 +31,9 @@ pub(crate) fn generate_exit_kernel<F: Field>(state: &mut GenerationState<F>, ker
     state.traces.push_cpu(cpu_row);
 
     // sync registers to memory
-    let registers_addr: Vec<_> = (0..=(36 << 2) - 1).step_by(4).collect::<Vec<u32>>();
+    let registers_addr: Vec<_> = (REGISTERS_START..=REGISTERS_START + (36 << 2) - 1)
+        .step_by(4)
+        .collect::<Vec<u32>>();
     let mut registers_value: [u32; 36] = [0; 36];
     for i in 0..32 {
         registers_value[i] = state.registers.gprs[i] as u32;
