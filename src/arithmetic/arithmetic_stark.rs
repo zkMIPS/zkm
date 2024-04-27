@@ -15,7 +15,6 @@ use super::columns::{NUM_ARITH_COLUMNS, NUM_SHARED_COLS};
 use super::shift;
 use crate::all_stark::Table;
 use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
-//use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
 use crate::arithmetic::{addcy, columns, div, lo_hi, lui, mul, mult, slt, sra, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, Filter, TableWithColumns};
@@ -64,8 +63,6 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // If an arithmetic operation is happening on the CPU side,
     // the CTL will enforce that the reconstructed opcode value
     // from the opcode bits matches.
-    // FIXME: opcode = op + 2^6 * func
-    //  for imm op, only consider op
     const COMBINED_OPS: [(usize, u32); 26] = [
         (columns::IS_ADD, 0b100000 * (1 << 6)),
         (columns::IS_ADDU, 0b100001 * (1 << 6)),
@@ -134,10 +131,10 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         debug_assert!(cols.iter().all(|col| col.len() == n_rows));
 
         for i in 0..RANGE_MAX {
-            cols[columns::RANGE_COUNTER][i] = F::from_canonical_usize(i);
+            cols[RANGE_COUNTER][i] = F::from_canonical_usize(i);
         }
         for i in RANGE_MAX..n_rows {
-            cols[columns::RANGE_COUNTER][i] = F::from_canonical_usize(RANGE_MAX - 1);
+            cols[RANGE_COUNTER][i] = F::from_canonical_usize(RANGE_MAX - 1);
         }
 
         // Generate the frequencies column.
@@ -212,8 +209,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         // Check the range column: First value must be 0, last row
         // must be 2^16-1, and intermediate rows must increment by 0
         // or 1.
-        let rc1 = lv[columns::RANGE_COUNTER];
-        let rc2 = nv[columns::RANGE_COUNTER];
+        let rc1 = lv[RANGE_COUNTER];
+        let rc2 = nv[RANGE_COUNTER];
         yield_constr.constraint_first_row(rc1);
         let incr = rc2 - rc1;
         yield_constr.constraint_transition(incr * incr - incr);
@@ -225,11 +222,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         addcy::eval_packed_generic(lv, yield_constr);
         slt::eval_packed_generic(lv, yield_constr);
         lui::eval_packed_generic(lv, nv, yield_constr);
-        //divmod::eval_packed(lv, nv, yield_constr);
         div::eval_packed(lv, nv, yield_constr);
-        lui::eval_packed_generic(lv, nv, yield_constr);
-        //modular::eval_packed(lv, nv, yield_constr);
-        //byte::eval_packed(lv, yield_constr);
         shift::eval_packed_generic(lv, nv, yield_constr);
         sra::eval_packed_generic(lv, nv, yield_constr);
         lo_hi::eval_packed_generic(lv, yield_constr);
@@ -246,8 +239,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         let nv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS] =
             vars.get_next_values().try_into().unwrap();
 
-        let rc1 = lv[columns::RANGE_COUNTER];
-        let rc2 = nv[columns::RANGE_COUNTER];
+        let rc1 = lv[RANGE_COUNTER];
+        let rc2 = nv[RANGE_COUNTER];
         yield_constr.constraint_first_row(builder, rc1);
         let incr = builder.sub_extension(rc2, rc1);
         let t = builder.mul_sub_extension(incr, incr, incr);
@@ -262,12 +255,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         addcy::eval_ext_circuit(builder, lv, yield_constr);
         slt::eval_ext_circuit(builder, lv, yield_constr);
         lui::eval_ext_circuit(builder, lv, nv, yield_constr);
-        //divmod::eval_ext_circuit(builder, lv, nv, yield_constr);
         div::eval_ext_circuit(builder, lv, nv, yield_constr);
-        lui::eval_ext_circuit(builder, lv, nv, yield_constr);
-        //divmod::eval_ext_circuit(builder, lv, nv, yield_constr);
-        //modular::eval_ext_circuit(builder, lv, nv, yield_constr);
-        //byte::eval_ext_circuit(builder, lv, yield_constr);
         shift::eval_ext_circuit(builder, lv, nv, yield_constr);
         sra::eval_ext_circuit(builder, lv, nv, yield_constr);
         lo_hi::eval_ext_circuit(builder, lv, yield_constr);

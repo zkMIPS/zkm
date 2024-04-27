@@ -59,7 +59,7 @@ pub(crate) const START_SHARED_COLS: usize = IS_MTLO + 1;
 /// two rows, the first with 6 * N_LIMBS columns and the second with
 /// 5 * N_LIMBS columns. (There are hence N_LIMBS "wasted columns" in
 /// the second row.)
-pub(crate) const NUM_SHARED_COLS: usize = 9 * N_LIMBS + 2;
+pub(crate) const NUM_SHARED_COLS: usize = 9 * N_LIMBS;
 pub(crate) const SHARED_COLS: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + NUM_SHARED_COLS;
 
 pub(crate) const INPUT_REGISTER_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LIMBS;
@@ -93,16 +93,9 @@ const AUX_REGISTER_2: Range<usize> = AUX_REGISTER_1.end..AUX_REGISTER_1.end + 2 
 // the range checks.
 pub(crate) const AUX_COEFF_ABS_MAX: i64 = 1 << 20;
 
-// MUL takes 5 * N_LIMBS = 80 columns
 pub(crate) const MUL_AUX_INPUT_LO: Range<usize> = AUX_INPUT_REGISTER_0;
 pub(crate) const MUL_AUX_INPUT_HI: Range<usize> = AUX_INPUT_REGISTER_1;
 
-// MULMOD takes 4 * N_LIMBS + 3 * 2*N_LIMBS + N_LIMBS = 176 columns
-// but split over two rows of 96 columns and 80 columns.
-//
-// ADDMOD, SUBMOD, MOD and DIV are currently implemented in terms of
-// the general modular code, so they also take 144 columns (also split
-// over two rows).
 pub(crate) const MODULAR_INPUT_0: Range<usize> = INPUT_REGISTER_0;
 pub(crate) const MODULAR_INPUT_1: Range<usize> = INPUT_REGISTER_1;
 pub(crate) const MODULAR_MODULUS: Range<usize> = INPUT_REGISTER_2;
