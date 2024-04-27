@@ -67,12 +67,14 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], filter: usize, input0: u32
     }
 }
 pub(crate) fn generate_mult<F: PrimeField64>(lv: &mut [F], input0: u32, input1: u32) {
+    log::debug!("generate_mult");
     let is_input0_neg = (input0 as i32) < 0;
     let is_input1_neg = (input1 as i32) < 0;
-    lv[INPUT_REGISTER_2].clone_from_slice(&[is_input0_neg, is_input1_neg].map(F::from_bool));
 
-    lv[MULT_AUX_HI.end] = F::from_canonical_u32((input0 >> LIMB_BITS) ^ 0x8000);
-    lv[MULT_AUX_HI.end + 1] = F::from_canonical_u32((input1 >> LIMB_BITS) ^ 0x8000);
+    lv[AUX_EXTRA.start] = F::from_bool(is_input0_neg);
+    lv[AUX_EXTRA.start + 1] = F::from_bool(is_input1_neg);
+    lv[INPUT_REGISTER_2.start] = F::from_canonical_u32((input0 >> LIMB_BITS) ^ 0x8000);
+    lv[INPUT_REGISTER_2.start + 1] = F::from_canonical_u32((input1 >> LIMB_BITS) ^ 0x8000);
 
     let sign_extend = |is_neg, range| {
         let input = read_value_i64_limbs::<N_LIMBS, _>(lv, range);
@@ -215,15 +217,15 @@ pub(crate) fn eval_packed_generic_mult<P: PackedField>(
         result
     };
     let left_in_limbs = sign_extend(
+        AUX_EXTRA.start,
         INPUT_REGISTER_2.start,
-        MULT_AUX_HI.end,
         &left_in_limbs,
         yield_constr,
     );
 
     let right_in_limbs = sign_extend(
+        AUX_EXTRA.start + 1,
         INPUT_REGISTER_2.start + 1,
-        MULT_AUX_HI.end + 1,
         &right_in_limbs,
         yield_constr,
     );
@@ -368,15 +370,15 @@ pub(crate) fn eval_ext_mult_circuit<F: RichField + Extendable<D>, const D: usize
     };
     let left_in_limbs = sign_extend(
         builder,
+        AUX_EXTRA.start,
         INPUT_REGISTER_2.start,
-        MULT_AUX_HI.end,
         &left_in_limbs,
         yield_constr,
     );
     let right_in_limbs = sign_extend(
         builder,
+        AUX_EXTRA.start + 1,
         INPUT_REGISTER_2.start + 1,
-        MULT_AUX_HI.end + 1,
         &right_in_limbs,
         yield_constr,
     );

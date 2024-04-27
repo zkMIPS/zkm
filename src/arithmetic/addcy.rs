@@ -145,8 +145,6 @@ pub fn eval_packed_generic<P: PackedField>(
 ) {
     let is_add = lv[IS_ADD];
     let is_sub = lv[IS_SUB];
-    // let is_lt = lv[IS_LT];
-    // let is_gt = lv[IS_GT];
     let is_addi = lv[IS_ADDI];
     let is_addiu = lv[IS_ADDIU];
 
@@ -158,8 +156,6 @@ pub fn eval_packed_generic<P: PackedField>(
     // x + y = z + w*2^32
     eval_packed_generic_addcy(yield_constr, is_add, in0, in1, out, aux, false);
     eval_packed_generic_addcy(yield_constr, is_sub, in1, out, in0, aux, false);
-    // eval_packed_generic_addcy(yield_constr, is_lt, in1, aux, in0, out, false);
-    // eval_packed_generic_addcy(yield_constr, is_gt, in0, aux, in1, out, false);
     eval_packed_generic_addcy(yield_constr, is_addi, in0, in1, out, aux, false);
     eval_packed_generic_addcy(yield_constr, is_addiu, in0, in1, out, aux, false);
 }
@@ -249,8 +245,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     eval_ext_circuit_addcy(builder, yield_constr, is_add, in0, in1, out, aux, false);
     eval_ext_circuit_addcy(builder, yield_constr, is_sub, in1, out, in0, aux, false);
-    //eval_ext_circuit_addcy(builder, yield_constr, is_lt, in1, aux, in0, out, false);
-    //eval_ext_circuit_addcy(builder, yield_constr, is_gt, in0, aux, in1, out, false);
     eval_ext_circuit_addcy(builder, yield_constr, is_addi, in0, in1, out, aux, false);
     eval_ext_circuit_addcy(builder, yield_constr, is_addiu, in0, in1, out, aux, false);
 }

@@ -43,7 +43,6 @@ pub fn generate<F: PrimeField64>(
     // The second register holds the input which needs shifting.
     u32_to_array(&mut lv[INPUT_REGISTER_1], input);
     u32_to_array(&mut lv[OUTPUT_REGISTER], result);
-    // TODO: If `shift >= 32`, the shifted displacement is set to 0.
     // Compute 1 << shift and store it in the third input register.
     let shifted_displacement = 1u32 << (shift & 0x1F);
 

@@ -105,7 +105,7 @@ pub(crate) fn generate_div<F: PrimeField64>(
         MODULAR_DIV_DENOM_IS_ZERO + 7,
         MODULAR_DIV_DENOM_IS_ZERO + 8,
     );
-    nv[MODULAR_DIV_DENOM_IS_ZERO + 9] = F::from_bool(is_input0_neg ^ is_input1_neg);
+    nv[RC_FREQUENCIES + 5] = F::from_bool(is_input0_neg ^ is_input1_neg);
 
     fill_columns(
         lv,
@@ -574,7 +574,7 @@ pub(crate) fn eval_packed_div<P: PackedField>(
 
     // check sign of quot
     // sign(quot) == sign(input0) xor sign(input1)  or quot==0
-    let is_same_sign = nv[MODULAR_DIV_DENOM_IS_ZERO + 9];
+    let is_same_sign = nv[RC_FREQUENCIES + 5];
     yield_constr.constraint_transition(
         filter
             * (is_input0_neg + is_input1_neg
@@ -892,7 +892,7 @@ pub(crate) fn eval_div_ext_circuit<F: RichField + Extendable<D>, const D: usize>
 
     // check sign of quot
     // sign(quot) == sign(input0) xor sign(input1)  or quot==0
-    let is_same_sign = nv[MODULAR_DIV_DENOM_IS_ZERO + 9];
+    let is_same_sign = nv[RC_FREQUENCIES + 5];
     {
         let t0 = builder.add_extension(is_input0_neg, is_input1_neg);
         let two = builder.constant_extension(F::Extension::from_canonical_u8(2));
