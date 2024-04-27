@@ -17,7 +17,8 @@ pub const FD_STDOUT: u32 = 1;
 pub const FD_STDERR: u32 = 2;
 pub const MIPS_EBADF: u32 = 9;
 
-pub const SEGMENT_STEPS: usize = 200000;
+pub const SEGMENT_STEPS: usize = 1024;
+pub const REGISTERS_START: u32 = 0x81020400u32;
 
 // image_id = keccak(page_hash_root || end_pc)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
@@ -328,18 +329,18 @@ impl State {
             .expect("set memory range failed");
     }
 
-    pub fn sync_registers(&mut self) {
+    pub fn get_registers_bytes(&mut self) -> [u8; 36 * 4] {
+        let mut regs_bytes_be = [0u8; 36 * 4];
         for i in 0..32 {
-            self.memory.set_memory(i << 2, self.registers[i as usize]);
+            regs_bytes_be[i * 4..i * 4 + 4]
+                .copy_from_slice(&self.registers[i as usize].to_be_bytes());
         }
 
-        self.memory.set_memory(32 << 2, self.lo);
-        self.memory.set_memory(33 << 2, self.hi);
-        self.memory.set_memory(34 << 2, self.heap);
-        self.memory.set_memory(35 << 2, self.pc);
-    }
-    pub fn load_registers(&mut self) {
-        let _ = self.memory.get_memory(0);
+        regs_bytes_be[32 * 4..32 * 4 + 4].copy_from_slice(&self.lo.to_be_bytes());
+        regs_bytes_be[33 * 4..33 * 4 + 4].copy_from_slice(&self.hi.to_be_bytes());
+        regs_bytes_be[34 * 4..34 * 4 + 4].copy_from_slice(&self.heap.to_be_bytes());
+        regs_bytes_be[35 * 4..35 * 4 + 4].copy_from_slice(&self.pc.to_be_bytes());
+        regs_bytes_be
     }
 }
 
@@ -962,8 +963,10 @@ impl InstrumentedState {
         output: &str,
         new_writer: fn(&str) -> Option<W>,
     ) {
-        self.state.sync_registers();
-        let (image_id, page_hash_root) = self.state.memory.compute_image_id(self.state.pc);
+        self.state.memory.update_page_hash();
+        let regiters = self.state.get_registers_bytes();
+        let (image_id, page_hash_root) =
+            self.state.memory.compute_image_id(self.state.pc, &regiters);
         let image = self.state.memory.get_input_image();
 
         if proof {
@@ -988,7 +991,6 @@ impl InstrumentedState {
         self.pre_pc = self.state.pc;
         self.pre_image_id = image_id;
         self.pre_hash_root = page_hash_root;
-        self.state.load_registers(); // add to rtrace
     }
 }
 
