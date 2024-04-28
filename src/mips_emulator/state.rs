@@ -332,8 +332,7 @@ impl State {
     pub fn get_registers_bytes(&mut self) -> [u8; 36 * 4] {
         let mut regs_bytes_be = [0u8; 36 * 4];
         for i in 0..32 {
-            regs_bytes_be[i * 4..i * 4 + 4]
-                .copy_from_slice(&self.registers[i as usize].to_be_bytes());
+            regs_bytes_be[i * 4..i * 4 + 4].copy_from_slice(&self.registers[i].to_be_bytes());
         }
 
         regs_bytes_be[32 * 4..32 * 4 + 4].copy_from_slice(&self.lo.to_be_bytes());
