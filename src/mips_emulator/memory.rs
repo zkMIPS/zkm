@@ -15,6 +15,8 @@ pub const HASH_ADDRESS_BASE: u32 = 0x80000000;
 pub const HASH_ADDRESS_END: u32 = 0x81020000;
 pub const ROOT_HASH_ADDRESS_BASE: u32 = 0x81021000;
 pub const END_PC_ADDRESS: u32 = ROOT_HASH_ADDRESS_BASE + 4 * 8;
+pub const REGISTERS_OFFSET: usize = 0x400;
+
 /// Operation to memory access, Read/Write
 #[derive(Copy, Clone, Debug)]
 pub enum MemoryOperation {
@@ -336,7 +338,7 @@ impl Memory {
     }
 
     // return image id and page hash root
-    pub fn compute_image_id(&mut self, pc: u32) -> ([u8; 32], [u8; 32]) {
+    pub fn update_page_hash(&mut self) {
         // MAIN MEMORY   0 .. 0x80000000
         for (page_index, cached_page) in self.wtrace[0].clone().iter() {
             let _ = self.set_hash_range(*page_index, hash_page(&cached_page.borrow().data), 0);
@@ -357,14 +359,20 @@ impl Memory {
         }
 
         self.wtrace[2].clear();
+    }
 
-        // L3 HASH PAGES  0x81020000.. 0x81000400
+    pub fn compute_image_id(&mut self, pc: u32, regiters: &[u8; 36 * 4]) -> ([u8; 32], [u8; 32]) {
+        // ROOT PAGES  0x81020000.. 0x81020400
         let root_page = 0x81020u32;
         let hash = match self.pages.get(&root_page) {
             None => {
                 panic!("compute image ID fail")
             }
-            Some(page) => hash_page(&page.borrow().data),
+            Some(page) => {
+                page.borrow_mut().data[REGISTERS_OFFSET..REGISTERS_OFFSET + 36 * 4]
+                    .copy_from_slice(regiters);
+                hash_page(&page.borrow().data)
+            }
         };
 
         let mut final_data = [0u8; 36];
