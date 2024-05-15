@@ -65,13 +65,14 @@ fn split_elf_into_segs() {
     let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
     let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
     let args = env::var("ARGS").unwrap_or("".to_string());
+    let args = args.split_whitespace().collect();
 
     let data = fs::read(elf_path).expect("could not read file");
     let file =
         ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
     let (mut state, _) = State::load_elf(&file);
     state.patch_go(&file);
-    state.patch_stack(&args);
+    state.patch_stack(args);
 
     let block_path = match block_no {
         Ok(no) => {
@@ -121,7 +122,6 @@ fn prove_single_seg() {
     let allstark: AllStark<F, D> = AllStark::default();
     let config = StarkConfig::standard_fast_config();
     let mut timing = TimingTree::new("prove", log::Level::Info);
-    zkm::print_mem_usage("before prove");
     let allproof: proof::AllProof<GoldilocksField, C, D> =
         prove(&allstark, &kernel, &config, &mut timing).unwrap();
     let mut count_bytes = 0;
@@ -144,7 +144,7 @@ fn main() {
     env_logger::try_init().unwrap_or_default();
     let args: Vec<String> = env::args().collect();
     let helper = || {
-        println!(
+        log::info!(
             "Help: {} split | prove | aggregate_proof | aggregate_proof_all | prove_groth16",
             args[0]
         );
@@ -176,19 +176,15 @@ fn aggregate_proof() -> anyhow::Result<()> {
     let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
     let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
 
-    zkm::print_mem_usage("new all stark");
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
     // Preprocess all circuits.
-    zkm::print_mem_usage("before preprocess all circuit");
     let all_circuits =
         AllRecursiveCircuits::<F, C, D>::new(&all_stark, &select_degree_bits(seg_size), &config);
 
-    zkm::print_mem_usage("before segment kernel");
     let seg_reader = BufReader::new(File::open(seg_file)?);
     let input_first = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
-    zkm::print_mem_usage("before prove first");
     let (root_proof_first, first_public_values) =
         all_circuits.prove_root(&all_stark, &input_first, &config, &mut timing)?;
 
@@ -198,7 +194,6 @@ fn aggregate_proof() -> anyhow::Result<()> {
     let seg_reader = BufReader::new(File::open(seg_file2)?);
     let input = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
     let mut timing = TimingTree::new("prove root second", log::Level::Info);
-    zkm::print_mem_usage("before prove second");
     let (root_proof, public_values) =
         all_circuits.prove_root(&all_stark, &input, &config, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
@@ -382,7 +377,7 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
     let mut circuit = builder.build();
     circuit.set_data(all_circuits.block.circuit);
     let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);
-    println!("build finish");
+    log::info!("build finish");
 
     let wrapped_proof = wrapped_circuit.prove(&block_proof).unwrap();
     wrapped_proof.save(path).unwrap();

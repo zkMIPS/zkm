@@ -65,14 +65,11 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    crate::print_mem_usage("begin to prove");
     let (traces, public_values, outputs) = timed!(
         timing,
         "generate all traces",
         generate_traces(all_stark, kernel, config, timing)?
     );
-
-    crate::print_mem_usage("after generate trace");
 
     let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
     Ok((proof, outputs))
@@ -93,7 +90,6 @@ where
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
 
-    crate::print_mem_usage("before trace commit");
     let trace_commitments = timed!(
         timing,
         "compute all trace commitments",
@@ -118,7 +114,6 @@ where
             })
             .collect::<Vec<_>>()
     );
-    crate::print_mem_usage("after trace commit");
 
     log::debug!("trace_commitments: {}", trace_commitments.len());
 
