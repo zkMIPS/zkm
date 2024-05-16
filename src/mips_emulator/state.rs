@@ -798,6 +798,7 @@ impl InstrumentedState {
         // write memory
         if store_addr != 0xffFFffFF {
             //let value_prev = self.state.memory.get_memory(store_addr);
+            log::trace!("write memory {:X}, {:X}", store_addr, val);
             self.state.memory.set_memory(store_addr, val);
         }
 

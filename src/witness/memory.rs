@@ -171,6 +171,10 @@ impl MemoryState {
             self.contexts.push(MemoryContextState::default());
         }
 
+        if address.segment == Segment::Code as usize {
+            log::trace!("write mem {:X} : {:X} ({})", address.virt, val, val);
+        }
+
         let _segment = Segment::all()[address.segment];
         /*
         assert!(

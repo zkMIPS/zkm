@@ -538,7 +538,7 @@ pub(crate) fn generate_jumpdirect<F: Field>(
     let pc = state.registers.program_counter as u32;
     let target_pc = target_pc.wrapping_add(pc + 4);
     let next_pc = pc.wrapping_add(8);
-    let link_op = reg_write_with_log(link, 1, next_pc, state, &mut row)?;
+    let link_op = reg_write_with_log(link, 1, next_pc as usize, state, &mut row)?;
     // FIXME: skip for lookup check
     //state.traces.push_logic(operation);
     state.traces.push_cpu(row);
