@@ -533,15 +533,16 @@ pub(crate) fn generate_jumpdirect<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let (target_pc, _) = (target as usize).overflowing_shl(2);
-    let pc = state.registers.program_counter;
-    let target_pc = target_pc.wrapping_add(pc);
+    let target = sign_extend::<16>(target);
+    let (target_pc, _) = target.overflowing_shl(2);
+    let pc = state.registers.program_counter as u32;
+    let target_pc = target_pc.wrapping_add(pc + 4);
     let next_pc = pc.wrapping_add(8);
     let link_op = reg_write_with_log(link, 1, next_pc, state, &mut row)?;
     // FIXME: skip for lookup check
     //state.traces.push_logic(operation);
     state.traces.push_cpu(row);
-    state.jump_to(target_pc);
+    state.jump_to(target_pc as usize);
     state.traces.push_memory(link_op);
     Ok(())
 }
