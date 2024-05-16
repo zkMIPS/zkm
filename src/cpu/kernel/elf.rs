@@ -18,6 +18,7 @@ pub const PAGE_SIZE: u32 = 4096;
 pub struct Program {
     /// The entrypoint of the program, PC
     pub entry: u32,
+    pub next_pc: usize,
     /// The initial memory image
     pub image: BTreeMap<u32, u32>,
     pub gprs: [usize; 32],
@@ -226,6 +227,7 @@ impl Program {
 
         Ok(Program {
             entry,
+            next_pc: (entry + 4) as usize,
             image,
             gprs,
             lo,
@@ -269,7 +271,13 @@ impl Program {
             .get(&(REGISTERS_START + (35 << 2) as u32))
             .unwrap()
             .to_be() as usize;
+        let next_pc: usize = image
+            .get(&(REGISTERS_START + (36 << 2) as u32))
+            .unwrap()
+            .to_be() as usize;
         let page_hash_root = segment.page_hash_root;
+
+        assert!(pc as u32 == segment.pc);
 
         log::trace!(
             "load segment pc: {} image: {:?} gprs: {:?} lo: {} hi: {} heap:{} range: ({} -> {})",
@@ -284,6 +292,7 @@ impl Program {
         );
         Ok(Program {
             entry,
+            next_pc,
             image,
             gprs,
             lo,

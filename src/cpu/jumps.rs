@@ -26,10 +26,10 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     let is_linki = is_jumpi * lv.opcode_bits[0];
 
     // Check `jump target value`:
-    // constraint: is_jump * (next_program_coutner - reg[rs]) == 0
+    // constraint: is_jump * (next_program_counter - reg[rs]) == 0
     {
         let reg_dst = lv.mem_channels[0].value;
-        yield_constr.constraint(is_jump * (nv.program_counter - reg_dst));
+        yield_constr.constraint(is_jump * (nv.next_program_counter - reg_dst));
     }
 
     // Check `jump target register`:
@@ -56,7 +56,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
         let imm_dst = limb_from_bits_le(jump_imm);
         let pc_remain = lv.mem_channels[7].value;
         let jump_dest = pc_remain + imm_dst;
-        yield_constr.constraint(is_jumpi * (nv.program_counter - jump_dest));
+        yield_constr.constraint(is_jumpi * (nv.next_program_counter - jump_dest));
     }
 
     // Check `link/linki target value`:
@@ -105,7 +105,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     // constraint: is_jump * (next_program_coutner - reg[rs]) == 0
     {
         let reg_dst = lv.mem_channels[0].value;
-        let constr = builder.sub_extension(nv.program_counter, reg_dst);
+        let constr = builder.sub_extension(nv.next_program_counter, reg_dst);
         let constr = builder.mul_extension(is_jump, constr);
         yield_constr.constraint(builder, constr);
     }
@@ -137,7 +137,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
         let jump_dest = limb_from_bits_le_recursive(builder, jump_imm);
 
         let constr = builder.add_extension(lv.mem_channels[7].value, jump_dest);
-        let constr = builder.sub_extension(nv.program_counter, constr);
+        let constr = builder.sub_extension(nv.next_program_counter, constr);
         let constr = builder.mul_extension(is_jumpi, constr);
         yield_constr.constraint(builder, constr);
     }
@@ -239,13 +239,13 @@ pub fn eval_packed_branch<P: PackedField>(
 
         yield_constr.constraint(
             branch_lv.should_jump
-                * (nv.program_counter - branch_dst)
-                * (nv.program_counter + overflow - branch_dst),
+                * (nv.next_program_counter - branch_dst)
+                * (nv.next_program_counter + overflow - branch_dst),
         );
 
         let next_inst = lv.program_counter + P::Scalar::from_canonical_u64(8);
         yield_constr.constraint(
-            filter * (P::ONES - branch_lv.should_jump) * (nv.program_counter - next_inst),
+            filter * (P::ONES - branch_lv.should_jump) * (nv.next_program_counter - next_inst),
         );
     }
 
@@ -418,16 +418,16 @@ pub fn eval_ext_circuit_branch<F: RichField + Extendable<D>, const D: usize>(
         let base_pc = builder.add_const_extension(lv.program_counter, F::from_canonical_u64(4));
         let branch_dst = builder.add_extension(base_pc, aux4);
 
-        let overflow_target = builder.add_extension(nv.program_counter, overflow);
+        let overflow_target = builder.add_extension(nv.next_program_counter, overflow);
         let constr_a = builder.sub_extension(overflow_target, branch_dst);
-        let constr_b = builder.sub_extension(nv.program_counter, branch_dst);
+        let constr_b = builder.sub_extension(nv.next_program_counter, branch_dst);
         let constr = builder.mul_extension(branch_lv.should_jump, constr_a);
         let constr = builder.mul_extension(constr, constr_b);
         yield_constr.constraint(builder, constr);
 
         let next_insn = builder.add_const_extension(lv.program_counter, F::from_canonical_u64(8));
         let constr_a = builder.sub_extension(one_extension, branch_lv.should_jump);
-        let constr_b = builder.sub_extension(nv.program_counter, next_insn);
+        let constr_b = builder.sub_extension(nv.next_program_counter, next_insn);
         let constr = builder.mul_extension(constr_a, constr_b);
         let constr = builder.mul_extension(constr, filter);
         yield_constr.constraint(builder, constr);

@@ -21,6 +21,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub keccak_general: T,
     pub jumps: T,
     pub jumpi: T,
+    pub jumpdirect: T,
     pub branch: T,
     pub pc: T,
     pub get_context: T,
@@ -29,6 +30,10 @@ pub struct OpsColumnsView<T: Copy> {
     pub m_op_load: T,
     pub m_op_store: T,
     pub nop: T,
+    pub ext: T,
+    pub rdhwr: T,
+    pub signext: T,
+    pub teq: T,
 
     pub syscall: T,
 }

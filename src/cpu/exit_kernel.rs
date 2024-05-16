@@ -25,6 +25,7 @@ pub(crate) fn generate_exit_kernel<F: RichField>(state: &mut GenerationState<F>,
     cpu_row.clock = F::from_canonical_usize(state.traces.clock());
     cpu_row.is_kernel_mode = F::ONE;
     cpu_row.program_counter = F::from_canonical_usize(state.registers.program_counter);
+    cpu_row.next_program_counter = F::from_canonical_usize(state.registers.next_pc);
 
     let log_end_pc = reg_zero_write_with_log(0, kernel.program.end_pc, state, &mut cpu_row);
     state.traces.push_memory(log_end_pc);
@@ -34,7 +35,7 @@ pub(crate) fn generate_exit_kernel<F: RichField>(state: &mut GenerationState<F>,
     let registers_addr: Vec<_> = (REGISTERS_START..=REGISTERS_START + (36 << 2) - 1)
         .step_by(4)
         .collect::<Vec<u32>>();
-    let mut registers_value: [u32; 36] = [0; 36];
+    let mut registers_value: [u32; 37] = [0; 37];
     for i in 0..32 {
         registers_value[i] = state.registers.gprs[i] as u32;
     }
@@ -42,6 +43,7 @@ pub(crate) fn generate_exit_kernel<F: RichField>(state: &mut GenerationState<F>,
     registers_value[33] = state.registers.hi as u32;
     registers_value[34] = state.registers.heap as u32;
     registers_value[35] = state.registers.program_counter as u32;
+    registers_value[36] = state.registers.next_pc as u32;
 
     let register_addr_value: Vec<_> = registers_addr.iter().zip(registers_value).collect();
     for chunk in &register_addr_value.iter().chunks(8) {

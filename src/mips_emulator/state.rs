@@ -356,8 +356,8 @@ impl State {
             .expect("set memory range failed");
     }
 
-    pub fn get_registers_bytes(&mut self) -> [u8; 36 * 4] {
-        let mut regs_bytes_be = [0u8; 36 * 4];
+    pub fn get_registers_bytes(&mut self) -> [u8; 37 * 4] {
+        let mut regs_bytes_be = [0u8; 37 * 4];
         for i in 0..32 {
             regs_bytes_be[i * 4..i * 4 + 4].copy_from_slice(&self.registers[i].to_be_bytes());
         }
@@ -366,6 +366,7 @@ impl State {
         regs_bytes_be[33 * 4..33 * 4 + 4].copy_from_slice(&self.hi.to_be_bytes());
         regs_bytes_be[34 * 4..34 * 4 + 4].copy_from_slice(&self.heap.to_be_bytes());
         regs_bytes_be[35 * 4..35 * 4 + 4].copy_from_slice(&self.pc.to_be_bytes());
+        regs_bytes_be[36 * 4..36 * 4 + 4].copy_from_slice(&self.next_pc.to_be_bytes());
         regs_bytes_be
     }
 }
