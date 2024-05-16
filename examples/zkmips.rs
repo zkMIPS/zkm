@@ -102,7 +102,7 @@ fn split_elf_into_segs() {
     }
 
     instrumented_state.split_segment(true, &seg_path, new_writer);
-    log::info!("Split done");
+    log::info!("Split done {}", instrumented_state.state.step);
 }
 
 fn prove_single_seg() {

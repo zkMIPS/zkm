@@ -184,12 +184,9 @@ impl State {
                     | "github.com/prometheus/client_model/go.init.1"
                     | "flag.init"
                     | "runtime.check"
-                    | "__libc_setup_tls"
-                    | "__libc_pthread_init"
                     | "_dl_discover_osversion"
-                    | "_dl_non_dynamic_init"
-                    | "_ZN3std9panicking3try7do_call17hed6da35bd3622d54E"
                     => {
+                        log::debug!("patch {} at {:X}", name, symbol.st_value);
                         let r: Vec<u8> = vec![0x03, 0xe0, 0x00, 0x08, 0, 0, 0, 0];
                         let r = Box::new(r.as_slice());
                         self.memory
@@ -203,7 +200,16 @@ impl State {
                             .set_memory_range(symbol.st_value as u32, r)
                             .expect("set memory range failed");
                     }
-                    _ => {}
+                    _ => {
+                        if name.contains("sys_common") && name.contains("thread_info") {
+                            log::debug!("patch {}", name);
+                            let r: Vec<u8> = vec![0x03, 0xe0, 0x00, 0x08, 0, 0, 0, 0];
+                            let r = Box::new(r.as_slice());
+                            self.memory
+                                .set_memory_range(symbol.st_value as u32, r)
+                                .expect("set memory range failed");
+                        }
+                    }
                 },
                 Err(e) => {
                     warn!("parse symbol failed, {}", e);
@@ -255,53 +261,10 @@ impl State {
         cur_sp += 4;
         store_mem(cur_sp, 0x00); // envp[term] = 0 (no env vars)
         cur_sp += 4;
-        
-        /*
-        store_mem(cur_sp, 0x03); // auxv[0] = AT_PHDR = 3 (key)
-        store_mem(cur_sp + 4, 0x400034); // auxv[1] = Program headers for program KiB (value)
-        cur_sp += 8;
-        store_mem(cur_sp, 0x04); // auxv[0] = AT_PHENT = 4 (key)
-        store_mem(cur_sp + 4, 0x20); // auxv[1] = Size of program header entry (value)
-        cur_sp += 8;
-        store_mem(cur_sp, 0x05); // auxv[0] = AT_PHNUM = 5 (key)
-        store_mem(cur_sp + 4, 0x07); // auxv[1] = Number of program headers (value)
-        cur_sp += 8;
-        */
+
         store_mem(cur_sp, 0x06); // auxv[0] = _AT_PAGESZ = 6 (key)
         store_mem(cur_sp + 4, 0x1000); // auxv[1] = page size of 4 KiB (value)
         cur_sp += 8;
-        /*
-        store_mem(cur_sp, 0x07); // auxv[0] = AT_BASE = 7 (key)
-        store_mem(cur_sp + 4, 0x00); // auxv[1] = Base address of interpreter (value)
-        cur_sp += 8;
-        store_mem(cur_sp, 0x08); // auxv[0] = AT_FLAGS = 8 (key)
-        store_mem(cur_sp + 4, 0x00); // auxv[1] = Flags (value)
-        cur_sp += 8;
-        store_mem(cur_sp, 0x09); // auxv[0] = AT_ENTRY = 9 (key)
-        store_mem(cur_sp + 4, 0x400590); // auxv[1] = Entry point of program (value)
-        cur_sp += 8;
-        store_mem(cur_sp, 0x0b); // auxv[0] = AT_UID = 11 (key)
-        store_mem(cur_sp + 4, 0x3e8); // auxv[1] = Real uid (value)
-        cur_sp += 8;
-        store_mem(cur_sp, 0x0c); // auxv[0] = AT_EUID = 12 (key)
-        store_mem(cur_sp + 4, 0x3e8); // auxv[1] = Effective uid (value)
-        cur_sp += 8;
-        store_mem(cur_sp, 0x0d); // auxv[0] = AT_GID = 13 (key)
-        store_mem(cur_sp + 4, 0x3e8); // auxv[1] = Real gid (value)
-        cur_sp += 8;
-        store_mem(cur_sp, 0x0e); // auxv[0] = AT_EGID = 14 (key)
-        store_mem(cur_sp + 4, 0x3e8); // auxv[1] = Effective gid (value)
-        cur_sp += 8;
-        store_mem(cur_sp, 0x10); // auxv[0] = AT_HWCAP = 16 (key)
-        store_mem(cur_sp + 4, 0x00); // auxv[1] =  arch dependent hints at CPU capabilities (value)
-        cur_sp += 8;
-        store_mem(cur_sp, 0x11); // auxv[0] = AT_CLKTCK = 17 (key)
-        store_mem(cur_sp + 4, 0x64); // auxv[1] = Frequency of times() (value)
-        cur_sp += 8;
-        store_mem(cur_sp, 0x17); // auxv[0] = AT_SECURE = 23 (key)
-        store_mem(cur_sp + 4, 0x00); // auxv[1] = secure mode boolean (value)
-        cur_sp += 8;
-        */
         store_mem(cur_sp, 0x19); // auxv[2] = AT_RANDOM = 25 (key)
         store_mem(cur_sp + 4, cur_sp + 12); // auxv[3] = address of 16 bytes containing random value
         cur_sp += 8;
@@ -314,6 +277,7 @@ impl State {
         cur_sp += 16;
         store_mem(cur_sp, 0x00); // auxv[term] = 0
         cur_sp += 4;
+
         let mut store_mem_str = |paddr: u32, daddr: u32, str: &str| {
             let mut dat = [0u8; 4];
             dat.copy_from_slice(&daddr.to_be_bytes());
@@ -453,12 +417,12 @@ impl InstrumentedState {
 
         self.state.dump_info = true;
 
-        println!("syscall {}", syscall_num);
+        log::debug!("syscall {}", syscall_num);
 
         match syscall_num {
             4020 => {
-                //read preimage (getpid)
-                //self.state.load_preimage(self.block_path.clone())
+                // read preimage (getpid)
+                self.state.load_preimage(self.block_path.clone())
             }
             4210 |
             4090 => {
@@ -712,6 +676,8 @@ impl InstrumentedState {
         // fetch instruction
         let insn = self.state.memory.get_memory(self.state.pc);
         let opcode = insn >> 26; // 6-bits
+
+        log::trace!("pc: {:X}, insn: {:X}", self.state.pc, insn);
 
         // j-type j/jal
         if opcode == 2 || opcode == 3 {
@@ -972,6 +938,8 @@ impl InstrumentedState {
                     let rd = (insn >> 11) & 0x1F;
                     if rd == 0 {
                         return 1;  // cpu number
+                    } else if rd == 29 {
+                        return 0x7FFFF000;  // a pointer to a thread-specific storage block
                     } else {
                         return 0;
                     }
@@ -1068,7 +1036,7 @@ impl InstrumentedState {
 
         self.mips_step();
         if dump {
-            //println!("pc: {:X} regs: {:X?}\n", self.state.pc, self.state.registers);
+            log::trace!("pc: {:X} regs: {:X?}\n", self.state.pc, self.state.registers);
         };
     }
 

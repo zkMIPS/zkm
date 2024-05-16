@@ -216,7 +216,7 @@ impl Memory {
         }
 
         if addr as usize >= MAX_MEMORY {
-            log::warn!("access out of memory: {:x?}", addr);
+            log::warn!("write out of memory: {:x?}", addr);
         }
 
         let page_index = addr >> PAGE_ADDR_SIZE;
@@ -278,7 +278,7 @@ impl Memory {
     ) -> Result<(), std::io::ErrorKind> {
         loop {
             if addr as usize >= MAX_MEMORY {
-                log::warn!("access out of memory: {:x?}", addr);
+                log::warn!("read out of memory: {:x?}", addr);
             }
             let page_index = addr >> PAGE_ADDR_SIZE;
             let page_addr = addr & (PAGE_ADDR_MASK as u32);
