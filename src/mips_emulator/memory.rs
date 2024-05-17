@@ -469,6 +469,22 @@ impl Memory {
         self.rtrace.clear();
         image
     }
+
+    pub fn get_total_image(&mut self) -> BTreeMap<u32, u32> {
+        let mut image = BTreeMap::<u32, u32>::new();
+
+        for (page_index, cached_page) in self.pages.iter() {
+            let addr = page_index << 12;
+            for i in 0..(PAGE_SIZE / 4) {
+                let mut bytes = [0u8; 4];
+                bytes.copy_from_slice(&cached_page.borrow().data[i << 2..(i << 2) + 4]);
+                image.insert(addr + (i << 2) as u32, u32::from_le_bytes(bytes));
+            }
+        }
+
+        self.rtrace.clear();
+        image
+    }
 }
 
 impl Read for Memory {

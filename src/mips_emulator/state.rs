@@ -1083,6 +1083,15 @@ impl InstrumentedState {
         self.pre_image_id = image_id;
         self.pre_hash_root = page_hash_root;
     }
+
+    pub fn dump_memory(
+        &mut self
+    ) {
+        let image = self.state.memory.get_total_image();
+        for (addr, val) in image.iter() {
+            println!("{:X}: {:X}", addr, val);
+        }
+    }
 }
 
 /// se extends the number to 32 bit with sign.
