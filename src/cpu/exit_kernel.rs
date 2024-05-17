@@ -32,7 +32,7 @@ pub(crate) fn generate_exit_kernel<F: RichField>(state: &mut GenerationState<F>,
     state.traces.push_cpu(cpu_row);
 
     // sync registers to memory
-    let registers_addr: Vec<_> = (REGISTERS_START..=REGISTERS_START + (36 << 2) - 1)
+    let registers_addr: Vec<_> = (REGISTERS_START..=REGISTERS_START + (37 << 2) - 1)
         .step_by(4)
         .collect::<Vec<u32>>();
     let mut registers_value: [u32; 37] = [0; 37];
