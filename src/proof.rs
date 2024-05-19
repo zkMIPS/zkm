@@ -56,6 +56,7 @@ pub struct PublicValues {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MemRoots {
     pub root: [u32; 8],
+    pub userdata: Vec<u8>,
 }
 
 /// Memory values which are public.

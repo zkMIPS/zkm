@@ -1,6 +1,7 @@
 use super::elf::Program;
 use crate::mips_emulator::utils::get_block_path;
 
+use crate::cpu::kernel::elf::INIT_SP;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::Read};
 
@@ -10,7 +11,6 @@ pub struct Kernel {
     pub(crate) program: Program,
     // For debugging purposes
     pub(crate) ordered_labels: Vec<String>,
-    // FIXME: precompiled function and global variable, like HALT PC or ecrecover
     //  should be preprocessed after loading code
     pub(crate) global_labels: HashMap<String, usize>,
     pub blockpath: String,
@@ -26,11 +26,8 @@ pub fn segment_kernel<T: Read>(
     seg_reader: T,
     steps: usize,
 ) -> Kernel {
-    crate::print_mem_usage("before load segment");
     let p: Program = Program::load_segment(seg_reader).unwrap();
-    crate::print_mem_usage("after load segment");
     let blockpath = get_block_path(basedir, block, file);
-    crate::print_mem_usage("after get block");
 
     Kernel {
         program: p,
@@ -59,9 +56,34 @@ impl Kernel {
             .iter()
             .find_map(|(k, v)| (*v == offset).then(|| k.clone()))
     }
-}
 
-/// The number of bytes to push when pushing an offset within the code (i.e. when assembling jumps).
-/// Ideally we would automatically use the minimal number of bytes required, but that would be
-/// nontrivial given the circular dependency between an offset and its size.
-pub(crate) const BYTES_PER_OFFSET: u8 = 3;
+    /// Read public input from memory at page INIT_SP
+    pub(crate) fn read_public_inputs(&self) -> Vec<u8> {
+        let arg_size = self.program.image.get(&INIT_SP).unwrap();
+        if *arg_size == 0 {
+            return vec![];
+        }
+
+        let paddr = INIT_SP + 4;
+        let daddr = self.program.image.get(&paddr).unwrap();
+        log::trace!("Try read input at {}", daddr.to_be());
+        let mut args = vec![];
+        let mut value_addr = daddr.to_be();
+        let mut b = false;
+        while !b {
+            let value = self.program.image.get(&value_addr).unwrap();
+            let bytes = value.to_le_bytes();
+            for c in bytes.iter() {
+                if *c != 0 {
+                    args.push(*c)
+                } else {
+                    b = true;
+                    break;
+                }
+            }
+            value_addr += 4;
+        }
+        log::trace!("Read public input: {:?}", args);
+        args
+    }
+}

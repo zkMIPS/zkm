@@ -711,7 +711,6 @@ where
         verify_proof(all_stark, all_proof.clone(), config).unwrap();
         let mut root_inputs = PartialWitness::new();
 
-        crate::print_mem_usage("begin to prove root");
         for table in 0..NUM_TABLES {
             let stark_proof = &all_proof.stark_proofs[table];
             let original_degree_bits = stark_proof.proof.recover_degree_bits(config);
@@ -754,7 +753,6 @@ where
         })?;
 
         let root_proof = self.root.circuit.prove(root_inputs)?;
-        crate::print_mem_usage("end of prove root");
 
         Ok((root_proof, all_proof.public_values))
     }
@@ -795,9 +793,7 @@ where
             anyhow::Error::msg("Invalid conversion when setting public values targets.")
         })?;
 
-        crate::print_mem_usage("begin to prove aggregation");
         let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
-        crate::print_mem_usage("end of prove aggregation");
         Ok((aggregation_proof, public_values))
     }
 
@@ -864,9 +860,7 @@ where
                 anyhow::Error::msg("Invalid conversion when setting public values targets.")
             })?;
 
-        crate::print_mem_usage("begin to prove block");
         let block_proof = self.block.circuit.prove(block_inputs)?;
-        crate::print_mem_usage("end of prove block");
         Ok((block_proof, public_values))
     }
 
