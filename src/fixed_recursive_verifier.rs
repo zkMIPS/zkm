@@ -73,7 +73,7 @@ where
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// The EVM root circuit, which aggregates the (shrunk) per-table recursive proofs.
+    /// The ZKVM root circuit, which aggregates the (shrunk) per-table recursive proofs.
     pub root: RootCircuitData<F, C, D>,
     pub aggregation: AggregationCircuitData<F, C, D>,
     /// The block circuit, which verifies an aggregation root proof and a previous block proof.
@@ -82,7 +82,7 @@ where
     by_table: [RecursiveCircuitsForTable<F, C, D>; NUM_TABLES],
 }
 
-/// Data for the EVM root circuit, which is used to combine each STARK's shrunk wrapper proof
+/// Data for the ZKVM root circuit, which is used to combine each STARK's shrunk wrapper proof
 /// into a single proof.
 #[derive(Eq, PartialEq, Debug)]
 pub struct RootCircuitData<F, C, const D: usize>
@@ -97,7 +97,7 @@ where
     index_verifier_data: [Target; NUM_TABLES],
     /// Public inputs containing public values.
     public_values: PublicValuesTarget,
-    /// Public inputs used for cyclic verification. These aren't actually used for EVM root
+    /// Public inputs used for cyclic verification. These aren't actually used for ZKVM root
     /// proofs; the circuit has them just to match the structure of aggregation proofs.
     cyclic_vk: VerifierCircuitTarget,
 }
@@ -153,7 +153,7 @@ where
 }
 
 /// Data for the aggregation circuit, which is used to compress two proofs into one. Each inner
-/// proof can be either an EVM root proof or another aggregation proof.
+/// proof can be either an ZKVM root proof or another aggregation proof.
 #[derive(Eq, PartialEq, Debug)]
 pub struct AggregationCircuitData<F, C, const D: usize>
 where
@@ -545,7 +545,7 @@ where
             );
         }
 
-        // We want EVM root proofs to have the exact same structure as aggregation proofs, so we add
+        // We want ZKVM root proofs to have the exact same structure as aggregation proofs, so we add
         // public inputs for cyclic verification, even though they'll be ignored.
         let cyclic_vk = builder.add_verifier_data_public_inputs();
 
