@@ -3,23 +3,23 @@
 use std::ops::Range;
 
 pub const LIMB_BITS: usize = 16;
-const EVM_REGISTER_BITS: usize = 32;
+const ZKM_REGISTER_BITS: usize = 32;
 
-/// Return the number of LIMB_BITS limbs that are in an EVM
+/// Return the number of LIMB_BITS limbs that are in an MIPS
 /// register-sized number, panicking if LIMB_BITS doesn't divide in
-/// the EVM register size.
+/// the MIPS register size.
 const fn n_limbs() -> usize {
-    if EVM_REGISTER_BITS % LIMB_BITS != 0 {
-        panic!("limb size must divide EVM register size");
+    if ZKM_REGISTER_BITS % LIMB_BITS != 0 {
+        panic!("limb size must divide MIPS register size");
     }
-    let n = EVM_REGISTER_BITS / LIMB_BITS;
+    let n = ZKM_REGISTER_BITS / LIMB_BITS;
     if n % 2 == 1 {
         panic!("number of limbs must be even");
     }
     n
 }
 
-/// Number of LIMB_BITS limbs that are in on EVM register-sized number.
+/// Number of LIMB_BITS limbs that are in on MIPS register-sized number.
 pub const N_LIMBS: usize = n_limbs();
 
 pub(crate) const IS_ADD: usize = 0;
