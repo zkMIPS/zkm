@@ -68,6 +68,7 @@ where
     crate::print_mem_usage("begin to prove");
     let (traces, public_values, outputs) = timed!(
         timing,
+        log::Level::Info,
         "generate all traces",
         generate_traces(all_stark, kernel, config, timing)?
     );
@@ -77,7 +78,10 @@ where
     let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
     Ok((proof, outputs))
 }
-
+fn fast_copy<F: RichField>(vec_polys: &Vec<PolynomialValues<F>>) -> Vec<PolynomialValues<F>> {
+    println!("fast_copy {:?} {:?}", vec_polys.len(),vec_polys[0].values.len());
+    vec_polys.par_iter().map(|poly| poly.clone()).collect()
+}
 /// Compute all STARK proofs.
 pub(crate) fn prove_with_traces<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
@@ -93,26 +97,28 @@ where
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
 
+    timing.push("clone polys", log::Level::Info);
+    let trace_poly_values_clone = trace_poly_values
+        .iter()
+        .map(|a| fast_copy(a))
+        .collect::<Vec<_>>();
+    timing.pop();
     crate::print_mem_usage("before trace commit");
     let trace_commitments = timed!(
         timing,
+        log::Level::Info,
         "compute all trace commitments",
-        trace_poly_values
-            .iter()
+        trace_poly_values_clone
+            .into_iter()
             .zip_eq(Table::all())
             .map(|(trace, table)| {
                 timed!(
                     timing,
                     &format!("compute trace commitment for {:?}", table),
-                    PolynomialBatch::<F, C, D>::from_values(
+                    PolynomialBatch::<F, C, D>::from_values_cuda(
                         // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
                         // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
-                        trace.clone(),
-                        rate_bits,
-                        false,
-                        cap_height,
-                        timing,
-                        None,
+                        trace, rate_bits, false, cap_height, timing, None,
                     )
                 )
             })
@@ -148,6 +154,7 @@ where
     let ctl_challenges = get_grand_product_challenge_set(&mut challenger, config.num_challenges);
     let ctl_data_per_table = timed!(
         timing,
+        log::Level::Info,
         "compute CTL data",
         cross_table_lookup_data::<F, D>(
             &trace_poly_values,
@@ -159,6 +166,7 @@ where
 
     let stark_proofs = timed!(
         timing,
+        log::Level::Info,
         "compute all proofs given commitments",
         prove_with_commitments(
             all_stark,
@@ -206,6 +214,7 @@ where
 {
     let arithmetic_proof = timed!(
         timing,
+        log::Level::Info,
         "prove Arithmetic STARK",
         prove_single_table(
             &all_stark.arithmetic_stark,
@@ -220,6 +229,7 @@ where
     );
     let cpu_proof = timed!(
         timing,
+        log::Level::Info,
         "prove CPU STARK",
         prove_single_table(
             &all_stark.cpu_stark,
@@ -235,6 +245,7 @@ where
 
     let keccak_proof = timed!(
         timing,
+        log::Level::Info,
         "prove Keccak STARK",
         prove_single_table(
             &all_stark.keccak_stark,
@@ -249,6 +260,7 @@ where
     );
     let keccak_sponge_proof = timed!(
         timing,
+        log::Level::Info,
         "prove Keccak sponge STARK",
         prove_single_table(
             &all_stark.keccak_sponge_stark,
@@ -263,6 +275,7 @@ where
     );
     let logic_proof = timed!(
         timing,
+        log::Level::Info,
         "prove logic STARK",
         prove_single_table(
             &all_stark.logic_stark,
@@ -277,6 +290,7 @@ where
     );
     let memory_proof = timed!(
         timing,
+        log::Level::Info,
         "prove memory STARK",
         prove_single_table(
             &all_stark.memory_stark,
@@ -339,6 +353,7 @@ where
     let lookups = stark.lookups();
     let lookup_helper_columns = timed!(
         timing,
+        log::Level::Info,
         "compute lookup helper columns",
         lookup_challenges.as_ref().map(|challenges| {
             let mut columns = Vec::new();
@@ -373,8 +388,9 @@ where
 
     let auxiliary_polys_commitment = timed!(
         timing,
+        log::Level::Info,
         "compute auxiliary polynomials commitment",
-        PolynomialBatch::from_values(
+        PolynomialBatch::from_values_cuda(
             auxiliary_polys,
             rate_bits,
             false,
@@ -405,6 +421,7 @@ where
     }
     let quotient_polys = timed!(
         timing,
+        log::Level::Info,
         "compute quotient polys",
         compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
             stark,
@@ -422,6 +439,7 @@ where
     );
     let all_quotient_chunks = timed!(
         timing,
+        log::Level::Info,
         "split quotient polys",
         quotient_polys
             .into_par_iter()
@@ -438,8 +456,9 @@ where
     );
     let quotient_commitment = timed!(
         timing,
+        log::Level::Info,
         "compute quotient commitment",
-        PolynomialBatch::from_coeffs(
+        PolynomialBatch::from_coeffs_cuda(
             all_quotient_chunks,
             rate_bits,
             false,
@@ -480,6 +499,7 @@ where
 
     let opening_proof = timed!(
         timing,
+        log::Level::Info,
         "compute openings proof",
         PolynomialBatch::prove_openings(
             &stark.fri_instance(zeta, g, num_ctl_polys.iter().sum(), num_ctl_polys, config),

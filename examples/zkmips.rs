@@ -133,6 +133,8 @@ fn prove_groth16() {
 }
 
 fn main() {
+    let _ = plonky2::get_unflatten_buf(134217728);
+    plonky2::create_ctx(13, 13);
     env_logger::try_init().unwrap_or_default();
     let args: Vec<String> = env::args().collect();
     let helper = || {
@@ -153,6 +155,7 @@ fn main() {
         "prove_groth16" => prove_groth16(),
         _ => helper(),
     };
+    plonky2::destroy_ctx();
 }
 
 fn aggregate_proof() -> anyhow::Result<()> {

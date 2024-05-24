@@ -47,3 +47,9 @@ curta = { git ="https://github.com/zkMIPS/curta.git", branch = "zkm" }
 
 [features]
 test = []
+
+[patch."https://github.com/zkMIPS/plonky2.git"]
+plonky2 = {path = "../plonky2-origin/plonky2"}
+starky = {path = "../plonky2-origin/starky"}
+plonky2_util = {path = "../plonky2-origin/util"}
+plonky2_maybe_rayon = {path = "../plonky2-origin/maybe_rayon"}
