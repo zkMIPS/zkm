@@ -51,9 +51,11 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let public_values = PublicValues {
         roots_before: MemRoots {
             root: unsafe { std::mem::transmute::<[u8; 32], [u32; 8]>(kernel.program.pre_image_id) },
+            userdata: kernel.read_public_inputs(),
         },
         roots_after: MemRoots {
             root: unsafe { std::mem::transmute::<[u8; 32], [u32; 8]>(kernel.program.image_id) },
+            userdata: kernel.read_public_inputs(),
         },
     };
     let tables = timed!(

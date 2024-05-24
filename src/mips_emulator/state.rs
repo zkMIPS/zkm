@@ -1,3 +1,4 @@
+use crate::cpu::kernel::elf::INIT_SP;
 use crate::mips_emulator::memory::Memory;
 use crate::mips_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use crate::mips_emulator::witness::{Program, ProgramSegment};
@@ -17,7 +18,8 @@ pub const FD_STDOUT: u32 = 1;
 pub const FD_STDERR: u32 = 2;
 pub const MIPS_EBADF: u32 = 9;
 
-pub const SEGMENT_STEPS: usize = 200000;
+pub const SEGMENT_STEPS: usize = 1024;
+pub const REGISTERS_START: u32 = 0x81020400u32;
 
 // image_id = keccak(page_hash_root || end_pc)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
@@ -201,9 +203,12 @@ impl State {
         }
     }
 
-    pub fn patch_stack(&mut self, input: &str) {
+    /// We define the input[0] as the public input, and input[1] as the private input
+    pub fn patch_stack(&mut self, input: Vec<&str>) {
+        assert!(input.len() <= 2);
+        // TODO: check the arg size should less than one page??
         // setup stack pointer
-        let sp: u32 = 0x7fFFd000;
+        let sp: u32 = INIT_SP;
 
         // allocate 1 page for the initial stack data, and 16kb = 4 pages for the stack to grow
         let r: Vec<u8> = vec![0; 5 * PAGE_SIZE];
@@ -227,12 +232,12 @@ impl State {
 
         let mut items: BTreeMap<u32, &str> = BTreeMap::new();
         let mut index = 0;
-        for item in input.split_whitespace() {
+        for item in input {
             items.insert(index, item);
             index += 1u32;
         }
 
-        println!("count {} items {:?}", index, items);
+        log::debug!("count {} items {:?}", index, items);
         // init argc,  argv, aux on stack
         store_mem(sp, index);
         store_mem(sp + 4 * (index + 1), 0x35); // argv[n] = 0 (terminating argv)
@@ -251,6 +256,7 @@ impl State {
                 .set_memory_range(paddr, r)
                 .expect("failed to set memory range");
             let r = Box::new(str.as_bytes());
+            log::debug!("Write inputs: {} {:?}", daddr, r);
             self.memory
                 .set_memory_range(daddr, r)
                 .expect("failed to set memory range");
@@ -328,18 +334,17 @@ impl State {
             .expect("set memory range failed");
     }
 
-    pub fn sync_registers(&mut self) {
+    pub fn get_registers_bytes(&mut self) -> [u8; 36 * 4] {
+        let mut regs_bytes_be = [0u8; 36 * 4];
         for i in 0..32 {
-            self.memory.set_memory(i << 2, self.registers[i as usize]);
+            regs_bytes_be[i * 4..i * 4 + 4].copy_from_slice(&self.registers[i].to_be_bytes());
         }
 
-        self.memory.set_memory(32 << 2, self.lo);
-        self.memory.set_memory(33 << 2, self.hi);
-        self.memory.set_memory(34 << 2, self.heap);
-        self.memory.set_memory(35 << 2, self.pc);
-    }
-    pub fn load_registers(&mut self) {
-        let _ = self.memory.get_memory(0);
+        regs_bytes_be[32 * 4..32 * 4 + 4].copy_from_slice(&self.lo.to_be_bytes());
+        regs_bytes_be[33 * 4..33 * 4 + 4].copy_from_slice(&self.hi.to_be_bytes());
+        regs_bytes_be[34 * 4..34 * 4 + 4].copy_from_slice(&self.heap.to_be_bytes());
+        regs_bytes_be[35 * 4..35 * 4 + 4].copy_from_slice(&self.pc.to_be_bytes());
+        regs_bytes_be
     }
 }
 
@@ -962,8 +967,15 @@ impl InstrumentedState {
         output: &str,
         new_writer: fn(&str) -> Option<W>,
     ) {
-        self.state.sync_registers();
-        let (image_id, page_hash_root) = self.state.memory.compute_image_id(self.state.pc);
+        self.state.memory.update_page_hash();
+        let regiters = self.state.get_registers_bytes();
+
+        // load public input, assume the max size of public input is 6KB.
+        let _ = self.state.memory.get_memory(INIT_SP);
+        let _ = self.state.memory.get_memory(INIT_SP + PAGE_SIZE as u32);
+
+        let (image_id, page_hash_root) =
+            self.state.memory.compute_image_id(self.state.pc, &regiters);
         let image = self.state.memory.get_input_image();
 
         if proof {
@@ -988,7 +1000,6 @@ impl InstrumentedState {
         self.pre_pc = self.state.pc;
         self.pre_image_id = image_id;
         self.pre_hash_root = page_hash_root;
-        self.state.load_registers(); // add to rtrace
     }
 }
 

@@ -1,4 +1,4 @@
-//! Support for EVM instructions MFHI, MTHI, MHLO, MTLO
+//! Support for MIPS instructions MFHI, MTHI, MHLO, MTLO
 
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;

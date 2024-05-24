@@ -65,15 +65,12 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    crate::print_mem_usage("begin to prove");
     let (traces, public_values, outputs) = timed!(
         timing,
         log::Level::Info,
         "generate all traces",
         generate_traces(all_stark, kernel, config, timing)?
     );
-
-    crate::print_mem_usage("after generate trace");
 
     let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
     Ok((proof, outputs))
@@ -103,7 +100,6 @@ where
         .map(|a| fast_copy(a))
         .collect::<Vec<_>>();
     timing.pop();
-    crate::print_mem_usage("before trace commit");
     let trace_commitments = timed!(
         timing,
         log::Level::Info,
@@ -124,7 +120,6 @@ where
             })
             .collect::<Vec<_>>()
     );
-    crate::print_mem_usage("after trace commit");
 
     log::debug!("trace_commitments: {}", trace_commitments.len());
 

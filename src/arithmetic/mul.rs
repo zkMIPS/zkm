@@ -1,6 +1,6 @@
-//! Support for the EVM MUL instruction.
+//! Support for the MIPS MUL instruction.
 //!
-//! This crate verifies an EVM MUL instruction, which takes two
+//! This crate verifies an MIPS MUL instruction, which takes two
 //! 32-bit inputs A and B, and produces a 32-bit output C satisfying
 //!
 //!    C = A*B (mod 2^32),

@@ -1,5 +1,5 @@
 extern crate alloc;
-use crate::mips_emulator::state::Segment;
+use crate::mips_emulator::state::{Segment, REGISTERS_START};
 use alloc::collections::BTreeMap;
 use anyhow::{anyhow, bail, Context, Result};
 use elf::{endian::BigEndian, file::Class, ElfBytes};
@@ -239,14 +239,26 @@ impl Program {
         let mut gprs: [usize; 32] = [0; 32];
 
         for i in 0..32 {
-            let data = image.get(&((i << 2) as u32)).unwrap();
+            let data = image.get(&(REGISTERS_START + (i << 2) as u32)).unwrap();
             gprs[i] = data.to_be() as usize;
         }
 
-        let lo: usize = image.get(&((32 << 2) as u32)).unwrap().to_be() as usize;
-        let hi: usize = image.get(&((33 << 2) as u32)).unwrap().to_be() as usize;
-        let heap: usize = image.get(&((34 << 2) as u32)).unwrap().to_be() as usize;
-        let pc: usize = image.get(&((35 << 2) as u32)).unwrap().to_be() as usize;
+        let lo: usize = image
+            .get(&(REGISTERS_START + (32 << 2) as u32))
+            .unwrap()
+            .to_be() as usize;
+        let hi: usize = image
+            .get(&(REGISTERS_START + (33 << 2) as u32))
+            .unwrap()
+            .to_be() as usize;
+        let heap: usize = image
+            .get(&(REGISTERS_START + (34 << 2) as u32))
+            .unwrap()
+            .to_be() as usize;
+        let pc: usize = image
+            .get(&(REGISTERS_START + (35 << 2) as u32))
+            .unwrap()
+            .to_be() as usize;
         let page_hash_root = segment.page_hash_root;
 
         log::trace!(

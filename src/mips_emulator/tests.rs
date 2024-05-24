@@ -61,7 +61,7 @@ mod tests {
         let (mut state, _) = State::load_elf(&file);
 
         state.patch_go(&file);
-        state.patch_stack("aab ccd");
+        state.patch_stack(vec!["aab", "ccd"]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
 
@@ -83,7 +83,7 @@ mod tests {
         let (mut state, _) = State::load_elf(&file);
 
         state.patch_go(&file);
-        state.patch_stack("");
+        state.patch_stack(vec![]);
 
         let block_path = get_block_path("./test-vectors", "13284491", "");
         state.load_input(&block_path);
@@ -118,7 +118,7 @@ mod tests {
         let (mut state, _) = State::load_elf(&file);
 
         state.patch_go(&file);
-        state.patch_stack("");
+        state.patch_stack(vec![]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
         std::fs::create_dir_all(OUTPUT).unwrap();
@@ -150,7 +150,7 @@ mod tests {
         let (mut state, _) = State::load_elf(&file);
 
         state.patch_go(&file);
-        state.patch_stack("");
+        state.patch_stack(vec![]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
 
@@ -174,7 +174,7 @@ mod tests {
         let (mut state, _) = State::load_elf(&file);
 
         state.patch_go(&file);
-        state.patch_stack("");
+        state.patch_stack(vec![]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
 
@@ -199,7 +199,7 @@ mod tests {
         let (mut state, _) = State::load_elf(&file);
 
         state.patch_go(&file);
-        state.patch_stack("");
+        state.patch_stack(vec![]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
 
@@ -224,7 +224,7 @@ mod tests {
         let (mut state, _) = State::load_elf(&file);
 
         state.patch_go(&file);
-        state.patch_stack("");
+        state.patch_stack(vec![]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
 

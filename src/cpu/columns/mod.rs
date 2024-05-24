@@ -85,7 +85,7 @@ pub struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: We're in kernel (privileged) mode.
     pub is_kernel_mode: T,
 
-    /// If CPU cycle: flags for EVM instructions (a few cannot be shared; see the comments in
+    /// If CPU cycle: flags for ZKVM instructions (a few cannot be shared; see the comments in
     /// `OpsColumnsView`).
     pub op: OpsColumnsView<T>,
 

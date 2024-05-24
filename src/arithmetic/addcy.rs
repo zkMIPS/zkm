@@ -1,6 +1,6 @@
-//! Support for EVM instructions ADD, SUB, LT and GT
+//! Support for MIPS instructions ADD, SUB, LT and GT
 //!
-//! This crate verifies EVM instructions ADD, SUB, LT and GT (i.e. for
+//! This crate verifies MIPS instructions ADD, SUB, LT and GT (i.e. for
 //! unsigned inputs). Each of these instructions can be verified using
 //! the "add with carry out" equation
 //!
