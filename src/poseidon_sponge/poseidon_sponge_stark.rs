@@ -8,7 +8,7 @@ use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
-use plonky2::field::types::Field;
+use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::timed;
@@ -154,6 +154,44 @@ use crate::witness::memory::MemoryAddress;
 //         once(&cols.is_full_input_block).chain(&cols.is_final_input_len),
 //     ))
 // }
+
+pub fn poseidon<F: PrimeField64>(inputs: &Vec<u8>) -> [u64; POSEIDON_DIGEST] {
+    let l = inputs.len();
+    let chunks = l / POSEIDON_RATE_BYTES + 1;
+    let mut input = inputs.clone();
+    input.resize(chunks * POSEIDON_RATE_BYTES, 0);
+
+    // pad10*1 rule
+    if l % POSEIDON_RATE_BYTES == POSEIDON_RATE_BYTES - 1 {
+        // Both 1s are placed in the same byte.
+        input[l] = 0b10000001;
+    } else {
+        input[l] = 1;
+        input[chunks * POSEIDON_RATE_BYTES - 1] = 0b10000000;
+    }
+
+    let mut state = [F::ZEROS; SPONGE_WIDTH];
+    for block in input.chunks(POSEIDON_RATE_BYTES) {
+        let block_u32s = (0..SPONGE_RATE)
+            .map(|i| {
+                F::from_canonical_u32(u32::from_le_bytes(
+                    block[i * 4..(i + 1) * 4].to_vec().try_into().unwrap(),
+                ))
+            })
+            .collect_vec();
+        state[..SPONGE_RATE].copy_from_slice(&block_u32s);
+        let (output, _) = poseidon_with_witness(&state);
+        state.copy_from_slice(&output);
+    }
+
+    let hash = state
+        .iter()
+        .take(POSEIDON_DIGEST)
+        .map(|x| x.to_canonical_u64())
+        .collect_vec();
+
+    hash.try_into().unwrap()
+}
 
 /// Information about a Poseidon sponge operation needed for witness generation.
 #[derive(Clone, Debug)]
@@ -624,13 +662,14 @@ mod tests {
     use anyhow::Result;
     use itertools::Itertools;
     use plonky2::field::goldilocks_field::GoldilocksField;
-    use plonky2::field::types::{Field, PrimeField64};
+    use plonky2::field::types::PrimeField64;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     use crate::memory::segments::Segment;
-    use crate::poseidon::poseidon_stark::poseidon_with_witness;
-    use crate::poseidon_sponge::columns::{PoseidonSpongeColumnsView, POSEIDON_DIGEST};
-    use crate::poseidon_sponge::poseidon_sponge_stark::{PoseidonSpongeOp, PoseidonSpongeStark};
+    use crate::poseidon_sponge::columns::PoseidonSpongeColumnsView;
+    use crate::poseidon_sponge::poseidon_sponge_stark::{
+        poseidon, PoseidonSpongeOp, PoseidonSpongeStark,
+    };
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
     use crate::witness::memory::MemoryAddress;
 
@@ -663,14 +702,7 @@ mod tests {
         type S = PoseidonSpongeStark<F, D>;
 
         let input = vec![1, 2, 3];
-        let format_input =
-            [0x01030201u32, 0, 0, 0, 0, 0, 0, 0x80000000, 0, 0, 0, 0].map(F::from_canonical_u32);
-        let (output, _) = poseidon_with_witness(&format_input);
-        let expected_output = output
-            .iter()
-            .take(POSEIDON_DIGEST)
-            .map(F::to_canonical_u64)
-            .collect_vec();
+        let expected_output = poseidon::<F>(&input);
 
         let op = PoseidonSpongeOp {
             base_address: vec![MemoryAddress {
