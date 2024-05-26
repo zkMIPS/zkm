@@ -47,10 +47,10 @@ use crate::util::trace_rows_to_poly_values;
 //     Filter::new_simple(Column::single(reg_step(NUM_ROUNDS - 1)))
 // }
 
-fn poseidon_with_witness<F: PrimeField64>(
-    input: [F; SPONGE_WIDTH],
+pub fn poseidon_with_witness<F: PrimeField64>(
+    input: &[F; SPONGE_WIDTH],
 ) -> ([F; SPONGE_WIDTH], [F; NUM_COLUMNS]) {
-    let mut state = input;
+    let mut state = input.clone();
     let mut witness = [F::ZEROS; NUM_COLUMNS];
     let mut round_ctr = 0;
 
@@ -129,7 +129,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
         input_and_timestamp: ([u64; SPONGE_WIDTH], usize),
     ) -> [F; NUM_COLUMNS] {
         let input = input_and_timestamp.0.map(|i| F::from_canonical_u64(i));
-        let (hash, mut rows) = poseidon_with_witness(input);
+        let (hash, mut rows) = poseidon_with_witness(&input);
         for i in 0..SPONGE_WIDTH {
             rows[reg_in(i)] = input[i];
             rows[reg_out(i)] = hash[i];
