@@ -868,7 +868,7 @@ pub(crate) fn generate_syscall<F: RichField>(
             is_load_preimage = true;
             Ok(())
         }
-        SYSMMAP | SYSMMAP2  => {
+        SYSMMAP | SYSMMAP2 => {
             row.general.syscall_mut().sysnum[1] = F::ONE;
             let mut sz = a1;
             let mut sz_not_page_align = false;
@@ -912,6 +912,7 @@ pub(crate) fn generate_syscall<F: RichField>(
                 row.general.syscall_mut().cond[10] = F::ONE;
             } else {
                 v0 = blk;
+                row.general.syscall_mut().cond[11] = F::ONE;
             }
             state.traces.push_memory(log_in5);
             Ok(())
@@ -1335,10 +1336,10 @@ pub(crate) fn generate_swaphalf<F: Field>(
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
 
-    let result = (((in0 >> 16) & 0xFF) << 24) |
-                        (((in0 >> 24) & 0xFF) << 16) |
-                        ((in0 & 0xFF) << 8) |
-                        ((in0 >> 8) & 0xFF);
+    let result = (((in0 >> 16) & 0xFF) << 24)
+        | (((in0 >> 24) & 0xFF) << 16)
+        | ((in0 & 0xFF) << 8)
+        | ((in0 >> 8) & 0xFF);
 
     let log_out0 = reg_write_with_log(rd, 1, result, state, &mut row)?;
 

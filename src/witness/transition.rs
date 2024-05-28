@@ -190,7 +190,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             } else {
                 Err(ProgramError::InvalidOpcode)
             }
-        },
+        }
         (0x02, _, _) => Ok(Operation::Jumpi(0u8, target)), // J
         (0x03, _, _) => Ok(Operation::Jumpi(31u8, target)), // JAL
         (0x04, _, _) => Ok(Operation::Branch(BranchCond::EQ, rs, rt, offset)), // BEQ
@@ -270,7 +270,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         (0b001101, _, _) => Ok(Operation::BinaryLogicImm(logic::Op::Or, rs, rt, offset)), // ORI: rt = rs + zext(imm)
         (0b001110, _, _) => Ok(Operation::BinaryLogicImm(logic::Op::Xor, rs, rt, offset)), // XORI: rt = rs + zext(imm)
         (0b000000, 0b001100, _) => Ok(Operation::Syscall), // Syscall
-        (0b110011, _, _) => Ok(Operation::Nop), // Pref
+        (0b110011, _, _) => Ok(Operation::Nop),            // Pref
         (0b011111, 0b000000, _) => Ok(Operation::Ext(rt, rs, rd, sa)), // ext
         (0b011111, 0b111011, _) => Ok(Operation::Rdhwr(rt, rd)), // rdhwr
         (0b011111, 0b100000, _) => {
@@ -281,10 +281,15 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             } else if sa == 0b000010 {
                 Ok(Operation::SwapHalf(rd, rt)) // wsbh
             } else {
-                log::warn!("decode: invalid opcode {:#08b} {:#08b} {:#08b}", opcode, func, sa);
+                log::warn!(
+                    "decode: invalid opcode {:#08b} {:#08b} {:#08b}",
+                    opcode,
+                    func,
+                    sa
+                );
                 Err(ProgramError::InvalidOpcode)
             }
-        },
+        }
         (0b000000, 0b110100, _) => Ok(Operation::Teq(rt, rs)), // teq
         _ => {
             log::warn!("decode: invalid opcode {:#08b} {:#08b}", opcode, func);
@@ -434,25 +439,31 @@ fn perform_op<F: RichField>(
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
         Operation::Nop => generate_nop(state, row)?,
-        Operation::Ext( rt, rs, msbd, lsb) => generate_extract(rt, rs, msbd, lsb, state, row)?,
+        Operation::Ext(rt, rs, msbd, lsb) => generate_extract(rt, rs, msbd, lsb, state, row)?,
         Operation::Rdhwr(rt, rd) => generate_rdhwr(rt, rd, state, row)?,
         Operation::Signext(rd, rt, bits) => generate_signext(rd, rt, bits, state, row)?,
         Operation::SwapHalf(rd, rt) => generate_swaphalf(rd, rt, state, row)?,
         Operation::Teq(rs, rt) => generate_teq(rs, rt, state, row)?,
     };
 
-   match op {
-        Operation::Jump(_, _) | Operation::Jumpi(_, _) | Operation::JumpDirect(_, _) | Operation::Branch(_, _, _, _) => {
+    match op {
+        Operation::Jump(_, _)
+        | Operation::Jumpi(_, _)
+        | Operation::JumpDirect(_, _)
+        | Operation::Branch(_, _, _, _) => {
             // Do nothing
-        },
+        }
         _ => {
             state.registers.program_counter = state.registers.next_pc;
             state.registers.next_pc += 4;
-        },
+        }
     };
 
     match op {
-        Operation::Jump(_, _) | Operation::Jumpi(_, _) | Operation::JumpDirect(_, _) | Operation::Branch(_, _, _, _) => {
+        Operation::Jump(_, _)
+        | Operation::Jumpi(_, _)
+        | Operation::JumpDirect(_, _)
+        | Operation::Branch(_, _, _, _) => {
             log::trace!(
                 "states: pc {} registers: {:?}",
                 state.registers.program_counter,

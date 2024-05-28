@@ -198,8 +198,7 @@ impl State {
                     | "github.com/prometheus/client_model/go.init.1"
                     | "flag.init"
                     | "runtime.check"
-                    | "_dl_discover_osversion"
-                    => {
+                    | "_dl_discover_osversion" => {
                         log::debug!("patch {} at {:X}", name, symbol.st_value);
                         let r: Vec<u8> = vec![0x03, 0xe0, 0x00, 0x08, 0, 0, 0, 0];
                         let r = Box::new(r.as_slice());
@@ -464,8 +463,7 @@ impl InstrumentedState {
                 // read preimage (getpid)
                 self.state.load_preimage(self.block_path.clone())
             }
-            4210 |
-            4090 => {
+            4210 | 4090 => {
                 // mmap
                 // args: a0 = heap/hint, indicates mmap heap or hint. a1 = size
                 let mut size = a1;
@@ -837,7 +835,8 @@ impl InstrumentedState {
             self.state.registers[rt_reg as usize] = 1;
         }
 
-        if opcode == 0x33 {  //pref
+        if opcode == 0x33 {
+            //pref
             self.handle_rd(0, val, false);
             return;
         }
@@ -986,7 +985,7 @@ impl InstrumentedState {
                     //rdhwr
                     let rd = (insn >> 11) & 0x1F;
                     if rd == 0 {
-                        return 1;  // cpu number
+                        return 1; // cpu number
                     } else if rd == 29 {
                         log::debug!("pc: {:X} rdhwr {:X}", self.state.pc, self.state.local_user);
                         //return 0x946490;  // a pointer to a thread-specific storage block
@@ -1004,10 +1003,10 @@ impl InstrumentedState {
                         return sign_extension(rt, 8);
                     } else if shamt == 0x02 {
                         // wsbh
-                        return (((rt >> 16) & 0xFF) << 24) |
-                               (((rt >> 24) & 0xFF) << 16) |
-                               ((rt & 0xFF) << 8) |
-                               ((rt >> 8) & 0xFF);
+                        return (((rt >> 16) & 0xFF) << 24)
+                            | (((rt >> 24) & 0xFF) << 16)
+                            | ((rt & 0xFF) << 8)
+                            | ((rt >> 8) & 0xFF);
                     }
                 }
             }
@@ -1084,7 +1083,10 @@ impl InstrumentedState {
             return 0;
         }
 
-        panic!("invalid instruction, opcode: {:X} {:X} {:X}", opcode, insn,  self.state.pc);
+        panic!(
+            "invalid instruction, opcode: {:X} {:X} {:X}",
+            opcode, insn, self.state.pc
+        );
     }
 
     pub fn step(&mut self) {
@@ -1093,7 +1095,11 @@ impl InstrumentedState {
 
         self.mips_step();
         if dump {
-            log::trace!("pc: {:X} regs: {:X?}\n", self.state.pc, self.state.registers);
+            log::trace!(
+                "pc: {:X} regs: {:X?}\n",
+                self.state.pc,
+                self.state.registers
+            );
         };
     }
 
@@ -1139,9 +1145,7 @@ impl InstrumentedState {
         self.pre_hash_root = page_hash_root;
     }
 
-    pub fn dump_memory(
-        &mut self
-    ) {
+    pub fn dump_memory(&mut self) {
         let image = self.state.memory.get_total_image();
         for (addr, val) in image.iter() {
             log::trace!("{:X}: {:X}", addr, val);

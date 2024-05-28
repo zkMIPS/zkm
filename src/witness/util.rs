@@ -168,7 +168,7 @@ pub(crate) fn reg_write_with_log<F: Field>(
         state.registers.blk = value;
     } else if index == 38 {
         state.registers.local_user = value;
-    }else {
+    } else {
         return Err(ProgramError::InvalidRegister);
     }
 
