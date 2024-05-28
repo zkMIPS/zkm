@@ -193,6 +193,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     let agg_public_values = PublicValues {
         roots_before: first_public_values.roots_before,
         roots_after: public_values.roots_after,
+        userdata: vec![],
     };
 
     // We can duplicate the proofs here because the state hasn't mutated.

@@ -58,7 +58,7 @@ impl Kernel {
     }
 
     /// Read public input from memory at page INIT_SP
-    pub(crate) fn read_public_inputs(&self) -> Vec<u8> {
+    pub fn read_public_inputs(&self) -> Vec<u8> {
         let arg_size = self.program.image.get(&INIT_SP).unwrap();
         if *arg_size == 0 {
             return vec![];

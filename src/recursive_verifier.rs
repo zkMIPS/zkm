@@ -499,9 +499,11 @@ pub(crate) fn add_virtual_public_values<F: RichField + Extendable<D>, const D: u
 ) -> PublicValuesTarget {
     let roots_before = add_virtual_trie_roots(builder);
     let roots_after = add_virtual_trie_roots(builder);
+    let userdata = builder.add_virtual_public_input_arr();
     PublicValuesTarget {
         roots_before,
         roots_after,
+        userdata,
     }
 }
 
@@ -618,6 +620,18 @@ where
         &public_values_target.roots_after,
         &public_values.roots_after,
     );
+    // setup userdata
+    for (i, limb) in public_values.userdata.iter().enumerate() {
+        log::trace!(
+            "set userdata target: {:?} => {:?}",
+            public_values_target.userdata[i],
+            F::from_canonical_u8(*limb),
+        );
+        witness.set_target(
+            public_values_target.userdata[i],
+            F::from_canonical_u8(*limb),
+        );
+    }
     Ok(())
 }
 

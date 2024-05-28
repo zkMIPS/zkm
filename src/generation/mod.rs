@@ -8,6 +8,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
+use crate::all_stark::NUM_PUBLIC_INPUT_USERDATA;
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
@@ -17,7 +18,6 @@ use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
 use crate::witness::transition::transition;
-//use crate::mips_emulator::state::Segment;
 
 pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
@@ -48,15 +48,17 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Execute the trace record
 
     // Generate the public values and outputs
+    let mut userdata = kernel.read_public_inputs();
+    userdata.resize(NUM_PUBLIC_INPUT_USERDATA, 0u8);
+
     let public_values = PublicValues {
         roots_before: MemRoots {
             root: unsafe { std::mem::transmute::<[u8; 32], [u32; 8]>(kernel.program.pre_image_id) },
-            userdata: kernel.read_public_inputs(),
         },
         roots_after: MemRoots {
             root: unsafe { std::mem::transmute::<[u8; 32], [u32; 8]>(kernel.program.image_id) },
-            userdata: kernel.read_public_inputs(),
         },
+        userdata,
     };
     let tables = timed!(
         timing,

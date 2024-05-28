@@ -175,7 +175,6 @@ fn aggregate_proof() -> anyhow::Result<()> {
     let seg_file2 = env::var("SEG_FILE2").expect("The next segment file is missing");
     let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
     let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
-
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
     // Preprocess all circuits.
@@ -204,6 +203,7 @@ fn aggregate_proof() -> anyhow::Result<()> {
     let agg_public_values = PublicValues {
         roots_before: first_public_values.roots_before,
         roots_after: public_values.roots_after,
+        userdata: public_values.userdata,
     };
 
     // We can duplicate the proofs here because the state hasn't mutated.
@@ -286,6 +286,7 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
         let agg_public_values = PublicValues {
             roots_before: updated_agg_public_values.roots_before,
             roots_after: public_values.roots_after,
+            userdata: public_values.userdata,
         };
         timing = TimingTree::new("prove aggression", log::Level::Info);
         // We can duplicate the proofs here because the state hasn't mutated.
@@ -328,6 +329,7 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
         let new_agg_public_values = PublicValues {
             roots_before: first_public_values.roots_before,
             roots_after: public_values.roots_after,
+            userdata: public_values.userdata,
         };
         timing = TimingTree::new("prove aggression", log::Level::Info);
         // We can duplicate the proofs here because the state hasn't mutated.
@@ -345,6 +347,7 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
         let agg_public_values = PublicValues {
             roots_before: updated_agg_public_values.roots_before,
             roots_after: new_updated_agg_public_values.roots_after,
+            userdata: new_updated_agg_public_values.userdata,
         };
         timing = TimingTree::new("prove nested aggression", log::Level::Info);
 

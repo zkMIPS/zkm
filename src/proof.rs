@@ -1,3 +1,4 @@
+use crate::all_stark::NUM_PUBLIC_INPUT_USERDATA;
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::fri::oracle::PolynomialBatch;
@@ -51,12 +52,12 @@ pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, H: Hasher<F>,
 pub struct PublicValues {
     pub roots_before: MemRoots,
     pub roots_after: MemRoots,
+    pub userdata: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MemRoots {
     pub root: [u32; 8],
-    pub userdata: Vec<u8>,
 }
 
 /// Memory values which are public.
@@ -65,6 +66,7 @@ pub struct MemRoots {
 pub struct PublicValuesTarget {
     pub roots_before: MemRootsTarget,
     pub roots_after: MemRootsTarget,
+    pub userdata: [Target; NUM_PUBLIC_INPUT_USERDATA],
 }
 
 impl PublicValuesTarget {
@@ -80,6 +82,8 @@ impl PublicValuesTarget {
         } = self.roots_after;
 
         buffer.write_target_array(&state_root_after)?;
+
+        buffer.write_target_array(&self.userdata)?;
         Ok(())
     }
 
@@ -92,9 +96,12 @@ impl PublicValuesTarget {
             root: buffer.read_target_array()?,
         };
 
+        let userdata = buffer.read_target_array()?;
+
         Ok(Self {
             roots_before,
             roots_after,
+            userdata,
         })
     }
 
@@ -102,6 +109,7 @@ impl PublicValuesTarget {
         Self {
             roots_before: MemRootsTarget::from_public_inputs(&pis[0..8]),
             roots_after: MemRootsTarget::from_public_inputs(&pis[8..16]),
+            userdata: pis[16..16 + NUM_PUBLIC_INPUT_USERDATA].try_into().unwrap(),
         }
     }
 
@@ -124,6 +132,9 @@ impl PublicValuesTarget {
                 pv0.roots_after,
                 pv1.roots_after,
             ),
+            userdata: core::array::from_fn(|i| {
+                builder.select(condition, pv0.userdata[i], pv1.userdata[i])
+            }),
         }
     }
 }

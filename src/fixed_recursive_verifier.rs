@@ -2,7 +2,6 @@ use core::mem::{self, MaybeUninit};
 use std::collections::BTreeMap;
 use std::ops::Range;
 
-//use eth_trie_utils::partial_trie::{HashedPartialTrie, Node, PartialTrie};
 use hashbrown::HashMap;
 use itertools::{zip_eq, Itertools};
 use plonky2::field::extension::Extendable;
@@ -34,26 +33,12 @@ use crate::cross_table_lookup::{
     get_grand_product_challenge_set_target, verify_cross_table_lookups_circuit, CrossTableLookup,
     GrandProductChallengeSet,
 };
-//use crate::verifier::verify_proof;
 use crate::get_challenges::observe_public_values_target;
-//use crate::get_challenges::observe_public_values_target;
-use crate::proof::{
-    MemRootsTarget,
-    //BlockHashesTarget, BlockMetadataTarget, ExtraBlockDataTarget,
-    PublicValues,
-    PublicValuesTarget,
-    StarkProofWithMetadata,
-};
+use crate::proof::{MemRootsTarget, PublicValues, PublicValuesTarget, StarkProofWithMetadata};
 use crate::prover::prove;
 use crate::recursive_verifier::{
-    add_common_recursion_gates,
-    add_virtual_public_values,
-    //get_memory_extra_looking_products_circuit,
-    recursive_stark_circuit,
-    set_public_value_targets,
-    PlonkWrapperCircuit,
-    PublicInputs,
-    StarkWrapperCircuit,
+    add_common_recursion_gates, add_virtual_public_values, recursive_stark_circuit,
+    set_public_value_targets, PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
 use crate::verifier::verify_proof;
@@ -496,19 +481,6 @@ where
         let extra_looking_sums =
             vec![vec![builder.zero(); stark_config.num_challenges]; NUM_TABLES];
 
-        // Memory
-        /*
-        extra_looking_sums[Table::Memory as usize] = (0..stark_config.num_challenges)
-            .map(|c| {
-                get_memory_extra_looking_sum_circuit(
-                    &mut builder,
-                    &public_values,
-                    ctl_challenges.challenges[c],
-                )
-            })
-            .collect_vec();
-            */
-
         // Verify the CTL checks.
         verify_cross_table_lookups_circuit::<F, D>(
             &mut builder,
@@ -593,6 +565,24 @@ where
             rhs_public_values.roots_before,
         );
 
+        // Connect agg `userdata` with lhs `userdata`.
+        for (limb0, limb1) in public_values
+            .userdata
+            .iter()
+            .zip_eq(&lhs_public_values.userdata)
+        {
+            builder.connect(*limb0, *limb1);
+        }
+
+        // Connect agg `userdata` with rhs `userdata`.
+        for (limb0, limb1) in public_values
+            .userdata
+            .iter()
+            .zip_eq(&rhs_public_values.userdata)
+        {
+            builder.connect(*limb0, *limb1);
+        }
+
         // Pad to match the root circuit's degree.
         while log2_ceil(builder.num_gates()) < root.circuit.common.degree_bits() {
             builder.add_gate(NoopGate, vec![]);
@@ -646,9 +636,6 @@ where
         let parent_block_proof = builder.add_virtual_proof_with_pis(&expected_common_data);
         let agg_root_proof = builder.add_virtual_proof_with_pis(&agg.circuit.common);
 
-        // Connect block hashes
-        //Self::connect_block_hashes(&mut builder, &parent_block_proof, &agg_root_proof);
-
         let parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
         let agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
 
@@ -663,6 +650,10 @@ where
 
         // Make connections between block proofs, and check initial and final block values.
         Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
+
+        for (&limb0, &limb1) in parent_pv.userdata.iter().zip_eq(&agg_pv.userdata) {
+            builder.connect(limb0, limb1);
+        }
 
         let cyclic_vk = builder.add_verifier_data_public_inputs();
         builder
@@ -693,7 +684,7 @@ where
         lhs: &PublicValuesTarget,
         rhs: &PublicValuesTarget,
     ) {
-        // Between blocks, we only connect state tries.
+        // Between blocks, we only connect state tries and userdata.
         for (&limb0, limb1) in lhs.roots_after.root.iter().zip(rhs.roots_before.root) {
             builder.connect(limb0, limb1);
         }
@@ -838,6 +829,11 @@ where
             for (key, &value) in state_trie_root_after_keys.zip_eq(&public_values.roots_before.root)
             {
                 nonzero_pis.insert(key, F::from_canonical_u32(value));
+            }
+
+            let userdata_keys = 16..16 + public_values.userdata.len();
+            for (key, &value) in userdata_keys.zip_eq(&public_values.userdata) {
+                nonzero_pis.insert(key, F::from_canonical_u8(value));
             }
 
             block_inputs.set_proof_with_pis_target(
