@@ -21,6 +21,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
 ) {
     let is_jump = lv.op.jumps;
     let is_jumpi = lv.op.jumpi;
+    let is_jumpdirect = lv.op.jumpdirect;
 
     let is_link = is_jump * lv.func_bits[0];
     let is_linki = is_jumpi * lv.opcode_bits[0];
@@ -54,20 +55,47 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
         jump_imm[23..28].copy_from_slice(&lv.rs_bits);
 
         let imm_dst = limb_from_bits_le(jump_imm);
-        let pc_remain = lv.mem_channels[7].value;
+        let pc_remain = lv.mem_channels[2].value;
         let jump_dest = pc_remain + imm_dst;
         yield_constr.constraint(is_jumpi * (nv.next_program_counter - jump_dest));
+    }
+
+    // Check `jumpdirect target value`:
+    // constraint:
+    // * jump_dest =  offset << 2 + pc
+    // * is_jumpdirect * (next_program_coutner - jump_dest) == 0
+    {
+        let aux = lv.mem_channels[2].value;
+        let overflow = P::Scalar::from_canonical_u64(1 << 32);
+        let mut jump_offset = [P::ZEROS; 32];
+
+        jump_offset[2..8].copy_from_slice(&lv.func_bits); // 6 bits
+        jump_offset[8..13].copy_from_slice(&lv.shamt_bits); // 5 bits
+        jump_offset[13..18].copy_from_slice(&lv.rd_bits); // 5 bits
+        jump_offset[18..32].copy_from_slice(&[lv.rd_bits[4]; 14]); // lv.insn_bits[15]
+
+        let offset_dst = limb_from_bits_le(jump_offset);
+
+        yield_constr.constraint(is_jumpdirect * (aux - offset_dst));
+
+        let jump_dst = lv.program_counter + P::Scalar::from_canonical_u8(4) + aux;
+
+        yield_constr.constraint(
+            is_jumpdirect
+                * (nv.next_program_counter - jump_dst)
+                * (nv.next_program_counter + overflow - jump_dst),
+        );
     }
 
     // Check `link/linki target value`:
     // constraint:
     // * next_addr = program_counter + 8
-    // * link = is_link + is_linki
+    // * link = is_link + is_linki + is_jumpdirect
     // * link * (ret_addr - next_addr) == 0
     {
         let link_dest = lv.mem_channels[1].value;
         yield_constr.constraint(
-            (is_link + is_linki)
+            (is_link + is_linki + is_jumpdirect)
                 * (lv.program_counter + P::Scalar::from_canonical_u64(8) - link_dest),
         );
     }
@@ -80,10 +108,12 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
         yield_constr.constraint(is_link * (link_reg - link_dst));
     }
 
-    // Check `linki target regiseter`:
-    // constraint: is_linki * (ret_reg - 31) == 0
+    // Check `linki/jumpdirect target regiseter`:
+    // constraint: (is_linki + is_jumpdirect) * (ret_reg - 31) == 0
     {
-        yield_constr.constraint(is_linki * (link_reg - P::Scalar::from_canonical_u64(31)));
+        yield_constr.constraint(
+            (is_linki + is_jumpdirect) * (link_reg - P::Scalar::from_canonical_u64(31)),
+        );
     }
 }
 
@@ -95,6 +125,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
 ) {
     let is_jump = lv.op.jumps;
     let is_jumpi = lv.op.jumpi;
+    let is_jumpdirect = lv.op.jumpdirect;
 
     let zero_extension = builder.zero_extension();
 
@@ -136,9 +167,40 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
 
         let jump_dest = limb_from_bits_le_recursive(builder, jump_imm);
 
-        let constr = builder.add_extension(lv.mem_channels[7].value, jump_dest);
+        let constr = builder.add_extension(lv.mem_channels[2].value, jump_dest);
         let constr = builder.sub_extension(nv.next_program_counter, constr);
         let constr = builder.mul_extension(is_jumpi, constr);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Check `jumpdirect target value`:
+    // constraints:
+    // * aux = sign_extended(offset << 2)
+    // * jump_dest =  sign_extended(offset << 2) + pc + 4
+    // * is_jumpdirect *(next_program_coutner - jump_dest) * (next_program_coutner + 1 << 32 - jump_dest) == 0
+    {
+        let aux = lv.mem_channels[2].value;
+        let overflow = builder.constant_extension(F::Extension::from_canonical_u64(1 << 32));
+        let mut jump_offset = [zero_extension; 32];
+
+        jump_offset[2..8].copy_from_slice(&lv.func_bits); // 6 bits
+        jump_offset[8..13].copy_from_slice(&lv.shamt_bits); // 5 bits
+        jump_offset[13..18].copy_from_slice(&lv.rd_bits); // 5 bits
+        jump_offset[18..32].copy_from_slice(&[lv.rd_bits[4]; 14]); // lv.insn_bits[15]
+        let offset_dst = limb_from_bits_le_recursive(builder, jump_offset);
+
+        let constr = builder.sub_extension(aux, offset_dst);
+        let constr = builder.mul_extension(is_jumpdirect, constr);
+        yield_constr.constraint(builder, constr);
+
+        let base_pc = builder.add_const_extension(lv.program_counter, F::from_canonical_u64(4));
+        let jump_dst = builder.add_extension(base_pc, aux);
+
+        let overflow_target = builder.add_extension(nv.next_program_counter, overflow);
+        let constr_a = builder.sub_extension(overflow_target, jump_dst);
+        let constr_b = builder.sub_extension(nv.next_program_counter, jump_dst);
+        let constr = builder.mul_extension(is_jumpdirect, constr_a);
+        let constr = builder.mul_extension(constr, constr_b);
         yield_constr.constraint(builder, constr);
     }
 
@@ -152,6 +214,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
         let link_dest = builder.add_const_extension(lv.program_counter, F::from_canonical_u64(8));
         let constr = builder.sub_extension(link_dest, link_dst);
         let is_link = builder.add_extension(is_link, is_linki);
+        let is_link = builder.add_extension(is_link, is_jumpdirect);
         let constr = builder.mul_extension(is_link, constr);
         yield_constr.constraint(builder, constr);
     }
@@ -167,11 +230,12 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     }
 
     // Check `linki target register`
-    // constraint: is_linki * (ret_reg - 31) == 0
+    // constraint: (is_linki + is_jumpdirect) * (ret_reg - 31) == 0
     {
         let reg_31 = builder.constant_extension(F::Extension::from_canonical_u64(31));
         let constr = builder.sub_extension(link_reg, reg_31);
-        let constr = builder.mul_extension(constr, is_linki);
+        let link31 = builder.add_extension(is_jumpdirect, is_linki);
+        let constr = builder.mul_extension(constr, link31);
         yield_constr.constraint(builder, constr);
     }
 }

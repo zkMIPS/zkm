@@ -516,7 +516,7 @@ pub(crate) fn generate_jumpi<F: Field>(
     let operation: logic::Operation =
         logic::Operation::new(logic::Op::And, pc as u32, 0xf0000000u32);
     let pc_result = operation.result as usize;
-    let result_op = reg_write_with_log(0, 7, pc_result, state, &mut row)?;
+    let result_op = reg_write_with_log(0, 2, pc_result, state, &mut row)?;
     target_pc = target_pc.wrapping_add(pc_result);
     let next_pc = pc.wrapping_add(8);
     let link_op = reg_write_with_log(link, 1, next_pc, state, &mut row)?;
@@ -537,6 +537,7 @@ pub(crate) fn generate_jumpdirect<F: Field>(
 ) -> Result<(), ProgramError> {
     let target = sign_extend::<16>(target);
     let (target_pc, _) = target.overflowing_shl(2);
+    let offset_op = reg_write_with_log(0, 2, target_pc as usize, state, &mut row)?;
     let pc = state.registers.program_counter as u32;
     let target_pc = target_pc.wrapping_add(pc + 4);
     let next_pc = pc.wrapping_add(8);
@@ -546,6 +547,7 @@ pub(crate) fn generate_jumpdirect<F: Field>(
     state.traces.push_cpu(row);
     state.jump_to(target_pc as usize);
     state.traces.push_memory(link_op);
+    state.traces.push_memory(offset_op);
     Ok(())
 }
 
