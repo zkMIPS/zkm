@@ -26,134 +26,114 @@ use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
 
-// pub const U8S_PER_CTL: usize = 4;
-// pub const U32S_PER_CTL: usize = 1;
+pub const U8S_PER_CTL: usize = 4;
+pub const U32S_PER_CTL: usize = 1;
 
-// pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
-//     let cols = KECCAK_SPONGE_COL_MAP;
-//     let mut outputs = Vec::with_capacity(8);
-//     for i in (0..8).rev() {
-//         let cur_col = Column::linear_combination(
-//             cols.updated_digest_state_bytes[i * 4..(i + 1) * 4]
-//                 .iter()
-//                 .enumerate()
-//                 .map(|(j, &c)| (c, F::from_canonical_u64(1 << (24 - 8 * j)))),
-//         );
-//         outputs.push(cur_col);
-//     }
-//
-//     Column::singles([
-//         cols.context,
-//         cols.segment,
-//         cols.virt[0],
-//         cols.len,
-//         cols.timestamp,
-//     ])
-//     .chain(outputs)
-//     .collect()
-// }
-//
-// pub(crate) fn ctl_looking_keccak_inputs<F: Field>() -> Vec<Column<F>> {
-//     let cols = KECCAK_SPONGE_COL_MAP;
-//     let mut res: Vec<_> = Column::singles(
-//         [
-//             cols.xored_rate_u32s.as_slice(),
-//             &cols.original_capacity_u32s,
-//         ]
-//         .concat(),
-//     )
-//     .collect();
-//     res.push(Column::single(cols.timestamp));
-//
-//     res
-// }
-//
-// pub(crate) fn ctl_looking_keccak_outputs<F: Field>() -> Vec<Column<F>> {
-//     let cols = KECCAK_SPONGE_COL_MAP;
-//
-//     // We recover the 32-bit digest limbs from their corresponding bytes,
-//     // and then append them to the rest of the updated state limbs.
-//     let digest_u32s = cols.updated_digest_state_bytes.chunks_exact(4).map(|c| {
-//         Column::linear_combination(
-//             c.iter()
-//                 .enumerate()
-//                 .map(|(i, &b)| (b, F::from_canonical_usize(1 << (8 * i)))),
-//         )
-//     });
-//
-//     let mut res: Vec<_> = digest_u32s.collect();
-//
-//     res.extend(Column::singles(&cols.partial_updated_state_u32s));
-//     res.push(Column::single(cols.timestamp));
-//
-//     res
-// }
-//
-// pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
-//     let cols = KECCAK_SPONGE_COL_MAP;
-//
-//     let mut res = vec![Column::constant(F::ONE)]; // is_read
-//
-//     res.extend(Column::singles([cols.context, cols.segment]));
-//
-//     // The address of the byte being read is `virt + already_absorbed_bytes + i`.
-//     /*
-//     res.push(Column::linear_combination_with_constant(
-//         [(cols.virt, F::ONE), (cols.already_absorbed_bytes, F::ONE)],
-//         F::from_canonical_usize(i),
-//     ));
-//     */
-//     res.push(Column::single(cols.virt[i / 4]));
-//
-//     // The u32 of i'th input byte being read.
-//     let start = (i / 4) * 4;
-//     let lc: Column<F> = Column::le_bytes([
-//         cols.block_bytes[start + 3],
-//         cols.block_bytes[start + 2],
-//         cols.block_bytes[start + 1],
-//         cols.block_bytes[start],
-//     ]);
-//     res.push(lc);
-//
-//     // Since we're reading a single byte, the higher limbs must be zero.
-//     // res.extend((1..8).map(|_| Column::zero()));
-//
-//     res.push(Column::single(cols.timestamp));
-//
-//     assert_eq!(
-//         res.len(),
-//         crate::memory::memory_stark::ctl_data::<F>().len()
-//     );
-//     res
-// }
-//
-// pub(crate) fn ctl_looked_filter<F: Field>() -> Filter<F> {
-//     // The CPU table is only interested in our final-block rows, since those contain the final
-//     // sponge output.
-//     Filter::new_simple(Column::sum(KECCAK_SPONGE_COL_MAP.is_final_input_len))
-// }
-//
-// /// CTL filter for reading the `i`th byte of input from memory.
-// pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Filter<F> {
-//     // We perform the `i`th read if either
-//     // - this is a full input block, or
-//     // - this is a final block of length `i` or greater
-//     let cols = KECCAK_SPONGE_COL_MAP;
-//     if i == POSEIDON_RATE_BYTES - 1 {
-//         Filter::new_simple(Column::single(cols.is_full_input_block))
-//     } else {
-//         Filter::new_simple(Column::sum(
-//             once(&cols.is_full_input_block).chain(&cols.is_final_input_len[i + 1..]),
-//         ))
-//     }
-// }
-//
-// pub(crate) fn ctl_looking_keccak_filter<F: Field>() -> Filter<F> {
-//     let cols = KECCAK_SPONGE_COL_MAP;
-//     Filter::new_simple(Column::sum(
-//         once(&cols.is_full_input_block).chain(&cols.is_final_input_len),
-//     ))
-// }
+pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
+    let cols = POSEIDON_SPONGE_COL_MAP;
+
+    Column::singles(
+        [
+            cols.context,
+            cols.segment,
+            cols.virt[0],
+            cols.len,
+            cols.timestamp,
+        ]
+        .iter()
+        .chain(cols.updated_digest_state.iter()),
+    )
+    .collect()
+}
+
+pub(crate) fn ctl_looking_poseidon_inputs<F: Field>() -> Vec<Column<F>> {
+    let cols = POSEIDON_SPONGE_COL_MAP;
+    let mut res: Vec<_> = Column::singles(
+        cols.original_rate
+            .iter()
+            .chain(cols.original_capacity.iter()),
+    )
+    .collect();
+    res.push(Column::single(cols.timestamp));
+
+    res
+}
+
+pub(crate) fn ctl_looking_poseidon_outputs<F: Field>() -> Vec<Column<F>> {
+    let cols = POSEIDON_SPONGE_COL_MAP;
+
+    let mut res = Column::singles(&cols.updated_digest_state).collect_vec();
+    res.extend(Column::singles(&cols.partial_updated_state));
+    res.push(Column::single(cols.timestamp));
+
+    res
+}
+
+pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
+    let cols = POSEIDON_SPONGE_COL_MAP;
+
+    let mut res = vec![Column::constant(F::ONE)]; // is_read
+
+    res.extend(Column::singles([cols.context, cols.segment]));
+
+    // The address of the byte being read is `virt + already_absorbed_bytes + i`.
+    /*
+    res.push(Column::linear_combination_with_constant(
+        [(cols.virt, F::ONE), (cols.already_absorbed_bytes, F::ONE)],
+        F::from_canonical_usize(i),
+    ));
+    */
+    res.push(Column::single(cols.virt[i / 4]));
+
+    // The u32 of i'th input byte being read.
+    let start = (i / 4) * 4;
+    let lc: Column<F> = Column::le_bytes([
+        cols.block_bytes[start + 3],
+        cols.block_bytes[start + 2],
+        cols.block_bytes[start + 1],
+        cols.block_bytes[start],
+    ]);
+    res.push(lc);
+
+    // Since we're reading a single byte, the higher limbs must be zero.
+    // res.extend((1..8).map(|_| Column::zero()));
+
+    res.push(Column::single(cols.timestamp));
+
+    assert_eq!(
+        res.len(),
+        crate::memory::memory_stark::ctl_data::<F>().len()
+    );
+    res
+}
+
+pub(crate) fn ctl_looked_filter<F: Field>() -> Filter<F> {
+    // The CPU table is only interested in our final-block rows, since those contain the final
+    // sponge output.
+    Filter::new_simple(Column::sum(POSEIDON_SPONGE_COL_MAP.is_final_input_len))
+}
+
+/// CTL filter for reading the `i`th byte of input from memory.
+pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Filter<F> {
+    // We perform the `i`th read if either
+    // - this is a full input block, or
+    // - this is a final block of length `i` or greater
+    let cols = POSEIDON_SPONGE_COL_MAP;
+    if i == POSEIDON_RATE_BYTES - 1 {
+        Filter::new_simple(Column::single(cols.is_full_input_block))
+    } else {
+        Filter::new_simple(Column::sum(
+            once(&cols.is_full_input_block).chain(&cols.is_final_input_len[i + 1..]),
+        ))
+    }
+}
+
+pub(crate) fn ctl_looking_poseidon_filter<F: Field>() -> Filter<F> {
+    let cols = POSEIDON_SPONGE_COL_MAP;
+    Filter::new_simple(Column::sum(
+        once(&cols.is_full_input_block).chain(&cols.is_final_input_len),
+    ))
+}
 
 pub fn poseidon<F: PrimeField64>(inputs: &Vec<u8>) -> [u64; POSEIDON_DIGEST] {
     let l = inputs.len();

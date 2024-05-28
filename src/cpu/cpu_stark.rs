@@ -23,8 +23,8 @@ use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::stark::Stark;
 
-pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
-    // When executing KECCAK_GENERAL, the GP memory channels are used as follows:
+pub fn ctl_data_poseidon_sponge<F: Field>() -> Vec<Column<F>> {
+    // When executing POSEIDON_GENERAL, the GP memory channels are used as follows:
     // GP channel 0: stack[-1] = context
     // GP channel 1: stack[-2] = segment
     // GP channel 2: stack[-3] = virt
@@ -43,8 +43,8 @@ pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     cols
 }
 
-pub fn ctl_filter_keccak_sponge<F: Field>() -> Filter<F> {
-    Filter::new_simple(Column::single(COL_MAP.is_keccak_sponge))
+pub fn ctl_filter_poseidon_sponge<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.is_poseidon_sponge))
 }
 
 /// Create the vector of Columns corresponding to the two inputs and
@@ -115,7 +115,7 @@ pub fn ctl_arithmetic_imm_base_rows<F: Field>() -> TableWithColumns<F> {
 }
 
 pub fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
-    ctl_data_keccak_sponge()
+    ctl_data_poseidon_sponge()
 }
 
 pub const MEM_CODE_CHANNEL_IDX: usize = 0;

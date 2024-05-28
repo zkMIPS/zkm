@@ -17,11 +17,16 @@ use crate::mips_emulator::memory::{
     END_PC_ADDRESS, HASH_ADDRESS_BASE, HASH_ADDRESS_END, ROOT_HASH_ADDRESS_BASE,
 };
 use crate::mips_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
+use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
+use crate::poseidon_sponge::poseidon_sponge_stark::poseidon;
 use crate::witness::memory::MemoryAddress;
-use crate::witness::util::keccak_sponge_log;
 use crate::witness::util::mem_write_gp_log_and_fill;
+use crate::witness::util::poseidon_sponge_log;
 
-pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>, kernel: &Kernel) {
+pub(crate) fn generate_bootstrap_kernel<F: RichField>(
+    state: &mut GenerationState<F>,
+    kernel: &Kernel,
+) {
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
     let mut image_addr_value = vec![];
     let mut image_addr = vec![];
@@ -62,7 +67,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
 
-pub(crate) fn check_image_id<F: Field>(
+pub(crate) fn check_image_id<F: RichField>(
     state: &mut GenerationState<F>,
     kernel: &Kernel,
     post: bool,
@@ -127,20 +132,24 @@ pub(crate) fn check_image_id<F: Field>(
         cpu_row.is_bootstrap_kernel = F::ONE;
     }
 
-    cpu_row.is_keccak_sponge = F::ONE;
+    cpu_row.is_poseidon_sponge = F::ONE;
 
     let mut image_addr_value_byte_be = vec![0u8; root_hash_addr_value.len() * 4];
     for (i, (_, v)) in root_hash_addr_value.iter().enumerate() {
         image_addr_value_byte_be[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
     }
 
-    // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
+    // The Poseidon sponge CTL uses memory value columns for its inputs and outputs.
     cpu_row.mem_channels[0].value = F::ZERO; // context
     cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
     cpu_row.mem_channels[2].value = F::from_canonical_usize(root_hash_addr[0].virt);
     cpu_row.mem_channels[3].value = F::from_canonical_usize(image_addr_value_byte_be.len()); // len
 
-    let code_hash_bytes = keccak(&image_addr_value_byte_be).0;
+    let code_hash_u64s = poseidon::<F>(&image_addr_value_byte_be);
+    let code_hash_bytes = code_hash_u64s
+        .iter()
+        .flat_map(|&num| num.to_le_bytes())
+        .collect_vec();
     let code_hash_be = core::array::from_fn(|i| {
         u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
     });
@@ -158,11 +167,11 @@ pub(crate) fn check_image_id<F: Field>(
     cpu_row.general.hash_mut().value = code_hash.map(F::from_canonical_u32);
     cpu_row.general.hash_mut().value.reverse();
 
-    keccak_sponge_log(state, root_hash_addr, image_addr_value_byte_be);
+    poseidon_sponge_log(state, root_hash_addr, image_addr_value_byte_be);
     state.traces.push_cpu(cpu_row);
 }
 
-pub(crate) fn check_memory_page_hash<F: Field>(
+pub(crate) fn check_memory_page_hash<F: RichField>(
     state: &mut GenerationState<F>,
     kernel: &Kernel,
     addr: u32,
@@ -184,7 +193,11 @@ pub(crate) fn check_memory_page_hash<F: Field>(
         page_addr_value_byte_be[i * 4..(i * 4 + 4)].copy_from_slice(&v.to_le_bytes());
     }
 
-    let code_hash_bytes = keccak(&page_addr_value_byte_be).0;
+    let code_hash_u64s = poseidon::<F>(&page_addr_value_byte_be);
+    let code_hash_bytes = code_hash_u64s
+        .iter()
+        .flat_map(|&num| num.to_le_bytes())
+        .collect_vec();
     let code_hash_be = core::array::from_fn(|i| {
         u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
     });
@@ -257,19 +270,19 @@ pub(crate) fn check_memory_page_hash<F: Field>(
     } else {
         cpu_row.is_bootstrap_kernel = F::ONE;
     }
-    cpu_row.is_keccak_sponge = F::ONE;
+    cpu_row.is_poseidon_sponge = F::ONE;
 
-    // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
+    // The Poseidon sponge CTL uses memory value columns for its inputs and outputs.
     cpu_row.mem_channels[0].value = F::ZERO; // context
     cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
-    let final_idx = page_addr_value_byte_be.len() / KECCAK_RATE_BYTES * KECCAK_RATE_U32S;
+    let final_idx = page_addr_value_byte_be.len() / POSEIDON_RATE_BYTES * POSEIDON_RATE_BYTES;
     cpu_row.mem_channels[2].value = F::from_canonical_usize(page_data_addr[final_idx].virt);
     cpu_row.mem_channels[3].value = F::from_canonical_usize(page_addr_value_byte_be.len()); // len
 
     cpu_row.general.hash_mut().value = code_hash.map(F::from_canonical_u32);
     cpu_row.general.hash_mut().value.reverse();
 
-    keccak_sponge_log(state, page_data_addr, page_addr_value_byte_be);
+    poseidon_sponge_log(state, page_data_addr, page_addr_value_byte_be);
     state.traces.push_cpu(cpu_row);
     if update {
         state.memory.apply_ops(&state.traces.memory_ops);

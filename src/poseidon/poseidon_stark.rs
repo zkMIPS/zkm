@@ -13,6 +13,7 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::poseidon::columns::{
     reg_full0_s0, reg_full0_s1, reg_full1_s0, reg_full1_s1, reg_in, reg_out, reg_partial_s0,
@@ -27,25 +28,27 @@ use crate::poseidon::constants::{
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 
-// pub fn ctl_data_inputs<F: Field>() -> Vec<Column<F>> {
-//     let mut res: Vec<_> = (0..2 * NUM_INPUTS).map(reg_input_limb).collect();
-//     res.push(Column::single(TIMESTAMP));
-//     res
-// }
-//
-// pub fn ctl_data_outputs<F: Field>() -> Vec<Column<F>> {
-//     let mut res: Vec<_> = Column::singles((0..2 * NUM_INPUTS).map(reg_output_limb)).collect();
-//     res.push(Column::single(TIMESTAMP));
-//     res
-// }
-//
-// pub fn ctl_filter_inputs<F: Field>() -> Filter<F> {
-//     Filter::new_simple(Column::single(reg_step(0)))
-// }
-//
-// pub fn ctl_filter_outputs<F: Field>() -> Filter<F> {
-//     Filter::new_simple(Column::single(reg_step(NUM_ROUNDS - 1)))
-// }
+pub fn ctl_data_inputs<F: Field>() -> Vec<Column<F>> {
+    let mut res: Vec<_> = (0..SPONGE_WIDTH).map(reg_in).collect();
+    res.push(TIMESTAMP);
+
+    Column::singles(res).collect()
+}
+
+pub fn ctl_data_outputs<F: Field>() -> Vec<Column<F>> {
+    let mut res: Vec<_> = (0..SPONGE_WIDTH).map(reg_out).collect();
+    res.push(TIMESTAMP);
+
+    Column::singles(res).collect()
+}
+
+pub fn ctl_filter_inputs<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::constant(F::ONES))
+}
+
+pub fn ctl_filter_outputs<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::constant(F::ONES))
+}
 
 pub fn poseidon_with_witness<F: PrimeField64>(
     input: &[F; SPONGE_WIDTH],
@@ -103,7 +106,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
     /// in our lookup arguments, as those are computed after transposing to column-wise form.
     fn generate_trace_rows(
         &self,
-        inputs_and_timestamps: Vec<([u64; SPONGE_WIDTH], usize)>,
+        inputs_and_timestamps: Vec<([F; SPONGE_WIDTH], usize)>,
         min_rows: usize,
     ) -> Vec<[F; NUM_COLUMNS]> {
         let num_rows = inputs_and_timestamps
@@ -117,7 +120,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
             rows.push(rows_for_perm);
         }
 
-        let default_row = self.generate_trace_rows_for_perm(([0u64; SPONGE_WIDTH], 0));
+        let default_row = self.generate_trace_rows_for_perm(([F::ZEROS; SPONGE_WIDTH], 0));
         while rows.len() < num_rows {
             rows.push(default_row);
         }
@@ -126,12 +129,11 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
 
     fn generate_trace_rows_for_perm(
         &self,
-        input_and_timestamp: ([u64; SPONGE_WIDTH], usize),
+        input_and_timestamp: ([F; SPONGE_WIDTH], usize),
     ) -> [F; NUM_COLUMNS] {
-        let input = input_and_timestamp.0.map(|i| F::from_canonical_u64(i));
-        let (hash, mut rows) = poseidon_with_witness(&input);
+        let (hash, mut rows) = poseidon_with_witness(&input_and_timestamp.0);
         for i in 0..SPONGE_WIDTH {
-            rows[reg_in(i)] = input[i];
+            rows[reg_in(i)] = input_and_timestamp.0[i];
             rows[reg_out(i)] = hash[i];
         }
         // Set the timestamp of the current input.
@@ -144,7 +146,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
 
     pub fn generate_trace(
         &self,
-        inputs: Vec<([u64; SPONGE_WIDTH], usize)>,
+        inputs: Vec<([F; SPONGE_WIDTH], usize)>,
         min_rows: usize,
         timing: &mut TimingTree,
     ) -> Vec<PolynomialValues<F>> {
@@ -163,11 +165,11 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
     }
 }
 
-fn constant_layer<F: PrimeField64>(state: &mut [F; SPONGE_WIDTH], round_ctr: usize) {
+fn constant_layer<F: Field>(state: &mut [F; SPONGE_WIDTH], round_ctr: usize) {
     for i in 0..SPONGE_WIDTH {
         let round_constant = ALL_ROUND_CONSTANTS[i + SPONGE_WIDTH * round_ctr];
         unsafe {
-            state[i] = state[i].add_canonical_u64(round_constant);
+            state[i] = state[i] + F::from_canonical_u64(round_constant);
         }
     }
 }
@@ -686,7 +688,7 @@ mod tests {
     use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::polynomial::PolynomialValues;
-    use plonky2::field::types::Field;
+    use plonky2::field::types::{Field, Sample};
     use plonky2::fri::oracle::PolynomialBatch;
     use plonky2::iop::challenger::Challenger;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
@@ -739,7 +741,7 @@ mod tests {
 
         init_logger();
 
-        let input: ([u64; SPONGE_WIDTH], usize) = (rand::random(), 0);
+        let input: ([F; SPONGE_WIDTH], usize) = (F::rand_array(), 0);
         let rows = stark.generate_trace_rows(vec![input], 4);
 
         let mut constraint_consumer = ConstraintConsumer::new(
@@ -766,8 +768,8 @@ mod tests {
 
         init_logger();
 
-        let input: Vec<([u64; SPONGE_WIDTH], usize)> =
-            (0..NUM_PERMS).map(|_| (rand::random(), 0)).collect();
+        let input: Vec<([F; SPONGE_WIDTH], usize)> =
+            (0..NUM_PERMS).map(|_| (F::rand_array(), 0)).collect();
 
         let mut timing = TimingTree::new("prove", log::Level::Debug);
         let trace_poly_values = timed!(

@@ -12,7 +12,9 @@ use keccak_hash::keccak;
 
 use plonky2::field::types::Field;
 
+use crate::poseidon_sponge::poseidon_sponge_stark::poseidon;
 use itertools::Itertools;
+use plonky2::hash::hash_types::RichField;
 use std::fs;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
@@ -742,7 +744,7 @@ pub(crate) fn generate_srav<F: Field>(
     Ok(())
 }
 
-pub(crate) fn load_preimage<F: Field>(
+pub(crate) fn load_preimage<F: RichField>(
     state: &mut GenerationState<F>,
     kernel: &Kernel,
 ) -> Result<()> {
@@ -829,7 +831,7 @@ pub(crate) fn load_preimage<F: Field>(
 
     let mut cpu_row = CpuColumnsView::default();
     cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-    cpu_row.is_keccak_sponge = F::ONE;
+    cpu_row.is_poseidon_sponge = F::ONE;
 
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
     cpu_row.mem_channels[0].value = F::ZERO; // context
@@ -838,7 +840,11 @@ pub(crate) fn load_preimage<F: Field>(
     cpu_row.mem_channels[2].value = F::from_canonical_usize(preimage_data_addr[final_idx].virt);
     cpu_row.mem_channels[3].value = F::from_canonical_usize(preimage_addr_value_byte_be.len()); // len
 
-    let hash_data_bytes = keccak(&preimage_addr_value_byte_be).0;
+    let code_hash_u64s = poseidon::<F>(&preimage_addr_value_byte_be);
+    let hash_data_bytes = code_hash_u64s
+        .iter()
+        .flat_map(|&num| num.to_le_bytes())
+        .collect_vec();
     let hash_data_be = core::array::from_fn(|i| {
         u32::from_le_bytes(core::array::from_fn(|j| hash_data_bytes[i * 4 + j]))
     });
@@ -851,13 +857,13 @@ pub(crate) fn load_preimage<F: Field>(
     cpu_row.general.hash_mut().value = hash_data.map(F::from_canonical_u32);
     cpu_row.general.hash_mut().value.reverse();
 
-    keccak_sponge_log(state, preimage_data_addr, preimage_addr_value_byte_be);
+    poseidon_sponge_log(state, preimage_data_addr, preimage_addr_value_byte_be);
     state.traces.push_cpu(cpu_row);
 
     Ok(())
 }
 
-pub(crate) fn generate_syscall<F: Field>(
+pub(crate) fn generate_syscall<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
     kernel: &Kernel,

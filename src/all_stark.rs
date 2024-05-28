@@ -15,18 +15,23 @@ use plonky2::hash::hash_types::RichField;
 use crate::keccak_sponge::keccak_sponge_stark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 
-use crate::logic;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark;
 use crate::memory::memory_stark::MemoryStark;
+use crate::poseidon::poseidon_stark;
+use crate::poseidon::poseidon_stark::PoseidonStark;
+use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
+use crate::poseidon_sponge::poseidon_sponge_stark;
+use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeStark;
 use crate::stark::Stark;
+use crate::{logic, poseidon};
 
 #[derive(Clone)]
 pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
     pub arithmetic_stark: ArithmeticStark<F, D>,
     pub cpu_stark: CpuStark<F, D>,
-    pub keccak_stark: KeccakStark<F, D>,
-    pub keccak_sponge_stark: KeccakSpongeStark<F, D>,
+    pub poseidon_stark: PoseidonStark<F, D>,
+    pub poseidon_sponge_stark: PoseidonSpongeStark<F, D>,
     pub logic_stark: LogicStark<F, D>,
     pub memory_stark: MemoryStark<F, D>,
     pub cross_table_lookups: Vec<CrossTableLookup<F>>,
@@ -37,8 +42,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
         Self {
             arithmetic_stark: ArithmeticStark::default(),
             cpu_stark: CpuStark::default(),
-            keccak_stark: KeccakStark::default(),
-            keccak_sponge_stark: KeccakSpongeStark::default(),
+            poseidon_stark: PoseidonStark::default(),
+            poseidon_sponge_stark: PoseidonSpongeStark::default(),
             logic_stark: LogicStark::default(),
             memory_stark: MemoryStark::default(),
             cross_table_lookups: all_cross_table_lookups(),
@@ -51,8 +56,8 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
         [
             self.arithmetic_stark.num_lookup_helper_columns(config),
             self.cpu_stark.num_lookup_helper_columns(config),
-            self.keccak_stark.num_lookup_helper_columns(config),
-            self.keccak_sponge_stark.num_lookup_helper_columns(config),
+            self.poseidon_stark.num_lookup_helper_columns(config),
+            self.poseidon_sponge_stark.num_lookup_helper_columns(config),
             self.logic_stark.num_lookup_helper_columns(config),
             self.memory_stark.num_lookup_helper_columns(config),
         ]
@@ -63,8 +68,8 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
 pub enum Table {
     Arithmetic = 0,
     Cpu = 1,
-    Keccak = 2,
-    KeccakSponge = 3,
+    Poseidon = 2,
+    PoseidonSponge = 3,
     Logic = 4,
     Memory = 5,
 }
@@ -76,8 +81,8 @@ impl Table {
         [
             Self::Arithmetic,
             Self::Cpu,
-            Self::Keccak,
-            Self::KeccakSponge,
+            Self::Poseidon,
+            Self::PoseidonSponge,
             Self::Logic,
             Self::Memory,
         ]
@@ -87,9 +92,9 @@ impl Table {
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
     vec![
         ctl_arithmetic(),
-        ctl_keccak_sponge(),
-        ctl_keccak_inputs(),
-        ctl_keccak_outputs(),
+        ctl_poseidon_sponge(),
+        ctl_poseidon_inputs(),
+        ctl_poseidon_outputs(),
         ctl_logic(),
         ctl_memory(),
     ]
@@ -105,49 +110,49 @@ fn ctl_arithmetic<F: Field>() -> CrossTableLookup<F> {
     )
 }
 
-// We now need two different looked tables for `KeccakStark`:
+// We now need two different looked tables for `PoseidonStark`:
 // one for the inputs and one for the outputs.
 // They are linked with the timestamp.
-fn ctl_keccak_inputs<F: Field>() -> CrossTableLookup<F> {
-    let keccak_sponge_looking = TableWithColumns::new(
-        Table::KeccakSponge,
-        keccak_sponge_stark::ctl_looking_keccak_inputs(),
-        Some(keccak_sponge_stark::ctl_looking_keccak_filter()),
+fn ctl_poseidon_inputs<F: Field>() -> CrossTableLookup<F> {
+    let poseidon_sponge_looking = TableWithColumns::new(
+        Table::PoseidonSponge,
+        poseidon_sponge_stark::ctl_looking_poseidon_inputs(),
+        Some(poseidon_sponge_stark::ctl_looking_poseidon_filter()),
     );
-    let keccak_looked = TableWithColumns::new(
-        Table::Keccak,
-        keccak_stark::ctl_data_inputs(),
-        Some(keccak_stark::ctl_filter_inputs()),
+    let poseidon_looked = TableWithColumns::new(
+        Table::Poseidon,
+        poseidon_stark::ctl_data_inputs(),
+        Some(poseidon_stark::ctl_filter_inputs()),
     );
-    CrossTableLookup::new(vec![keccak_sponge_looking], keccak_looked)
+    CrossTableLookup::new(vec![poseidon_sponge_looking], poseidon_looked)
 }
 
-fn ctl_keccak_outputs<F: Field>() -> CrossTableLookup<F> {
-    let keccak_sponge_looking = TableWithColumns::new(
-        Table::KeccakSponge,
-        keccak_sponge_stark::ctl_looking_keccak_outputs(),
-        Some(keccak_sponge_stark::ctl_looking_keccak_filter()),
+fn ctl_poseidon_outputs<F: Field>() -> CrossTableLookup<F> {
+    let poseidon_sponge_looking = TableWithColumns::new(
+        Table::PoseidonSponge,
+        poseidon_sponge_stark::ctl_looking_poseidon_outputs(),
+        Some(poseidon_sponge_stark::ctl_looking_poseidon_filter()),
     );
-    let keccak_looked = TableWithColumns::new(
-        Table::Keccak,
-        keccak_stark::ctl_data_outputs(),
-        Some(keccak_stark::ctl_filter_outputs()),
+    let poseidon_looked = TableWithColumns::new(
+        Table::Poseidon,
+        poseidon_stark::ctl_data_outputs(),
+        Some(poseidon_stark::ctl_filter_outputs()),
     );
-    CrossTableLookup::new(vec![keccak_sponge_looking], keccak_looked)
+    CrossTableLookup::new(vec![poseidon_sponge_looking], poseidon_looked)
 }
 
-fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
+fn ctl_poseidon_sponge<F: Field>() -> CrossTableLookup<F> {
     let cpu_looking = TableWithColumns::new(
         Table::Cpu,
-        cpu_stark::ctl_data_keccak_sponge(),
-        Some(cpu_stark::ctl_filter_keccak_sponge()),
+        cpu_stark::ctl_data_poseidon_sponge(),
+        Some(cpu_stark::ctl_filter_poseidon_sponge()),
     );
-    let keccak_sponge_looked = TableWithColumns::new(
-        Table::KeccakSponge,
-        keccak_sponge_stark::ctl_looked_data(),
-        Some(keccak_sponge_stark::ctl_looked_filter()),
+    let poseidon_sponge_looked = TableWithColumns::new(
+        Table::PoseidonSponge,
+        poseidon_sponge_stark::ctl_looked_data(),
+        Some(poseidon_sponge_stark::ctl_looked_filter()),
     );
-    CrossTableLookup::new(vec![cpu_looking], keccak_sponge_looked)
+    CrossTableLookup::new(vec![cpu_looking], poseidon_sponge_looked)
 }
 
 pub(crate) fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
@@ -156,18 +161,10 @@ pub(crate) fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
         cpu_stark::ctl_data_logic(),
         Some(cpu_stark::ctl_filter_logic()),
     );
-    let mut all_lookers = vec![cpu_looking];
-    for i in 0..keccak_sponge_stark::num_logic_ctls() {
-        let keccak_sponge_looking = TableWithColumns::new(
-            Table::KeccakSponge,
-            keccak_sponge_stark::ctl_looking_logic(i),
-            Some(keccak_sponge_stark::ctl_looking_logic_filter()),
-        );
-        all_lookers.push(keccak_sponge_looking);
-    }
     let logic_looked =
         TableWithColumns::new(Table::Logic, logic::ctl_data(), Some(logic::ctl_filter()));
-    CrossTableLookup::new(all_lookers, logic_looked)
+
+    CrossTableLookup::new(vec![cpu_looking], logic_looked)
 }
 
 fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
@@ -178,17 +175,17 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
             Some(cpu_stark::ctl_filter_gp_memory(channel)),
         )
     });
-    let keccak_sponge_reads = (0..KECCAK_RATE_BYTES).map(|i| {
+    let poseidon_sponge_reads = (0..POSEIDON_RATE_BYTES).map(|i| {
         TableWithColumns::new(
-            Table::KeccakSponge,
-            keccak_sponge_stark::ctl_looking_memory(i),
-            Some(keccak_sponge_stark::ctl_looking_memory_filter(i)),
+            Table::PoseidonSponge,
+            poseidon_sponge_stark::ctl_looking_memory(i),
+            Some(poseidon_sponge_stark::ctl_looking_memory_filter(i)),
         )
     });
     let all_lookers = []
         .into_iter()
         .chain(cpu_memory_gp_ops)
-        .chain(keccak_sponge_reads)
+        .chain(poseidon_sponge_reads)
         .collect();
     let memory_looked = TableWithColumns::new(
         Table::Memory,

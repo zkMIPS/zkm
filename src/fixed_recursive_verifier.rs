@@ -388,16 +388,16 @@ where
             stark_config,
         );
         let keccak = RecursiveCircuitsForTable::new(
-            Table::Keccak,
-            &all_stark.keccak_stark,
-            degree_bits_ranges[Table::Keccak as usize].clone(),
+            Table::Poseidon,
+            &all_stark.poseidon_stark,
+            degree_bits_ranges[Table::Poseidon as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak_sponge = RecursiveCircuitsForTable::new(
-            Table::KeccakSponge,
-            &all_stark.keccak_sponge_stark,
-            degree_bits_ranges[Table::KeccakSponge as usize].clone(),
+            Table::PoseidonSponge,
+            &all_stark.poseidon_sponge_stark,
+            degree_bits_ranges[Table::PoseidonSponge as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
