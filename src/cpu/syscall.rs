@@ -95,12 +95,14 @@ pub fn eval_packed<P: PackedField>(
 
     //sysbrk
     let is_sysbrk = syscall.sysnum[2];
-    let v0_in_sysbrk = P::Scalar::from_canonical_u64(0x40000000u64);
+    let is_sysbrk_gt = syscall.cond[10];
+    let initial_brk = lv.mem_channels[6].value;
     //check:
     //1 is_syscall
     //2 sysnum==sysbrk
     //3 v0&v1 are right
-    yield_constr.constraint(filter * is_sysbrk * (v0_in_sysbrk - result_v0));
+    yield_constr.constraint(filter * is_sysbrk_gt * (a0 - result_v0));
+    yield_constr.constraint(filter * (P::ONES - is_sysbrk_gt) * (initial_brk - result_v0));
     yield_constr.constraint(filter * is_sysbrk * (v1 - result_v1));
 
     //sysclone
@@ -257,6 +259,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let is_syswrite_a0_stdout_or_err = syscall.cond[7];
     let is_sysfcntl_a0_stdin = syscall.cond[8];
     let is_sysfcntl_a0_stdout_or_err = syscall.cond[9];
+    let one_extension = builder.one_extension();
 
     let v0_in_a0_zero = heap_in_a0_zero;
     let heap_in_a0_zero_and_in_sz_mid_not_zero =
@@ -305,12 +308,21 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     //sysbrk
     let is_sysbrk = syscall.sysnum[2];
-    let v0_in_sysbrk = builder.constant_extension(F::Extension::from_canonical_u64(0x40000000u64));
-    let constr_1 = builder.mul_extension(filter, is_sysbrk);
-    let constr_2 = builder.sub_extension(v0_in_sysbrk, result_v0);
+    let is_sysbrk_gt = syscall.cond[10];
+    let initial_brk = lv.mem_channels[6].value;
+
+    let constr_1 = builder.mul_extension(filter, is_sysbrk_gt);
+    let constr_2 = builder.sub_extension(a0, result_v0);
     let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
 
+    let constr_1 = builder.sub_extension(one_extension, is_sysbrk_gt);
+    let constr_1 = builder.mul_extension(filter, constr_1);
+    let constr_2 = builder.sub_extension(initial_brk, result_v0);
+    let constr = builder.mul_extension(constr_1, constr_2);
+    yield_constr.constraint(builder, constr);
+
+    let constr_1 = builder.mul_extension(filter, is_sysbrk);
     let constr_2 = builder.sub_extension(v1, result_v1);
     let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
