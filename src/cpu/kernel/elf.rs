@@ -25,6 +25,8 @@ pub struct Program {
     pub lo: usize,
     pub hi: usize,
     pub heap: usize,
+    pub blk: usize,
+    pub local_user: usize,
     pub end_pc: usize,
     pub image_id: [u8; 32],
     pub pre_image_id: [u8; 32],
@@ -79,6 +81,8 @@ impl Program {
         if segments.len() > 256 {
             bail!("Too many program headers");
         }
+
+        let mut hiaddr = 0u32;
         for segment in segments.iter().filter(|x| x.p_type == elf::abi::PT_LOAD) {
             let file_size: u32 = segment
                 .p_filesz
@@ -101,6 +105,12 @@ impl Program {
             if vaddr % WORD_SIZE as u32 != 0 {
                 bail!("vaddr {vaddr:08x} is unaligned");
             }
+
+            let a = vaddr + mem_size;
+            if a > hiaddr {
+                hiaddr = a;
+            }
+
             let offset: u32 = segment
                 .p_offset
                 .try_into()
@@ -126,6 +136,8 @@ impl Program {
                 }
             }
         }
+
+        let blk = hiaddr - (hiaddr & (PAGE_SIZE - 1)) + PAGE_SIZE;
 
         let (symtab, strtab) = elf
             .symbol_table()
@@ -233,6 +245,8 @@ impl Program {
             lo,
             hi,
             heap,
+            blk: blk as usize,
+            local_user: 0,
             end_pc: end_pc as usize,
             image_id: image_id.try_into().unwrap(),
             pre_image_id: pre_image_id.try_into().unwrap(),
@@ -275,6 +289,17 @@ impl Program {
             .get(&(REGISTERS_START + (36 << 2) as u32))
             .unwrap()
             .to_be() as usize;
+
+        let blk: usize = image
+            .get(&(REGISTERS_START + (37 << 2) as u32))
+            .unwrap()
+            .to_be() as usize;
+
+        let local_user: usize = image
+            .get(&(REGISTERS_START + (38 << 2) as u32))
+            .unwrap()
+            .to_be() as usize;
+
         let page_hash_root = segment.page_hash_root;
 
         assert!(pc as u32 == segment.pc);
@@ -298,6 +323,8 @@ impl Program {
             lo,
             hi,
             heap,
+            blk,
+            local_user,
             end_pc,
             image_id: segment.image_id,
             pre_image_id: segment.pre_image_id,

@@ -32,10 +32,10 @@ pub(crate) fn generate_exit_kernel<F: RichField>(state: &mut GenerationState<F>,
     state.traces.push_cpu(cpu_row);
 
     // sync registers to memory
-    let registers_addr: Vec<_> = (REGISTERS_START..=REGISTERS_START + (37 << 2) - 1)
+    let registers_addr: Vec<_> = (REGISTERS_START..=REGISTERS_START + (39 << 2) - 1)
         .step_by(4)
         .collect::<Vec<u32>>();
-    let mut registers_value: [u32; 37] = [0; 37];
+    let mut registers_value: [u32; 39] = [0; 39];
     for i in 0..32 {
         registers_value[i] = state.registers.gprs[i] as u32;
     }
@@ -44,6 +44,8 @@ pub(crate) fn generate_exit_kernel<F: RichField>(state: &mut GenerationState<F>,
     registers_value[34] = state.registers.heap as u32;
     registers_value[35] = state.registers.program_counter as u32;
     registers_value[36] = state.registers.next_pc as u32;
+    registers_value[37] = state.registers.blk as u32;
+    registers_value[38] = state.registers.local_user as u32;
 
     let register_addr_value: Vec<_> = registers_addr.iter().zip(registers_value).collect();
     for chunk in &register_addr_value.iter().chunks(8) {

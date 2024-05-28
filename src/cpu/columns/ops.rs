@@ -33,6 +33,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub ext: T,
     pub rdhwr: T,
     pub signext: T,
+    pub swaphalf: T,
     pub teq: T,
 
     pub syscall: T,

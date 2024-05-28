@@ -276,10 +276,12 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         (0b011111, 0b100000, _) => {
             if sa == 0b011000 {
                 Ok(Operation::Signext(rd, rt, 16)) // seh
-            } else if sa == 0b0100000 {
+            } else if sa == 0b010000 {
                 Ok(Operation::Signext(rd, rt, 8)) // seb
+            } else if sa == 0b000010 {
+                Ok(Operation::SwapHalf(rd, rt)) // wsbh
             } else {
-                log::warn!("decode: invalid opcode {:#08b} {:#08b}", opcode, func);
+                log::warn!("decode: invalid opcode {:#08b} {:#08b} {:#08b}", opcode, func, sa);
                 Err(ProgramError::InvalidOpcode)
             }
         },
@@ -323,6 +325,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Ext(_, _, _, _) => &mut flags.ext,
         Operation::Rdhwr(_, _) => &mut flags.rdhwr,
         Operation::Signext(_, _, _) => &mut flags.signext,
+        Operation::SwapHalf(_, _) => &mut flags.swaphalf,
         Operation::Teq(_, _) => &mut flags.teq,
     } = F::ONE;
 }
@@ -434,6 +437,7 @@ fn perform_op<F: RichField>(
         Operation::Ext( rt, rs, msbd, lsb) => generate_extract(rt, rs, msbd, lsb, state, row)?,
         Operation::Rdhwr(rt, rd) => generate_rdhwr(rt, rd, state, row)?,
         Operation::Signext(rd, rt, bits) => generate_signext(rd, rt, bits, state, row)?,
+        Operation::SwapHalf(rd, rt) => generate_swaphalf(rd, rt, state, row)?,
         Operation::Teq(rs, rt) => generate_teq(rs, rt, state, row)?,
     };
 

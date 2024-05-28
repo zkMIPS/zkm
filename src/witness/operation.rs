@@ -74,6 +74,7 @@ pub(crate) const SYSEXITGROUP: usize = 4246;
 pub(crate) const SYSREAD: usize = 4003;
 pub(crate) const SYSWRITE: usize = 4004;
 pub(crate) const SYSFCNTL: usize = 4055;
+pub(crate) const SYSSETTHREADAREA: usize = 4283;
 
 pub(crate) const FD_STDIN: usize = 0;
 pub(crate) const FD_STDOUT: usize = 1;
@@ -123,6 +124,7 @@ pub(crate) enum Operation {
     Ext(u8, u8, u8, u8),
     Rdhwr(u8, u8),
     Signext(u8, u8, u8),
+    SwapHalf(u8, u8),
     Teq(u8, u8),
 }
 
@@ -904,7 +906,13 @@ pub(crate) fn generate_syscall<F: RichField>(
         }
         SYSBRK => {
             row.general.syscall_mut().sysnum[2] = F::ONE;
-            v0 = 0x40000000;
+            let (blk, log_in5) = reg_read_with_log(37, 6, state, &mut row)?;
+            if a0 > blk {
+                v0 = a0;
+            } else {
+                v0 = blk;
+            }
+            state.traces.push_memory(log_in5);
             Ok(())
         }
         SYSCLONE => {
@@ -974,8 +982,14 @@ pub(crate) fn generate_syscall<F: RichField>(
             };
             Ok(())
         }
-        _ => {
+        SYSSETTHREADAREA => {
             row.general.syscall_mut().sysnum[8] = F::ONE;
+            let localop = reg_write_with_log(38, 6, a0, state, &mut row)?;
+            state.traces.push_memory(localop);
+            Ok(())
+        }
+        _ => {
+            row.general.syscall_mut().sysnum[9] = F::ONE;
             Ok(())
         }
     };
@@ -1269,7 +1283,9 @@ pub(crate) fn generate_rdhwr<F: Field>(
     let result = if rd == 0 {
         1
     } else if rd == 29 {
-        0x7FFFF000
+        let (in0, log_in0) = reg_read_with_log(38, 1, state, &mut row)?;
+        state.traces.push_memory(log_in0);
+        in0
     } else {
         0
     };
@@ -1300,6 +1316,28 @@ pub(crate) fn generate_signext<F: Field>(
     } else {
         in0 & mask
     };
+
+    let log_out0 = reg_write_with_log(rd, 1, result, state, &mut row)?;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+
+    Ok(())
+}
+
+pub(crate) fn generate_swaphalf<F: Field>(
+    rd: u8,
+    rt: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
+
+    let result = (((in0 >> 16) & 0xFF) << 24) |
+                        (((in0 >> 24) & 0xFF) << 16) |
+                        ((in0 & 0xFF) << 8) |
+                        ((in0 >> 8) & 0xFF);
 
     let log_out0 = reg_write_with_log(rd, 1, result, state, &mut row)?;
 
