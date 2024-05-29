@@ -223,6 +223,11 @@ pub fn eval_packed<P: PackedField>(
             * (is_sysfcntl - is_sysfcntl_a0_stdin - is_sysfcntl_a0_stdout_or_err)
             * (v1_in_a0_is_not_fd_stdin_and_fd_stderr_and_fd_stdin - result_v1),
     );
+
+    //syssetthreadarea
+    let is_syssetthreadarea = syscall.sysnum[8];
+    let threadarea = lv.mem_channels[6].value;
+    yield_constr.constraint(filter * is_syssetthreadarea * (a0 - threadarea));
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -482,6 +487,14 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         v1_in_a0_is_not_fd_stdin_and_fd_stderr_and_fd_stdin,
         result_v1,
     );
+    let constr = builder.mul_extension(constr_1, constr_2);
+    yield_constr.constraint(builder, constr);
+
+    //syssetthreadarea
+    let is_syssetthreadarea = syscall.sysnum[8];
+    let threadarea = lv.mem_channels[6].value;
+    let constr_1 = builder.mul_extension(filter, is_syssetthreadarea);
+    let constr_2 = builder.sub_extension(a0, threadarea);
     let constr = builder.mul_extension(constr_1, constr_2);
     yield_constr.constraint(builder, constr);
 }
