@@ -763,6 +763,75 @@ pub fn eval_ext_circuit_condmov<F: RichField + Extendable<D>, const D: usize>(
     }
 }
 
+pub fn eval_packed_teq<P: PackedField>(
+    lv: &CpuColumnsView<P>,
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    let filter = lv.op.teq;
+
+    // Check rt Reg
+    {
+        let rt_reg = lv.mem_channels[1].addr_virtual;
+        let rt_src = limb_from_bits_le(lv.rt_bits);
+        yield_constr.constraint(filter * (rt_reg - rt_src));
+    }
+
+    // Check rs Reg
+    {
+        let rs_reg = lv.mem_channels[0].addr_virtual;
+        let rs_dst = limb_from_bits_le(lv.rs_bits);
+        yield_constr.constraint(filter * (rs_reg - rs_dst));
+    }
+
+    // Check rs_val != rt_val, Otherwise trap will be triggered
+    {
+        let rs_val = lv.mem_channels[0].value;
+        let rt_val = lv.mem_channels[1].value;
+        let p_inv0 = lv.general.logic().diff_pinv;
+        let is_ne = (rs_val - rt_val) * p_inv0;
+        yield_constr.constraint(filter * (P::ONES - is_ne));
+    }
+}
+
+pub fn eval_ext_circuit_teq<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    let filter = lv.op.teq;
+
+    // Check rt Reg
+    {
+        let rt_reg = lv.mem_channels[1].addr_virtual;
+        let rt_src = limb_from_bits_le_recursive(builder, lv.rt_bits);
+        let constr = builder.sub_extension(rt_reg, rt_src);
+        let constr = builder.mul_extension(constr, filter);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Check rs Reg
+    {
+        let rs_reg = lv.mem_channels[0].addr_virtual;
+        let rs_src = limb_from_bits_le_recursive(builder, lv.rs_bits);
+        let constr = builder.sub_extension(rs_reg, rs_src);
+        let constr = builder.mul_extension(constr, filter);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Check rs_val != rt_val, Otherwise trap will be triggered
+    {
+        let rs_val = lv.mem_channels[0].value;
+        let rt_val = lv.mem_channels[1].value;
+        let p_inv0 = lv.general.logic().diff_pinv;
+        let one_extension = builder.one_extension();
+        let diff = builder.sub_extension(rs_val, rt_val);
+        let is_ne = builder.mul_extension(diff, p_inv0);
+        let constr = builder.sub_extension(one_extension, is_ne);
+        let constr = builder.mul_extension(constr, filter);
+        yield_constr.constraint(builder, constr);
+    }
+}
+
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -772,6 +841,7 @@ pub fn eval_packed<P: PackedField>(
     eval_packed_jump_jumpi(lv, nv, yield_constr);
     eval_packed_branch(lv, nv, yield_constr);
     eval_packed_condmov(lv, nv, yield_constr);
+    eval_packed_teq(lv, yield_constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -784,4 +854,5 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     eval_ext_circuit_jump_jumpi(builder, lv, nv, yield_constr);
     eval_ext_circuit_branch(builder, lv, nv, yield_constr);
     eval_ext_circuit_condmov(builder, lv, nv, yield_constr);
+    eval_ext_circuit_teq(builder, lv, yield_constr);
 }

@@ -1312,11 +1312,11 @@ pub(crate) fn generate_signext<F: Field>(
     let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
 
     let bits_le = (0..32)
-    .map(|i| {
-        let bit = (in0 as u32 >> i) & 0x01;
-        F::from_canonical_u32(bit)
-    })
-    .collect_vec();
+        .map(|i| {
+            let bit = (in0 as u32 >> i) & 0x01;
+            F::from_canonical_u32(bit)
+        })
+        .collect_vec();
     row.general.io_mut().rt_le = bits_le.try_into().unwrap();
 
     let bits = bits as usize;
@@ -1371,6 +1371,7 @@ pub(crate) fn generate_teq<F: Field>(
     if in0 == in1 {
         Err(ProgramError::Trap)
     } else {
+        generate_pinv_diff(in0 as u32, in1 as u32, &mut row);
         state.traces.push_memory(log_in0);
         state.traces.push_memory(log_in1);
         state.traces.push_cpu(row);

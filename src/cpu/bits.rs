@@ -37,7 +37,7 @@ pub fn eval_packed<P: PackedField>(
     let sum = limb_from_bits_le(bits_le);
 
     yield_constr.constraint(filter * (rt - sum));
-    
+
     // check seb result
     let rd = lv.mem_channels[1].value;
     let mut seb_result = [bits_le[7]; 32];
@@ -129,7 +129,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let t = builder.mul_extension(filter_seb, t1);
     yield_constr.constraint(builder, t);
 
-        // check seb result
+    // check seb result
     let rd = lv.mem_channels[1].value;
     let mut seb_result = [bits_le[7]; 32];
     for i in 0..7 {
