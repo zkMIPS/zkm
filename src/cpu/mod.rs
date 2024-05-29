@@ -9,5 +9,6 @@ pub(crate) mod jumps;
 pub mod kernel;
 pub(crate) mod membus;
 pub(crate) mod memio;
+pub(crate) mod misc;
 pub(crate) mod shift;
 pub(crate) mod syscall;

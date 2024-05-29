@@ -1284,9 +1284,12 @@ pub(crate) fn generate_rdhwr<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
+    row.general.misc_mut().rd_index = F::from_canonical_u8(rd);
     let result = if rd == 0 {
+        row.general.misc_mut().rd_index_eq_0 = F::ONE;
         1
     } else if rd == 29 {
+        row.general.misc_mut().rd_index_eq_29 = F::ONE;
         let (in0, log_in0) = reg_read_with_log(38, 1, state, &mut row)?;
         state.traces.push_memory(log_in0);
         in0
