@@ -329,7 +329,8 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Nop => &mut flags.nop,
         Operation::Ext(_, _, _, _) => &mut flags.ext,
         Operation::Rdhwr(_, _) => &mut flags.rdhwr,
-        Operation::Signext(_, _, _) => &mut flags.signext,
+        Operation::Signext(_, _, 8u8) => &mut flags.signext8,
+        Operation::Signext(_, _, _) => &mut flags.signext16,
         Operation::SwapHalf(_, _) => &mut flags.swaphalf,
         Operation::Teq(_, _) => &mut flags.teq,
     } = F::ONE;

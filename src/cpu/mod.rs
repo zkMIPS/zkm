@@ -5,6 +5,7 @@ pub mod cpu_stark;
 pub(crate) mod decode;
 pub(crate) mod exit_kernel;
 pub(crate) mod jumps;
+pub(crate) mod bits;
 pub mod kernel;
 pub(crate) mod membus;
 pub(crate) mod memio;
