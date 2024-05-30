@@ -290,7 +290,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
                 Err(ProgramError::InvalidOpcode)
             }
         }
-        (0b000000, 0b110100, _) => Ok(Operation::Teq(rt, rs)), // teq
+        (0b000000, 0b110100, _) => Ok(Operation::Teq(rs, rt)), // teq
         _ => {
             log::warn!("decode: invalid opcode {:#08b} {:#08b}", opcode, func);
             Err(ProgramError::InvalidOpcode)
