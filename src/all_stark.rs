@@ -5,16 +5,11 @@ use crate::cpu::cpu_stark;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
-use crate::keccak::keccak_stark;
-use crate::keccak::keccak_stark::KeccakStark;
-use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
-use crate::keccak_sponge::keccak_sponge_stark;
-use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
-
+use crate::logic;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark;
 use crate::memory::memory_stark::MemoryStark;
@@ -24,7 +19,6 @@ use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use crate::poseidon_sponge::poseidon_sponge_stark;
 use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeStark;
 use crate::stark::Stark;
-use crate::{logic, poseidon};
 
 #[derive(Clone)]
 pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {

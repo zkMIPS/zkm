@@ -1,8 +1,7 @@
 use std::borrow::Borrow;
 use std::cmp::min;
-use std::iter::{once, repeat};
+use std::iter::once;
 use std::marker::PhantomData;
-use std::mem::size_of;
 
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -13,7 +12,6 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
-use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, Filter};
@@ -135,10 +133,10 @@ pub(crate) fn ctl_looking_poseidon_filter<F: Field>() -> Filter<F> {
     ))
 }
 
-pub fn poseidon<F: PrimeField64>(inputs: &Vec<u8>) -> [u64; POSEIDON_DIGEST] {
+pub fn poseidon<F: PrimeField64>(inputs: &[u8]) -> [u64; POSEIDON_DIGEST] {
     let l = inputs.len();
     let chunks = l / POSEIDON_RATE_BYTES + 1;
-    let mut input = inputs.clone();
+    let mut input = inputs.to_owned();
     input.resize(chunks * POSEIDON_RATE_BYTES, 0);
 
     // pad10*1 rule

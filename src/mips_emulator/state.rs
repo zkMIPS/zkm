@@ -977,6 +977,11 @@ impl InstrumentedState {
         let (image_id, page_hash_root) =
             self.state.memory.compute_image_id(self.state.pc, &regiters);
         let image = self.state.memory.get_input_image();
+        log::info!(
+            "segment-{}, page_hash_root {:?}",
+            self.pre_segment_id,
+            page_hash_root
+        );
 
         if proof {
             let segment = Segment {

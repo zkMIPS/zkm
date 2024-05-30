@@ -53,7 +53,7 @@ pub fn ctl_filter_outputs<F: Field>() -> Filter<F> {
 pub fn poseidon_with_witness<F: PrimeField64>(
     input: &[F; SPONGE_WIDTH],
 ) -> ([F; SPONGE_WIDTH], [F; NUM_COLUMNS]) {
-    let mut state = input.clone();
+    let mut state = *input;
     let mut witness = [F::ZEROS; NUM_COLUMNS];
     let mut round_ctr = 0;
 
@@ -168,9 +168,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
 fn constant_layer<F: Field>(state: &mut [F; SPONGE_WIDTH], round_ctr: usize) {
     for i in 0..SPONGE_WIDTH {
         let round_constant = ALL_ROUND_CONSTANTS[i + SPONGE_WIDTH * round_ctr];
-        unsafe {
-            state[i] = state[i] + F::from_canonical_u64(round_constant);
-        }
+        state[i] += F::from_canonical_u64(round_constant);
     }
 }
 

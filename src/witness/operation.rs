@@ -8,7 +8,6 @@ use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
 use crate::{arithmetic, logic};
 use anyhow::{Context, Result};
-use keccak_hash::keccak;
 
 use plonky2::field::types::Field;
 
@@ -809,6 +808,7 @@ pub(crate) fn load_preimage<F: RichField>(
             preimage_addr_value_byte_be[i + k] = *byte;
         }
         let addr = MemoryAddress::new(0, Segment::Code, map_addr);
+        // todo: check rate bytes
         if len < WORD_SIZE {
             let end = content.len() % KECCAK_RATE_BYTES;
             word |= 0b1 << (len * 8);
@@ -845,17 +845,16 @@ pub(crate) fn load_preimage<F: RichField>(
         .iter()
         .flat_map(|&num| num.to_le_bytes())
         .collect_vec();
-    let hash_data_be = core::array::from_fn(|i| {
-        u32::from_le_bytes(core::array::from_fn(|j| hash_data_bytes[i * 4 + j]))
-    });
+    // let hash_data_be = core::array::from_fn(|i| {
+    //     u32::from_le_bytes(core::array::from_fn(|j| hash_data_bytes[i * 4 + j]))
+    // });
 
     log::debug!("actual preimage data hash: {:?}", hash_data_bytes);
     log::debug!("expected preimage data hash: {:?}", hash_bytes);
     assert_eq!(hash_data_bytes, hash_bytes);
-    let hash_data = hash_data_be.map(u32::from_be);
+    // let hash_data = hash_data_be.map(u32::from_be);
 
-    cpu_row.general.hash_mut().value = hash_data.map(F::from_canonical_u32);
-    cpu_row.general.hash_mut().value.reverse();
+    cpu_row.general.hash_mut().value = code_hash_u64s.map(F::from_canonical_u64);
 
     poseidon_sponge_log(state, preimage_data_addr, preimage_addr_value_byte_be);
     state.traces.push_cpu(cpu_row);

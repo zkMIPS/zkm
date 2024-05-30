@@ -6,13 +6,11 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::kernel::keccak_util::keccakf_u8s;
 use crate::cpu::membus::NUM_CHANNELS;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
 use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
 use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
-use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::logic;
 use crate::memory::segments::Segment;
 use crate::poseidon::constants::{SPONGE_RATE, SPONGE_WIDTH};
@@ -324,7 +322,7 @@ pub(crate) fn poseidon_sponge_log<F: RichField>(
     let mut absorbed_bytes = 0;
     let mut input_blocks = input.chunks_exact(POSEIDON_RATE_BYTES);
     let mut poseidon_state = [F::ZEROS; SPONGE_WIDTH];
-    // Since the keccak read byte by byte, and the memory unit is of 4-byte, we just need to read
+    // Since the poseidon read byte by byte, and the memory unit is of 4-byte, we just need to read
     // the same memory for 4 keccak-op
     let mut n_gp = 0;
     for block in input_blocks.by_ref() {
@@ -382,16 +380,26 @@ pub(crate) fn poseidon_sponge_log<F: RichField>(
         n_gp %= NUM_GP_CHANNELS - 1;
         absorbed_bytes += 1;
     }
+    let mut final_block = [0u8; POSEIDON_RATE_BYTES];
+    final_block[..input_blocks.remainder().len()].copy_from_slice(input_blocks.remainder());
+    // pad10*1 rule
+    if input_blocks.remainder().len() == POSEIDON_RATE_BYTES - 1 {
+        // Both 1s are placed in the same byte.
+        final_block[input_blocks.remainder().len()] = 0b10000001;
+    } else {
+        final_block[input_blocks.remainder().len()] = 1;
+        final_block[POSEIDON_RATE_BYTES - 1] = 0b10000000;
+    }
+
     let rate_f = (0..POSEIDON_RATE_BYTES)
         .step_by(4)
-        .map(|i| F::from_canonical_u32(LittleEndian::read_u32(&rem_data[i..i + 4])))
+        .map(|i| F::from_canonical_u32(LittleEndian::read_u32(&final_block[i..i + 4])))
         .collect_vec();
     poseidon_state[..SPONGE_RATE].copy_from_slice(&rate_f);
 
     state
         .traces
         .push_poseidon(poseidon_state, clock * NUM_CHANNELS);
-    (poseidon_state, _) = poseidon_with_witness(&poseidon_state);
 
     //FIXME: how to setup the base address
     state.traces.push_poseidon_sponge(PoseidonSpongeOp {
