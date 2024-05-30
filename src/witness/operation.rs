@@ -1349,6 +1349,14 @@ pub(crate) fn generate_swaphalf<F: Field>(
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
 
+    let bits_le = (0..32)
+        .map(|i| {
+            let bit = (in0 as u32 >> i) & 0x01;
+            F::from_canonical_u32(bit)
+        })
+        .collect_vec();
+    row.general.io_mut().rt_le = bits_le.try_into().unwrap();
+
     let result = (((in0 >> 16) & 0xFF) << 24)
         | (((in0 >> 24) & 0xFF) << 16)
         | ((in0 & 0xFF) << 8)

@@ -105,7 +105,6 @@ pub fn eval_ext_circuit_rdhwr<F: RichField + Extendable<D>, const D: usize>(
     }
 }
 
-
 pub fn eval_packed_condmov<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
