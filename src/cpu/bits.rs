@@ -129,18 +129,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let t = builder.mul_extension(filter_seb, t1);
     yield_constr.constraint(builder, t);
 
-    // check seb result
-    let rd = lv.mem_channels[1].value;
-    let mut seb_result = [bits_le[7]; 32];
-    for i in 0..7 {
-        seb_result[i] = bits_le[i];
-    }
-    let sum = limb_from_bits_le_recursive(builder, seb_result);
-
-    let t1 = builder.sub_extension(rd, sum);
-    let t = builder.mul_extension(filter_seb, t1);
-    yield_constr.constraint(builder, t);
-
+    // check seh result
     let mut seh_result = [bits_le[15]; 32];
     for i in 0..15 {
         seh_result[i] = bits_le[i];
@@ -151,6 +140,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let t = builder.mul_extension(filter_seh, t1);
     yield_constr.constraint(builder, t);
 
+    // check wsbh result
     let mut wsbh_result = [bits_le[0]; 32];
     for i in 0..8 {
         wsbh_result[i] = bits_le[i + 8];
