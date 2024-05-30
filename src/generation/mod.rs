@@ -49,6 +49,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 
     // Generate the public values and outputs
     let mut userdata = kernel.read_public_inputs();
+    assert!(userdata.len() <= NUM_PUBLIC_INPUT_USERDATA);
     userdata.resize(NUM_PUBLIC_INPUT_USERDATA, 0u8);
 
     let public_values = PublicValues {
