@@ -25,8 +25,6 @@ fn observe_trie_roots<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     trie_roots: &MemRoots,
 ) {
     observe_root::<F, C, D>(challenger, &trie_roots.root);
-    //observe_root::<F, C, D>(challenger, trie_roots.transactions_root);
-    //observe_root::<F, C, D>(challenger, trie_roots.receipts_root);
 }
 
 fn observe_trie_roots_target<
@@ -100,8 +98,10 @@ pub(crate) fn observe_public_values<
 ) -> Result<(), ProgramError> {
     observe_trie_roots::<F, C, D>(challenger, &public_values.roots_before);
     observe_trie_roots::<F, C, D>(challenger, &public_values.roots_after);
+    for elem in &public_values.userdata {
+        challenger.observe_element(F::from_canonical_u8(*elem));
+    }
     Ok(())
-    //observe_extra_block_data::<F, C, D>(challenger, &public_values.extra_block_data)
 }
 
 pub(crate) fn observe_public_values_target<
@@ -116,7 +116,7 @@ pub(crate) fn observe_public_values_target<
 {
     observe_trie_roots_target::<F, C, D>(challenger, &public_values.roots_before);
     observe_trie_roots_target::<F, C, D>(challenger, &public_values.roots_after);
-    //observe_extra_block_data_target::<F, C, D>(challenger, &public_values.extra_block_data);
+    challenger.observe_elements(&public_values.userdata);
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {

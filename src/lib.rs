@@ -3,6 +3,7 @@
 #![allow(clippy::needless_range_loop)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::doc_lazy_continuation)]
 #![allow(clippy::field_reassign_with_default)]
 #![feature(decl_macro)]
 #![feature(generic_arg_infer)]
