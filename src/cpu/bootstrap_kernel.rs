@@ -139,9 +139,10 @@ pub(crate) fn check_image_id<F: RichField>(
     }
 
     // The Poseidon sponge CTL uses memory value columns for its inputs and outputs.
+    let final_index = root_hash_addr.len() / SPONGE_RATE * SPONGE_RATE;
     cpu_row.mem_channels[0].value = F::ZERO; // context
     cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
-    cpu_row.mem_channels[2].value = F::from_canonical_usize(root_hash_addr[0].virt);
+    cpu_row.mem_channels[2].value = F::from_canonical_usize(root_hash_addr[final_index].virt);
     cpu_row.mem_channels[3].value = F::from_canonical_usize(image_addr_value_byte_be.len()); // len
 
     let code_hash_u64s = poseidon::<F>(&image_addr_value_byte_be);
@@ -273,8 +274,13 @@ pub(crate) fn check_memory_page_hash<F: RichField>(
     // The Poseidon sponge CTL uses memory value columns for its inputs and outputs.
     cpu_row.mem_channels[0].value = F::ZERO; // context
     cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
-    let final_idx = (page_addr_value_byte_be.len() - 1) / POSEIDON_RATE_BYTES * SPONGE_RATE;
-    cpu_row.mem_channels[2].value = F::from_canonical_usize(page_data_addr[final_idx].virt);
+    let final_idx = page_addr_value_byte_be.len() / POSEIDON_RATE_BYTES * SPONGE_RATE;
+    let virt = if final_idx >= page_data_addr.len() {
+        0
+    } else {
+        page_data_addr[final_idx].virt
+    };
+    cpu_row.mem_channels[2].value = F::from_canonical_usize(virt);
     cpu_row.mem_channels[3].value = F::from_canonical_usize(page_addr_value_byte_be.len()); // len
 
     cpu_row.general.hash_mut().value = code_hash_u64s.map(F::from_canonical_u64);

@@ -17,7 +17,7 @@ use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::poseidon::columns::{
     reg_full0_s0, reg_full0_s1, reg_full1_s0, reg_full1_s1, reg_in, reg_out, reg_partial_s0,
-    reg_partial_s1, NUM_COLUMNS, TIMESTAMP,
+    reg_partial_s1, FILTER, NUM_COLUMNS, TIMESTAMP,
 };
 use crate::poseidon::constants::{
     ALL_ROUND_CONSTANTS, FAST_PARTIAL_FIRST_ROUND_CONSTANT, FAST_PARTIAL_ROUND_CONSTANTS,
@@ -43,11 +43,11 @@ pub fn ctl_data_outputs<F: Field>() -> Vec<Column<F>> {
 }
 
 pub fn ctl_filter_inputs<F: Field>() -> Filter<F> {
-    Filter::new_simple(Column::constant(F::ONES))
+    Filter::new_simple(Column::single(FILTER))
 }
 
 pub fn ctl_filter_outputs<F: Field>() -> Filter<F> {
-    Filter::new_simple(Column::constant(F::ONES))
+    Filter::new_simple(Column::single(FILTER))
 }
 
 pub fn poseidon_with_witness<F: PrimeField64>(
@@ -116,11 +116,11 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
 
         let mut rows = Vec::with_capacity(num_rows);
         for input_and_timestamp in inputs_and_timestamps.iter() {
-            let rows_for_perm = self.generate_trace_rows_for_perm(*input_and_timestamp);
+            let rows_for_perm = self.generate_trace_rows_for_perm(*input_and_timestamp, true);
             rows.push(rows_for_perm);
         }
 
-        let default_row = self.generate_trace_rows_for_perm(([F::ZEROS; SPONGE_WIDTH], 0));
+        let default_row = self.generate_trace_rows_for_perm(([F::ZEROS; SPONGE_WIDTH], 0), false);
         while rows.len() < num_rows {
             rows.push(default_row);
         }
@@ -130,8 +130,10 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
     fn generate_trace_rows_for_perm(
         &self,
         input_and_timestamp: ([F; SPONGE_WIDTH], usize),
+        need_ctl: bool,
     ) -> [F; NUM_COLUMNS] {
         let (hash, mut rows) = poseidon_with_witness(&input_and_timestamp.0);
+        rows[FILTER] = F::from_bool(need_ctl);
         for i in 0..SPONGE_WIDTH {
             rows[reg_in(i)] = input_and_timestamp.0[i];
             rows[reg_out(i)] = hash[i];
@@ -563,7 +565,8 @@ fn mds_partial_layer_fast_circuit<F: RichField + Extendable<D>, const D: usize>(
 
 fn eval_packed_generic<P: PackedField>(lv: &[P], yield_constr: &mut ConstraintConsumer<P>) {
     let mut state = [P::default(); SPONGE_WIDTH];
-    state.copy_from_slice(&lv[..SPONGE_WIDTH]);
+    let input = (0..SPONGE_WIDTH).map(|i| lv[reg_in(i)]).collect_vec();
+    state.copy_from_slice(&input);
 
     let mut round_ctr = 0;
     // First set of full rounds.
@@ -632,7 +635,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
 
         let zero = builder.zero_extension();
         let mut state = [zero; SPONGE_WIDTH];
-        state.copy_from_slice(&lv[..SPONGE_WIDTH]);
+        let input = (0..SPONGE_WIDTH).map(|i| lv[reg_in(i)]).collect_vec();
+        state.copy_from_slice(&input);
 
         let mut round_ctr = 0;
         // First set of full rounds.

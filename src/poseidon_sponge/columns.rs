@@ -51,6 +51,9 @@ pub(crate) struct PoseidonSpongeColumnsView<T: Copy> {
     /// The block being absorbed, which may contain input bytes and/or padding bytes.
     pub block_bytes: [T; POSEIDON_RATE_BYTES],
 
+    /// The rate part of the sponge, that is the current block, before add round constant
+    pub new_rate: [T; SPONGE_RATE],
+
     /// The entire state (rate + capacity) of the sponge, after the
     /// permutation is applied, minus the first limbs where the digest is extracted from.
     /// Those missing limbs can be recomputed from `updated_digest_state`.

@@ -46,12 +46,8 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
 
 pub(crate) fn ctl_looking_poseidon_inputs<F: Field>() -> Vec<Column<F>> {
     let cols = POSEIDON_SPONGE_COL_MAP;
-    let mut res: Vec<_> = Column::singles(
-        cols.original_rate
-            .iter()
-            .chain(cols.original_capacity.iter()),
-    )
-    .collect();
+    let mut res: Vec<_> =
+        Column::singles(cols.new_rate.iter().chain(cols.original_capacity.iter())).collect();
     res.push(Column::single(cols.timestamp));
 
     res
@@ -359,6 +355,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonSpongeStark<F, D> {
             })
             .collect_vec();
 
+        row.new_rate.copy_from_slice(&block_u32s);
         sponge_state[..SPONGE_RATE].copy_from_slice(&block_u32s);
 
         let (output, _) = poseidon_with_witness(&sponge_state);

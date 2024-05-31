@@ -5,7 +5,6 @@ use crate::cpu::kernel::elf::WORD_SIZE;
 use crate::mips_emulator::page::{CachedPage, PAGE_ADDR_MASK, PAGE_ADDR_SIZE, PAGE_SIZE};
 use crate::poseidon_sponge::poseidon_sponge_stark::poseidon;
 use lazy_static::lazy_static;
-use log::info;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use std::collections::BTreeMap;
 use std::io::Read;

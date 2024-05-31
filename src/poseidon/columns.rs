@@ -1,17 +1,19 @@
 use crate::poseidon::constants::{HALF_N_FULL_ROUNDS, SPONGE_WIDTH};
 use plonky2::hash::poseidon::N_PARTIAL_ROUNDS;
-
+pub const FILTER: usize = 0;
+const START_IN: usize = FILTER + 1;
 pub const fn reg_in(i: usize) -> usize {
     debug_assert!(i < SPONGE_WIDTH);
-    i
+    START_IN + i
 }
 
+const START_OUT: usize = START_IN + SPONGE_WIDTH;
 pub const fn reg_out(i: usize) -> usize {
     debug_assert!(i < SPONGE_WIDTH);
-    SPONGE_WIDTH + i
+    START_OUT + i
 }
 
-pub(crate) const TIMESTAMP: usize = SPONGE_WIDTH * 2;
+pub(crate) const TIMESTAMP: usize = START_OUT + SPONGE_WIDTH;
 
 const START_FULL_0: usize = TIMESTAMP + 1;
 // full round sbox intermediate
