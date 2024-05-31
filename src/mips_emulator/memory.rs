@@ -378,8 +378,6 @@ impl Memory {
             Some(page) => {
                 page.borrow_mut().data[REGISTERS_OFFSET..REGISTERS_OFFSET + 36 * 4]
                     .copy_from_slice(regiters);
-                let input = page.borrow().data;
-                log::info!("data:{:?}", hex::encode(&input));
                 hash_page(&page.borrow().data)
             }
         };
