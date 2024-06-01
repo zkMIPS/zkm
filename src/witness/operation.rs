@@ -11,6 +11,8 @@ use anyhow::{Context, Result};
 
 use plonky2::field::types::Field;
 
+use crate::poseidon::constants::SPONGE_RATE;
+use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use crate::poseidon_sponge::poseidon_sponge_stark::poseidon;
 use itertools::Itertools;
 use plonky2::hash::hash_types::RichField;
@@ -810,10 +812,10 @@ pub(crate) fn load_preimage<F: RichField>(
         let addr = MemoryAddress::new(0, Segment::Code, map_addr);
         // todo: check rate bytes
         if len < WORD_SIZE {
-            let end = content.len() % KECCAK_RATE_BYTES;
+            let end = content.len() % POSEIDON_RATE_BYTES;
             word |= 0b1 << (len * 8);
 
-            if end + 4 > KECCAK_RATE_BYTES {
+            if end + 4 > POSEIDON_RATE_BYTES {
                 word |= 0b10000000 << 24;
             }
         }
@@ -836,7 +838,7 @@ pub(crate) fn load_preimage<F: RichField>(
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
     cpu_row.mem_channels[0].value = F::ZERO; // context
     cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
-    let final_idx = preimage_addr_value_byte_be.len() / KECCAK_RATE_BYTES * KECCAK_RATE_U32S;
+    let final_idx = preimage_addr_value_byte_be.len() / POSEIDON_RATE_BYTES * SPONGE_RATE;
     cpu_row.mem_channels[2].value = F::from_canonical_usize(preimage_data_addr[final_idx].virt);
     cpu_row.mem_channels[3].value = F::from_canonical_usize(preimage_addr_value_byte_be.len()); // len
 
