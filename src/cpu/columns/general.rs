@@ -118,6 +118,12 @@ pub(crate) struct CpuMiscView<T: Copy> {
     pub(crate) rd_index: T,
     pub(crate) rd_index_eq_0: T,
     pub(crate) rd_index_eq_29: T,
+    pub(crate) rs_bits: [T; 32],
+    pub(crate) is_msb: [T; 32],
+    pub(crate) is_lsb: [T; 32],
+    pub(crate) auxm: T,
+    pub(crate) auxl: T,
+    pub(crate) auxs: T,
 }
 
 #[derive(Copy, Clone)]

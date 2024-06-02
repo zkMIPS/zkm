@@ -1265,10 +1265,26 @@ pub(crate) fn generate_extract<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
+    assert!(msbd + lsb < 32);
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
-    let mask = (1 << (msbd + 1)) - 1;
-    let result = (in0 >> lsb) & mask;
+    let mask_msb = (1 << (msbd + lsb + 1)) - 1;
 
+    let bits_le = (0..32)
+        .map(|i| {
+            let bit = (in0 >> i) & 0x01;
+            F::from_canonical_u32(bit as u32)
+        })
+        .collect_vec();
+    row.general.misc_mut().rs_bits = bits_le.try_into().unwrap();
+
+    row.general.misc_mut().is_msb[(msbd + lsb) as usize] = F::ONE;
+    row.general.misc_mut().is_lsb[lsb as usize] = F::ONE;
+    row.general.misc_mut().auxs = F::from_canonical_u32(1 << lsb);
+
+    let mask_lsb = (1 << lsb) - 1;
+    let result = (in0 & mask_msb) >> lsb;
+    row.general.misc_mut().auxm = F::from_canonical_u32((in0 & mask_msb) as u32);
+    row.general.misc_mut().auxl = F::from_canonical_u32((in0 & mask_lsb) as u32);
     let log_out0 = reg_write_with_log(rt, 1, result, state, &mut row)?;
 
     state.traces.push_memory(log_in0);
