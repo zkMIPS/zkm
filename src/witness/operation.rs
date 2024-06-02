@@ -2,7 +2,6 @@ use super::util::*;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::state::GenerationState;
-use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_RATE_U32S};
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
@@ -839,7 +838,12 @@ pub(crate) fn load_preimage<F: RichField>(
     cpu_row.mem_channels[0].value = F::ZERO; // context
     cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
     let final_idx = preimage_addr_value_byte_be.len() / POSEIDON_RATE_BYTES * SPONGE_RATE;
-    cpu_row.mem_channels[2].value = F::from_canonical_usize(preimage_data_addr[final_idx].virt);
+    let virt = if final_idx >= preimage_data_addr.len() {
+        0
+    } else {
+        preimage_data_addr[final_idx].virt
+    };
+    cpu_row.mem_channels[2].value = F::from_canonical_usize(virt);
     cpu_row.mem_channels[3].value = F::from_canonical_usize(preimage_addr_value_byte_be.len()); // len
 
     let code_hash_u64s = poseidon::<F>(&preimage_addr_value_byte_be);
