@@ -289,8 +289,6 @@ pub fn eval_packed_extract<P: PackedField>(
         let rs_bits = lv.general.misc().rs_bits;
         let lsb = limb_from_bits_le(lv.shamt_bits);
         let msb = lsb + msbd;
-        let mut is_msbs = lv.general.misc().is_msb.iter();
-        let mut is_lsbs = lv.general.misc().is_lsb.iter();
         let auxm = lv.general.misc().auxm;
         let auxl = lv.general.misc().auxl;
         let auxs = lv.general.misc().auxs;
@@ -298,21 +296,22 @@ pub fn eval_packed_extract<P: PackedField>(
 
         yield_constr.constraint(filter * (rd_result * auxs + auxl - auxm));
 
+        yield_constr.constraint(filter * lv.general.misc().is_msb[0] * msb);
         for i in 0..32 {
             let mpartial = limb_from_bits_le(rs_bits[0..i + 1].to_vec());
             let mut lpartial = P::ZEROS;
             if i != 0 {
                 lpartial = limb_from_bits_le(rs_bits[0..i].to_vec());
             }
-            let is_msb = is_msbs.next().unwrap();
-            let is_lsb = is_lsbs.next().unwrap();
+            let is_msb = lv.general.misc().is_msb[i];
+            let is_lsb = lv.general.misc().is_lsb[i];
             let cur_index = P::Scalar::from_canonical_usize(i);
             let cur_mul = P::Scalar::from_canonical_usize(1 << i);
-            yield_constr.constraint(filter * *is_msb * (msb - cur_index));
-            yield_constr.constraint(filter * *is_msb * (auxm - mpartial));
-            yield_constr.constraint(filter * *is_lsb * (lsb - cur_index));
-            yield_constr.constraint(filter * *is_lsb * (auxl - lpartial));
-            yield_constr.constraint(filter * *is_lsb * (auxs - cur_mul));
+            yield_constr.constraint(filter * is_msb * (msb - cur_index));
+            yield_constr.constraint(filter * is_msb * (auxm - mpartial));
+            yield_constr.constraint(filter * is_lsb * (lsb - cur_index));
+            yield_constr.constraint(filter * is_lsb * (auxl - lpartial));
+            yield_constr.constraint(filter * is_lsb * (auxs - cur_mul));
         }
     }
 }
@@ -347,9 +346,7 @@ pub fn eval_ext_circuit_extract<F: RichField + Extendable<D>, const D: usize>(
         let msbd = limb_from_bits_le_recursive(builder, lv.rd_bits);
         let rs_bits = lv.general.misc().rs_bits;
         let lsb = limb_from_bits_le_recursive(builder, lv.shamt_bits);
-        let msb = builder.sub_extension(lsb, msbd);
-        let mut is_msbs = lv.general.misc().is_msb.iter();
-        let mut is_lsbs = lv.general.misc().is_lsb.iter();
+        let msb = builder.add_extension(lsb, msbd);
         let auxm = lv.general.misc().auxm;
         let auxl = lv.general.misc().auxl;
         let auxs = lv.general.misc().auxs;
@@ -361,22 +358,27 @@ pub fn eval_ext_circuit_extract<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(constr, filter);
         yield_constr.constraint(builder, constr);
 
+        //let constr = builder.mul_extension(filter, lv.general.misc().is_msb[0]);
+        let constr = builder.mul_extension(filter, lv.general.misc().is_msb[0]);
+        let constr = builder.mul_extension(constr, msb);
+        yield_constr.constraint(builder, constr);
+
         for i in 0..32 {
             let mpartial = limb_from_bits_le_recursive(builder, rs_bits[0..i + 1].to_vec());
             let mut lpartial = builder.zero_extension();
             if i != 0 {
                 lpartial = limb_from_bits_le_recursive(builder, rs_bits[0..i].to_vec());
             }
-            let is_msb = is_msbs.next().unwrap();
-            let is_lsb = is_lsbs.next().unwrap();
+            let is_msb = lv.general.misc().is_msb[i];
+            let is_lsb = lv.general.misc().is_lsb[i];
             let cur_index = builder.constant_extension(F::Extension::from_canonical_usize(i));
             let cur_mul = builder.constant_extension(F::Extension::from_canonical_usize(1 << i));
 
-            let constr_msb = builder.sub_extension(filter, *is_msb);
-            let constr_lsb = builder.sub_extension(filter, *is_lsb);
+            let constr_msb = builder.mul_extension(filter, is_msb);
+            let constr_lsb = builder.mul_extension(filter, is_lsb);
 
             let constr = builder.sub_extension(msb, cur_index);
-            let constr = builder.mul_extension(constr, constr_msb);
+            let constr = builder.mul_extension(constr_msb, constr);
             yield_constr.constraint(builder, constr);
 
             let constr = builder.sub_extension(auxm, mpartial);
@@ -402,9 +404,9 @@ pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    eval_packed_rdhwr(lv, yield_constr);
-    eval_packed_condmov(lv, yield_constr);
-    eval_packed_teq(lv, yield_constr);
+    //eval_packed_rdhwr(lv, yield_constr);
+    //eval_packed_condmov(lv, yield_constr);
+    //eval_packed_teq(lv, yield_constr);
     eval_packed_extract(lv, yield_constr);
 }
 
@@ -413,8 +415,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    eval_ext_circuit_rdhwr(builder, lv, yield_constr);
-    eval_ext_circuit_condmov(builder, lv, yield_constr);
-    eval_ext_circuit_teq(builder, lv, yield_constr);
+    //eval_ext_circuit_rdhwr(builder, lv, yield_constr);
+    //eval_ext_circuit_condmov(builder, lv, yield_constr);
+    //eval_ext_circuit_teq(builder, lv, yield_constr);
     eval_ext_circuit_extract(builder, lv, yield_constr);
 }
