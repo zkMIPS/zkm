@@ -1277,7 +1277,9 @@ pub(crate) fn generate_extract<F: Field>(
         .collect_vec();
     row.general.misc_mut().rs_bits = bits_le.try_into().unwrap();
 
+    row.general.misc_mut().is_msb = [F::ZERO; 32];
     row.general.misc_mut().is_msb[(msbd + lsb) as usize] = F::ONE;
+    row.general.misc_mut().is_lsb = [F::ZERO; 32];
     row.general.misc_mut().is_lsb[lsb as usize] = F::ONE;
     row.general.misc_mut().auxs = F::from_canonical_u32(1 << lsb);
 
