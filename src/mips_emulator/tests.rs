@@ -82,7 +82,7 @@ mod tests {
         let (mut state, _) = State::load_elf(&file);
 
         state.patch_go(&file);
-        state.patch_stack("aab ccd");
+        state.patch_stack(vec!["aab", "ccd"]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
 
@@ -103,7 +103,7 @@ mod tests {
         let (mut state, _) = State::load_elf(&file);
 
         state.patch_go(&file);
-        state.patch_stack("aab ccd");
+        state.patch_stack(vec!["aab", "ccd"]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
 
@@ -116,7 +116,7 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_abc() {
+    fn test_execute_rust_hello() {
         log::debug!("open abc\n");
         let path = PathBuf::from("./test-vectors/abc");
         let data = fs::read(path).expect("could not read file");
@@ -124,7 +124,7 @@ mod tests {
             ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
         let (mut state, _) = State::load_elf(&file);
         state.patch_go(&file);
-        state.patch_stack("");
+        state.patch_stack(vec![]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
         log::debug!("begin execute\n");
@@ -144,7 +144,7 @@ mod tests {
             ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
         let (mut state, _) = State::load_elf(&file);
         state.patch_go(&file);
-        state.patch_stack("");
+        state.patch_stack(vec![]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
         log::debug!("begin execute\n");
