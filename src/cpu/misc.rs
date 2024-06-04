@@ -296,7 +296,6 @@ pub fn eval_packed_extract<P: PackedField>(
 
         yield_constr.constraint(filter * (rd_result * auxs + auxl - auxm));
 
-        yield_constr.constraint(filter * lv.general.misc().is_msb[0] * msb);
         for i in 0..32 {
             let mpartial = limb_from_bits_le(rs_bits[0..i + 1].to_vec());
             let mut lpartial = P::ZEROS;
@@ -356,11 +355,6 @@ pub fn eval_ext_circuit_extract<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.add_extension(constr, auxl);
         let constr = builder.sub_extension(constr, auxm);
         let constr = builder.mul_extension(constr, filter);
-        yield_constr.constraint(builder, constr);
-
-        //let constr = builder.mul_extension(filter, lv.general.misc().is_msb[0]);
-        let constr = builder.mul_extension(filter, lv.general.misc().is_msb[0]);
-        let constr = builder.mul_extension(constr, msb);
         yield_constr.constraint(builder, constr);
 
         for i in 0..32 {
