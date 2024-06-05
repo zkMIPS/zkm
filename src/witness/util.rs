@@ -1,17 +1,22 @@
 use byteorder::ByteOrder;
 use byteorder::LittleEndian;
+use itertools::Itertools;
+use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
+use plonky2::hash::hash_types::RichField;
 
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::kernel::keccak_util::keccakf_u8s;
 use crate::cpu::membus::NUM_CHANNELS;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
 use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
 use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
-use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::logic;
 use crate::memory::segments::Segment;
+use crate::poseidon::constants::{SPONGE_RATE, SPONGE_WIDTH};
+use crate::poseidon::poseidon_stark::poseidon_with_witness;
+use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
+use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeOp;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
 
@@ -307,7 +312,7 @@ pub(crate) fn mem_write_log<F: Field>(
     )
 }
 
-pub(crate) fn keccak_sponge_log<F: Field>(
+pub(crate) fn poseidon_sponge_log<F: RichField>(
     state: &mut GenerationState<F>,
     base_address: Vec<MemoryAddress>,
     input: Vec<u8>, // BE
@@ -315,15 +320,16 @@ pub(crate) fn keccak_sponge_log<F: Field>(
     let clock = state.traces.clock();
 
     let mut absorbed_bytes = 0;
-    let mut input_blocks = input.chunks_exact(KECCAK_RATE_BYTES);
-    let mut sponge_state = [0u8; KECCAK_WIDTH_BYTES];
-    // Since the keccak read byte by byte, and the memory unit is of 4-byte, we just need to read
+    let mut input_blocks = input.chunks_exact(POSEIDON_RATE_BYTES);
+    let mut poseidon_state = [F::ZEROS; SPONGE_WIDTH];
+    // Since the poseidon read byte by byte, and the memory unit is of 4-byte, we just need to read
     // the same memory for 4 keccak-op
     let mut n_gp = 0;
     for block in input_blocks.by_ref() {
         for i in 0..block.len() {
             //for &byte in block {
             let align = (i / 4) * 4;
+            // todo: LittleEndian::read_u32
             let val = u32::from_le_bytes(block[align..(align + 4)].try_into().unwrap());
 
             let addr_idx = absorbed_bytes / 4;
@@ -338,20 +344,26 @@ pub(crate) fn keccak_sponge_log<F: Field>(
             n_gp %= NUM_GP_CHANNELS - 1;
             absorbed_bytes += 1;
         }
-        xor_into_sponge(state, &mut sponge_state, block.try_into().unwrap());
+
+        let rate_f = (0..POSEIDON_RATE_BYTES)
+            .step_by(4)
+            .map(|i| F::from_canonical_u32(LittleEndian::read_u32(&block[i..i + 4])))
+            .collect_vec();
+        poseidon_state[..SPONGE_RATE].copy_from_slice(&rate_f);
+
         state
             .traces
-            .push_keccak_bytes(sponge_state, clock * NUM_CHANNELS);
-        keccakf_u8s(&mut sponge_state);
+            .push_poseidon(poseidon_state, clock * NUM_CHANNELS);
+        (poseidon_state, _) = poseidon_with_witness(&poseidon_state);
     }
 
     let rem = input_blocks.remainder();
 
     // patch data to match sponge logic
-    let mut rem_data = [0u8; KECCAK_RATE_BYTES];
+    let mut rem_data = [0u8; POSEIDON_RATE_BYTES];
     rem_data[0..rem.len()].copy_from_slice(&rem[0..rem.len()]);
     rem_data[rem.len()] = 1;
-    rem_data[KECCAK_RATE_BYTES - 1] |= 0b10000000;
+    rem_data[POSEIDON_RATE_BYTES - 1] |= 0b10000000;
     for i in 0..rem.len() {
         let align = (i / 4) * 4;
         let val = u32::from_le_bytes(rem_data[align..align + 4].try_into().unwrap());
@@ -368,23 +380,29 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         n_gp %= NUM_GP_CHANNELS - 1;
         absorbed_bytes += 1;
     }
-    let mut final_block = [0u8; KECCAK_RATE_BYTES];
+    let mut final_block = [0u8; POSEIDON_RATE_BYTES];
     final_block[..input_blocks.remainder().len()].copy_from_slice(input_blocks.remainder());
     // pad10*1 rule
-    if input_blocks.remainder().len() == KECCAK_RATE_BYTES - 1 {
+    if input_blocks.remainder().len() == POSEIDON_RATE_BYTES - 1 {
         // Both 1s are placed in the same byte.
         final_block[input_blocks.remainder().len()] = 0b10000001;
     } else {
         final_block[input_blocks.remainder().len()] = 1;
-        final_block[KECCAK_RATE_BYTES - 1] = 0b10000000;
+        final_block[POSEIDON_RATE_BYTES - 1] = 0b10000000;
     }
-    xor_into_sponge(state, &mut sponge_state, &final_block);
+
+    let rate_f = (0..POSEIDON_RATE_BYTES)
+        .step_by(4)
+        .map(|i| F::from_canonical_u32(LittleEndian::read_u32(&final_block[i..i + 4])))
+        .collect_vec();
+    poseidon_state[..SPONGE_RATE].copy_from_slice(&rate_f);
+
     state
         .traces
-        .push_keccak_bytes(sponge_state, clock * NUM_CHANNELS);
+        .push_poseidon(poseidon_state, clock * NUM_CHANNELS);
 
     //FIXME: how to setup the base address
-    state.traces.push_keccak_sponge(KeccakSpongeOp {
+    state.traces.push_poseidon_sponge(PoseidonSpongeOp {
         base_address,
         timestamp: clock * NUM_CHANNELS,
         input,

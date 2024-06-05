@@ -1,6 +1,7 @@
 use anyhow::bail;
 use log::log_enabled;
 use plonky2::field::types::Field;
+use plonky2::hash::hash_types::RichField;
 
 use crate::cpu::columns::CpuColumnsView;
 
@@ -305,7 +306,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
     } = F::ONE;
 }
 
-fn perform_op<F: Field>(
+fn perform_op<F: RichField>(
     state: &mut GenerationState<F>,
     op: Operation,
     row: CpuColumnsView<F>,
@@ -452,7 +453,7 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u32
     (row, opcode)
 }
 
-fn try_perform_instruction<F: Field>(
+fn try_perform_instruction<F: RichField>(
     state: &mut GenerationState<F>,
     kernel: &Kernel,
 ) -> Result<(), ProgramError> {
@@ -535,7 +536,7 @@ fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> 
     Ok(())
 }
 
-pub(crate) fn transition<F: Field>(
+pub(crate) fn transition<F: RichField>(
     state: &mut GenerationState<F>,
     kernel: &Kernel,
 ) -> anyhow::Result<()> {

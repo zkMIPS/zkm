@@ -2,6 +2,7 @@ use crate::cpu::kernel::elf::INIT_SP;
 use crate::mips_emulator::memory::Memory;
 use crate::mips_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use crate::mips_emulator::witness::{Program, ProgramSegment};
+use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use elf::abi::PT_LOAD;
 use elf::endian::AnyEndian;
 use log::{trace, warn};
@@ -306,14 +307,14 @@ impl State {
             .expect("set memory range failed");
 
         let len = data_len & 3;
-        let end = data_len % 136;
+        let end = data_len % POSEIDON_RATE_BYTES;
         if len != 0 {
             let mut bytes = [0u8; 4];
             let final_addr = 0x31000004 + data_len - len;
             let word = self.memory.get_memory(final_addr as u32);
             bytes[0..len].copy_from_slice(&word.to_be_bytes()[0..len]);
             bytes[len] = 1;
-            if end + 4 > 136 {
+            if end + 4 > POSEIDON_RATE_BYTES {
                 bytes[3] |= 0b10000000;
             }
 

@@ -69,9 +69,6 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_bootstrap_kernel: T,
     pub is_exit_kernel: T,
 
-    /// Filter. 1 if the row is part of load preimage, 0 otherwise.
-    pub is_load_preimage: T,
-
     /// If CPU cycle: Current context.
     // TODO: this is currently unconstrained
     pub context: T,
@@ -101,8 +98,8 @@ pub struct CpuColumnsView<T: Copy> {
     // imm | offset: [rd_bits, shamt_bits, func_bits]
     // code: [rs_bits, rt_bits, rd_bits, shamt_bits]
     // inst_index: [rs_bits, rt_bits, rd_bits, shamt_bits, func_bits]
-    /// Filter. 1 iff a Keccak sponge lookup is performed on this row.
-    pub is_keccak_sponge: T,
+    /// Filter. 1 iff a Poseidon sponge lookup is performed on this row.
+    pub is_poseidon_sponge: T,
 
     pub(crate) general: CpuGeneralColumnsView<T>,
 

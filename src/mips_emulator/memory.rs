@@ -3,8 +3,9 @@ use std::cell::RefCell;
 
 use crate::cpu::kernel::elf::WORD_SIZE;
 use crate::mips_emulator::page::{CachedPage, PAGE_ADDR_MASK, PAGE_ADDR_SIZE, PAGE_SIZE};
-use keccak_hash::keccak;
+use crate::poseidon_sponge::poseidon_sponge_stark::poseidon;
 use lazy_static::lazy_static;
+use plonky2::field::goldilocks_field::GoldilocksField;
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::rc::Rc;
@@ -25,7 +26,13 @@ pub enum MemoryOperation {
 }
 
 pub fn hash_page(data: &[u8; 4096]) -> [u8; 32] {
-    keccak(data).0
+    let hash_u64s = poseidon::<GoldilocksField>(data);
+    let hash = hash_u64s
+        .iter()
+        .flat_map(|&num| num.to_le_bytes())
+        .collect::<Vec<_>>();
+
+    hash.try_into().unwrap()
 }
 
 fn zero_hash() -> [u8; 32] {
@@ -383,13 +390,17 @@ impl Memory {
         }
         final_data[32..].copy_from_slice(&pc.to_le_bytes());
 
-        let image_id = keccak(final_data).0;
+        let image_id_u64s = poseidon::<GoldilocksField>(&final_data);
+        let image_id = image_id_u64s
+            .iter()
+            .flat_map(|&num| num.to_le_bytes())
+            .collect::<Vec<_>>();
 
         log::trace!("page root hash: {:?}", hash);
         log::trace!("end pc: {:?}", pc.to_le_bytes());
         log::trace!("image id: {:?}", image_id);
 
-        (image_id, hash)
+        (image_id.try_into().unwrap(), hash)
     }
 
     pub fn check_image_id(&mut self, pc: u32, image_id: [u8; 32]) {
@@ -408,7 +419,12 @@ impl Memory {
                 final_data[0..4].copy_from_slice(&pc.to_be_bytes());
                 final_data[4..36].copy_from_slice(&hash);
 
-                let real_image_id = keccak(final_data).0;
+                let real_image_id_u64s = poseidon::<GoldilocksField>(&final_data);
+                let real_image_id = real_image_id_u64s
+                    .iter()
+                    .flat_map(|&num| num.to_le_bytes())
+                    .collect::<Vec<_>>();
+                let real_image_id: [u8; 32] = real_image_id.try_into().unwrap();
 
                 if image_id != real_image_id {
                     log::error!("image_id not match {:?} {:?}", image_id, real_image_id);

@@ -46,8 +46,8 @@ where
     let AllStark {
         arithmetic_stark,
         cpu_stark,
-        keccak_stark,
-        keccak_sponge_stark,
+        poseidon_stark,
+        poseidon_sponge_stark,
         logic_stark,
         memory_stark,
         cross_table_lookups,
@@ -84,18 +84,18 @@ where
         config,
     )?;
     verify_stark_proof_with_challenges(
-        keccak_stark,
-        &all_proof.stark_proofs[Table::Keccak as usize].proof,
-        &stark_challenges[Table::Keccak as usize],
-        &ctl_vars_per_table[Table::Keccak as usize],
+        poseidon_stark,
+        &all_proof.stark_proofs[Table::Poseidon as usize].proof,
+        &stark_challenges[Table::Poseidon as usize],
+        &ctl_vars_per_table[Table::Poseidon as usize],
         &ctl_challenges,
         config,
     )?;
     verify_stark_proof_with_challenges(
-        keccak_sponge_stark,
-        &all_proof.stark_proofs[Table::KeccakSponge as usize].proof,
-        &stark_challenges[Table::KeccakSponge as usize],
-        &ctl_vars_per_table[Table::KeccakSponge as usize],
+        poseidon_sponge_stark,
+        &all_proof.stark_proofs[Table::PoseidonSponge as usize].proof,
+        &stark_challenges[Table::PoseidonSponge as usize],
+        &ctl_vars_per_table[Table::PoseidonSponge as usize],
         &ctl_challenges,
         config,
     )?;
