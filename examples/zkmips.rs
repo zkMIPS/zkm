@@ -262,6 +262,7 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
         AllRecursiveCircuits::<F, C, D>::new(&all_stark, &select_degree_bits(seg_size), &config);
 
     let seg_file = format!("{}/{}", seg_dir, 0);
+    log::info!("Process segment 0");
     let seg_reader = BufReader::new(File::open(seg_file)?);
     let input_first = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
@@ -276,6 +277,7 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
 
     if seg_file_number % 2 == 0 {
         let seg_file = format!("{}/{}", seg_dir, 1);
+        log::info!("Process segment 1");
         let seg_reader = BufReader::new(File::open(seg_file)?);
         let input = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
         timing = TimingTree::new("prove root second", log::Level::Info);
@@ -309,6 +311,7 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
 
     for i in 0..(seg_file_number - base_seg) / 2 {
         let seg_file = format!("{}/{}", seg_dir, base_seg + (i << 1));
+        log::info!("Process segment {}", base_seg + (i << 1));
         let seg_reader = BufReader::new(File::open(&seg_file)?);
         let input_first = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
         let mut timing = TimingTree::new("prove root first", log::Level::Info);
@@ -319,6 +322,7 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
         all_circuits.verify_root(root_proof_first.clone())?;
 
         let seg_file = format!("{}/{}", seg_dir, base_seg + (i << 1) + 1);
+        log::info!("Process segment {}", base_seg + (i << 1) + 1);
         let seg_reader = BufReader::new(File::open(&seg_file)?);
         let input = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
         let mut timing = TimingTree::new("prove root second", log::Level::Info);

@@ -238,31 +238,31 @@ where
         )?
     );
 
-    let keccak_proof = timed!(
+    let poseidon_proof = timed!(
         timing,
         log::Level::Info,
-        "prove Keccak STARK",
+        "prove Poseidon STARK",
         prove_single_table(
-            &all_stark.keccak_stark,
+            &all_stark.poseidon_stark,
             config,
-            &trace_poly_values[Table::Keccak as usize],
-            &trace_commitments[Table::Keccak as usize],
-            &ctl_data_per_table[Table::Keccak as usize],
+            &trace_poly_values[Table::Poseidon as usize],
+            &trace_commitments[Table::Poseidon as usize],
+            &ctl_data_per_table[Table::Poseidon as usize],
             ctl_challenges,
             challenger,
             timing,
         )?
     );
-    let keccak_sponge_proof = timed!(
+    let poseidon_sponge_proof = timed!(
         timing,
         log::Level::Info,
-        "prove Keccak sponge STARK",
+        "prove Poseidon sponge STARK",
         prove_single_table(
-            &all_stark.keccak_sponge_stark,
+            &all_stark.poseidon_sponge_stark,
             config,
-            &trace_poly_values[Table::KeccakSponge as usize],
-            &trace_commitments[Table::KeccakSponge as usize],
-            &ctl_data_per_table[Table::KeccakSponge as usize],
+            &trace_poly_values[Table::PoseidonSponge as usize],
+            &trace_commitments[Table::PoseidonSponge as usize],
+            &ctl_data_per_table[Table::PoseidonSponge as usize],
             ctl_challenges,
             challenger,
             timing,
@@ -302,8 +302,8 @@ where
     Ok([
         arithmetic_proof,
         cpu_proof,
-        keccak_proof,
-        keccak_sponge_proof,
+        poseidon_proof,
+        poseidon_sponge_proof,
         logic_proof,
         memory_proof,
     ])

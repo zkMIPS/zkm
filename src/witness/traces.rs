@@ -1,21 +1,17 @@
-use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
-use std::mem::size_of;
 
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::arithmetic::{BinaryOperator, Operation};
-//use crate::byte_packing::byte_packing_stark::BytePackingOp;
 use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
-use crate::keccak::keccak_stark;
-use crate::keccak_sponge;
-use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
-use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 
+use crate::poseidon::constants::SPONGE_WIDTH;
+use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
+use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeOp;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryOp;
 use crate::{arithmetic, logic};
@@ -23,22 +19,21 @@ use crate::{arithmetic, logic};
 #[derive(Clone, Copy, Debug)]
 pub struct TraceCheckpoint {
     pub(self) arithmetic_len: usize,
-    //    pub(self) byte_packing_len: usize,
     pub(self) cpu_len: usize,
-    pub(self) keccak_len: usize,
-    pub(self) keccak_sponge_len: usize,
+    pub(self) poseidon_len: usize,
+    pub(self) poseidon_sponge_len: usize,
     pub(self) logic_len: usize,
     pub(self) memory_len: usize,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct Traces<T: Copy> {
-    pub(crate) arithmetic_ops: Vec<arithmetic::Operation>,
+    pub(crate) arithmetic_ops: Vec<Operation>,
     pub(crate) cpu: Vec<CpuColumnsView<T>>,
     pub(crate) logic_ops: Vec<logic::Operation>,
     pub(crate) memory_ops: Vec<MemoryOp>,
-    pub(crate) keccak_inputs: Vec<([u64; keccak_stark::NUM_INPUTS], usize)>,
-    pub(crate) keccak_sponge_ops: Vec<KeccakSpongeOp>,
+    pub(crate) poseidon_inputs: Vec<([T; SPONGE_WIDTH], usize)>,
+    pub(crate) poseidon_sponge_ops: Vec<PoseidonSpongeOp>,
 }
 
 impl<T: Copy> Traces<T> {
@@ -48,8 +43,8 @@ impl<T: Copy> Traces<T> {
             cpu: vec![],
             logic_ops: vec![],
             memory_ops: vec![],
-            keccak_inputs: vec![],
-            keccak_sponge_ops: vec![],
+            poseidon_inputs: vec![],
+            poseidon_sponge_ops: vec![],
         }
     }
 
@@ -68,11 +63,11 @@ impl<T: Copy> Traces<T> {
                 })
                 .sum(),
             cpu_len: self.cpu.len(),
-            keccak_len: self.keccak_inputs.len() * keccak_stark::NUM_ROUNDS,
-            keccak_sponge_len: self
-                .keccak_sponge_ops
+            poseidon_len: self.poseidon_inputs.len(),
+            poseidon_sponge_len: self
+                .poseidon_sponge_ops
                 .iter()
-                .map(|op| op.input.len() / keccak_sponge::columns::KECCAK_RATE_BYTES + 1)
+                .map(|op| op.input.len() / POSEIDON_RATE_BYTES + 1)
                 .sum(),
             logic_len: self.logic_ops.len(),
             // This is technically a lower-bound, as we may fill gaps,
@@ -86,8 +81,8 @@ impl<T: Copy> Traces<T> {
         TraceCheckpoint {
             arithmetic_len: self.arithmetic_ops.len(),
             cpu_len: self.cpu.len(),
-            keccak_len: self.keccak_inputs.len(),
-            keccak_sponge_len: self.keccak_sponge_ops.len(),
+            poseidon_len: self.poseidon_inputs.len(),
+            poseidon_sponge_len: self.poseidon_sponge_ops.len(),
             logic_len: self.logic_ops.len(),
             memory_len: self.memory_ops.len(),
         }
@@ -96,9 +91,9 @@ impl<T: Copy> Traces<T> {
     pub fn rollback(&mut self, checkpoint: TraceCheckpoint) {
         self.arithmetic_ops.truncate(checkpoint.arithmetic_len);
         self.cpu.truncate(checkpoint.cpu_len);
-        self.keccak_inputs.truncate(checkpoint.keccak_len);
-        self.keccak_sponge_ops
-            .truncate(checkpoint.keccak_sponge_len);
+        self.poseidon_inputs.truncate(checkpoint.poseidon_len);
+        self.poseidon_sponge_ops
+            .truncate(checkpoint.poseidon_sponge_len);
         self.logic_ops.truncate(checkpoint.logic_len);
         self.memory_ops.truncate(checkpoint.memory_len);
     }
@@ -123,22 +118,12 @@ impl<T: Copy> Traces<T> {
         self.memory_ops.push(op);
     }
 
-    pub fn push_keccak(&mut self, input: [u64; keccak_stark::NUM_INPUTS], clock: usize) {
-        self.keccak_inputs.push((input, clock));
+    pub fn push_poseidon(&mut self, input: [T; SPONGE_WIDTH], clock: usize) {
+        self.poseidon_inputs.push((input, clock));
     }
 
-    pub fn push_keccak_bytes(&mut self, input: [u8; KECCAK_WIDTH_BYTES], clock: usize) {
-        let chunks = input
-            .chunks(size_of::<u64>())
-            .map(|chunk| u64::from_le_bytes(chunk.try_into().unwrap()))
-            .collect_vec()
-            .try_into()
-            .unwrap();
-        self.push_keccak(chunks, clock);
-    }
-
-    pub fn push_keccak_sponge(&mut self, op: KeccakSpongeOp) {
-        self.keccak_sponge_ops.push(op);
+    pub fn push_poseidon_sponge(&mut self, op: PoseidonSpongeOp) {
+        self.poseidon_sponge_ops.push(op);
     }
 
     pub fn clock(&self) -> usize {
@@ -160,8 +145,8 @@ impl<T: Copy> Traces<T> {
             cpu,
             logic_ops,
             memory_ops,
-            keccak_inputs,
-            keccak_sponge_ops,
+            poseidon_inputs,
+            poseidon_sponge_ops,
         } = self;
 
         let arithmetic_trace = timed!(
@@ -171,19 +156,21 @@ impl<T: Copy> Traces<T> {
         );
         let cpu_rows: Vec<_> = cpu.into_iter().map(|x| x.into()).collect();
         let cpu_trace = trace_rows_to_poly_values(cpu_rows);
-        let keccak_trace = timed!(
+        let poseidon_trace = timed!(
             timing,
-            "generate Keccak trace",
+            "generate Poseidon trace",
             all_stark
-                .keccak_stark
-                .generate_trace(keccak_inputs, cap_elements, timing)
+                .poseidon_stark
+                .generate_trace(poseidon_inputs, cap_elements, timing)
         );
-        let keccak_sponge_trace = timed!(
+        let poseidon_sponge_trace = timed!(
             timing,
-            "generate Keccak sponge trace",
-            all_stark
-                .keccak_sponge_stark
-                .generate_trace(keccak_sponge_ops, cap_elements, timing)
+            "generate Poseidon sponge trace",
+            all_stark.poseidon_sponge_stark.generate_trace(
+                poseidon_sponge_ops,
+                cap_elements,
+                timing
+            )
         );
         let logic_trace = timed!(
             timing,
@@ -201,8 +188,8 @@ impl<T: Copy> Traces<T> {
         [
             arithmetic_trace,
             cpu_trace,
-            keccak_trace,
-            keccak_sponge_trace,
+            poseidon_trace,
+            poseidon_sponge_trace,
             logic_trace,
             memory_trace,
         ]

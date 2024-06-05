@@ -2,17 +2,17 @@ use super::util::*;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::state::GenerationState;
-use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_RATE_U32S};
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
 use crate::{arithmetic, logic};
 use anyhow::{Context, Result};
-use keccak_hash::keccak;
 
 use plonky2::field::types::Field;
 
+use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use itertools::Itertools;
+use plonky2::hash::hash_types::RichField;
 use std::fs;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
@@ -742,7 +742,7 @@ pub(crate) fn generate_srav<F: Field>(
     Ok(())
 }
 
-pub(crate) fn load_preimage<F: Field>(
+pub(crate) fn load_preimage<F: RichField>(
     state: &mut GenerationState<F>,
     kernel: &Kernel,
 ) -> Result<()> {
@@ -750,7 +750,6 @@ pub(crate) fn load_preimage<F: Field>(
     {
         let mut cpu_row = CpuColumnsView::default();
         cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-        cpu_row.is_load_preimage = F::ONE;
         for i in 0..8 {
             let address = MemoryAddress::new(0, Segment::Code, 0x30001000 + i * 4);
             let (mem, op) = mem_read_gp_with_log_and_fill(i, address, state, &mut cpu_row);
@@ -770,7 +769,6 @@ pub(crate) fn load_preimage<F: Field>(
 
     let mut cpu_row = CpuColumnsView::default();
     cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-    cpu_row.is_load_preimage = F::ONE;
 
     let mem_op = mem_write_gp_log_and_fill(
         0,
@@ -784,17 +782,12 @@ pub(crate) fn load_preimage<F: Field>(
 
     let mut map_addr = 0x31000004;
 
-    let mut preimage_data_addr = Vec::new();
-
-    let mut preimage_addr_value_byte_be = vec![0u8; content.len()];
-
     let mut j = 1;
     for i in (0..content.len()).step_by(WORD_SIZE) {
         if j == 8 {
             state.traces.push_cpu(cpu_row);
             cpu_row = CpuColumnsView::default();
             cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-            cpu_row.is_load_preimage = F::ONE;
             j = 0;
         }
         let mut word = 0;
@@ -804,60 +797,31 @@ pub(crate) fn load_preimage<F: Field>(
             let offset = i + k;
             let byte = content.get(offset).context("Invalid block offset")?;
             word |= (*byte as u32) << (k * 8);
-            preimage_addr_value_byte_be[i + k] = *byte;
         }
         let addr = MemoryAddress::new(0, Segment::Code, map_addr);
+        // todo: check rate bytes
         if len < WORD_SIZE {
-            let end = content.len() % KECCAK_RATE_BYTES;
+            let end = content.len() % POSEIDON_RATE_BYTES;
             word |= 0b1 << (len * 8);
 
-            if end + 4 > KECCAK_RATE_BYTES {
+            if end + 4 > POSEIDON_RATE_BYTES {
                 word |= 0b10000000 << 24;
             }
         }
 
         log::trace!("{:X}: {:X}", map_addr, word);
         let mem_op = mem_write_gp_log_and_fill(j, addr, state, &mut cpu_row, word.to_be());
-        preimage_data_addr.push(addr);
         state.traces.push_memory(mem_op);
         map_addr += 4;
         j += 1;
     }
 
     state.traces.push_cpu(cpu_row);
-    state.memory.apply_ops(&state.traces.memory_ops);
-
-    let mut cpu_row = CpuColumnsView::default();
-    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-    cpu_row.is_keccak_sponge = F::ONE;
-
-    // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
-    cpu_row.mem_channels[0].value = F::ZERO; // context
-    cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
-    let final_idx = preimage_addr_value_byte_be.len() / KECCAK_RATE_BYTES * KECCAK_RATE_U32S;
-    cpu_row.mem_channels[2].value = F::from_canonical_usize(preimage_data_addr[final_idx].virt);
-    cpu_row.mem_channels[3].value = F::from_canonical_usize(preimage_addr_value_byte_be.len()); // len
-
-    let hash_data_bytes = keccak(&preimage_addr_value_byte_be).0;
-    let hash_data_be = core::array::from_fn(|i| {
-        u32::from_le_bytes(core::array::from_fn(|j| hash_data_bytes[i * 4 + j]))
-    });
-
-    log::debug!("actual preimage data hash: {:?}", hash_data_bytes);
-    log::debug!("expected preimage data hash: {:?}", hash_bytes);
-    assert_eq!(hash_data_bytes, hash_bytes);
-    let hash_data = hash_data_be.map(u32::from_be);
-
-    cpu_row.general.hash_mut().value = hash_data.map(F::from_canonical_u32);
-    cpu_row.general.hash_mut().value.reverse();
-
-    keccak_sponge_log(state, preimage_data_addr, preimage_addr_value_byte_be);
-    state.traces.push_cpu(cpu_row);
 
     Ok(())
 }
 
-pub(crate) fn generate_syscall<F: Field>(
+pub(crate) fn generate_syscall<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
     kernel: &Kernel,

@@ -125,7 +125,7 @@ pub(crate) struct CpuIOAuxView<T: Copy> {
 
 #[derive(Copy, Clone)]
 pub(crate) struct CpuHashView<T: Copy> {
-    pub(crate) value: [T; 8],
+    pub(crate) value: [T; 4],
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.

@@ -1,9 +1,10 @@
 extern crate alloc;
 use crate::mips_emulator::state::{Segment, REGISTERS_START};
+use crate::poseidon_sponge::poseidon_sponge_stark::poseidon;
 use alloc::collections::BTreeMap;
 use anyhow::{anyhow, bail, Context, Result};
 use elf::{endian::BigEndian, file::Class, ElfBytes};
-use keccak_hash::keccak;
+use plonky2::field::goldilocks_field::GoldilocksField;
 use serde::{Deserialize, Serialize};
 use std::fs::{self};
 use std::io::Read;
@@ -207,12 +208,21 @@ impl Program {
         final_data[0..32].copy_from_slice(&page_hash_root);
         final_data[32..].copy_from_slice(&end_pc.to_be_bytes());
 
-        let image_id = keccak(final_data).0;
+        let image_id_u64s = poseidon::<GoldilocksField>(&final_data);
+        let image_id = image_id_u64s
+            .iter()
+            .flat_map(|&num| num.to_le_bytes())
+            .collect::<Vec<_>>();
+
         let pre_hash_root = [1u8; 32];
         final_data[0..32].copy_from_slice(&pre_hash_root);
         final_data[32..].copy_from_slice(&entry.to_be_bytes());
 
-        let pre_image_id = keccak(final_data).0;
+        let pre_image_id_u64s = poseidon::<GoldilocksField>(&final_data);
+        let pre_image_id = pre_image_id_u64s
+            .iter()
+            .flat_map(|&num| num.to_le_bytes())
+            .collect::<Vec<_>>();
 
         Ok(Program {
             entry,
@@ -222,8 +232,8 @@ impl Program {
             hi,
             heap,
             end_pc: end_pc as usize,
-            image_id,
-            pre_image_id,
+            image_id: image_id.try_into().unwrap(),
+            pre_image_id: pre_image_id.try_into().unwrap(),
             pre_hash_root,
             page_hash_root,
         })
