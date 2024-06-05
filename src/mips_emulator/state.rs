@@ -602,14 +602,12 @@ impl InstrumentedState {
                 } else if rtv == 1 {
                     // 1 -> bgez
                     (rs as i32) >= 0
+                } else if rtv == 0b10001 {
+                    // bal  000001 00000 10001 offset
+                    self.state.registers[31] = self.state.pc + 8;
+                    true
                 } else {
-                    if rtv == 0b10001 {
-                        // bal  000001 00000 10001 offset
-                        self.state.registers[31] = self.state.pc + 8;
-                        true
-                    } else {
-                        false
-                    }
+                    false
                 }
             }
             _ => {
@@ -624,7 +622,7 @@ impl InstrumentedState {
             self.state.next_pc =
                 (prev_pc as u64 + 4u64 + (sign_extension(insn & 0xFFFF, 16) << 2) as u64) as u32;
         } else {
-            self.state.next_pc = self.state.next_pc + 4;
+            self.state.next_pc += 4;
         }
     }
 

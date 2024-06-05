@@ -35,7 +35,7 @@ impl RegistersState {
             hi: kernel.program.hi,
             heap: kernel.program.heap,
             program_counter: kernel.program.entry as usize,
-            next_pc: kernel.program.next_pc as usize,
+            next_pc: kernel.program.next_pc,
             blk: kernel.program.blk,
             local_user: kernel.program.local_user,
             is_kernel: true,

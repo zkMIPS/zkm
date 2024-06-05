@@ -41,34 +41,22 @@ pub fn eval_packed<P: PackedField>(
     // check seb result
     let rd = lv.mem_channels[1].value;
     let mut seb_result = [bits_le[7]; 32];
-    for i in 0..7 {
-        seb_result[i] = bits_le[i];
-    }
+    seb_result[..7].copy_from_slice(&bits_le[..7]);
     let sum = limb_from_bits_le(seb_result);
     yield_constr.constraint(filter_seb * (rd - sum));
 
     // check seh result
     let mut seh_result = [bits_le[15]; 32];
-    for i in 0..15 {
-        seh_result[i] = bits_le[i];
-    }
+    seh_result[..15].copy_from_slice(&bits_le[..15]);
     let sum = limb_from_bits_le(seh_result);
     yield_constr.constraint(filter_seh * (rd - sum));
 
     // check wsbh result
     let mut wsbh_result = [bits_le[0]; 32];
-    for i in 0..8 {
-        wsbh_result[i] = bits_le[i + 8];
-    }
-    for i in 8..16 {
-        wsbh_result[i] = bits_le[i - 8];
-    }
-    for i in 16..24 {
-        wsbh_result[i] = bits_le[i + 8];
-    }
-    for i in 24..32 {
-        wsbh_result[i] = bits_le[i - 8];
-    }
+    wsbh_result[..8].copy_from_slice(&bits_le[8..16]);
+    wsbh_result[8..16].copy_from_slice(&bits_le[..8]);
+    wsbh_result[16..24].copy_from_slice(&bits_le[24..32]);
+    wsbh_result[24..32].copy_from_slice(&bits_le[16..24]);
 
     let sum = limb_from_bits_le(wsbh_result);
     yield_constr.constraint(filter_wsbh * (rd - sum));
@@ -120,9 +108,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // check seb result
     let rd = lv.mem_channels[1].value;
     let mut seb_result = [bits_le[7]; 32];
-    for i in 0..7 {
-        seb_result[i] = bits_le[i];
-    }
+    seb_result[..7].copy_from_slice(&bits_le[..7]);
     let sum = limb_from_bits_le_recursive(builder, seb_result);
 
     let t1 = builder.sub_extension(rd, sum);
@@ -131,9 +117,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     // check seh result
     let mut seh_result = [bits_le[15]; 32];
-    for i in 0..15 {
-        seh_result[i] = bits_le[i];
-    }
+    seh_result[..15].copy_from_slice(&bits_le[..15]);
     let sum = limb_from_bits_le_recursive(builder, seh_result);
 
     let t1 = builder.sub_extension(rd, sum);
@@ -142,18 +126,11 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     // check wsbh result
     let mut wsbh_result = [bits_le[0]; 32];
-    for i in 0..8 {
-        wsbh_result[i] = bits_le[i + 8];
-    }
-    for i in 8..16 {
-        wsbh_result[i] = bits_le[i - 8];
-    }
-    for i in 16..24 {
-        wsbh_result[i] = bits_le[i + 8];
-    }
-    for i in 24..32 {
-        wsbh_result[i] = bits_le[i - 8];
-    }
+    wsbh_result[..8].copy_from_slice(&bits_le[8..16]);
+    wsbh_result[8..16].copy_from_slice(&bits_le[..8]);
+    wsbh_result[16..24].copy_from_slice(&bits_le[24..32]);
+    wsbh_result[24..32].copy_from_slice(&bits_le[16..24]);
+
     let sum = limb_from_bits_le_recursive(builder, wsbh_result);
 
     let t1 = builder.sub_extension(rd, sum);
