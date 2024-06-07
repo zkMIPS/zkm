@@ -57,9 +57,7 @@ fn select_degree_bits(seg_size: usize) -> [std::ops::Range<usize>; 6] {
     }
 
     match index {
-        -1i32 => panic!(
-            "Invalid segment size, supported largest size: 262144"
-        ),
+        -1i32 => panic!("Invalid segment size, supported largest size: 262144"),
         _ => DEGREE_BITS_RANGE[index as usize].clone(),
     }
 }
