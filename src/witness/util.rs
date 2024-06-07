@@ -114,7 +114,7 @@ pub(crate) fn reg_read_with_log<F: Field>(
         } else if index == 36 {
             state.registers.next_pc
         } else if index == 37 {
-            state.registers.blk
+            state.registers.brk
         } else if index == 38 {
             state.registers.local_user
         } else {
@@ -165,7 +165,7 @@ pub(crate) fn reg_write_with_log<F: Field>(
     } else if index == 36 {
         state.registers.next_pc = value;
     } else if index == 37 {
-        state.registers.blk = value;
+        state.registers.brk = value;
     } else if index == 38 {
         state.registers.local_user = value;
     } else {

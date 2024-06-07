@@ -25,7 +25,7 @@ pub struct Program {
     pub lo: usize,
     pub hi: usize,
     pub heap: usize,
-    pub blk: usize,
+    pub brk: usize,
     pub local_user: usize,
     pub end_pc: usize,
     pub image_id: [u8; 32],
@@ -137,7 +137,7 @@ impl Program {
             }
         }
 
-        let blk = hiaddr - (hiaddr & (PAGE_SIZE - 1)) + PAGE_SIZE;
+        let brk = hiaddr - (hiaddr & (PAGE_SIZE - 1)) + PAGE_SIZE;
 
         let (symtab, strtab) = elf
             .symbol_table()
@@ -245,7 +245,7 @@ impl Program {
             lo,
             hi,
             heap,
-            blk: blk as usize,
+            brk: brk as usize,
             local_user: 0,
             end_pc: end_pc as usize,
             image_id: image_id.try_into().unwrap(),
@@ -290,7 +290,7 @@ impl Program {
             .unwrap()
             .to_be() as usize;
 
-        let blk: usize = image
+        let brk: usize = image
             .get(&(REGISTERS_START + (37 << 2) as u32))
             .unwrap()
             .to_be() as usize;
@@ -323,7 +323,7 @@ impl Program {
             lo,
             hi,
             heap,
-            blk,
+            brk,
             local_user,
             end_pc,
             image_id: segment.image_id,

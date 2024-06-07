@@ -44,7 +44,7 @@ pub(crate) fn generate_exit_kernel<F: RichField>(state: &mut GenerationState<F>,
     registers_value[34] = state.registers.heap as u32;
     registers_value[35] = state.registers.program_counter as u32;
     registers_value[36] = state.registers.next_pc as u32;
-    registers_value[37] = state.registers.blk as u32;
+    registers_value[37] = state.registers.brk as u32;
     registers_value[38] = state.registers.local_user as u32;
 
     let register_addr_value: Vec<_> = registers_addr.iter().zip(registers_value).collect();

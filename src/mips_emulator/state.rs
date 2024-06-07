@@ -50,7 +50,9 @@ pub struct State {
 
     /// heap handles the mmap syscall.
     heap: u32,
-    blk: u32,
+
+    /// brk handles the brk syscall
+    brk: u32,
 
     // tlb addr
     local_user: u32,
@@ -87,7 +89,7 @@ impl State {
             heap: 0,
             local_user: 0,
             step: 0,
-            blk: 0,
+            brk: 0,
             exited: false,
             exit_code: 0,
             dump_info: false,
@@ -107,7 +109,7 @@ impl State {
             heap: 0x20000000,
             local_user: 0,
             step: 0,
-            blk: 0,
+            brk: 0,
             exited: false,
             exit_code: 0,
             dump_info: false,
@@ -171,7 +173,7 @@ impl State {
                 })
             }
         }
-        s.blk = hiaddr - (hiaddr & (PAGE_ADDR_MASK as u32)) + PAGE_SIZE as u32;
+        s.brk = hiaddr - (hiaddr & (PAGE_ADDR_MASK as u32)) + PAGE_SIZE as u32;
         (s, program)
     }
 
@@ -403,7 +405,7 @@ impl State {
         regs_bytes_be[34 * 4..34 * 4 + 4].copy_from_slice(&self.heap.to_be_bytes());
         regs_bytes_be[35 * 4..35 * 4 + 4].copy_from_slice(&self.pc.to_be_bytes());
         regs_bytes_be[36 * 4..36 * 4 + 4].copy_from_slice(&self.next_pc.to_be_bytes());
-        regs_bytes_be[37 * 4..37 * 4 + 4].copy_from_slice(&self.blk.to_be_bytes());
+        regs_bytes_be[37 * 4..37 * 4 + 4].copy_from_slice(&self.brk.to_be_bytes());
         regs_bytes_be[38 * 4..38 * 4 + 4].copy_from_slice(&self.local_user.to_be_bytes());
         regs_bytes_be
     }
@@ -482,10 +484,10 @@ impl InstrumentedState {
             }
             4045 => {
                 // brk
-                if a0 > self.state.blk {
+                if a0 > self.state.brk {
                     v0 = a0;
                 } else {
-                    v0 = self.state.blk;
+                    v0 = self.state.brk;
                 }
             }
             4120 => {
@@ -564,7 +566,7 @@ impl InstrumentedState {
                 }
             }
             4283 => {
-                log::debug!("set local user {:X} {:X} {:X}", a0, a1, a2);
+                log::trace!("set local user {:X} {:X} {:X}", a0, a1, a2);
                 self.state.local_user = a0;
             }
             _ => {}
@@ -985,7 +987,7 @@ impl InstrumentedState {
                     if rd == 0 {
                         return 1; // cpu number
                     } else if rd == 29 {
-                        log::debug!("pc: {:X} rdhwr {:X}", self.state.pc, self.state.local_user);
+                        log::trace!("pc: {:X} rdhwr {:X}", self.state.pc, self.state.local_user);
                         //return 0x946490;  // a pointer to a thread-specific storage block
                         return self.state.local_user;
                     } else {

@@ -908,12 +908,12 @@ pub(crate) fn generate_syscall<F: RichField>(
         }
         SYSBRK => {
             row.general.syscall_mut().sysnum[2] = F::ONE;
-            let (blk, log_in5) = reg_read_with_log(37, 6, state, &mut row)?;
-            if a0 > blk {
+            let (brk, log_in5) = reg_read_with_log(37, 6, state, &mut row)?;
+            if a0 > brk {
                 v0 = a0;
                 row.general.syscall_mut().cond[10] = F::ONE;
             } else {
-                v0 = blk;
+                v0 = brk;
                 row.general.syscall_mut().cond[11] = F::ONE;
             }
             state.traces.push_memory(log_in5);
