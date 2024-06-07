@@ -47,12 +47,20 @@ fn select_degree_bits(seg_size: usize) -> [std::ops::Range<usize>; 6] {
         (65536, 3),
         (262144, 4),
     ]);
-    match seg_size_to_bits.get(&seg_size) {
-        Some(s) => DEGREE_BITS_RANGE[*s].clone(),
-        None => panic!(
-            "Invalid segment size, supported: {:?}",
-            seg_size_to_bits.keys()
+
+    let mut index = -1;
+    for (key, value) in seg_size_to_bits.iter() {
+        if *key >= seg_size {
+            index = *value;
+            break;
+        }
+    }
+
+    match index {
+        -1i32 => panic!(
+            "Invalid segment size, supported largest size: 262144"
         ),
+        _ => DEGREE_BITS_RANGE[index as usize].clone(),
     }
 }
 
