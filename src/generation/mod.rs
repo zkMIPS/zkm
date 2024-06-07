@@ -100,6 +100,7 @@ pub(crate) fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
             row.clock = F::from_canonical_usize(state.traces.clock());
             row.context = F::from_canonical_usize(state.registers.context);
             row.program_counter = F::from_canonical_usize(pc);
+            row.next_program_counter = F::from_canonical_usize(state.registers.next_pc);
             row.is_exit_kernel = F::ONE;
 
             loop {

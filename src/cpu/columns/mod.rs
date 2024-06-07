@@ -58,6 +58,7 @@ pub struct MemIOView<T: Copy> {
     pub(crate) is_swr: T,
     pub(crate) is_ll: T,
     pub(crate) is_sc: T,
+    pub(crate) is_sdc1: T,
     pub(crate) is_lb: T,
     pub(crate) aux_filter: T,
 }
@@ -78,6 +79,7 @@ pub struct CpuColumnsView<T: Copy> {
 
     /// If CPU cycle: The program counter for the current instruction.
     pub program_counter: T,
+    pub next_program_counter: T,
 
     /// If CPU cycle: We're in kernel (privileged) mode.
     pub is_kernel_mode: T,

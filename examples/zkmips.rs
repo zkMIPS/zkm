@@ -47,12 +47,18 @@ fn select_degree_bits(seg_size: usize) -> [std::ops::Range<usize>; 6] {
         (65536, 3),
         (262144, 4),
     ]);
-    match seg_size_to_bits.get(&seg_size) {
-        Some(s) => DEGREE_BITS_RANGE[*s].clone(),
-        None => panic!(
-            "Invalid segment size, supported: {:?}",
-            seg_size_to_bits.keys()
-        ),
+
+    let mut index = -1;
+    for (key, value) in seg_size_to_bits.iter() {
+        if *key >= seg_size {
+            index = *value;
+            break;
+        }
+    }
+
+    match index {
+        -1i32 => panic!("Invalid segment size, supported largest size: 262144"),
+        _ => DEGREE_BITS_RANGE[index as usize].clone(),
     }
 }
 
@@ -100,9 +106,10 @@ fn split_elf_into_segs() {
             instrumented_state.split_segment(true, &seg_path, new_writer);
         }
     }
-
     instrumented_state.split_segment(true, &seg_path, new_writer);
-    log::info!("Split done");
+    log::info!("Split done {}", instrumented_state.state.step);
+
+    instrumented_state.dump_memory();
 }
 
 fn prove_single_seg() {

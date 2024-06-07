@@ -185,6 +185,8 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
                 Ok(Operation::Branch(BranchCond::GE, rs, 0u8, offset)) // BGEZ
             } else if rt == 0 {
                 Ok(Operation::Branch(BranchCond::LT, rs, 0u8, offset)) // BLTZ
+            } else if rt == 0x11 && rs == 0 {
+                Ok(Operation::JumpDirect(31, offset)) // BAL
             } else {
                 Err(ProgramError::InvalidOpcode)
             }
@@ -210,7 +212,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         (0b101011, _, _) => Ok(Operation::MstoreGeneral(MemOp::SW, rs, rt, offset)),
         (0b101110, _, _) => Ok(Operation::MstoreGeneral(MemOp::SWR, rs, rt, offset)),
         (0b111000, _, _) => Ok(Operation::MstoreGeneral(MemOp::SC, rs, rt, offset)),
-
+        (0b111101, _, _) => Ok(Operation::MstoreGeneral(MemOp::SDC1, rs, rt, offset)),
         (0b001000, _, _) => Ok(Operation::BinaryArithmeticImm(
             arithmetic::BinaryOperator::ADDI,
             rs,
@@ -268,6 +270,27 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         (0b001101, _, _) => Ok(Operation::BinaryLogicImm(logic::Op::Or, rs, rt, offset)), // ORI: rt = rs + zext(imm)
         (0b001110, _, _) => Ok(Operation::BinaryLogicImm(logic::Op::Xor, rs, rt, offset)), // XORI: rt = rs + zext(imm)
         (0b000000, 0b001100, _) => Ok(Operation::Syscall), // Syscall
+        (0b110011, _, _) => Ok(Operation::Nop),            // Pref
+        (0b011111, 0b000000, _) => Ok(Operation::Ext(rt, rs, rd, sa)), // ext
+        (0b011111, 0b111011, _) => Ok(Operation::Rdhwr(rt, rd)), // rdhwr
+        (0b011111, 0b100000, _) => {
+            if sa == 0b011000 {
+                Ok(Operation::Signext(rd, rt, 16)) // seh
+            } else if sa == 0b010000 {
+                Ok(Operation::Signext(rd, rt, 8)) // seb
+            } else if sa == 0b000010 {
+                Ok(Operation::SwapHalf(rd, rt)) // wsbh
+            } else {
+                log::warn!(
+                    "decode: invalid opcode {:#08b} {:#08b} {:#08b}",
+                    opcode,
+                    func,
+                    sa
+                );
+                Err(ProgramError::InvalidOpcode)
+            }
+        }
+        (0b000000, 0b110100, _) => Ok(Operation::Teq(rs, rt)), // teq
         _ => {
             log::warn!("decode: invalid opcode {:#08b} {:#08b}", opcode, func);
             Err(ProgramError::InvalidOpcode)
@@ -296,6 +319,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::KeccakGeneral => &mut flags.keccak_general,
         Operation::Jump(_, _) => &mut flags.jumps,
         Operation::Jumpi(_, _) => &mut flags.jumpi,
+        Operation::JumpDirect(_, _) => &mut flags.jumpdirect,
         Operation::Branch(_, _, _, _) => &mut flags.branch,
         Operation::Pc => &mut flags.pc,
         Operation::GetContext => &mut flags.get_context,
@@ -303,6 +327,12 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::MloadGeneral(..) => &mut flags.m_op_load,
         Operation::MstoreGeneral(..) => &mut flags.m_op_store,
         Operation::Nop => &mut flags.nop,
+        Operation::Ext(_, _, _, _) => &mut flags.ext,
+        Operation::Rdhwr(_, _) => &mut flags.rdhwr,
+        Operation::Signext(_, _, 8u8) => &mut flags.signext8,
+        Operation::Signext(_, _, _) => &mut flags.signext16,
+        Operation::SwapHalf(_, _) => &mut flags.swaphalf,
+        Operation::Teq(_, _) => &mut flags.teq,
     } = F::ONE;
 }
 
@@ -396,6 +426,7 @@ fn perform_op<F: RichField>(
         Operation::KeccakGeneral => generate_keccak_general(state, row)?,
         Operation::Jump(link, target) => generate_jump(link, target, state, row)?,
         Operation::Jumpi(link, target) => generate_jumpi(link, target, state, row)?,
+        Operation::JumpDirect(link, target) => generate_jumpdirect(link, target, state, row)?,
         Operation::Branch(cond, input1, input2, target) => {
             generate_branch(cond, input1, input2, target, state, row)?
         }
@@ -409,17 +440,31 @@ fn perform_op<F: RichField>(
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
         Operation::Nop => generate_nop(state, row)?,
-    };
-
-    state.registers.program_counter += match op {
-        Operation::Jump(_, _) => 0,
-        Operation::Jumpi(_, _) => 0,
-        Operation::Branch(_, _, _, _) => 0,
-        _ => 4,
+        Operation::Ext(rt, rs, msbd, lsb) => generate_extract(rt, rs, msbd, lsb, state, row)?,
+        Operation::Rdhwr(rt, rd) => generate_rdhwr(rt, rd, state, row)?,
+        Operation::Signext(rd, rt, bits) => generate_signext(rd, rt, bits, state, row)?,
+        Operation::SwapHalf(rd, rt) => generate_swaphalf(rd, rt, state, row)?,
+        Operation::Teq(rs, rt) => generate_teq(rs, rt, state, row)?,
     };
 
     match op {
-        Operation::Jump(_, _) | Operation::Jumpi(_, _) | Operation::Branch(_, _, _, _) => {
+        Operation::Jump(_, _)
+        | Operation::Jumpi(_, _)
+        | Operation::JumpDirect(_, _)
+        | Operation::Branch(_, _, _, _) => {
+            // Do nothing
+        }
+        _ => {
+            state.registers.program_counter = state.registers.next_pc;
+            state.registers.next_pc += 4;
+        }
+    };
+
+    match op {
+        Operation::Jump(_, _)
+        | Operation::Jumpi(_, _)
+        | Operation::JumpDirect(_, _)
+        | Operation::Branch(_, _, _, _) => {
             log::trace!(
                 "states: pc {} registers: {:?}",
                 state.registers.program_counter,
@@ -447,6 +492,7 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u32
     row.clock = F::from_canonical_usize(state.traces.clock());
     row.context = F::from_canonical_usize(state.registers.context);
     row.program_counter = F::from_canonical_usize(state.registers.program_counter);
+    row.next_program_counter = F::from_canonical_usize(state.registers.next_pc);
     row.is_kernel_mode = F::from_bool(state.registers.is_kernel);
 
     let opcode = read_code_memory(state, &mut row);
