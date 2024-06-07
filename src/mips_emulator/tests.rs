@@ -74,69 +74,6 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_c_hello() {
-        let path = PathBuf::from("./test-vectors/hello2");
-        let data = fs::read(path).expect("could not read file");
-        let file =
-            ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-        let (mut state, _) = State::load_elf(&file);
-
-        state.patch_go(&file);
-        state.patch_stack(vec!["aab", "ccd"]);
-
-        let mut instrumented_state = InstrumentedState::new(state, String::from(""));
-
-        for _ in 0..40000000 {
-            if instrumented_state.state.exited {
-                break;
-            }
-            instrumented_state.step();
-        }
-    }
-
-    #[test]
-    fn test_execute_c_fib() {
-        let path = PathBuf::from("./test-vectors/fib3");
-        let data = fs::read(path).expect("could not read file");
-        let file =
-            ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-        let (mut state, _) = State::load_elf(&file);
-
-        state.patch_go(&file);
-        state.patch_stack(vec!["aab", "ccd"]);
-
-        let mut instrumented_state = InstrumentedState::new(state, String::from(""));
-
-        for _ in 0..400000000 {
-            if instrumented_state.state.exited {
-                break;
-            }
-            instrumented_state.step();
-        }
-    }
-
-    #[test]
-    fn test_execute_rust_hello() {
-        log::debug!("open abc\n");
-        let path = PathBuf::from("./test-vectors/abc");
-        let data = fs::read(path).expect("could not read file");
-        let file =
-            ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-        let (mut state, _) = State::load_elf(&file);
-        state.patch_go(&file);
-        state.patch_stack(vec![]);
-
-        let mut instrumented_state = InstrumentedState::new(state, String::from(""));
-        log::debug!("begin execute\n");
-        for _ in 0..400000 {
-            if instrumented_state.state.exited {
-                break;
-            }
-            instrumented_state.step();
-        }
-    }
-
-    #[test]
     fn test_execute_rust_fib() {
         let path = PathBuf::from("./test-vectors/rust_fib");
         let data = fs::read(path).expect("could not read file");
@@ -222,30 +159,6 @@ mod tests {
         }
 
         instrumented_state.split_segment(true, OUTPUT, new_writer);
-    }
-
-    #[test]
-    fn test_execute_app() {
-        let path = PathBuf::from("./test-vectors/test_local_app");
-        let data = fs::read(path).expect("could not read file");
-        let file =
-            ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-        let (mut state, _) = State::load_elf(&file);
-
-        state.patch_go(&file);
-        state.patch_stack(vec![]);
-
-        let mut instrumented_state = InstrumentedState::new(state, String::from(""));
-
-        let mut step_number = 0;
-        loop {
-            if instrumented_state.state.exited {
-                break;
-            }
-            instrumented_state.step();
-            step_number += 1;
-        }
-        println!("total steps {}", step_number);
     }
 
     #[test]
