@@ -3,8 +3,9 @@ use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
+use std::cmp::max;
 
-use crate::all_stark::{AllStark, NUM_TABLES};
+use crate::all_stark::{AllStark, MIN_TRACE_LEN, NUM_TABLES};
 use crate::arithmetic::{BinaryOperator, Operation};
 use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
@@ -140,6 +141,7 @@ impl<T: Copy> Traces<T> {
         T: RichField + Extendable<D>,
     {
         let cap_elements = config.fri_config.num_cap_elements();
+        let min_rows = max(cap_elements, MIN_TRACE_LEN);
         let Traces {
             arithmetic_ops,
             cpu,
@@ -161,23 +163,21 @@ impl<T: Copy> Traces<T> {
             "generate Poseidon trace",
             all_stark
                 .poseidon_stark
-                .generate_trace(poseidon_inputs, cap_elements, timing)
+                .generate_trace(poseidon_inputs, min_rows, timing)
         );
         let poseidon_sponge_trace = timed!(
             timing,
             "generate Poseidon sponge trace",
-            all_stark.poseidon_sponge_stark.generate_trace(
-                poseidon_sponge_ops,
-                cap_elements,
-                timing
-            )
+            all_stark
+                .poseidon_sponge_stark
+                .generate_trace(poseidon_sponge_ops, min_rows, timing)
         );
         let logic_trace = timed!(
             timing,
             "generate logic trace",
             all_stark
                 .logic_stark
-                .generate_trace(logic_ops, cap_elements, timing)
+                .generate_trace(logic_ops, min_rows, timing)
         );
         let memory_trace = timed!(
             timing,
