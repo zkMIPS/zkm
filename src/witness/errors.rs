@@ -5,6 +5,7 @@ pub enum ProgramError {
     InvalidRegister,
     InvalidSyscall,
     InvalidOpcode,
+    Trap,
     StackUnderflow,
     InvalidRlp,
     InvalidJumpDestination,

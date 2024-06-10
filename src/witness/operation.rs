@@ -66,6 +66,7 @@ pub fn generate_pinv_diff<F: Field>(val0: u32, val1: u32, lv: &mut CpuColumnsVie
 
 pub(crate) const SYSGETPID: usize = 4020;
 pub(crate) const SYSGETGID: usize = 4047;
+pub(crate) const SYSMMAP2: usize = 4210;
 pub(crate) const SYSMMAP: usize = 4090;
 pub(crate) const SYSBRK: usize = 4045;
 pub(crate) const SYSCLONE: usize = 4120;
@@ -73,6 +74,7 @@ pub(crate) const SYSEXITGROUP: usize = 4246;
 pub(crate) const SYSREAD: usize = 4003;
 pub(crate) const SYSWRITE: usize = 4004;
 pub(crate) const SYSFCNTL: usize = 4055;
+pub(crate) const SYSSETTHREADAREA: usize = 4283;
 
 pub(crate) const FD_STDIN: usize = 0;
 pub(crate) const FD_STDOUT: usize = 1;
@@ -96,6 +98,7 @@ pub(crate) enum MemOp {
     LL,
     SC,
     LB,
+    SDC1,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -111,12 +114,18 @@ pub(crate) enum Operation {
     Jump(u8, u8),
     Jumpi(u8, u32),
     Branch(BranchCond, u8, u8, u32),
+    JumpDirect(u8, u32),
     Pc,
     GetContext,
     SetContext,
     MloadGeneral(MemOp, u8, u8, u32),
     MstoreGeneral(MemOp, u8, u8, u32),
     Nop,
+    Ext(u8, u8, u8, u8),
+    Rdhwr(u8, u8),
+    Signext(u8, u8, u8),
+    SwapHalf(u8, u8),
+    Teq(u8, u8),
 }
 
 pub(crate) fn generate_cond_mov_op<F: Field>(
@@ -507,7 +516,7 @@ pub(crate) fn generate_jumpi<F: Field>(
     let operation: logic::Operation =
         logic::Operation::new(logic::Op::And, pc as u32, 0xf0000000u32);
     let pc_result = operation.result as usize;
-    let result_op = reg_write_with_log(0, 7, pc_result, state, &mut row)?;
+    let result_op = reg_write_with_log(0, 2, pc_result, state, &mut row)?;
     target_pc = target_pc.wrapping_add(pc_result);
     let next_pc = pc.wrapping_add(8);
     let link_op = reg_write_with_log(link, 1, next_pc, state, &mut row)?;
@@ -517,6 +526,28 @@ pub(crate) fn generate_jumpi<F: Field>(
     state.jump_to(target_pc);
     state.traces.push_memory(link_op);
     state.traces.push_memory(result_op);
+    Ok(())
+}
+
+pub(crate) fn generate_jumpdirect<F: Field>(
+    link: u8,
+    target: u32,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let target = sign_extend::<16>(target);
+    let (target_pc, _) = target.overflowing_shl(2);
+    let offset_op = reg_write_with_log(0, 2, target_pc as usize, state, &mut row)?;
+    let pc = state.registers.program_counter as u32;
+    let target_pc = target_pc.wrapping_add(pc + 4);
+    let next_pc = pc.wrapping_add(8);
+    let link_op = reg_write_with_log(link, 1, next_pc as usize, state, &mut row)?;
+    // FIXME: skip for lookup check
+    //state.traces.push_logic(operation);
+    state.traces.push_cpu(row);
+    state.jump_to(target_pc as usize);
+    state.traces.push_memory(link_op);
+    state.traces.push_memory(offset_op);
     Ok(())
 }
 
@@ -839,7 +870,7 @@ pub(crate) fn generate_syscall<F: RichField>(
             is_load_preimage = true;
             Ok(())
         }
-        SYSMMAP => {
+        SYSMMAP | SYSMMAP2 => {
             row.general.syscall_mut().sysnum[1] = F::ONE;
             let mut sz = a1;
             let mut sz_not_page_align = false;
@@ -877,7 +908,15 @@ pub(crate) fn generate_syscall<F: RichField>(
         }
         SYSBRK => {
             row.general.syscall_mut().sysnum[2] = F::ONE;
-            v0 = 0x40000000;
+            let (brk, log_in5) = reg_read_with_log(37, 6, state, &mut row)?;
+            if a0 > brk {
+                v0 = a0;
+                row.general.syscall_mut().cond[10] = F::ONE;
+            } else {
+                v0 = brk;
+                row.general.syscall_mut().cond[11] = F::ONE;
+            }
+            state.traces.push_memory(log_in5);
             Ok(())
         }
         SYSCLONE => {
@@ -947,8 +986,14 @@ pub(crate) fn generate_syscall<F: RichField>(
             };
             Ok(())
         }
-        _ => {
+        SYSSETTHREADAREA => {
             row.general.syscall_mut().sysnum[8] = F::ONE;
+            let localop = reg_write_with_log(38, 6, a0, state, &mut row)?;
+            state.traces.push_memory(localop);
+            Ok(())
+        }
+        _ => {
+            row.general.syscall_mut().sysnum[11] = F::ONE;
             Ok(())
         }
     };
@@ -1177,6 +1222,10 @@ pub(crate) fn generate_mstore_general<F: Field>(
             row.memio.is_sc = F::ONE;
             (0, rt)
         }
+        MemOp::SDC1 => {
+            row.memio.is_sdc1 = F::ONE;
+            (0, 0)
+        }
         _ => todo!(),
     };
 
@@ -1206,4 +1255,156 @@ pub(crate) fn generate_nop<F: Field>(
     state.traces.push_cpu(row);
 
     Ok(())
+}
+
+pub(crate) fn generate_extract<F: Field>(
+    rt: u8,
+    rs: u8,
+    msbd: u8,
+    lsb: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    assert!(msbd + lsb < 32);
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let mask_msb = (1 << (msbd + lsb + 1)) - 1;
+
+    let bits_le = (0..32)
+        .map(|i| {
+            let bit = (in0 >> i) & 0x01;
+            F::from_canonical_u32(bit as u32)
+        })
+        .collect_vec();
+    row.general.misc_mut().rs_bits = bits_le.try_into().unwrap();
+
+    row.general.misc_mut().is_msb = [F::ZERO; 32];
+    row.general.misc_mut().is_msb[(msbd + lsb) as usize] = F::ONE;
+    row.general.misc_mut().is_lsb = [F::ZERO; 32];
+    row.general.misc_mut().is_lsb[lsb as usize] = F::ONE;
+    row.general.misc_mut().auxs = F::from_canonical_u32(1 << lsb);
+
+    let mask_lsb = (1 << lsb) - 1;
+    let result = (in0 & mask_msb) >> lsb;
+    row.general.misc_mut().auxm = F::from_canonical_u32((in0 & mask_msb) as u32);
+    row.general.misc_mut().auxl = F::from_canonical_u32((in0 & mask_lsb) as u32);
+    let log_out0 = reg_write_with_log(rt, 1, result, state, &mut row)?;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+
+    Ok(())
+}
+
+pub(crate) fn generate_rdhwr<F: Field>(
+    rt: u8,
+    rd: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    row.general.misc_mut().rd_index = F::from_canonical_u8(rd);
+    let result = if rd == 0 {
+        row.general.misc_mut().rd_index_eq_0 = F::ONE;
+        1
+    } else if rd == 29 {
+        row.general.misc_mut().rd_index_eq_29 = F::ONE;
+        let (in0, log_in0) = reg_read_with_log(38, 1, state, &mut row)?;
+        state.traces.push_memory(log_in0);
+        in0
+    } else {
+        0
+    };
+
+    let log_out0 = reg_write_with_log(rt, 0, result, state, &mut row)?;
+
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+
+    Ok(())
+}
+
+pub(crate) fn generate_signext<F: Field>(
+    rd: u8,
+    rt: u8,
+    bits: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
+
+    let bits_le = (0..32)
+        .map(|i| {
+            let bit = (in0 as u32 >> i) & 0x01;
+            F::from_canonical_u32(bit)
+        })
+        .collect_vec();
+    row.general.io_mut().rt_le = bits_le.try_into().unwrap();
+
+    let bits = bits as usize;
+    let is_signed = (in0 >> (bits - 1)) != 0;
+    let signed = ((1 << (32 - bits)) - 1) << bits;
+    let mask = (1 << bits) - 1;
+    let result = if is_signed {
+        in0 & mask | signed
+    } else {
+        in0 & mask
+    };
+
+    let log_out0 = reg_write_with_log(rd, 1, result, state, &mut row)?;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+
+    Ok(())
+}
+
+pub(crate) fn generate_swaphalf<F: Field>(
+    rd: u8,
+    rt: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
+
+    let bits_le = (0..32)
+        .map(|i| {
+            let bit = (in0 as u32 >> i) & 0x01;
+            F::from_canonical_u32(bit)
+        })
+        .collect_vec();
+    row.general.io_mut().rt_le = bits_le.try_into().unwrap();
+
+    let result = (((in0 >> 16) & 0xFF) << 24)
+        | (((in0 >> 24) & 0xFF) << 16)
+        | ((in0 & 0xFF) << 8)
+        | ((in0 >> 8) & 0xFF);
+
+    let log_out0 = reg_write_with_log(rd, 1, result, state, &mut row)?;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+
+    Ok(())
+}
+
+pub(crate) fn generate_teq<F: Field>(
+    rs: u8,
+    rt: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    if in0 == in1 {
+        Err(ProgramError::Trap)
+    } else {
+        generate_pinv_diff(in0 as u32, in1 as u32, &mut row);
+        state.traces.push_memory(log_in0);
+        state.traces.push_memory(log_in1);
+        state.traces.push_cpu(row);
+
+        Ok(())
+    }
 }

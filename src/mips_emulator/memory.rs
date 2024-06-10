@@ -216,7 +216,7 @@ impl Memory {
         }
 
         if addr as usize >= MAX_MEMORY {
-            log::warn!("access out of memory: {:x?}", addr);
+            log::warn!("write out of memory: {:x?}", addr);
         }
 
         let page_index = addr >> PAGE_ADDR_SIZE;
@@ -278,7 +278,7 @@ impl Memory {
     ) -> Result<(), std::io::ErrorKind> {
         loop {
             if addr as usize >= MAX_MEMORY {
-                panic!("access out of memory: {:x?}", addr);
+                log::warn!("read out of memory: {:x?}", addr);
             }
             let page_index = addr >> PAGE_ADDR_SIZE;
             let page_addr = addr & (PAGE_ADDR_MASK as u32);
@@ -368,7 +368,7 @@ impl Memory {
         self.wtrace[2].clear();
     }
 
-    pub fn compute_image_id(&mut self, pc: u32, regiters: &[u8; 36 * 4]) -> ([u8; 32], [u8; 32]) {
+    pub fn compute_image_id(&mut self, pc: u32, regiters: &[u8; 39 * 4]) -> ([u8; 32], [u8; 32]) {
         // ROOT PAGES  0x81020000.. 0x81020400
         let root_page = 0x81020u32;
         let hash = match self.pages.get(&root_page) {
@@ -376,7 +376,7 @@ impl Memory {
                 panic!("compute image ID fail")
             }
             Some(page) => {
-                page.borrow_mut().data[REGISTERS_OFFSET..REGISTERS_OFFSET + 36 * 4]
+                page.borrow_mut().data[REGISTERS_OFFSET..REGISTERS_OFFSET + 39 * 4]
                     .copy_from_slice(regiters);
                 hash_page(&page.borrow().data)
             }
@@ -462,6 +462,22 @@ impl Memory {
             for i in 0..(PAGE_SIZE / 4) {
                 let mut bytes = [0u8; 4];
                 bytes.copy_from_slice(&cached_page[i << 2..(i << 2) + 4]);
+                image.insert(addr + (i << 2) as u32, u32::from_le_bytes(bytes));
+            }
+        }
+
+        self.rtrace.clear();
+        image
+    }
+
+    pub fn get_total_image(&mut self) -> BTreeMap<u32, u32> {
+        let mut image = BTreeMap::<u32, u32>::new();
+
+        for (page_index, cached_page) in self.pages.iter() {
+            let addr = page_index << 12;
+            for i in 0..(PAGE_SIZE / 4) {
+                let mut bytes = [0u8; 4];
+                bytes.copy_from_slice(&cached_page.borrow().data[i << 2..(i << 2) + 4]);
                 image.insert(addr + (i << 2) as u32, u32::from_le_bytes(bytes));
             }
         }
