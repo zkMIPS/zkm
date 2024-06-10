@@ -71,6 +71,8 @@ pub enum Table {
 pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
 pub(crate) const NUM_PUBLIC_INPUT_USERDATA: usize = 32;
 
+pub(crate) const MIN_TRACE_LEN: usize = 1 << 6;
+
 impl Table {
     pub(crate) fn all() -> [Self; NUM_TABLES] {
         [
