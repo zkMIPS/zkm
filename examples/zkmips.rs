@@ -40,7 +40,7 @@ fn split_elf_into_segs() {
     let file =
         ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
     let (mut state, _) = State::load_elf(&file);
-    state.patch_go(&file);
+    state.patch_elf(&file);
     state.patch_stack(args);
 
     let block_path = match block_no {

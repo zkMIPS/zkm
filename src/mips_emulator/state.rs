@@ -177,7 +177,7 @@ impl State {
         (s, program)
     }
 
-    pub fn patch_go(&mut self, f: &elf::ElfBytes<AnyEndian>) {
+    pub fn patch_elf(&mut self, f: &elf::ElfBytes<AnyEndian>) {
         let symbols = f
             .symbol_table()
             .expect("failed to read symbols table, cannot patch program")
@@ -200,6 +200,7 @@ impl State {
                     | "github.com/prometheus/client_model/go.init.1"
                     | "flag.init"
                     | "runtime.check"
+                    | "runtime.checkfds"
                     | "_dl_discover_osversion" => {
                         log::debug!("patch {} at {:X}", name, symbol.st_value);
                         let r: Vec<u8> = vec![0x03, 0xe0, 0x00, 0x08, 0, 0, 0, 0];
@@ -555,6 +556,15 @@ impl InstrumentedState {
                         FD_STDOUT | FD_STDERR => {
                             v0 = 1 // O_WRONLY
                         }
+                        _ => {
+                            v0 = 0xFFffFFff;
+                            v1 = MIPS_EBADF;
+                        }
+                    }
+                } else if a1 == 1 {
+                    // GET_FD
+                    match a0 {
+                        FD_STDIN | FD_STDOUT | FD_STDERR => v0 = a0,
                         _ => {
                             v0 = 0xFFffFFff;
                             v1 = MIPS_EBADF;
