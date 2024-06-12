@@ -60,7 +60,7 @@ mod tests {
             ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
         let (mut state, _) = State::load_elf(&file);
 
-        state.patch_go(&file);
+        state.patch_elf(&file);
         state.patch_stack(vec!["aab", "ccd"]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
@@ -80,7 +80,7 @@ mod tests {
         let file =
             ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
         let (mut state, _) = State::load_elf(&file);
-        state.patch_go(&file);
+        state.patch_elf(&file);
         state.patch_stack(vec![]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
@@ -102,7 +102,7 @@ mod tests {
             ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
         let (mut state, _) = State::load_elf(&file);
 
-        state.patch_go(&file);
+        state.patch_elf(&file);
         state.patch_stack(vec![]);
 
         let block_path = get_block_path("./test-vectors", "13284491", "");
@@ -137,7 +137,7 @@ mod tests {
             ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
         let (mut state, _) = State::load_elf(&file);
 
-        state.patch_go(&file);
+        state.patch_elf(&file);
         state.patch_stack(vec![]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
