@@ -11,6 +11,7 @@ pub(crate) union CpuGeneralColumnsView<T: Copy> {
     shift: CpuShiftView<T>,
     io: CpuIOAuxView<T>,
     hash: CpuHashView<T>,
+    misc: CpuMiscView<T>,
 }
 
 impl<T: Copy> CpuGeneralColumnsView<T> {
@@ -55,6 +56,16 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn misc(&self) -> &CpuMiscView<T> {
+        unsafe { &self.misc }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn misc_mut(&mut self) -> &mut CpuMiscView<T> {
+        unsafe { &mut self.misc }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn io(&self) -> &CpuIOAuxView<T> {
         unsafe { &self.io }
     }
@@ -96,10 +107,23 @@ impl<T: Copy> BorrowMut<[T; NUM_SHARED_COLUMNS]> for CpuGeneralColumnsView<T> {
 
 #[derive(Copy, Clone)]
 pub(crate) struct CpuSyscallView<T: Copy> {
-    pub(crate) cond: [T; 10],
-    pub(crate) sysnum: [T; 11],
+    pub(crate) cond: [T; 12],
+    pub(crate) sysnum: [T; 12],
     pub(crate) a0: [T; 3],
     pub(crate) a1: T,
+}
+
+#[derive(Copy, Clone)]
+pub(crate) struct CpuMiscView<T: Copy> {
+    pub(crate) rs_bits: [T; 32],
+    pub(crate) is_msb: [T; 32],
+    pub(crate) is_lsb: [T; 32],
+    pub(crate) auxm: T,
+    pub(crate) auxl: T,
+    pub(crate) auxs: T,
+    pub(crate) rd_index: T,
+    pub(crate) rd_index_eq_0: T,
+    pub(crate) rd_index_eq_29: T,
 }
 
 #[derive(Copy, Clone)]

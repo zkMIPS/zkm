@@ -111,6 +111,12 @@ pub(crate) fn reg_read_with_log<F: Field>(
             state.registers.heap
         } else if index == 35 {
             state.registers.program_counter
+        } else if index == 36 {
+            state.registers.next_pc
+        } else if index == 37 {
+            state.registers.brk
+        } else if index == 38 {
+            state.registers.local_user
         } else {
             return Err(ProgramError::InvalidRegister);
         }
@@ -156,6 +162,12 @@ pub(crate) fn reg_write_with_log<F: Field>(
         state.registers.heap = value;
     } else if index == 35 {
         state.registers.program_counter = value;
+    } else if index == 36 {
+        state.registers.next_pc = value;
+    } else if index == 37 {
+        state.registers.brk = value;
+    } else if index == 38 {
+        state.registers.local_user = value;
     } else {
         return Err(ProgramError::InvalidRegister);
     }

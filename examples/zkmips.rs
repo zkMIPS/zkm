@@ -1,6 +1,8 @@
 use elf::{endian::AnyEndian, ElfBytes};
 use std::env;
 use std::fs::{self, File};
+use std::io::BufReader;
+use std::ops::Range;
 use std::time::Duration;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -10,7 +12,6 @@ use plonky2x::backend::circuit::Groth16WrapperParameters;
 use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::prelude::DefaultParameters;
-use std::io::BufReader;
 use zkm::all_stark::AllStark;
 use zkm::config::StarkConfig;
 use zkm::cpu::kernel::assembler::segment_kernel;
@@ -22,39 +23,7 @@ use zkm::proof::PublicValues;
 use zkm::prover::prove;
 use zkm::verifier::verify_proof;
 
-// const DEGREE_BITS_RANGE: [[std::ops::Range<usize>; 6]; 5] = [
-//     [16..17, 12..13, 12..16, 8..12, 14..17, 17..19],
-//     [16..17, 15..17, 15..17, 9..12, 15..17, 19..20],
-//     [16..17, 15..17, 16..19, 11..14, 16..19, 19..21],
-//     [16..17, 17..18, 16..19, 11..14, 16..19, 21..22],
-//     // [10..21, 12..22, 13..21, 8..21, 10..21, 13..23],
-//     [16..20, 15..22, 16..21, 11..16, 16..21, 19..23],
-// ];
-
-const DEGREE_BITS_RANGE: [[std::ops::Range<usize>; 6]; 5] = [
-    [10..21, 10..15, 10..18, 8..15, 10..21, 15..23],
-    [10..21, 12..22, 13..21, 8..21, 10..21, 13..23],
-    [10..21, 12..22, 13..21, 8..21, 10..21, 13..23],
-    [10..21, 12..22, 13..21, 8..21, 10..21, 13..23],
-    [10..21, 12..22, 13..21, 8..21, 10..21, 13..23],
-];
-
-fn select_degree_bits(seg_size: usize) -> [std::ops::Range<usize>; 6] {
-    let seg_size_to_bits = std::collections::BTreeMap::from([
-        (1024, 0),
-        (16384, 1),
-        (32768, 2),
-        (65536, 3),
-        (262144, 4),
-    ]);
-    match seg_size_to_bits.get(&seg_size) {
-        Some(s) => DEGREE_BITS_RANGE[*s].clone(),
-        None => panic!(
-            "Invalid segment size, supported: {:?}",
-            seg_size_to_bits.keys()
-        ),
-    }
-}
+const DEGREE_BITS_RANGE: [Range<usize>; 6] = [10..21, 12..22, 12..21, 8..21, 6..21, 13..23];
 
 fn split_elf_into_segs() {
     // 1. split ELF into segs
@@ -71,7 +40,7 @@ fn split_elf_into_segs() {
     let file =
         ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
     let (mut state, _) = State::load_elf(&file);
-    state.patch_go(&file);
+    state.patch_elf(&file);
     state.patch_stack(args);
 
     let block_path = match block_no {
@@ -100,9 +69,10 @@ fn split_elf_into_segs() {
             instrumented_state.split_segment(true, &seg_path, new_writer);
         }
     }
-
     instrumented_state.split_segment(true, &seg_path, new_writer);
-    log::info!("Split done");
+    log::info!("Split done {}", instrumented_state.state.step);
+
+    instrumented_state.dump_memory();
 }
 
 fn prove_single_seg() {
@@ -182,7 +152,7 @@ fn aggregate_proof() -> anyhow::Result<()> {
     let config = StarkConfig::standard_fast_config();
     // Preprocess all circuits.
     let all_circuits =
-        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &select_degree_bits(seg_size), &config);
+        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &DEGREE_BITS_RANGE, &config);
 
     let seg_reader = BufReader::new(File::open(seg_file)?);
     let input_first = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
@@ -259,7 +229,7 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
     let config = StarkConfig::standard_fast_config();
     // Preprocess all circuits.
     let all_circuits =
-        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &select_degree_bits(seg_size), &config);
+        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &DEGREE_BITS_RANGE, &config);
 
     let seg_file = format!("{}/{}", seg_dir, 0);
     log::info!("Process segment 0");

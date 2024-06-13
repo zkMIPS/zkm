@@ -949,6 +949,11 @@ fn eval_packed_store<P: PackedField>(
         yield_constr.constraint(lv.memio.is_sc * (mem - rt_value));
     }
 
+    // SDC1:
+    {
+        yield_constr.constraint(lv.memio.is_sdc1 * mem);
+    }
+
     // Disable remaining memory channels, if any.
     for &channel in &lv.mem_channels[6..(NUM_GP_CHANNELS - 1)] {
         yield_constr.constraint(filter * channel.used);
@@ -1192,6 +1197,12 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         let rt_value = limb_from_bits_le_recursive(builder, rt_limbs);
         let fc = builder.sub_extension(mem, rt_value);
         let fc = builder.mul_extension(lv.memio.is_sc, fc);
+        yield_constr.constraint(builder, fc);
+    }
+
+    // SDC1
+    {
+        let fc = builder.mul_extension(lv.memio.is_sdc1, mem);
         yield_constr.constraint(builder, fc);
     }
 

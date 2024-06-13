@@ -3,10 +3,9 @@ use crate::mips_emulator::memory::Memory;
 use crate::mips_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use crate::mips_emulator::witness::{Program, ProgramSegment};
 use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
-use elf::abi::PT_LOAD;
+use elf::abi::{PT_LOAD, PT_TLS};
 use elf::endian::AnyEndian;
 use log::{trace, warn};
-use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
@@ -51,11 +50,19 @@ pub struct State {
 
     /// heap handles the mmap syscall.
     heap: u32,
+
+    /// brk handles the brk syscall
+    brk: u32,
+
+    // tlb addr
+    local_user: u32,
+
     /// step tracks the total step has been executed.
-    step: u64,
+    pub step: u64,
 
     pub exited: bool,
-    exit_code: u8,
+    pub exit_code: u8,
+    dump_info: bool,
 }
 
 impl Display for State {
@@ -80,9 +87,12 @@ impl State {
             hi: 0,
             lo: 0,
             heap: 0,
+            local_user: 0,
             step: 0,
+            brk: 0,
             exited: false,
             exit_code: 0,
+            dump_info: false,
         })
     }
 
@@ -97,13 +107,17 @@ impl State {
             hi: 0,
             lo: 0,
             heap: 0x20000000,
+            local_user: 0,
             step: 0,
+            brk: 0,
             exited: false,
             exit_code: 0,
+            dump_info: false,
         });
 
         let mut program = Box::from(Program::new());
 
+        let mut hiaddr = 0u32;
         let segments = f
             .segments()
             .expect("invalid ELF cause failed to parse segments.");
@@ -118,7 +132,7 @@ impl State {
             let mut r = Vec::from(r);
 
             if segment.p_filesz != segment.p_memsz {
-                if segment.p_type == PT_LOAD {
+                if segment.p_type == PT_LOAD || segment.p_type == PT_TLS {
                     if segment.p_filesz < segment.p_memsz {
                         let diff = (segment.p_memsz - segment.p_filesz) as usize;
                         r.extend_from_slice(vec![0u8; diff].as_slice());
@@ -141,6 +155,10 @@ impl State {
                 );
             }
 
+            let a = (segment.p_vaddr + segment.p_memsz) as u32;
+            if a > hiaddr {
+                hiaddr = a;
+            }
             let n = r.len();
             let r: Box<&[u8]> = Box::new(r.as_slice());
             s.memory
@@ -155,10 +173,11 @@ impl State {
                 })
             }
         }
+        s.brk = hiaddr - (hiaddr & (PAGE_ADDR_MASK as u32)) + PAGE_SIZE as u32;
         (s, program)
     }
 
-    pub fn patch_go(&mut self, f: &elf::ElfBytes<AnyEndian>) {
+    pub fn patch_elf(&mut self, f: &elf::ElfBytes<AnyEndian>) {
         let symbols = f
             .symbol_table()
             .expect("failed to read symbols table, cannot patch program")
@@ -180,7 +199,10 @@ impl State {
                     | "github.com/prometheus/client_model/go.init.0"
                     | "github.com/prometheus/client_model/go.init.1"
                     | "flag.init"
-                    | "runtime.check" => {
+                    | "runtime.check"
+                    | "runtime.checkfds"
+                    | "_dl_discover_osversion" => {
+                        log::debug!("patch {} at {:X}", name, symbol.st_value);
                         let r: Vec<u8> = vec![0x03, 0xe0, 0x00, 0x08, 0, 0, 0, 0];
                         let r = Box::new(r.as_slice());
                         self.memory
@@ -194,7 +216,16 @@ impl State {
                             .set_memory_range(symbol.st_value as u32, r)
                             .expect("set memory range failed");
                     }
-                    _ => {}
+                    _ => {
+                        // if name.contains("sys_common") && name.contains("thread_info") {
+                        //    log::debug!("patch {}", name);
+                        //    let r: Vec<u8> = vec![0x03, 0xe0, 0x00, 0x08, 0, 0, 0, 0];
+                        //    let r = Box::new(r.as_slice());
+                        //    self.memory
+                        //        .set_memory_range(symbol.st_value as u32, r)
+                        //        .expect("set memory range failed");
+                        //}
+                    }
                 },
                 Err(e) => {
                     warn!("parse symbol failed, {}", e);
@@ -241,13 +272,50 @@ impl State {
         log::debug!("count {} items {:?}", index, items);
         // init argc,  argv, aux on stack
         store_mem(sp, index);
-        store_mem(sp + 4 * (index + 1), 0x35); // argv[n] = 0 (terminating argv)
-        store_mem(sp + 4 * (index + 2), 0x00); // envp[term] = 0 (no env vars)
-        store_mem(sp + 4 * (index + 3), 0x06); // auxv[0] = _AT_PAGESZ = 6 (key)
-        store_mem(sp + 4 * (index + 4), 0x1000); // auxv[1] = page size of 4 KiB (value) - (== minPhysPageSize)
-        store_mem(sp + 4 * (index + 5), 0x1A); // auxv[2] = AT_RANDOM
-        store_mem(sp + 4 * (index + 6), sp + 4 * (index + 8)); // auxv[3] = address of 16 bytes containing random value
-        store_mem(sp + 4 * (index + 7), 0); // auxv[term] = 0
+        let mut cur_sp = sp + 4 * (index + 1);
+        store_mem(cur_sp, 0x00); // argv[n] = 0 (terminating argv)
+        cur_sp += 4;
+        store_mem(cur_sp, 0x00); // envp[term] = 0 (no env vars)
+        cur_sp += 4;
+
+        store_mem(cur_sp, 0x06); // auxv[0] = _AT_PAGESZ = 6 (key)
+        store_mem(cur_sp + 4, 0x1000); // auxv[1] = page size of 4 KiB (value)
+        cur_sp += 8;
+
+        store_mem(cur_sp, 0x0b); // auxv[0] = AT_UID = 11 (key)
+        store_mem(cur_sp + 4, 0x3e8); // auxv[1] = Real uid (value)
+        cur_sp += 8;
+        store_mem(cur_sp, 0x0c); // auxv[0] = AT_EUID = 12 (key)
+        store_mem(cur_sp + 4, 0x3e8); // auxv[1] = Effective uid (value)
+        cur_sp += 8;
+        store_mem(cur_sp, 0x0d); // auxv[0] = AT_GID = 13 (key)
+        store_mem(cur_sp + 4, 0x3e8); // auxv[1] = Real gid (value)
+        cur_sp += 8;
+        store_mem(cur_sp, 0x0e); // auxv[0] = AT_EGID = 14 (key)
+        store_mem(cur_sp + 4, 0x3e8); // auxv[1] = Effective gid (value)
+        cur_sp += 8;
+        store_mem(cur_sp, 0x10); // auxv[0] = AT_HWCAP = 16 (key)
+        store_mem(cur_sp + 4, 0x00); // auxv[1] =  arch dependent hints at CPU capabilities (value)
+        cur_sp += 8;
+        store_mem(cur_sp, 0x11); // auxv[0] = AT_CLKTCK = 17 (key)
+        store_mem(cur_sp + 4, 0x64); // auxv[1] = Frequency of times() (value)
+        cur_sp += 8;
+        store_mem(cur_sp, 0x17); // auxv[0] = AT_SECURE = 23 (key)
+        store_mem(cur_sp + 4, 0x00); // auxv[1] = secure mode boolean (value)
+        cur_sp += 8;
+
+        store_mem(cur_sp, 0x19); // auxv[4] = AT_RANDOM = 25 (key)
+        store_mem(cur_sp + 4, cur_sp + 12); // auxv[5] = address of 16 bytes containing random value
+        cur_sp += 8;
+        store_mem(cur_sp, 0); // auxv[term] = 0
+        cur_sp += 4;
+        store_mem(cur_sp, 0x5f28df1d); // auxv[term] = 0
+        store_mem(cur_sp + 4, 0x2cd1002a); // auxv[term] = 0
+        store_mem(cur_sp + 8, 0x5ff9f682); // auxv[term] = 0
+        store_mem(cur_sp + 12, 0xd4d8d538); // auxv[term] = 0
+        cur_sp += 16;
+        store_mem(cur_sp, 0x00); // auxv[term] = 0
+        cur_sp += 4;
 
         let mut store_mem_str = |paddr: u32, daddr: u32, str: &str| {
             let mut dat = [0u8; 4];
@@ -263,19 +331,11 @@ impl State {
                 .expect("failed to set memory range");
         };
 
-        let mut addr = sp + 4 * (index + 12);
         for (ind, inp) in items.iter() {
             let index = *ind;
-            store_mem_str(sp + 4 * (index + 1), addr, inp);
-            addr += inp.len() as u32 + 1;
+            store_mem_str(sp + 4 * (index + 1), cur_sp, inp);
+            cur_sp += inp.len() as u32 + 1;
         }
-
-        let mut rng = thread_rng();
-        let r: [u8; 16] = rng.gen();
-        let r: Box<&[u8]> = Box::new(r.as_slice());
-        self.memory
-            .set_memory_range(sp + 4 * (index + 8), r)
-            .expect("failed to set memory range");
     }
 
     pub fn load_preimage(&mut self, blockpath: String) {
@@ -335,8 +395,8 @@ impl State {
             .expect("set memory range failed");
     }
 
-    pub fn get_registers_bytes(&mut self) -> [u8; 36 * 4] {
-        let mut regs_bytes_be = [0u8; 36 * 4];
+    pub fn get_registers_bytes(&mut self) -> [u8; 39 * 4] {
+        let mut regs_bytes_be = [0u8; 39 * 4];
         for i in 0..32 {
             regs_bytes_be[i * 4..i * 4 + 4].copy_from_slice(&self.registers[i].to_be_bytes());
         }
@@ -345,6 +405,9 @@ impl State {
         regs_bytes_be[33 * 4..33 * 4 + 4].copy_from_slice(&self.hi.to_be_bytes());
         regs_bytes_be[34 * 4..34 * 4 + 4].copy_from_slice(&self.heap.to_be_bytes());
         regs_bytes_be[35 * 4..35 * 4 + 4].copy_from_slice(&self.pc.to_be_bytes());
+        regs_bytes_be[36 * 4..36 * 4 + 4].copy_from_slice(&self.next_pc.to_be_bytes());
+        regs_bytes_be[37 * 4..37 * 4 + 4].copy_from_slice(&self.brk.to_be_bytes());
+        regs_bytes_be[38 * 4..38 * 4 + 4].copy_from_slice(&self.local_user.to_be_bytes());
         regs_bytes_be
     }
 }
@@ -394,12 +457,16 @@ impl InstrumentedState {
         let a1 = self.state.registers[5];
         let a2 = self.state.registers[6];
 
+        self.state.dump_info = true;
+
+        log::debug!("syscall {}", syscall_num);
+
         match syscall_num {
             4020 => {
-                //read preimage (getpid)
+                // read preimage (getpid)
                 self.state.load_preimage(self.block_path.clone())
             }
-            4090 => {
+            4210 | 4090 => {
                 // mmap
                 // args: a0 = heap/hint, indicates mmap heap or hint. a1 = size
                 let mut size = a1;
@@ -418,7 +485,11 @@ impl InstrumentedState {
             }
             4045 => {
                 // brk
-                v0 = 0x40000000;
+                if a0 > self.state.brk {
+                    v0 = a0;
+                } else {
+                    v0 = self.state.brk;
+                }
             }
             4120 => {
                 // clone
@@ -490,10 +561,23 @@ impl InstrumentedState {
                             v1 = MIPS_EBADF;
                         }
                     }
+                } else if a1 == 1 {
+                    // GET_FD
+                    match a0 {
+                        FD_STDIN | FD_STDOUT | FD_STDERR => v0 = a0,
+                        _ => {
+                            v0 = 0xFFffFFff;
+                            v1 = MIPS_EBADF;
+                        }
+                    }
                 } else {
                     v0 = 0xFFffFFff;
                     v1 = MIPS_EBADF;
                 }
+            }
+            4283 => {
+                log::trace!("set local user {:X} {:X} {:X}", a0, a1, a2);
+                self.state.local_user = a0;
             }
             _ => {}
         }
@@ -506,6 +590,7 @@ impl InstrumentedState {
     }
 
     fn handle_branch(&mut self, opcode: u32, insn: u32, rt_reg: u32, rs: u32) {
+        self.state.dump_info = true;
         let should_branch = match opcode {
             4 | 5 => {
                 // beq/bne
@@ -529,6 +614,10 @@ impl InstrumentedState {
                 } else if rtv == 1 {
                     // 1 -> bgez
                     (rs as i32) >= 0
+                } else if rtv == 0b10001 {
+                    // bal  000001 00000 10001 offset
+                    self.state.registers[31] = self.state.pc + 8;
+                    true
                 } else {
                     false
                 }
@@ -539,25 +628,31 @@ impl InstrumentedState {
         };
 
         let prev_pc = self.state.pc;
+        self.state.pc = self.state.next_pc; // execute the delay slot first
         if should_branch {
             // then continue with the instruction the branch jumps to.
-            self.state.pc =
+            self.state.next_pc =
                 (prev_pc as u64 + 4u64 + (sign_extension(insn & 0xFFFF, 16) << 2) as u64) as u32;
         } else {
-            self.state.pc = self.state.next_pc + 4;
+            self.state.next_pc += 4;
         }
-        self.state.next_pc = self.state.pc + 4;
     }
 
     fn handle_jump(&mut self, link_reg: u32, dest: u32) {
         let prev_pc = self.state.pc;
-        self.state.pc = dest;
-        self.state.next_pc = dest + 4;
+        self.state.pc = self.state.next_pc;
+        self.state.next_pc = dest;
 
         if link_reg != 0 {
             // set the link-register to the instr after the delay slot instruction.
             self.state.registers[link_reg as usize] = prev_pc + 8;
         }
+        self.state.dump_info = true;
+    }
+
+    fn handle_trap(&mut self) {
+        // do nothing currently
+        self.state.dump_info = true;
     }
 
     fn handle_hilo(&mut self, fun: u32, rs: u32, rt: u32, store_reg: u32) {
@@ -638,6 +733,8 @@ impl InstrumentedState {
         let insn = self.state.memory.get_memory(self.state.pc);
         let opcode = insn >> 26; // 6-bits
 
+        log::trace!("pc: {:X}, insn: {:X}", self.state.pc, insn);
+
         // j-type j/jal
         if opcode == 2 || opcode == 3 {
             let link_reg = match opcode {
@@ -656,7 +753,8 @@ impl InstrumentedState {
         // R-type or I-type (stores rt)
         let mut rs = self.state.registers[((insn >> 21) & 0x1f) as usize];
         let mut rd_reg = rt_reg;
-        if opcode == 0 || opcode == 0x1c {
+        let fun = insn & 0x3f;
+        if opcode == 0 || opcode == 0x1c || (opcode == 0x1F && fun == 0x20) {
             // R-type (stores rd)
             rt = self.state.registers[rt_reg as usize];
             rd_reg = (insn >> 11) & 0x1f;
@@ -697,17 +795,6 @@ impl InstrumentedState {
                 // store opcodes don't write back to a register
                 rd_reg = 0;
             }
-
-            /*
-            // create the memory access operation
-            mem_access = Some(MemoryAccess {
-                rw_counter: self.state.step,
-                addr,
-                op: MemoryOperation::Read,
-                value: mem,
-                value_prev: mem,
-            });
-            */
         }
 
         // ALU
@@ -749,24 +836,26 @@ impl InstrumentedState {
             }
         }
 
+        if opcode == 0 && fun == 0x34 && val == 1 {
+            self.handle_trap();
+        }
+
         // stupid sc, write a 1 to rt
         if opcode == 0x38 && rt_reg != 0 {
             self.state.registers[rt_reg as usize] = 1;
         }
 
+        if opcode == 0x33 {
+            //pref
+            self.handle_rd(0, val, false);
+            return;
+        }
+
         // write memory
         if store_addr != 0xffFFffFF {
             //let value_prev = self.state.memory.get_memory(store_addr);
+            log::trace!("write memory {:X}, {:X}", store_addr, val);
             self.state.memory.set_memory(store_addr, val);
-            /*
-            mem_access = Some(MemoryAccess {
-                rw_counter: self.state.step,
-                addr: store_addr,
-                op: MemoryOperation::Write,
-                value: val,
-                value_prev,
-            });
-            */
         }
 
         // write back the value to the destination register
@@ -864,6 +953,13 @@ impl InstrumentedState {
                             0
                         };
                     }
+                    0x34 => {
+                        return if rs == rt {
+                            1 // teq
+                        } else {
+                            0
+                        };
+                    }
                     _ => {}
                 }
             } else if opcode == 0xf {
@@ -885,6 +981,43 @@ impl InstrumentedState {
                         i += 1;
                     }
                     return i;
+                }
+            } else if opcode == 0x1F {
+                // SPECIAL3
+                if fun == 0 {
+                    // ext
+                    let msbd = (insn >> 11) & 0x1F;
+                    let lsb = (insn >> 6) & 0x1F;
+                    let mask = (1 << (msbd + 1)) - 1;
+                    let i = (rs >> lsb) & mask;
+                    return i;
+                } else if fun == 0b111011 {
+                    //rdhwr
+                    let rd = (insn >> 11) & 0x1F;
+                    if rd == 0 {
+                        return 1; // cpu number
+                    } else if rd == 29 {
+                        log::trace!("pc: {:X} rdhwr {:X}", self.state.pc, self.state.local_user);
+                        //return 0x946490;  // a pointer to a thread-specific storage block
+                        return self.state.local_user;
+                    } else {
+                        return 0;
+                    }
+                } else if fun == 0b100000 {
+                    let shamt = (insn >> 6) & 0x1F;
+                    if shamt == 0x18 {
+                        // seh
+                        return sign_extension(rt, 16);
+                    } else if shamt == 0x10 {
+                        // seb
+                        return sign_extension(rt, 8);
+                    } else if shamt == 0x02 {
+                        // wsbh
+                        return (((rt >> 16) & 0xFF) << 24)
+                            | (((rt >> 24) & 0xFF) << 16)
+                            | ((rt & 0xFF) << 8)
+                            | ((rt >> 8) & 0xFF);
+                    }
                 }
             }
         } else if opcode < 0x28 {
@@ -949,16 +1082,35 @@ impl InstrumentedState {
         } else if opcode == 0x30 {
             // ll
             return mem;
+        } else if opcode == 0x33 {
+            // pref
+            return mem;
         } else if opcode == 0x38 {
             // sc
             return rt;
+        } else if opcode == 0x3D {
+            // sdc1
+            return 0;
         }
 
-        panic!("invalid instruction, opcode: {}", opcode);
+        panic!(
+            "invalid instruction, opcode: {:X} {:X} {:X}",
+            opcode, insn, self.state.pc
+        );
     }
 
     pub fn step(&mut self) {
-        self.mips_step()
+        let dump: bool = self.state.dump_info;
+        self.state.dump_info = false;
+
+        self.mips_step();
+        if dump {
+            log::trace!(
+                "pc: {:X} regs: {:X?}\n",
+                self.state.pc,
+                self.state.registers
+            );
+        };
     }
 
     /// the caller should provide a write to write segemnt if proof is true
@@ -1001,6 +1153,13 @@ impl InstrumentedState {
         self.pre_pc = self.state.pc;
         self.pre_image_id = image_id;
         self.pre_hash_root = page_hash_root;
+    }
+
+    pub fn dump_memory(&mut self) {
+        let image = self.state.memory.get_total_image();
+        for (addr, val) in image.iter() {
+            log::trace!("{:X}: {:X}", addr, val);
+        }
     }
 }
 

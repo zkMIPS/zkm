@@ -18,12 +18,15 @@ pub const PAGE_SIZE: u32 = 4096;
 pub struct Program {
     /// The entrypoint of the program, PC
     pub entry: u32,
+    pub next_pc: usize,
     /// The initial memory image
     pub image: BTreeMap<u32, u32>,
     pub gprs: [usize; 32],
     pub lo: usize,
     pub hi: usize,
     pub heap: usize,
+    pub brk: usize,
+    pub local_user: usize,
     pub end_pc: usize,
     pub image_id: [u8; 32],
     pub pre_image_id: [u8; 32],
@@ -78,6 +81,8 @@ impl Program {
         if segments.len() > 256 {
             bail!("Too many program headers");
         }
+
+        let mut hiaddr = 0u32;
         for segment in segments.iter().filter(|x| x.p_type == elf::abi::PT_LOAD) {
             let file_size: u32 = segment
                 .p_filesz
@@ -100,6 +105,12 @@ impl Program {
             if vaddr % WORD_SIZE as u32 != 0 {
                 bail!("vaddr {vaddr:08x} is unaligned");
             }
+
+            let a = vaddr + mem_size;
+            if a > hiaddr {
+                hiaddr = a;
+            }
+
             let offset: u32 = segment
                 .p_offset
                 .try_into()
@@ -125,6 +136,8 @@ impl Program {
                 }
             }
         }
+
+        let brk = hiaddr - (hiaddr & (PAGE_SIZE - 1)) + PAGE_SIZE;
 
         let (symtab, strtab) = elf
             .symbol_table()
@@ -226,11 +239,14 @@ impl Program {
 
         Ok(Program {
             entry,
+            next_pc: (entry + 4) as usize,
             image,
             gprs,
             lo,
             hi,
             heap,
+            brk: brk as usize,
+            local_user: 0,
             end_pc: end_pc as usize,
             image_id: image_id.try_into().unwrap(),
             pre_image_id: pre_image_id.try_into().unwrap(),
@@ -269,7 +285,24 @@ impl Program {
             .get(&(REGISTERS_START + (35 << 2) as u32))
             .unwrap()
             .to_be() as usize;
+        let next_pc: usize = image
+            .get(&(REGISTERS_START + (36 << 2) as u32))
+            .unwrap()
+            .to_be() as usize;
+
+        let brk: usize = image
+            .get(&(REGISTERS_START + (37 << 2) as u32))
+            .unwrap()
+            .to_be() as usize;
+
+        let local_user: usize = image
+            .get(&(REGISTERS_START + (38 << 2) as u32))
+            .unwrap()
+            .to_be() as usize;
+
         let page_hash_root = segment.page_hash_root;
+
+        assert!(pc as u32 == segment.pc);
 
         log::trace!(
             "load segment pc: {} image: {:?} gprs: {:?} lo: {} hi: {} heap:{} range: ({} -> {})",
@@ -284,11 +317,14 @@ impl Program {
         );
         Ok(Program {
             entry,
+            next_pc,
             image,
             gprs,
             lo,
             hi,
             heap,
+            brk,
+            local_user,
             end_pc,
             image_id: segment.image_id,
             pre_image_id: segment.pre_image_id,
