@@ -16,10 +16,10 @@ pub extern "C" fn syscall_write(fd: u32, write_buf: *const u8, nbytes: usize) {
             unsafe {
                 asm!(
                     "syscall",
-                    in("v0") crate::syscalls::WRITE,
-                    in("a0") fd,
-                    in("a1") write_buf,
-                    in("a2") nbytes,
+                    in("$2") crate::syscalls::WRITE,
+                    in("$4") fd,
+                    in("$5") write_buf,
+                    in("$6") nbytes,
                 );
             }
 
@@ -44,8 +44,8 @@ pub extern "C" fn syscall_hint_len() -> usize {
         let len;
         asm!(
             "syscall",
-            in("v0") crate::syscalls::HINT_LEN,
-            lateout("v0") len,
+            in("$2") crate::syscalls::HINT_LEN,
+            lateout("$2") len,
         );
         len
     }
@@ -61,9 +61,9 @@ pub extern "C" fn syscall_hint_read(ptr: *mut u8, len: usize) {
     unsafe {
         asm!(
             "syscall",
-            in("v0") crate::syscalls::HINT_READ,
-            in("a0") ptr,
-            in("a1") len,
+            in("$2") crate::syscalls::HINT_READ,
+            in("$4") ptr,
+            in("$5") len,
         );
     }
 

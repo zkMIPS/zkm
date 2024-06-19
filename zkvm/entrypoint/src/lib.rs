@@ -1,3 +1,5 @@
+#![feature(asm_experimental_arch)]
+
 pub mod heap;
 pub mod syscalls;
 pub mod io {
@@ -29,7 +31,6 @@ macro_rules! entrypoint {
     };
 }
 
-#[cfg(all(target_os = "zkvm", feature = "libm"))]
 mod libm;
 
 /// The number of 32 bit words that the public values digest is composed of.
@@ -40,7 +41,6 @@ pub const POSEIDON_NUM_WORDS: usize = 8;
 mod zkvm {
     use crate::syscalls::syscall_halt;
 
-    use cfg_if::cfg_if;
     use getrandom::{register_custom_getrandom, Error};
     use sha2::{Digest, Sha256};
 
@@ -71,10 +71,10 @@ mod zkvm {
     .section .text._start;
     .globl _start;
     _start:
-        la gp, __global_pointer$;
-        la sp, {0}
-        lw sp, 0(sp)
-        call __start;
+        la $28, __global_pointer$;
+        la $29, {0};
+        lw $29, 0($29);
+        jal __start;
     "#,
         sym STACK_TOP
     );

@@ -308,8 +308,8 @@ $BBmemset0_9:
 	.set	macro
 	.set	reorder
 	.end	memset
-$func_end0:
-	.size	memset, ($func_end0)-memset
+$memset_func_end0:
+	.size	memset, ($memset_func_end0)-memset
                                         # -- End function
 	.ident	"clang version 10.0.0-4ubuntu1 "
 	.section	".note.GNU-stack","",@progbits

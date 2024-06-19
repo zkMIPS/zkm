@@ -327,8 +327,8 @@ $BBmemcpy0_22:
 	.set	macro
 	.set	reorder
 	.end	memccpy
-$func_end0:
-	.size	memccpy, ($func_end0)-memccpy
+$memcpy_func_end0:
+	.size	memccpy, ($memcpy_func_end0)-memccpy
                                         # -- End function
 	.ident	"clang version 10.0.0-4ubuntu1 "
 	.section	".note.GNU-stack","",@progbits
