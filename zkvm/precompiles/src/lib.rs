@@ -5,14 +5,8 @@
 //! function impls must live in sp1-zkvm, which is only imported into the end user program crate.
 //! In contrast, sp1-precompiles can be imported into any crate in the dependency tree.
 
-pub mod bls12381;
-pub mod bn254;
 pub mod io;
-pub mod secp256k1;
-pub mod unconstrained;
 pub mod utils;
-#[cfg(feature = "verify")]
-pub mod verify;
 
 pub const BIGINT_WIDTH_WORDS: usize = 8;
 
