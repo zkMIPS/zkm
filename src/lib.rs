@@ -8,6 +8,7 @@
 #![feature(decl_macro)]
 #![feature(generic_arg_infer)]
 #![allow(dead_code)]
+
 pub mod all_stark;
 pub mod arithmetic;
 pub mod config;
@@ -35,3 +36,4 @@ pub mod util;
 pub mod vanishing_poly;
 pub mod verifier;
 pub mod witness;
+pub mod benchmark;
