@@ -1,5 +1,4 @@
 #![feature(asm_experimental_arch)]
-
 pub mod heap;
 pub mod syscalls;
 pub mod io {
@@ -24,7 +23,7 @@ macro_rules! entrypoint {
         mod zkvm_generated_main {
 
             #[no_mangle]
-            fn main() {
+            fn start() {
                 super::ZKVM_ENTRY()
             }
         }
@@ -48,14 +47,14 @@ mod zkvm {
 
     #[cfg(not(feature = "interface"))]
     #[no_mangle]
-    unsafe extern "C" fn __start() {
-        {
+    fn main() {
+        unsafe {
             PUBLIC_VALUES_HASHER = Some(Sha256::new());
 
             extern "C" {
-                fn main();
+                fn start();
             }
-            main()
+            start()
         }
 
         syscall_halt(0);
@@ -65,19 +64,6 @@ mod zkvm {
 
     core::arch::global_asm!(include_str!("memset.s"));
     core::arch::global_asm!(include_str!("memcpy.s"));
-
-    core::arch::global_asm!(
-        r#"
-    .section .text._start;
-    .globl _start;
-    _start:
-        la $28, __global_pointer$;
-        la $29, {0};
-        lw $29, 0($29);
-        jal __start;
-    "#,
-        sym STACK_TOP
-    );
 
     fn zkvm_getrandom(s: &mut [u8]) -> Result<(), Error> {
         unsafe {

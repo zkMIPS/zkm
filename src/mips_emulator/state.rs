@@ -54,11 +54,17 @@ pub struct State {
     /// brk handles the brk syscall
     brk: u32,
 
-    // tlb addr
+    /// tlb addr
     local_user: u32,
 
     /// step tracks the total step has been executed.
     pub step: u64,
+
+    /// A stream of input values (global to the entire program).
+    pub input_stream: Vec<Vec<u8>>,
+
+    /// A ptr to the current position in the input stream incremented by HINT_READ opcode.
+    pub input_stream_ptr: usize,
 
     pub exited: bool,
     pub exit_code: u8,
@@ -90,6 +96,8 @@ impl State {
             local_user: 0,
             step: 0,
             brk: 0,
+            input_stream: Vec::new(),
+            input_stream_ptr: 0,
             exited: false,
             exit_code: 0,
             dump_info: false,
@@ -110,6 +118,8 @@ impl State {
             local_user: 0,
             step: 0,
             brk: 0,
+            input_stream: Vec::new(),
+            input_stream_ptr: 0,
             exited: false,
             exit_code: 0,
             dump_info: false,
@@ -338,6 +348,10 @@ impl State {
         }
     }
 
+    pub fn add_input_stream(&mut self, input: &[u8]) {
+        self.input_stream.push(input.to_vec());
+    }
+
     pub fn load_preimage(&mut self, blockpath: String) {
         let mut hash_bytes = [0u8; 32];
         for i in 0..8 {
@@ -462,6 +476,27 @@ impl InstrumentedState {
         log::debug!("syscall {}", syscall_num);
 
         match syscall_num {
+            0xF0 => {
+                if self.state.input_stream_ptr >= self.state.input_stream.len() {
+                    panic!("not enough vecs in hint input stream");
+                }
+                v0 = self.state.input_stream[self.state.input_stream_ptr].len() as u32
+            }
+            0xF1 => {
+                if self.state.input_stream_ptr >= self.state.input_stream.len() {
+                    panic!("not enough vecs in hint input stream");
+                }
+
+                let data = &self.state.input_stream[self.state.input_stream_ptr];
+                assert_eq!(
+                    data.len() as u32,
+                    a2,
+                    "hint input stream read length mismatch"
+                );
+                let data= Box::new(data.as_slice());
+                self.state.memory.set_memory_range(a1, data).expect("hint read failed");
+                v0 = a2
+            }
             4020 => {
                 // read preimage (getpid)
                 self.state.load_preimage(self.block_path.clone())
