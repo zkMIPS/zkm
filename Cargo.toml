@@ -16,6 +16,8 @@ plonky2 = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
 plonky2_util = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
 plonky2_maybe_rayon = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
 
+plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x", branch = "zkm" }
+
 itertools = "0.11.0"
 log = { version = "0.4.14", default-features = false }
 anyhow = "1.0.75"
@@ -41,9 +43,9 @@ sysinfo = "0.30.7"
 [dev-dependencies]
 env_logger = "0.10.0"
 keccak-hash = "0.10.0"
-plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x",  branch = "zkm" }
-plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x-derive",  branch = "zkm" }
-curta = { git ="https://github.com/zkMIPS/curta.git", branch = "zkm" }
+
+plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x-derive", branch = "zkm" }
+curta = { git = "https://github.com/zkMIPS/curta.git", branch = "zkm" }
 
 [features]
 test = []

@@ -11,6 +11,7 @@
 
 pub mod all_stark;
 pub mod arithmetic;
+pub mod benchmark;
 pub mod config;
 pub mod constraint_consumer;
 pub mod cpu;
@@ -36,4 +37,3 @@ pub mod util;
 pub mod vanishing_poly;
 pub mod verifier;
 pub mod witness;
-pub mod benchmark;
