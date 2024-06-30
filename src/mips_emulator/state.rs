@@ -444,6 +444,7 @@ pub struct InstrumentedState {
     pre_image_id: [u8; 32],
     pre_hash_root: [u8; 32],
     block_path: String,
+    pre_input_ptr: usize,
 }
 
 impl Display for InstrumentedState {
@@ -463,6 +464,7 @@ impl InstrumentedState {
             pre_image_id: [0u8; 32],
             pre_hash_root: [0u8; 32],
             pre_segment_id: 0u32,
+            pre_input_ptr: 0,
         })
     }
 
@@ -1200,7 +1202,7 @@ impl InstrumentedState {
                 end_pc: self.state.pc,
                 page_hash_root,
                 input_stream: self.state.input_stream.clone(),
-                input_stream_ptr: self.state.input_stream_ptr
+                input_stream_ptr: self.pre_input_ptr,
             };
             let name = format!("{output}/{}", self.pre_segment_id);
             log::debug!("split: file {}", name);
@@ -1210,6 +1212,7 @@ impl InstrumentedState {
             self.pre_segment_id += 1;
         }
 
+        self.pre_input_ptr = self.state.input_stream_ptr;
         self.pre_pc = self.state.pc;
         self.pre_image_id = image_id;
         self.pre_hash_root = page_hash_root;
