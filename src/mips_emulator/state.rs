@@ -348,8 +348,10 @@ impl State {
         }
     }
 
-    pub fn add_input_stream(&mut self, input: &[u8]) {
-        self.input_stream.push(input.to_vec());
+    pub fn add_input_stream<T: Serialize>(&mut self, input: &T) {
+        let mut buf = Vec::new();
+        bincode::serialize_into(&mut buf, input).expect("serialization failed");
+        self.input_stream.push(buf);
     }
 
     pub fn load_preimage(&mut self, blockpath: String) {
@@ -480,21 +482,40 @@ impl InstrumentedState {
                 if self.state.input_stream_ptr >= self.state.input_stream.len() {
                     panic!("not enough vecs in hint input stream");
                 }
+                log::debug!(
+                    "hint len {:X}",
+                    self.state.input_stream[self.state.input_stream_ptr].len()
+                );
                 v0 = self.state.input_stream[self.state.input_stream_ptr].len() as u32
             }
             0xF1 => {
+                log::debug!("{:X} {:X} {:X}", a0, a1, a2);
                 if self.state.input_stream_ptr >= self.state.input_stream.len() {
-                    panic!("not enough vecs in hint input stream");
+                    warn!("not enough vecs in hint input stream");
                 }
 
-                let data = &self.state.input_stream[self.state.input_stream_ptr];
+                let vec = &self.state.input_stream[self.state.input_stream_ptr];
+                self.state.input_stream_ptr += 1;
                 assert_eq!(
-                    data.len() as u32,
-                    a2,
+                    vec.len() as u32,
+                    a1,
                     "hint input stream read length mismatch"
                 );
-                let data= Box::new(data.as_slice());
-                self.state.memory.set_memory_range(a1, data).expect("hint read failed");
+                assert_eq!(a0 % 4, 0, "hint read address not aligned to 4 bytes");
+                for i in (0..a1).step_by(4) {
+                    // Get each byte in the chunk
+                    let b1 = vec[i as usize];
+                    // In case the vec is not a multiple of 4, right-pad with 0s. This is fine because we
+                    // are assuming the word is uninitialized, so filling it with 0s makes sense.
+                    let b2 = vec.get(i as usize + 1).copied().unwrap_or(0);
+                    let b3 = vec.get(i as usize + 2).copied().unwrap_or(0);
+                    let b4 = vec.get(i as usize + 3).copied().unwrap_or(0);
+                    let word = u32::from_le_bytes([b1, b2, b3, b4]);
+
+                    // Save the data into runtime state so the runtime will use the desired data instead of
+                    // 0 when first reading/writing from this address.
+                    self.state.memory.set_memory(a0 + i, word);
+                }
                 v0 = a2
             }
             4020 => {

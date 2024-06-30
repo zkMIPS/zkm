@@ -75,6 +75,57 @@ fn split_elf_into_segs() {
     instrumented_state.dump_memory();
 }
 
+fn prove_sha2_bench() {
+    // 1. split ELF into segs
+    let basedir = env::var("BASEDIR").unwrap_or("/tmp/cannon".to_string());
+    let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
+    let block_no = env::var("BLOCK_NO");
+    let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
+    let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
+    let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
+    let args = env::var("ARGS").unwrap_or("".to_string());
+    let args = args.split_whitespace().collect();
+
+    let data = fs::read(elf_path).expect("could not read file");
+    let file =
+        ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
+    let (mut state, _) = State::load_elf(&file);
+    state.patch_go(&file);
+    state.patch_stack(args);
+
+    let input = [5u8; 32];
+    state.add_input_stream(&input.to_vec());
+
+    let block_path = match block_no {
+        Ok(no) => {
+            let block_path = get_block_path(&basedir, &no, "");
+            state.load_input(&block_path);
+            block_path
+        }
+        _ => "".to_string(),
+    };
+
+    let mut instrumented_state: Box<InstrumentedState> = InstrumentedState::new(state, block_path);
+    std::fs::create_dir_all(&seg_path).unwrap();
+    let new_writer = |_: &str| -> Option<std::fs::File> { None };
+    instrumented_state.split_segment(false, &seg_path, new_writer);
+    let mut segment_step: usize = seg_size;
+    let new_writer = |name: &str| -> Option<std::fs::File> { File::create(name).ok() };
+    loop {
+        if instrumented_state.state.exited {
+            break;
+        }
+        instrumented_state.step();
+        segment_step -= 1;
+        if segment_step == 0 {
+            segment_step = seg_size;
+            instrumented_state.split_segment(true, &seg_path, new_writer);
+        }
+    }
+    instrumented_state.split_segment(true, &seg_path, new_writer);
+    log::info!("Split done {}", instrumented_state.state.step);
+}
+
 fn prove_single_seg() {
     let basedir = env::var("BASEDIR").unwrap_or("/tmp/cannon".to_string());
     let block = env::var("BLOCK_NO").unwrap_or("".to_string());
@@ -115,7 +166,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let helper = || {
         log::info!(
-            "Help: {} split | prove | aggregate_proof | aggregate_proof_all | prove_groth16",
+            "Help: {} split | prove | aggregate_proof | aggregate_proof_all | prove_groth16 | bench",
             args[0]
         );
         std::process::exit(-1);
@@ -129,6 +180,7 @@ fn main() {
         "aggregate_proof" => aggregate_proof().unwrap(),
         "aggregate_proof_all" => aggregate_proof_all().unwrap(),
         "prove_groth16" => prove_groth16(),
+        "bench" => prove_sha2_bench(),
         _ => helper(),
     };
 }
