@@ -77,53 +77,56 @@ fn split_elf_into_segs() {
 
 fn prove_sha2_bench() {
     // 1. split ELF into segs
-    let basedir = env::var("BASEDIR").unwrap_or("/tmp/cannon".to_string());
     let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
-    let block_no = env::var("BLOCK_NO");
     let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
-    let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
-    let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
-    let args = env::var("ARGS").unwrap_or("".to_string());
-    let args = args.split_whitespace().collect();
 
     let data = fs::read(elf_path).expect("could not read file");
     let file =
         ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
     let (mut state, _) = State::load_elf(&file);
     state.patch_go(&file);
-    state.patch_stack(args);
-
+    state.patch_stack(vec![]);
+    
+    // load input 
     let input = [5u8; 32];
     state.add_input_stream(&input.to_vec());
 
-    let block_path = match block_no {
-        Ok(no) => {
-            let block_path = get_block_path(&basedir, &no, "");
-            state.load_input(&block_path);
-            block_path
-        }
-        _ => "".to_string(),
-    };
-
-    let mut instrumented_state: Box<InstrumentedState> = InstrumentedState::new(state, block_path);
+    let mut instrumented_state: Box<InstrumentedState> = InstrumentedState::new(state, "".to_string());
     std::fs::create_dir_all(&seg_path).unwrap();
     let new_writer = |_: &str| -> Option<std::fs::File> { None };
     instrumented_state.split_segment(false, &seg_path, new_writer);
-    let mut segment_step: usize = seg_size;
     let new_writer = |name: &str| -> Option<std::fs::File> { File::create(name).ok() };
     loop {
         if instrumented_state.state.exited {
             break;
         }
         instrumented_state.step();
-        segment_step -= 1;
-        if segment_step == 0 {
-            segment_step = seg_size;
-            instrumented_state.split_segment(true, &seg_path, new_writer);
-        }
     }
     instrumented_state.split_segment(true, &seg_path, new_writer);
     log::info!("Split done {}", instrumented_state.state.step);
+
+    let seg_file = format!("{seg_path}/{}", 0);
+    let seg_reader = BufReader::new(File::open(seg_file).unwrap());
+    let kernel = segment_kernel("", "", "", seg_reader, instrumented_state.state.step as usize);
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
+
+    let allstark: AllStark<F, D> = AllStark::default();
+    let config = StarkConfig::standard_fast_config();
+    let mut timing = TimingTree::new("prove", log::Level::Info);
+    let allproof: proof::AllProof<GoldilocksField, C, D> =
+        prove(&allstark, &kernel, &config, &mut timing).unwrap();
+    let mut count_bytes = 0;
+    for (row, proof) in allproof.stark_proofs.clone().iter().enumerate() {
+        let proof_str = serde_json::to_string(&proof.proof).unwrap();
+        log::info!("row:{} proof bytes:{}", row, proof_str.len());
+        count_bytes += proof_str.len();
+    }
+    timing.filter(Duration::from_millis(100)).print();
+    log::info!("total proof bytes:{}KB", count_bytes / 1024);
+    verify_proof(&allstark, allproof, &config).unwrap();
+    log::info!("Prove done");
 }
 
 fn prove_single_seg() {

@@ -32,6 +32,8 @@ pub struct Segment {
     pub image_id: [u8; 32],
     pub page_hash_root: [u8; 32],
     pub end_pc: u32,
+    pub input_stream: Vec<Vec<u8>>,
+    pub input_stream_ptr: usize,
 }
 
 pub struct State {
@@ -1197,6 +1199,8 @@ impl InstrumentedState {
                 image_id,
                 end_pc: self.state.pc,
                 page_hash_root,
+                input_stream: self.state.input_stream.clone(),
+                input_stream_ptr: self.state.input_stream_ptr
             };
             let name = format!("{output}/{}", self.pre_segment_id);
             log::debug!("split: file {}", name);

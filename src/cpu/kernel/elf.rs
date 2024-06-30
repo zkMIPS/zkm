@@ -32,6 +32,8 @@ pub struct Program {
     pub pre_image_id: [u8; 32],
     pub pre_hash_root: [u8; 32],
     pub page_hash_root: [u8; 32],
+    pub input_stream: Vec<Vec<u8>>,
+    pub input_stream_ptr: usize,
 }
 
 impl Program {
@@ -252,6 +254,8 @@ impl Program {
             pre_image_id: pre_image_id.try_into().unwrap(),
             pre_hash_root,
             page_hash_root,
+            input_stream: Vec::new(),
+            input_stream_ptr: 0,
         })
     }
 
@@ -330,6 +334,8 @@ impl Program {
             pre_image_id: segment.pre_image_id,
             pre_hash_root: segment.pre_hash_root,
             page_hash_root,
+            input_stream: segment.input_stream,
+            input_stream_ptr: segment.input_stream_ptr,
         })
     }
 }

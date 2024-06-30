@@ -76,6 +76,9 @@ pub(crate) const SYSWRITE: usize = 4004;
 pub(crate) const SYSFCNTL: usize = 4055;
 pub(crate) const SYSSETTHREADAREA: usize = 4283;
 
+pub(crate) const SYSHINTLEN: usize = 240;
+pub(crate) const SYSHINTREAD: usize = 241;
+
 pub(crate) const FD_STDIN: usize = 0;
 pub(crate) const FD_STDOUT: usize = 1;
 pub(crate) const FD_STDERR: usize = 2;
@@ -852,6 +855,52 @@ pub(crate) fn load_preimage<F: RichField>(
     Ok(())
 }
 
+pub(crate) fn load_input<F: RichField>(
+    state: &mut GenerationState<F>,
+    addr: usize,
+    size: usize,
+) -> Result<()> {
+    let mut map_addr = addr;
+    let vec = state.input_stream[state.input_stream_ptr].clone();
+    state.input_stream_ptr += 1;
+    assert_eq!(
+        vec.len(),
+        size,
+        "hint input stream read length mismatch"
+    );
+    assert_eq!(addr % 4, 0, "hint read address not aligned to 4 bytes");
+    
+    let mut cpu_row = CpuColumnsView::default();
+    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+    let mut j = 0;
+    for i in (0..size).step_by(4) {
+        // Get each byte in the chunk
+        let b1 = vec[i as usize];
+        // In case the vec is not a multiple of 4, right-pad with 0s. This is fine because we
+        // are assuming the word is uninitialized, so filling it with 0s makes sense.
+        let b2 = vec.get(i as usize + 1).copied().unwrap_or(0);
+        let b3 = vec.get(i as usize + 2).copied().unwrap_or(0);
+        let b4 = vec.get(i as usize + 3).copied().unwrap_or(0);
+        let word = u32::from_le_bytes([b1, b2, b3, b4]);
+
+        if j == 8 {
+            state.traces.push_cpu(cpu_row);
+            cpu_row = CpuColumnsView::default();
+            cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+            j = 0;
+        }
+        let addr = MemoryAddress::new(0, Segment::Code, map_addr);
+        let mem_op = mem_write_gp_log_and_fill(j, addr, state, &mut cpu_row, word.to_be());
+        state.traces.push_memory(mem_op);
+        map_addr += 4;
+        j += 1;
+    }
+
+    state.traces.push_cpu(cpu_row);
+
+    Ok(())
+}
+
 pub(crate) fn generate_syscall<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
@@ -864,6 +913,7 @@ pub(crate) fn generate_syscall<F: RichField>(
     let mut v0 = 0usize;
     let mut v1 = 0usize;
     let mut is_load_preimage = false;
+    let mut is_load_input = false;
     let result = match sys_num {
         SYSGETPID => {
             row.general.syscall_mut().sysnum[0] = F::ONE;
@@ -992,6 +1042,20 @@ pub(crate) fn generate_syscall<F: RichField>(
             state.traces.push_memory(localop);
             Ok(())
         }
+        SYSHINTLEN => {
+            if state.input_stream_ptr >= state.input_stream.len() {
+                log::warn!("not enough vecs in hint input stream");
+            }
+            v0 = state.input_stream[state.input_stream_ptr].len();
+            Ok(())
+        }
+        SYSHINTREAD => {
+            if state.input_stream_ptr >= state.input_stream.len() {
+                log::warn!("not enough vecs in hint input stream");
+            }
+            is_load_input = true;
+            Ok(())
+        }
         _ => {
             row.general.syscall_mut().sysnum[11] = F::ONE;
             Ok(())
@@ -1008,6 +1072,10 @@ pub(crate) fn generate_syscall<F: RichField>(
     state.traces.push_cpu(row);
     if is_load_preimage {
         let _ = load_preimage(state, kernel);
+    }
+
+    if is_load_input {
+        let _ = load_input(state, a0, a1);
     }
     result
 }
