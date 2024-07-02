@@ -1,3 +1,6 @@
+#![feature(allocator_api)]
+
+use std::collections::BTreeMap;
 use elf::{endian::AnyEndian, ElfBytes};
 use std::env;
 use std::fs::{self, File};
@@ -13,6 +16,13 @@ use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::prelude::DefaultParameters;
 use zkm::all_stark::AllStark;
+use std::sync::Arc;
+use log::LevelFilter;
+use plonky2::field::fft::fft_root_table;
+use plonky2::field::types::Field;
+use plonky2::fri::oracle::{CudaInnerContext, MyAllocator};
+use plonky2_util::log2_strict;
+use zkm::all_stark::{Table};
 use zkm::config::StarkConfig;
 use zkm::cpu::kernel::assembler::segment_kernel;
 use zkm::fixed_recursive_verifier::AllRecursiveCircuits;
@@ -20,10 +30,14 @@ use zkm::mips_emulator::state::{InstrumentedState, State, SEGMENT_STEPS};
 use zkm::mips_emulator::utils::get_block_path;
 use zkm::proof;
 use zkm::proof::PublicValues;
-use zkm::prover::prove;
+use zkm::prover::{prove, prove_gpu};
 use zkm::verifier::verify_proof;
 
 const DEGREE_BITS_RANGE: [Range<usize>; 6] = [10..21, 12..22, 12..21, 8..21, 6..21, 13..23];
+use rustacuda::memory::{cuda_malloc, DeviceBox};
+use rustacuda::prelude::*;
+use rustacuda::memory::DeviceBuffer;
+use plonky2::plonk::config::{AlgebraicHasher, Hasher};
 
 fn split_elf_into_segs() {
     // 1. split ELF into segs
@@ -92,15 +106,125 @@ fn prove_single_seg() {
     let allstark: AllStark<F, D> = AllStark::default();
     let config = StarkConfig::standard_fast_config();
     let mut timing = TimingTree::new("prove", log::Level::Info);
+
+    let mut ctx;
+    {
+        rustacuda::init(CudaFlags::empty()).unwrap();
+        let device_index = 0;
+        let device = rustacuda::prelude::Device::get_device(device_index).unwrap();
+        let _ctx = Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device).unwrap();
+        let stream  = Stream::new(StreamFlags::NON_BLOCKING, None).unwrap();
+        let stream2 = Stream::new(StreamFlags::NON_BLOCKING, None).unwrap();
+
+        let blinding = false;
+        const SALT_SIZE: usize = 4;
+        let rate_bits = config.fri_config.rate_bits;
+        let cap_height = config.fri_config.cap_height;
+        let salt_size = if blinding { SALT_SIZE } else { 0 };
+
+        let create_task = |lg_n: usize, poly_num: usize| -> plonky2::fri::oracle::CudaInvTaskContext<F, C, D> {
+            let values_num_per_poly = 1 << lg_n;
+            // let lg_n = log2_strict(values_num_per_poly );
+
+            let values_flatten_len = poly_num*values_num_per_poly;
+            let ext_values_flatten_len = (values_flatten_len+salt_size*values_num_per_poly) * (1<<rate_bits);
+            let mut ext_values_flatten :Vec<F> = Vec::with_capacity(ext_values_flatten_len);
+            unsafe {
+                ext_values_flatten.set_len(ext_values_flatten_len);
+            }
+
+            let mut values_flatten :Vec<F, MyAllocator> = Vec::with_capacity_in(values_flatten_len, MyAllocator{});
+            unsafe {
+                values_flatten.set_len(values_flatten_len);
+            }
+
+            let len_cap = 1 << cap_height;
+            let num_digests = 2 * (values_num_per_poly*(1<<rate_bits) - len_cap);
+            let num_digests_and_caps = num_digests + len_cap;
+            let mut digests_and_caps_buf :Vec<<<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash> = Vec::with_capacity(num_digests_and_caps);
+            unsafe {
+                digests_and_caps_buf.set_len(num_digests_and_caps);
+            }
+
+            let pad_extvalues_len = ext_values_flatten.len();
+            let cache_mem_device = {
+                let cache_mem_device = unsafe {
+                    DeviceBuffer::<F>::uninitialized(
+                        // values_flatten_len +
+                        pad_extvalues_len +
+                            ext_values_flatten_len +
+
+                            digests_and_caps_buf.len()*4
+                    )
+                }.unwrap();
+
+                cache_mem_device
+            };
+
+            plonky2::fri::oracle::CudaInvTaskContext {
+                lg_n,
+                ext_values_flatten: Arc::new(ext_values_flatten.clone()),
+                values_flatten: Arc::new(values_flatten.clone()),
+                digests_and_caps_buf: Arc::new(digests_and_caps_buf.clone()),
+                cache_mem_device: cache_mem_device,
+            }
+        };
+
+        let mut tasks = std::collections::BTreeMap::new();
+        tasks.insert(Table::Arithmetic as u32, create_task(16, 54));
+        tasks.insert(Table::Cpu as u32,        create_task(17, 253));
+        tasks.insert(Table::Poseidon as u32,   create_task(13, 262));
+        tasks.insert(Table::PoseidonSponge as u32, create_task(13, 110));
+        tasks.insert(Table::Logic as u32,      create_task(11, 69));
+        tasks.insert(Table::Memory as u32,     create_task(20, 13));
+
+        tasks.insert(7,     create_task(16, 22));
+        tasks.insert(8,     create_task(17, 20));
+        tasks.insert(9,     create_task(13, 4));
+        tasks.insert(10,     create_task(13, 40));
+        tasks.insert(11,     create_task(11, 2));
+        tasks.insert(12,     create_task(20, 6));
+
+        let max_lg_n = tasks.iter().max_by_key(|kv|kv.1.lg_n).unwrap().1.lg_n;
+        println!("max_lg_n: {}", max_lg_n);
+        // let max_lg_n = 20;
+        let fft_root_table_max    = fft_root_table(1<<(max_lg_n + rate_bits)).concat();
+
+        let root_table_device = {
+            let root_table_device = DeviceBuffer::from_slice(&fft_root_table_max).unwrap();
+            root_table_device
+        };
+
+        let shift_powers = F::coset_shift().powers().take(1<<(max_lg_n)).collect::<Vec<_>>();
+        let shift_powers_device = {
+            let shift_powers_device = DeviceBuffer::from_slice(&shift_powers).unwrap();
+            shift_powers_device
+        };
+
+
+        ctx = plonky2::fri::oracle::CudaInvContext {
+            inner: CudaInnerContext{stream, stream2,},
+            root_table_device,
+            shift_powers_device,
+            tasks,
+            ctx: _ctx,
+        };
+    }
+
+    // let allproof: proof::AllProof<GoldilocksField, C, D> =
+    //     prove(&allstark, &kernel, &config, &mut timing).unwrap();
     let allproof: proof::AllProof<GoldilocksField, C, D> =
-        prove(&allstark, &kernel, &config, &mut timing).unwrap();
+        prove_gpu(&allstark, &kernel, &config, &mut timing, &mut ctx).unwrap();
+
     let mut count_bytes = 0;
     for (row, proof) in allproof.stark_proofs.clone().iter().enumerate() {
         let proof_str = serde_json::to_string(&proof.proof).unwrap();
         log::info!("row:{} proof bytes:{}", row, proof_str.len());
         count_bytes += proof_str.len();
     }
-    timing.filter(Duration::from_millis(100)).print();
+    // timing.filter(Duration::from_millis(100)).print();
+    timing.print();
+
     log::info!("total proof bytes:{}KB", count_bytes / 1024);
     verify_proof(&allstark, allproof, &config).unwrap();
     log::info!("Prove done");
@@ -111,7 +235,10 @@ fn prove_groth16() {
 }
 
 fn main() {
-    env_logger::try_init().unwrap_or_default();
+    let mut builder = env_logger::Builder::from_default_env();
+    builder.format_timestamp(None);
+    builder.filter_level(LevelFilter::Debug);
+    builder.try_init().unwrap_or_default();
     let args: Vec<String> = env::args().collect();
     let helper = || {
         log::info!(
