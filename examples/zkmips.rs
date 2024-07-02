@@ -84,14 +84,15 @@ fn prove_sha2_bench() {
     let file =
         ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
     let (mut state, _) = State::load_elf(&file);
-    state.patch_go(&file);
+    state.patch_elf(&file);
     state.patch_stack(vec![]);
-    
-    // load input 
+
+    // load input
     let input = [5u8; 32];
     state.add_input_stream(&input.to_vec());
 
-    let mut instrumented_state: Box<InstrumentedState> = InstrumentedState::new(state, "".to_string());
+    let mut instrumented_state: Box<InstrumentedState> =
+        InstrumentedState::new(state, "".to_string());
     std::fs::create_dir_all(&seg_path).unwrap();
     let new_writer = |_: &str| -> Option<std::fs::File> { None };
     instrumented_state.split_segment(false, &seg_path, new_writer);
@@ -107,7 +108,13 @@ fn prove_sha2_bench() {
 
     let seg_file = format!("{seg_path}/{}", 0);
     let seg_reader = BufReader::new(File::open(seg_file).unwrap());
-    let kernel = segment_kernel("", "", "", seg_reader, instrumented_state.state.step as usize);
+    let kernel = segment_kernel(
+        "",
+        "",
+        "",
+        seg_reader,
+        instrumented_state.state.step as usize,
+    );
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
     type F = <C as GenericConfig<D>>::F;

@@ -860,16 +860,12 @@ pub(crate) fn load_input<F: RichField>(
     addr: usize,
     size: usize,
 ) -> Result<()> {
-    let mut map_addr = addr;
+    let map_addr = addr;
     let vec = state.input_stream[state.input_stream_ptr].clone();
     state.input_stream_ptr += 1;
-    assert_eq!(
-        vec.len(),
-        size,
-        "hint input stream read length mismatch"
-    );
+    assert_eq!(vec.len(), size, "hint input stream read length mismatch");
     assert_eq!(addr % 4, 0, "hint read address not aligned to 4 bytes");
-    
+
     let mut cpu_row = CpuColumnsView::default();
     cpu_row.clock = F::from_canonical_usize(state.traces.clock());
     let mut j = 0;
@@ -889,10 +885,9 @@ pub(crate) fn load_input<F: RichField>(
             cpu_row.clock = F::from_canonical_usize(state.traces.clock());
             j = 0;
         }
-        let addr = MemoryAddress::new(0, Segment::Code, map_addr);
-        let mem_op = mem_write_gp_log_and_fill(j, addr, state, &mut cpu_row, word.to_be());
+        let addr = MemoryAddress::new(0, Segment::Code, map_addr + i);
+        let mem_op = mem_write_gp_log_and_fill(j, addr, state, &mut cpu_row, word);
         state.traces.push_memory(mem_op);
-        map_addr += 4;
         j += 1;
     }
 

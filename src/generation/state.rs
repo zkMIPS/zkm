@@ -20,7 +20,6 @@ pub(crate) struct GenerationState<F: Field> {
     pub(crate) input_stream_ptr: usize,
     pub(crate) traces: Traces<F>,
     pub(crate) step: usize,
-
 }
 
 impl<F: Field> GenerationState<F> {
