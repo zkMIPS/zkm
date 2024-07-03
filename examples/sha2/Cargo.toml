@@ -5,5 +5,5 @@ name = "sha2-bench"
 edition = "2021"
 
 [dependencies]
-zkm-zkvm = { path = "../../zkvm/entrypoint" }
+zkm-runtime = { path = "../../runtime/entrypoint" }
 sha2 = { version = "0.10.8", default-features = false }
