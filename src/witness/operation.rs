@@ -871,12 +871,12 @@ pub(crate) fn load_input<F: RichField>(
     let mut j = 0;
     for i in (0..size).step_by(4) {
         // Get each byte in the chunk
-        let b1 = vec[i as usize];
+        let b1 = vec[i];
         // In case the vec is not a multiple of 4, right-pad with 0s. This is fine because we
         // are assuming the word is uninitialized, so filling it with 0s makes sense.
-        let b2 = vec.get(i as usize + 1).copied().unwrap_or(0);
-        let b3 = vec.get(i as usize + 2).copied().unwrap_or(0);
-        let b4 = vec.get(i as usize + 3).copied().unwrap_or(0);
+        let b2 = vec.get(i + 1).copied().unwrap_or(0);
+        let b3 = vec.get(i + 2).copied().unwrap_or(0);
+        let b4 = vec.get(i + 3).copied().unwrap_or(0);
         let word = u32::from_le_bytes([b1, b2, b3, b4]);
 
         if j == 8 {
