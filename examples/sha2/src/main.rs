@@ -12,7 +12,5 @@ pub fn main() {
 
     let mut hasher = Sha256::new();
     hasher.update(input);
-    let result = hasher.finalize();
-
-    zkm_runtime::io::commit::<[u8; 32]>(&result.into());
+    let _result = hasher.finalize();
 }

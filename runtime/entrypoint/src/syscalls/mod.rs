@@ -19,9 +19,6 @@ pub const HALT: u32 = 4246u32;
 /// Writes to a file descriptor. Currently only used for `STDOUT/STDERR`.
 pub const WRITE: u32 = 4004u32;
 
-/// Executes the `COMMIT` precompile.
-pub const COMMIT: u32 = 0x00_00_00_10;
-
 /// Executes `HINT_LEN`.
 pub const HINT_LEN: u32 = 0x00_00_00_F0;
 

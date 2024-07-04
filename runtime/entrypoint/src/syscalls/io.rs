@@ -3,9 +3,6 @@
 cfg_if::cfg_if! {
     if #[cfg(target_os = "zkvm")] {
         use core::arch::asm;
-        use crate::zkvm;
-        use sha2::digest::Update;
-        use zkm_precompiles::io::FD_PUBLIC_VALUES;
     }
 }
 
@@ -23,14 +20,6 @@ pub extern "C" fn syscall_write(fd: u32, write_buf: *const u8, nbytes: usize) {
                     in("$5") write_buf,
                     in("$6") nbytes,
                 );
-            }
-
-            // For writes to the public values fd, we update a global program hasher with the bytes
-            // being written. At the end of the program, we call the COMMIT ecall with the finalized
-            // version of this hash.
-            if fd == FD_PUBLIC_VALUES {
-                let pi_slice: &[u8] = unsafe { core::slice::from_raw_parts(write_buf, nbytes) };
-                unsafe { zkvm::PUBLIC_VALUES_HASHER.as_mut().unwrap().update(pi_slice) };
             }
         } else {
             unreachable!()
