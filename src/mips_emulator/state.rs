@@ -32,6 +32,8 @@ pub struct Segment {
     pub image_id: [u8; 32],
     pub page_hash_root: [u8; 32],
     pub end_pc: u32,
+    pub input_stream: Vec<Vec<u8>>,
+    pub input_stream_ptr: usize,
 }
 
 pub struct State {
@@ -54,11 +56,17 @@ pub struct State {
     /// brk handles the brk syscall
     brk: u32,
 
-    // tlb addr
+    /// tlb addr
     local_user: u32,
 
     /// step tracks the total step has been executed.
     pub step: u64,
+
+    /// A stream of input values (global to the entire program).
+    pub input_stream: Vec<Vec<u8>>,
+
+    /// A ptr to the current position in the input stream incremented by HINT_READ opcode.
+    pub input_stream_ptr: usize,
 
     pub exited: bool,
     pub exit_code: u8,
@@ -90,6 +98,8 @@ impl State {
             local_user: 0,
             step: 0,
             brk: 0,
+            input_stream: Vec::new(),
+            input_stream_ptr: 0,
             exited: false,
             exit_code: 0,
             dump_info: false,
@@ -110,6 +120,8 @@ impl State {
             local_user: 0,
             step: 0,
             brk: 0,
+            input_stream: Vec::new(),
+            input_stream_ptr: 0,
             exited: false,
             exit_code: 0,
             dump_info: false,
@@ -338,6 +350,12 @@ impl State {
         }
     }
 
+    pub fn add_input_stream<T: Serialize>(&mut self, input: &T) {
+        let mut buf = Vec::new();
+        bincode::serialize_into(&mut buf, input).expect("serialization failed");
+        self.input_stream.push(buf);
+    }
+
     pub fn load_preimage(&mut self, blockpath: String) {
         let mut hash_bytes = [0u8; 32];
         for i in 0..8 {
@@ -426,6 +444,7 @@ pub struct InstrumentedState {
     pre_image_id: [u8; 32],
     pre_hash_root: [u8; 32],
     block_path: String,
+    pre_input_ptr: usize,
 }
 
 impl Display for InstrumentedState {
@@ -445,6 +464,7 @@ impl InstrumentedState {
             pre_image_id: [0u8; 32],
             pre_hash_root: [0u8; 32],
             pre_segment_id: 0u32,
+            pre_input_ptr: 0,
         })
     }
 
@@ -462,6 +482,46 @@ impl InstrumentedState {
         log::debug!("syscall {}", syscall_num);
 
         match syscall_num {
+            0xF0 => {
+                if self.state.input_stream_ptr >= self.state.input_stream.len() {
+                    panic!("not enough vecs in hint input stream");
+                }
+                log::debug!(
+                    "hint len {:X}",
+                    self.state.input_stream[self.state.input_stream_ptr].len()
+                );
+                v0 = self.state.input_stream[self.state.input_stream_ptr].len() as u32
+            }
+            0xF1 => {
+                log::debug!("{:X} {:X} {:X}", a0, a1, a2);
+                if self.state.input_stream_ptr >= self.state.input_stream.len() {
+                    warn!("not enough vecs in hint input stream");
+                }
+
+                let vec = &self.state.input_stream[self.state.input_stream_ptr];
+                self.state.input_stream_ptr += 1;
+                assert_eq!(
+                    vec.len() as u32,
+                    a1,
+                    "hint input stream read length mismatch"
+                );
+                assert_eq!(a0 % 4, 0, "hint read address not aligned to 4 bytes");
+                for i in (0..a1).step_by(4) {
+                    // Get each byte in the chunk
+                    let b1 = vec[i as usize];
+                    // In case the vec is not a multiple of 4, right-pad with 0s. This is fine because we
+                    // are assuming the word is uninitialized, so filling it with 0s makes sense.
+                    let b2 = vec.get(i as usize + 1).copied().unwrap_or(0);
+                    let b3 = vec.get(i as usize + 2).copied().unwrap_or(0);
+                    let b4 = vec.get(i as usize + 3).copied().unwrap_or(0);
+                    let word = u32::from_le_bytes([b1, b2, b3, b4]);
+
+                    // Save the data into runtime state so the runtime will use the desired data instead of
+                    // 0 when first reading/writing from this address.
+                    self.state.memory.set_memory(a0 + i, word);
+                }
+                v0 = a2
+            }
             4020 => {
                 // read preimage (getpid)
                 self.state.load_preimage(self.block_path.clone())
@@ -1141,6 +1201,8 @@ impl InstrumentedState {
                 image_id,
                 end_pc: self.state.pc,
                 page_hash_root,
+                input_stream: self.state.input_stream.clone(),
+                input_stream_ptr: self.pre_input_ptr,
             };
             let name = format!("{output}/{}", self.pre_segment_id);
             log::debug!("split: file {}", name);
@@ -1150,6 +1212,7 @@ impl InstrumentedState {
             self.pre_segment_id += 1;
         }
 
+        self.pre_input_ptr = self.state.input_stream_ptr;
         self.pre_pc = self.state.pc;
         self.pre_image_id = image_id;
         self.pre_hash_root = page_hash_root;
