@@ -38,4 +38,36 @@ BASEDIR=test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" 
     cargo run --release --example zkmips aggregate_proof_all
 ```
 
+- run bench
+
+  - download/install toolchain for mips
+
+    ```
+    wget http://musl.cc/mips-linux-muslsf-cross.tgz
+    tar -zxvf mips-linux-muslsf-cross.tgz
+    ```
+
+  - modify ~/.cargo/config:
+
+    ```
+    [target.mips-unknown-linux-musl]
+    linker = <path-to>/mips-linux-muslsf-gcc"
+    rustflags = ["--cfg", 'target_os="zkvm"',"-C", "target-feature=+crt-static", "-C", "link-arg=-g"]
+    ```
+
+  - build sha2
+
+    ```
+    cd examples/sha2
+    cargo build --target=mips-unknown-linux-musl
+    cd ../../
+    ```
+
+  - run bench
+
+    ```
+    RUST_LOG=info ELF_PATH=examples/sha2/target/mips-unknown-linux-musl/debug/sha2-bench SEG_OUTPUT=/tmp/output cargo run --release --example zkmips bench
+    ```
+
 Basically, you can run the example on a 32G RAM machine, if you get OOM error, please read https://github.com/zkMIPS/zkm/issues/97.
+
