@@ -350,14 +350,14 @@ mod test {
     #[test]
     fn load_and_check_mips_elf() {
         env_logger::try_init().unwrap_or_default();
-        let mut reader = BufReader::new(File::open("test-vectors/hello").unwrap());
+        let mut reader = BufReader::new(File::open("../test-vectors/hello").unwrap());
         let mut buffer = Vec::new();
         reader.read_to_end(&mut buffer).unwrap();
         let max_mem = 0x80000000;
         let mut p: Program = Program::load_elf(&buffer, max_mem).unwrap();
         log::info!("entry: {}", p.entry);
 
-        let real_blockpath = get_block_path("test-vectors", "13284491", "input");
+        let real_blockpath = get_block_path("../test-vectors", "13284491", "input");
         log::info!("real block path: {}", real_blockpath);
         p.load_block(&real_blockpath).unwrap();
 

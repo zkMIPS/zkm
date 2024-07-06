@@ -6,6 +6,7 @@ use crate::{syscall_hint_len, syscall_hint_read};
 use serde::de::DeserializeOwned;
 use std::alloc::Layout;
 
+#[allow(dead_code)]
 pub struct SyscallWriter {
     fd: u32,
 }
