@@ -12,16 +12,16 @@ use plonky2x::backend::circuit::Groth16WrapperParameters;
 use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::prelude::DefaultParameters;
-use zkm::all_stark::AllStark;
-use zkm::config::StarkConfig;
-use zkm::cpu::kernel::assembler::segment_kernel;
-use zkm::fixed_recursive_verifier::AllRecursiveCircuits;
-use zkm::mips_emulator::state::{InstrumentedState, State, SEGMENT_STEPS};
-use zkm::mips_emulator::utils::get_block_path;
-use zkm::proof;
-use zkm::proof::PublicValues;
-use zkm::prover::prove;
-use zkm::verifier::verify_proof;
+use zkm_prover::all_stark::AllStark;
+use zkm_prover::config::StarkConfig;
+use zkm_prover::cpu::kernel::assembler::segment_kernel;
+use zkm_prover::fixed_recursive_verifier::AllRecursiveCircuits;
+use zkm_prover::mips_emulator::state::{InstrumentedState, State, SEGMENT_STEPS};
+use zkm_prover::mips_emulator::utils::get_block_path;
+use zkm_prover::proof;
+use zkm_prover::proof::PublicValues;
+use zkm_prover::prover::prove;
+use zkm_prover::verifier::verify_proof;
 
 const DEGREE_BITS_RANGE: [Range<usize>; 6] = [10..21, 12..22, 12..21, 8..21, 6..21, 13..23];
 

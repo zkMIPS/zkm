@@ -1,6 +1,19 @@
 [workspace]
 members = [
   "runtime/*",
-  "prover",
+  "prover"
 ]
 resolver = "2"
+
+
+[profile.release]
+opt-level = 3
+
+[profile.bench]
+opt-level = 3
+
+[profile.fast]
+inherits = "release"
+debug = true
+debug-assertions = true
+
