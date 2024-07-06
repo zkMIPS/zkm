@@ -10,13 +10,13 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use std::io::BufReader;
-use zkm::all_stark::AllStark;
-use zkm::config::StarkConfig;
-use zkm::cpu::kernel::assembler::segment_kernel;
-use zkm::fixed_recursive_verifier::AllRecursiveCircuits;
-use zkm::mips_emulator::state::{InstrumentedState, State};
-use zkm::mips_emulator::utils::get_block_path;
-use zkm::proof::PublicValues;
+use zkm_prover::all_stark::AllStark;
+use zkm_prover::config::StarkConfig;
+use zkm_prover::cpu::kernel::assembler::segment_kernel;
+use zkm_prover::fixed_recursive_verifier::AllRecursiveCircuits;
+use zkm_prover::mips_emulator::state::{InstrumentedState, State};
+use zkm_prover::mips_emulator::utils::get_block_path;
+use zkm_prover::proof::PublicValues;
 
 use plonky2::util::timing::TimingTree;
 
@@ -32,7 +32,9 @@ fn split_elf_into_segs(
     seg_size: usize,
 ) {
     // 1. split ELF into segs
-    let data = fs::read(elf_path).expect("could not read file");
+    let data = fs::read(elf_path)
+        .map_err(|_| panic!("could not read file, {}", elf_path))
+        .unwrap();
     let file =
         ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
     let (mut state, _) = State::load_elf(&file);
@@ -66,7 +68,6 @@ fn split_elf_into_segs(
 
 // Tests proving two transactions, one of which with logs, and aggregating them.
 #[test]
-#[ignore = "Too slow"]
 fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
     use plonky2x::backend::circuit::Groth16WrapperParameters;
     use plonky2x::backend::wrapper::wrap::WrappedCircuit;
@@ -138,7 +139,7 @@ fn test_mips_with_aggreg_fibo() -> anyhow::Result<()> {
 }
 
 #[test]
-#[ignore = "Too slow"]
+#[ignore = "Two slow"]
 fn test_mips_with_aggreg() -> anyhow::Result<()> {
     use plonky2x::backend::circuit::Groth16WrapperParameters;
     use plonky2x::backend::wrapper::wrap::WrappedCircuit;

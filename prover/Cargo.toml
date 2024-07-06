@@ -30,7 +30,6 @@ rand = "0.8.5"
 rand_chacha = "0.3.1"
 once_cell = "1.13.0"
 static_assertions = "1.1.0"
-keccak-hash = "0.10.0"
 byteorder = "1.5.0"
 hex = "0.4"
 hashbrown = { version = "0.14.0", default-features = false, features = ["ahash", "serde"] } # NOTE: When upgrading, see `ahash` dependency.
@@ -38,14 +37,13 @@ lazy_static = "1.4.0"
 
 elf = { version = "0.7", default-features = false }
 
-sysinfo = "0.30.7"
 
 [dev-dependencies]
 env_logger = "0.10.0"
 keccak-hash = "0.10.0"
 plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x",  branch = "zkm" }
 plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x-derive",  branch = "zkm" }
-curta = { git ="https://github.com/zkMIPS/curta.git", branch = "zkm" }
+
 
 [features]
 test = []

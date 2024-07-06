@@ -54,7 +54,7 @@ mod tests {
 
     #[test]
     fn test_execute_hello() {
-        let path = PathBuf::from("../test-vectors/hello");
+        let path = PathBuf::from("test-vectors/hello");
         let data = fs::read(path).expect("could not read file");
         let file =
             ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
@@ -75,7 +75,7 @@ mod tests {
 
     #[test]
     fn test_execute_rust_fib() {
-        let path = PathBuf::from("../test-vectors/rust_fib");
+        let path = PathBuf::from("test-vectors/rust_fib");
         let data = fs::read(path).expect("could not read file");
         let file =
             ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
@@ -96,7 +96,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_execute_minigeth() {
-        let path = PathBuf::from("../test-vectors/minigeth");
+        let path = PathBuf::from("test-vectors/minigeth");
         let data = fs::read(path).expect("could not read file");
         let file =
             ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     fn test_execute_split_hello() {
-        let path = PathBuf::from("../test-vectors/hello");
+        let path = PathBuf::from("test-vectors/hello");
         let data = fs::read(path).expect("could not read file");
         let file =
             ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
