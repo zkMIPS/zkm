@@ -12,16 +12,16 @@ use plonky2x::backend::circuit::Groth16WrapperParameters;
 use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::prelude::DefaultParameters;
-use zkm::all_stark::AllStark;
-use zkm::config::StarkConfig;
-use zkm::cpu::kernel::assembler::segment_kernel;
-use zkm::fixed_recursive_verifier::AllRecursiveCircuits;
-use zkm::mips_emulator::state::{InstrumentedState, State, SEGMENT_STEPS};
-use zkm::mips_emulator::utils::get_block_path;
-use zkm::proof;
-use zkm::proof::PublicValues;
-use zkm::prover::prove;
-use zkm::verifier::verify_proof;
+use zkm_prover::all_stark::AllStark;
+use zkm_prover::config::StarkConfig;
+use zkm_prover::cpu::kernel::assembler::segment_kernel;
+use zkm_prover::fixed_recursive_verifier::AllRecursiveCircuits;
+use zkm_prover::mips_emulator::state::{InstrumentedState, State, SEGMENT_STEPS};
+use zkm_prover::mips_emulator::utils::get_block_path;
+use zkm_prover::proof;
+use zkm_prover::proof::PublicValues;
+use zkm_prover::prover::prove;
+use zkm_prover::verifier::verify_proof;
 
 const DEGREE_BITS_RANGE: [Range<usize>; 6] = [10..21, 12..22, 12..21, 8..21, 6..21, 13..23];
 
@@ -75,6 +75,67 @@ fn split_elf_into_segs() {
     instrumented_state.dump_memory();
 }
 
+fn prove_sha2_bench() {
+    // 1. split ELF into segs
+    let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
+    let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
+
+    let data = fs::read(elf_path).expect("could not read file");
+    let file =
+        ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
+    let (mut state, _) = State::load_elf(&file);
+    state.patch_elf(&file);
+    state.patch_stack(vec![]);
+
+    // load input
+    let input = [5u8; 32];
+    state.add_input_stream(&input.to_vec());
+
+    let mut instrumented_state: Box<InstrumentedState> =
+        InstrumentedState::new(state, "".to_string());
+    std::fs::create_dir_all(&seg_path).unwrap();
+    let new_writer = |_: &str| -> Option<std::fs::File> { None };
+    instrumented_state.split_segment(false, &seg_path, new_writer);
+    let new_writer = |name: &str| -> Option<std::fs::File> { File::create(name).ok() };
+    loop {
+        if instrumented_state.state.exited {
+            break;
+        }
+        instrumented_state.step();
+    }
+    instrumented_state.split_segment(true, &seg_path, new_writer);
+    log::info!("Split done {}", instrumented_state.state.step);
+
+    let seg_file = format!("{seg_path}/{}", 0);
+    let seg_reader = BufReader::new(File::open(seg_file).unwrap());
+    let kernel = segment_kernel(
+        "",
+        "",
+        "",
+        seg_reader,
+        instrumented_state.state.step as usize,
+    );
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
+
+    let allstark: AllStark<F, D> = AllStark::default();
+    let config = StarkConfig::standard_fast_config();
+    let mut timing = TimingTree::new("prove", log::Level::Info);
+    let allproof: proof::AllProof<GoldilocksField, C, D> =
+        prove(&allstark, &kernel, &config, &mut timing).unwrap();
+    let mut count_bytes = 0;
+    for (row, proof) in allproof.stark_proofs.clone().iter().enumerate() {
+        let proof_str = serde_json::to_string(&proof.proof).unwrap();
+        log::info!("row:{} proof bytes:{}", row, proof_str.len());
+        count_bytes += proof_str.len();
+    }
+    timing.filter(Duration::from_millis(100)).print();
+    log::info!("total proof bytes:{}KB", count_bytes / 1024);
+    verify_proof(&allstark, allproof, &config).unwrap();
+    log::info!("Prove done");
+}
+
 fn prove_single_seg() {
     let basedir = env::var("BASEDIR").unwrap_or("/tmp/cannon".to_string());
     let block = env::var("BLOCK_NO").unwrap_or("".to_string());
@@ -117,7 +178,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let helper = || {
         log::info!(
-            "Help: {} split | prove | aggregate_proof | aggregate_proof_all | prove_groth16",
+            "Help: {} split | prove | aggregate_proof | aggregate_proof_all | prove_groth16 | bench",
             args[0]
         );
         std::process::exit(-1);
@@ -131,6 +192,7 @@ fn main() {
         "aggregate_proof" => aggregate_proof().unwrap(),
         "aggregate_proof_all" => aggregate_proof_all().unwrap(),
         "prove_groth16" => prove_groth16(),
+        "bench" => prove_sha2_bench(),
         _ => helper(),
     };
     plonky2::destroy_ctx();

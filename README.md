@@ -8,7 +8,7 @@ In order to build the application, zkm requires a latest nightly toolchain. Just
 
 # Running the examples
 
-An end-to-end example has been presented in [examples](./examples).
+An end-to-end example has been presented in [examples](./prover/examples).
 
 # Guidance for external contributors
 
