@@ -14,8 +14,8 @@ use zkm_prover::all_stark::AllStark;
 use zkm_prover::config::StarkConfig;
 use zkm_prover::cpu::kernel::assembler::segment_kernel;
 use zkm_prover::fixed_recursive_verifier::AllRecursiveCircuits;
-use zkm_prover::mips_emulator::state::{InstrumentedState, State};
-use zkm_prover::mips_emulator::utils::get_block_path;
+use zkm_emulator::state::{InstrumentedState, State};
+use zkm_emulator::utils::get_block_path;
 use zkm_prover::proof::PublicValues;
 
 use plonky2::util::timing::TimingTree;
@@ -37,7 +37,7 @@ fn split_elf_into_segs(
         .unwrap();
     let file =
         ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-    let (mut state, _) = State::load_elf(&file);
+    let mut state = State::load_elf(&file);
     state.patch_elf(&file);
     state.patch_stack(vec![]);
 

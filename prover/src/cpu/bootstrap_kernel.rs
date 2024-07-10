@@ -11,10 +11,10 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-use crate::mips_emulator::memory::{
+use zkm_emulator::memory::{
     END_PC_ADDRESS, HASH_ADDRESS_BASE, HASH_ADDRESS_END, ROOT_HASH_ADDRESS_BASE,
 };
-use crate::mips_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
+use zkm_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use crate::poseidon::constants::SPONGE_RATE;
 use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use crate::poseidon_sponge::poseidon_sponge_stark::poseidon;

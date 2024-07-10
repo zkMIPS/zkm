@@ -1,8 +1,5 @@
-use crate::cpu::kernel::elf::INIT_SP;
-use crate::mips_emulator::memory::Memory;
-use crate::mips_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
-use crate::mips_emulator::witness::{Program, ProgramSegment};
-use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
+use crate::memory:: {Memory, INIT_SP};
+use crate::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use elf::abi::{PT_LOAD, PT_TLS};
 use elf::endian::AnyEndian;
 use log::{trace, warn};
@@ -106,7 +103,7 @@ impl State {
         })
     }
 
-    pub fn load_elf(f: &elf::ElfBytes<AnyEndian>) -> (Box<Self>, Box<Program>) {
+    pub fn load_elf(f: &elf::ElfBytes<AnyEndian>) -> Box<Self> {
         let mut s = Box::new(Self {
             memory: Box::new(Memory::new()),
             registers: Default::default(),
@@ -126,8 +123,6 @@ impl State {
             exit_code: 0,
             dump_info: false,
         });
-
-        let mut program = Box::from(Program::new());
 
         let mut hiaddr = 0u32;
         let segments = f
@@ -171,22 +166,14 @@ impl State {
             if a > hiaddr {
                 hiaddr = a;
             }
-            let n = r.len();
+
             let r: Box<&[u8]> = Box::new(r.as_slice());
             s.memory
                 .set_memory_range(segment.p_vaddr as u32, r)
                 .expect("failed to set memory range");
-
-            if n != 0 {
-                program.segments.push(ProgramSegment {
-                    start_addr: segment.p_vaddr as u32,
-                    segment_size: n as u32,
-                    instructions: vec![],
-                })
-            }
         }
         s.brk = hiaddr - (hiaddr & (PAGE_ADDR_MASK as u32)) + PAGE_SIZE as u32;
-        (s, program)
+        s
     }
 
     pub fn patch_elf(&mut self, f: &elf::ElfBytes<AnyEndian>) {
@@ -385,16 +372,12 @@ impl State {
             .expect("set memory range failed");
 
         let len = data_len & 3;
-        let end = data_len % POSEIDON_RATE_BYTES;
+
         if len != 0 {
             let mut bytes = [0u8; 4];
             let final_addr = 0x31000004 + data_len - len;
             let word = self.memory.get_memory(final_addr as u32);
             bytes[0..len].copy_from_slice(&word.to_be_bytes()[0..len]);
-            bytes[len] = 1;
-            if end + 4 > POSEIDON_RATE_BYTES {
-                bytes[3] |= 0b10000000;
-            }
 
             self.memory
                 .set_memory(final_addr as u32, u32::from_be_bytes(bytes));

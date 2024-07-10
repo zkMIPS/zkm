@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "runtime/*",
+  "emulator",
   "prover"
 ]
 resolver = "2"
