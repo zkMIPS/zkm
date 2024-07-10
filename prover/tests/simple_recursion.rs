@@ -146,9 +146,9 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
     use plonky2x::prelude::DefaultParameters;
 
-    let basedir = "test-vectors";
+    let basedir = "../emualtor/test-vectors";
     let seg_output = "/tmp/mips_output";
-    let elf_path = "test-vectors/hello";
+    let elf_path = "../emualtor/test-vectors/hello";
     let block_no = "13284491";
     let seg_size = 65536;
 
