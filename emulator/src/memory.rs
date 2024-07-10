@@ -2,17 +2,17 @@
 use std::cell::RefCell;
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
 pub const INIT_SP: u32 = 0x7fffd000;
+use super::page::MAX_MEMORY;
 use crate::page::{CachedPage, PAGE_ADDR_MASK, PAGE_ADDR_SIZE, PAGE_SIZE};
+use itertools::Itertools;
 use lazy_static::lazy_static;
 use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::packed::PackedField;
 use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::poseidon::Poseidon;
-use plonky2::field::packed::PackedField;
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::rc::Rc;
-use super::page::MAX_MEMORY;
-use itertools::Itertools;
 
 pub const HASH_ADDRESS_BASE: u32 = 0x80000000;
 pub const HASH_ADDRESS_END: u32 = 0x81020000;
@@ -40,8 +40,7 @@ pub(crate) const POSEIDON_CAPACITY_U32S: usize = POSEIDON_CAPACITY_BYTES / 4;
 pub(crate) const POSEIDON_DIGEST_BYTES: usize = 32;
 pub(crate) const POSEIDON_DIGEST: usize = 4;
 
-pub fn poseidon(inputs: &[u8]) -> [u64; POSEIDON_DIGEST]
-{
+pub fn poseidon(inputs: &[u8]) -> [u64; POSEIDON_DIGEST] {
     let l = inputs.len();
     let chunks = l / POSEIDON_RATE_BYTES + 1;
     let mut input = inputs.to_owned();
@@ -454,7 +453,7 @@ impl Memory {
         log::trace!("end pc: {:?}", pc.to_le_bytes());
         log::trace!("image id: {:?}", image_id);
 
-        let image_id = [0u8;32];
+        let image_id = [0u8; 32];
 
         (image_id.try_into().unwrap(), hash)
     }

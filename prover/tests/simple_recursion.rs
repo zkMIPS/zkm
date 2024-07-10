@@ -10,12 +10,12 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use std::io::BufReader;
+use zkm_emulator::state::{InstrumentedState, State};
+use zkm_emulator::utils::get_block_path;
 use zkm_prover::all_stark::AllStark;
 use zkm_prover::config::StarkConfig;
 use zkm_prover::cpu::kernel::assembler::segment_kernel;
 use zkm_prover::fixed_recursive_verifier::AllRecursiveCircuits;
-use zkm_emulator::state::{InstrumentedState, State};
-use zkm_emulator::utils::get_block_path;
 use zkm_prover::proof::PublicValues;
 
 use plonky2::util::timing::TimingTree;

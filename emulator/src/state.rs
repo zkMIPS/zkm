@@ -1,4 +1,4 @@
-use crate::memory:: {Memory, INIT_SP};
+use crate::memory::{Memory, INIT_SP};
 use crate::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use elf::abi::{PT_LOAD, PT_TLS};
 use elf::endian::AnyEndian;

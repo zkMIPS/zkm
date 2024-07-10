@@ -1,6 +1,4 @@
 extern crate alloc;
-use zkm_emulator::state::{Segment, REGISTERS_START};
-use zkm_emulator::memory::{INIT_SP, WORD_SIZE};
 use crate::poseidon_sponge::poseidon_sponge_stark::poseidon;
 use alloc::collections::BTreeMap;
 use anyhow::{anyhow, bail, Context, Result};
@@ -9,6 +7,8 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use serde::{Deserialize, Serialize};
 use std::fs::{self};
 use std::io::Read;
+use zkm_emulator::memory::{INIT_SP, WORD_SIZE};
+use zkm_emulator::state::{Segment, REGISTERS_START};
 pub const PAGE_SIZE: u32 = 4096;
 
 /// A MIPS program
@@ -341,9 +341,9 @@ impl Program {
 #[cfg(test)]
 mod test {
     use crate::cpu::kernel::elf::*;
-    use zkm_emulator::utils::get_block_path;
     use std::fs::File;
     use std::io::BufReader;
+    use zkm_emulator::utils::get_block_path;
 
     #[test]
     fn load_and_check_mips_elf() {

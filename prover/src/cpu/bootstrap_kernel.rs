@@ -11,16 +11,16 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-use zkm_emulator::memory::{
-    END_PC_ADDRESS, HASH_ADDRESS_BASE, HASH_ADDRESS_END, ROOT_HASH_ADDRESS_BASE,
-};
-use zkm_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use crate::poseidon::constants::SPONGE_RATE;
 use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use crate::poseidon_sponge::poseidon_sponge_stark::poseidon;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::mem_write_gp_log_and_fill;
 use crate::witness::util::poseidon_sponge_log;
+use zkm_emulator::memory::{
+    END_PC_ADDRESS, HASH_ADDRESS_BASE, HASH_ADDRESS_END, ROOT_HASH_ADDRESS_BASE,
+};
+use zkm_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 
 pub(crate) fn generate_bootstrap_kernel<F: RichField>(
     state: &mut GenerationState<F>,
