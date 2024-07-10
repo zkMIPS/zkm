@@ -4,7 +4,7 @@ ZKM is a general verifiable computing infrastructure based on [Plonky2](https://
 
 # Building
 
-In order to build the application, zkm requires a latest nightly toolchain. Just run `cargo build --release` in zkm directory.
+In order to build the application, zkm requires a latest nightly toolchain. Just run `cargo build --release` in zkm directory.     
 
 # Running the examples
 
