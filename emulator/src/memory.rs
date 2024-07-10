@@ -453,8 +453,6 @@ impl Memory {
         log::trace!("end pc: {:?}", pc.to_le_bytes());
         log::trace!("image id: {:?}", image_id);
 
-        let image_id = [0u8; 32];
-
         (image_id.try_into().unwrap(), hash)
     }
 
