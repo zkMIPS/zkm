@@ -552,7 +552,7 @@ impl InstrumentedState {
                         // leave v0 and v1 zero: read nothing, no error
                     }
                     _ => {
-                        v0 = 0xFFffFFff;
+                        v0 = 0xffffffff;
                         v1 = MIPS_EBADF;
                     }
                 }
@@ -582,7 +582,7 @@ impl InstrumentedState {
                         v0 = a2;
                     }
                     _ => {
-                        v0 = 0xFFffFFff;
+                        v0 = 0xffffffff;
                         v1 = MIPS_EBADF;
                     }
                 }
@@ -600,7 +600,7 @@ impl InstrumentedState {
                             v0 = 1 // O_WRONLY
                         }
                         _ => {
-                            v0 = 0xFFffFFff;
+                            v0 = 0xffffffff;
                             v1 = MIPS_EBADF;
                         }
                     }
@@ -609,12 +609,12 @@ impl InstrumentedState {
                     match a0 {
                         FD_STDIN | FD_STDOUT | FD_STDERR => v0 = a0,
                         _ => {
-                            v0 = 0xFFffFFff;
+                            v0 = 0xffffffff;
                             v1 = MIPS_EBADF;
                         }
                     }
                 } else {
-                    v0 = 0xFFffFFff;
+                    v0 = 0xffffffff;
                     v1 = MIPS_EBADF;
                 }
             }
@@ -785,7 +785,7 @@ impl InstrumentedState {
                 _ => 0,
             };
 
-            self.handle_jump(link_reg, sign_extension(insn & 0x03ffFFff, 26) << 2);
+            self.handle_jump(link_reg, sign_extension(insn & 0x03ffffff, 26) << 2);
             return;
         }
 
@@ -808,7 +808,7 @@ impl InstrumentedState {
                 // ZeroExtImm
                 rt = insn & 0xFFFF;
             } else {
-                rt = sign_extension(insn & 0xffFF, 16);
+                rt = sign_extension(insn & 0xffff, 16);
             }
         } else if opcode >= 0x28 || opcode == 0x22 || opcode == 0x26 {
             // store rt value with store
@@ -823,14 +823,14 @@ impl InstrumentedState {
             return;
         }
 
-        let mut store_addr: u32 = 0xffFFffFF;
+        let mut store_addr: u32 = 0xffffffff;
         // memory fetch (all I-type)
         // we do the load for stores also
         let mut mem: u32 = 0;
         if opcode >= 0x20 {
             // M[R[rs]+SignExtImm]
-            rs = (rs as u64 + sign_extension(insn & 0xffFF, 16) as u64) as u32;
-            let addr = rs & 0xFFffFFfc;
+            rs = (rs as u64 + sign_extension(insn & 0xffff, 16) as u64) as u32;
+            let addr = rs & 0xfffffffc;
             mem = self.state.memory.get_memory(addr);
             if opcode >= 0x28 && opcode != 0x30 {
                 // store
@@ -895,7 +895,7 @@ impl InstrumentedState {
         }
 
         // write memory
-        if store_addr != 0xffFFffFF {
+        if store_addr != 0xffffffff {
             //let value_prev = self.state.memory.get_memory(store_addr);
             log::trace!("write memory {:X}, {:X}", store_addr, val);
             self.state.memory.set_memory(store_addr, val);
@@ -1076,7 +1076,7 @@ impl InstrumentedState {
                 0x22 => {
                     // lwl
                     let val = mem << ((rs & 3) * 8);
-                    let mask = 0xffFFffFFu32 << ((rs & 3) * 8);
+                    let mask = 0xffffffffu32 << ((rs & 3) * 8);
                     return (rt & (!mask)) | val;
                 }
                 0x23 => {
@@ -1094,7 +1094,7 @@ impl InstrumentedState {
                 0x26 => {
                     // lwr
                     let val = mem >> (24 - (rs & 3) * 8);
-                    let mask = 0xffFFffFFu32 >> (24 - (rs & 3) * 8);
+                    let mask = 0xffffffffu32 >> (24 - (rs & 3) * 8);
                     return (rt & (!mask)) | val;
                 }
                 _ => {}
@@ -1102,17 +1102,17 @@ impl InstrumentedState {
         } else if opcode == 0x28 {
             // sb
             let val = (rt & 0xff) << (24 - (rs & 3) * 8);
-            let mask = 0xffFFffFFu32 ^ (0xff << (24 - (rs & 3) * 8));
+            let mask = 0xffffffffu32 ^ (0xff << (24 - (rs & 3) * 8));
             return (mem & mask) | val;
         } else if opcode == 0x29 {
             // sh
             let val = (rt & 0xffff) << (16 - (rs & 2) * 8);
-            let mask = 0xffFFffFFu32 ^ (0xffff << (16 - (rs & 2) * 8));
+            let mask = 0xffffffffu32 ^ (0xffff << (16 - (rs & 2) * 8));
             return (mem & mask) | val;
         } else if opcode == 0x2a {
             // swl
             let val = rt >> ((rs & 3) * 8);
-            let mask = 0xffFFffFFu32 >> ((rs & 3) * 8);
+            let mask = 0xffffffffu32 >> ((rs & 3) * 8);
             return (mem & (!mask)) | val;
         } else if opcode == 0x2b {
             // sw
@@ -1120,7 +1120,7 @@ impl InstrumentedState {
         } else if opcode == 0x2e {
             // swr
             let val = rt << (24 - (rs & 3) * 8);
-            let mask = 0xffFFffFFu32 << (24 - (rs & 3) * 8);
+            let mask = 0xffffffffu32 << (24 - (rs & 3) * 8);
             return (mem & (!mask)) | val;
         } else if opcode == 0x30 {
             // ll

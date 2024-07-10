@@ -556,21 +556,19 @@ impl Read for Memory {
             end = end_addr & (PAGE_ADDR_MASK as u32);
         }
 
-        let cached_page = self.page_lookup(page_index);
+        let cached_page: Option<Rc<RefCell<CachedPage>>> = self.page_lookup(page_index);
         let n = match cached_page {
             None => {
                 let size = buf.len().min((end - start) as usize);
-                for i in 0..size {
-                    buf[i] = 0;
+                for (_, element) in buf.iter_mut().enumerate().take(size) {
+                    *element = 0;
                 }
                 size
             }
             Some(cached_page) => {
                 let page = cached_page.borrow_mut();
                 let size = buf.len().min((end - start) as usize);
-                for i in 0..size {
-                    buf[i] = page.data[(start as usize) + i];
-                }
+                buf[0..size].copy_from_slice(&page.data[(start as usize)..(start as usize + size)]);
                 size
             }
         };
