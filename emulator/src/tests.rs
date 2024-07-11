@@ -8,9 +8,9 @@ mod tests {
         path::{Path, PathBuf},
     };
 
-    use crate::mips_emulator::state::SEGMENT_STEPS;
-    use crate::mips_emulator::state::{InstrumentedState, State};
-    use crate::mips_emulator::utils::get_block_path;
+    use crate::state::SEGMENT_STEPS;
+    use crate::state::{InstrumentedState, State};
+    use crate::utils::get_block_path;
 
     const END_ADDR: u32 = 0xa7ef00d0;
     const OUTPUT: &str = "/tmp/segment";
@@ -42,7 +42,7 @@ mod tests {
 
     #[test]
     fn test_execute_open_mips() {
-        for file_name in fs::read_dir("./src/mips_emulator/open_mips_tests/test/bin/").unwrap() {
+        for file_name in fs::read_dir("./src/open_mips_tests/test/bin/").unwrap() {
             let file_name_path_buf = file_name.unwrap().path();
             if file_name_path_buf.ends_with(Path::new("oracle.bin")) {
                 continue;
@@ -58,7 +58,7 @@ mod tests {
         let data = fs::read(path).expect("could not read file");
         let file =
             ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-        let (mut state, _) = State::load_elf(&file);
+        let mut state = State::load_elf(&file);
 
         state.patch_elf(&file);
         state.patch_stack(vec!["aab", "ccd"]);
@@ -79,7 +79,7 @@ mod tests {
         let data = fs::read(path).expect("could not read file");
         let file =
             ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-        let (mut state, _) = State::load_elf(&file);
+        let mut state = State::load_elf(&file);
         state.patch_elf(&file);
         state.patch_stack(vec![]);
 
@@ -100,7 +100,7 @@ mod tests {
         let data = fs::read(path).expect("could not read file");
         let file =
             ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-        let (mut state, _) = State::load_elf(&file);
+        let mut state = State::load_elf(&file);
 
         state.patch_elf(&file);
         state.patch_stack(vec![]);
@@ -135,7 +135,7 @@ mod tests {
         let data = fs::read(path).expect("could not read file");
         let file =
             ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-        let (mut state, _) = State::load_elf(&file);
+        let mut state = State::load_elf(&file);
 
         state.patch_elf(&file);
         state.patch_stack(vec![]);

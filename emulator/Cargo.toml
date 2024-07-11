@@ -1,0 +1,19 @@
+[package]
+name = "zkm-emulator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+plonky2 = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
+bincode = "1.3.3"
+serde = { version = "1.0.144", features = ["derive"] }
+serde_json = "1.0"
+byteorder = "1.5.0"
+hex = "0.4"
+lazy_static = "1.4.0"
+elf = { version = "0.7", default-features = false }
+log = { version = "0.4.14", default-features = false }
+itertools = "0.13.0"
+
+[features]
+test = []

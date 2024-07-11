@@ -12,11 +12,11 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-use crate::mips_emulator::page::PAGE_ADDR_MASK;
-use crate::mips_emulator::state::REGISTERS_START;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::mem_write_gp_log_and_fill;
 use crate::witness::util::reg_zero_write_with_log;
+use zkm_emulator::page::PAGE_ADDR_MASK;
+use zkm_emulator::state::REGISTERS_START;
 
 pub(crate) fn generate_exit_kernel<F: RichField>(state: &mut GenerationState<F>, kernel: &Kernel) {
     //  check exit pc = end pc

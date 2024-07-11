@@ -1,5 +1,4 @@
 extern crate alloc;
-use crate::mips_emulator::state::{Segment, REGISTERS_START};
 use crate::poseidon_sponge::poseidon_sponge_stark::poseidon;
 use alloc::collections::BTreeMap;
 use anyhow::{anyhow, bail, Context, Result};
@@ -8,9 +7,8 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use serde::{Deserialize, Serialize};
 use std::fs::{self};
 use std::io::Read;
-
-pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
-pub const INIT_SP: u32 = 0x7fffd000;
+use zkm_emulator::memory::{INIT_SP, WORD_SIZE};
+use zkm_emulator::state::{Segment, REGISTERS_START};
 pub const PAGE_SIZE: u32 = 4096;
 
 /// A MIPS program
@@ -343,21 +341,21 @@ impl Program {
 #[cfg(test)]
 mod test {
     use crate::cpu::kernel::elf::*;
-    use crate::mips_emulator::utils::get_block_path;
     use std::fs::File;
     use std::io::BufReader;
+    use zkm_emulator::utils::get_block_path;
 
     #[test]
     fn load_and_check_mips_elf() {
         env_logger::try_init().unwrap_or_default();
-        let mut reader = BufReader::new(File::open("test-vectors/hello").unwrap());
+        let mut reader = BufReader::new(File::open("../emulator/test-vectors/hello").unwrap());
         let mut buffer = Vec::new();
         reader.read_to_end(&mut buffer).unwrap();
         let max_mem = 0x80000000;
         let mut p: Program = Program::load_elf(&buffer, max_mem).unwrap();
         log::info!("entry: {}", p.entry);
 
-        let real_blockpath = get_block_path("test-vectors", "13284491", "input");
+        let real_blockpath = get_block_path("../emulator/test-vectors", "13284491", "input");
         log::info!("real block path: {}", real_blockpath);
         p.load_block(&real_blockpath).unwrap();
 

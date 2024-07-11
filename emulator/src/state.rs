@@ -1,8 +1,5 @@
-use crate::cpu::kernel::elf::INIT_SP;
-use crate::mips_emulator::memory::Memory;
-use crate::mips_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
-use crate::mips_emulator::witness::{Program, ProgramSegment};
-use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
+use crate::memory::{Memory, INIT_SP, POSEIDON_RATE_BYTES};
+use crate::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use elf::abi::{PT_LOAD, PT_TLS};
 use elf::endian::AnyEndian;
 use log::{trace, warn};
@@ -106,7 +103,7 @@ impl State {
         })
     }
 
-    pub fn load_elf(f: &elf::ElfBytes<AnyEndian>) -> (Box<Self>, Box<Program>) {
+    pub fn load_elf(f: &elf::ElfBytes<AnyEndian>) -> Box<Self> {
         let mut s = Box::new(Self {
             memory: Box::new(Memory::new()),
             registers: Default::default(),
@@ -126,8 +123,6 @@ impl State {
             exit_code: 0,
             dump_info: false,
         });
-
-        let mut program = Box::from(Program::new());
 
         let mut hiaddr = 0u32;
         let segments = f
@@ -171,22 +166,14 @@ impl State {
             if a > hiaddr {
                 hiaddr = a;
             }
-            let n = r.len();
+
             let r: Box<&[u8]> = Box::new(r.as_slice());
             s.memory
                 .set_memory_range(segment.p_vaddr as u32, r)
                 .expect("failed to set memory range");
-
-            if n != 0 {
-                program.segments.push(ProgramSegment {
-                    start_addr: segment.p_vaddr as u32,
-                    segment_size: n as u32,
-                    instructions: vec![],
-                })
-            }
         }
         s.brk = hiaddr - (hiaddr & (PAGE_ADDR_MASK as u32)) + PAGE_SIZE as u32;
-        (s, program)
+        s
     }
 
     pub fn patch_elf(&mut self, f: &elf::ElfBytes<AnyEndian>) {
@@ -386,6 +373,7 @@ impl State {
 
         let len = data_len & 3;
         let end = data_len % POSEIDON_RATE_BYTES;
+
         if len != 0 {
             let mut bytes = [0u8; 4];
             let final_addr = 0x31000004 + data_len - len;
@@ -395,7 +383,6 @@ impl State {
             if end + 4 > POSEIDON_RATE_BYTES {
                 bytes[3] |= 0b10000000;
             }
-
             self.memory
                 .set_memory(final_addr as u32, u32::from_be_bytes(bytes));
         }
@@ -569,7 +556,7 @@ impl InstrumentedState {
                         // leave v0 and v1 zero: read nothing, no error
                     }
                     _ => {
-                        v0 = 0xFFffFFff;
+                        v0 = 0xffffffff;
                         v1 = MIPS_EBADF;
                     }
                 }
@@ -599,7 +586,7 @@ impl InstrumentedState {
                         v0 = a2;
                     }
                     _ => {
-                        v0 = 0xFFffFFff;
+                        v0 = 0xffffffff;
                         v1 = MIPS_EBADF;
                     }
                 }
@@ -617,7 +604,7 @@ impl InstrumentedState {
                             v0 = 1 // O_WRONLY
                         }
                         _ => {
-                            v0 = 0xFFffFFff;
+                            v0 = 0xffffffff;
                             v1 = MIPS_EBADF;
                         }
                     }
@@ -626,12 +613,12 @@ impl InstrumentedState {
                     match a0 {
                         FD_STDIN | FD_STDOUT | FD_STDERR => v0 = a0,
                         _ => {
-                            v0 = 0xFFffFFff;
+                            v0 = 0xffffffff;
                             v1 = MIPS_EBADF;
                         }
                     }
                 } else {
-                    v0 = 0xFFffFFff;
+                    v0 = 0xffffffff;
                     v1 = MIPS_EBADF;
                 }
             }
@@ -802,7 +789,7 @@ impl InstrumentedState {
                 _ => 0,
             };
 
-            self.handle_jump(link_reg, sign_extension(insn & 0x03ffFFff, 26) << 2);
+            self.handle_jump(link_reg, sign_extension(insn & 0x03ffffff, 26) << 2);
             return;
         }
 
@@ -825,7 +812,7 @@ impl InstrumentedState {
                 // ZeroExtImm
                 rt = insn & 0xFFFF;
             } else {
-                rt = sign_extension(insn & 0xffFF, 16);
+                rt = sign_extension(insn & 0xffff, 16);
             }
         } else if opcode >= 0x28 || opcode == 0x22 || opcode == 0x26 {
             // store rt value with store
@@ -840,14 +827,14 @@ impl InstrumentedState {
             return;
         }
 
-        let mut store_addr: u32 = 0xffFFffFF;
+        let mut store_addr: u32 = 0xffffffff;
         // memory fetch (all I-type)
         // we do the load for stores also
         let mut mem: u32 = 0;
         if opcode >= 0x20 {
             // M[R[rs]+SignExtImm]
-            rs = (rs as u64 + sign_extension(insn & 0xffFF, 16) as u64) as u32;
-            let addr = rs & 0xFFffFFfc;
+            rs = (rs as u64 + sign_extension(insn & 0xffff, 16) as u64) as u32;
+            let addr = rs & 0xfffffffc;
             mem = self.state.memory.get_memory(addr);
             if opcode >= 0x28 && opcode != 0x30 {
                 // store
@@ -912,7 +899,7 @@ impl InstrumentedState {
         }
 
         // write memory
-        if store_addr != 0xffFFffFF {
+        if store_addr != 0xffffffff {
             //let value_prev = self.state.memory.get_memory(store_addr);
             log::trace!("write memory {:X}, {:X}", store_addr, val);
             self.state.memory.set_memory(store_addr, val);
@@ -1093,7 +1080,7 @@ impl InstrumentedState {
                 0x22 => {
                     // lwl
                     let val = mem << ((rs & 3) * 8);
-                    let mask = 0xffFFffFFu32 << ((rs & 3) * 8);
+                    let mask = 0xffffffffu32 << ((rs & 3) * 8);
                     return (rt & (!mask)) | val;
                 }
                 0x23 => {
@@ -1111,7 +1098,7 @@ impl InstrumentedState {
                 0x26 => {
                     // lwr
                     let val = mem >> (24 - (rs & 3) * 8);
-                    let mask = 0xffFFffFFu32 >> (24 - (rs & 3) * 8);
+                    let mask = 0xffffffffu32 >> (24 - (rs & 3) * 8);
                     return (rt & (!mask)) | val;
                 }
                 _ => {}
@@ -1119,17 +1106,17 @@ impl InstrumentedState {
         } else if opcode == 0x28 {
             // sb
             let val = (rt & 0xff) << (24 - (rs & 3) * 8);
-            let mask = 0xffFFffFFu32 ^ (0xff << (24 - (rs & 3) * 8));
+            let mask = 0xffffffffu32 ^ (0xff << (24 - (rs & 3) * 8));
             return (mem & mask) | val;
         } else if opcode == 0x29 {
             // sh
             let val = (rt & 0xffff) << (16 - (rs & 2) * 8);
-            let mask = 0xffFFffFFu32 ^ (0xffff << (16 - (rs & 2) * 8));
+            let mask = 0xffffffffu32 ^ (0xffff << (16 - (rs & 2) * 8));
             return (mem & mask) | val;
         } else if opcode == 0x2a {
             // swl
             let val = rt >> ((rs & 3) * 8);
-            let mask = 0xffFFffFFu32 >> ((rs & 3) * 8);
+            let mask = 0xffffffffu32 >> ((rs & 3) * 8);
             return (mem & (!mask)) | val;
         } else if opcode == 0x2b {
             // sw
@@ -1137,7 +1124,7 @@ impl InstrumentedState {
         } else if opcode == 0x2e {
             // swr
             let val = rt << (24 - (rs & 3) * 8);
-            let mask = 0xffFFffFFu32 << (24 - (rs & 3) * 8);
+            let mask = 0xffffffffu32 << (24 - (rs & 3) * 8);
             return (mem & (!mask)) | val;
         } else if opcode == 0x30 {
             // ll
