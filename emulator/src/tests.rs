@@ -1,16 +1,13 @@
 #[allow(clippy::module_inception)]
 #[cfg(test)]
 mod tests {
-    use elf::{endian::AnyEndian, ElfBytes};
-    use std::fs::File;
     use std::{
         fs,
         path::{Path, PathBuf},
     };
 
-    use crate::state::SEGMENT_STEPS;
     use crate::state::{InstrumentedState, State};
-    use crate::utils::get_block_path;
+    use crate::utils::{get_block_path, load_elf_with_patch, split_prog_into_segs, SEGMENT_STEPS};
 
     const END_ADDR: u32 = 0xa7ef00d0;
     const OUTPUT: &str = "/tmp/segment";
@@ -54,14 +51,7 @@ mod tests {
 
     #[test]
     fn test_execute_hello() {
-        let path = PathBuf::from("test-vectors/hello");
-        let data = fs::read(path).expect("could not read file");
-        let file =
-            ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-        let mut state = State::load_elf(&file);
-
-        state.patch_elf(&file);
-        state.patch_stack(vec!["aab", "ccd"]);
+        let state = load_elf_with_patch("test-vectors/hello", vec!["aab", "ccd"]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
 
@@ -75,13 +65,7 @@ mod tests {
 
     #[test]
     fn test_execute_rust_fib() {
-        let path = PathBuf::from("test-vectors/rust_fib");
-        let data = fs::read(path).expect("could not read file");
-        let file =
-            ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-        let mut state = State::load_elf(&file);
-        state.patch_elf(&file);
-        state.patch_stack(vec![]);
+        let state = load_elf_with_patch("test-vectors/rust_fib", vec![]);
 
         let mut instrumented_state = InstrumentedState::new(state, String::from(""));
         log::debug!("begin execute\n");
@@ -94,70 +78,19 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "Two slow"]
     fn test_execute_minigeth() {
-        let path = PathBuf::from("test-vectors/minigeth");
-        let data = fs::read(path).expect("could not read file");
-        let file =
-            ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-        let mut state = State::load_elf(&file);
+        let mut state = load_elf_with_patch("test-vectors/minigeth", vec![]);
 
-        state.patch_elf(&file);
-        state.patch_stack(vec![]);
-
-        let block_path = get_block_path("../test-vectors", "13284491", "");
+        let block_path = get_block_path("test-vectors", "13284491", "");
         state.load_input(&block_path);
 
-        let mut instrumented_state = InstrumentedState::new(state, block_path);
-        std::fs::create_dir_all(OUTPUT).unwrap();
-        let new_writer = |_: &str| -> Option<std::fs::File> { None };
-        instrumented_state.split_segment(false, OUTPUT, new_writer);
-        let mut segment_step = SEGMENT_STEPS;
-        let new_writer = |name: &str| -> Option<std::fs::File> { File::create(name).ok() };
-        loop {
-            if instrumented_state.state.exited {
-                break;
-            }
-            instrumented_state.step();
-            segment_step -= 1;
-            if segment_step == 0 {
-                segment_step = SEGMENT_STEPS;
-                instrumented_state.split_segment(true, OUTPUT, new_writer);
-            }
-        }
-
-        instrumented_state.split_segment(true, OUTPUT, new_writer);
+        let _ = split_prog_into_segs(state, OUTPUT, &block_path, SEGMENT_STEPS);
     }
 
     #[test]
     fn test_execute_split_hello() {
-        let path = PathBuf::from("test-vectors/hello");
-        let data = fs::read(path).expect("could not read file");
-        let file =
-            ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-        let mut state = State::load_elf(&file);
-
-        state.patch_elf(&file);
-        state.patch_stack(vec![]);
-
-        let mut instrumented_state = InstrumentedState::new(state, String::from(""));
-        std::fs::create_dir_all(OUTPUT).unwrap();
-        let new_writer = |_: &str| -> Option<std::fs::File> { None };
-        instrumented_state.split_segment(false, OUTPUT, new_writer);
-        let mut segment_step = SEGMENT_STEPS;
-        let new_writer = |name: &str| -> Option<std::fs::File> { File::create(name).ok() };
-        loop {
-            if instrumented_state.state.exited {
-                break;
-            }
-            instrumented_state.step();
-            segment_step -= 1;
-            if segment_step == 0 {
-                segment_step = SEGMENT_STEPS;
-                instrumented_state.split_segment(true, OUTPUT, new_writer);
-            }
-        }
-
-        instrumented_state.split_segment(true, OUTPUT, new_writer);
+        let state = load_elf_with_patch("test-vectors/hello", vec![]);
+        let _ = split_prog_into_segs(state, OUTPUT, "", SEGMENT_STEPS);
     }
 }

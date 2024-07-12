@@ -1,6 +1,5 @@
 #![allow(clippy::upper_case_acronyms)]
-use elf::{endian::AnyEndian, ElfBytes};
-use std::fs::{self, File};
+use std::fs::File;
 use std::time::Duration;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -10,8 +9,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use std::io::BufReader;
-use zkm_emulator::state::{InstrumentedState, State};
-use zkm_emulator::utils::get_block_path;
+use zkm_emulator::utils::{load_elf_with_patch, split_prog_into_segs};
 use zkm_prover::all_stark::AllStark;
 use zkm_prover::config::StarkConfig;
 use zkm_prover::cpu::kernel::assembler::segment_kernel;
@@ -23,48 +21,6 @@ use plonky2::util::timing::TimingTree;
 type F = GoldilocksField;
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
-
-fn split_elf_into_segs(
-    basedir: &str,
-    elf_path: &str,
-    block_no: &str,
-    seg_path: &str,
-    seg_size: usize,
-) {
-    // 1. split ELF into segs
-    let data = fs::read(elf_path)
-        .map_err(|_| panic!("could not read file, {}", elf_path))
-        .unwrap();
-    let file =
-        ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-    let mut state = State::load_elf(&file);
-    state.patch_elf(&file);
-    state.patch_stack(vec![]);
-
-    let block_path = get_block_path(basedir, block_no, "");
-    state.load_input(&block_path);
-
-    let mut instrumented_state = InstrumentedState::new(state, block_path);
-    std::fs::create_dir_all(seg_path).unwrap();
-    let new_writer = |_: &str| -> Option<std::fs::File> { None };
-    instrumented_state.split_segment(false, seg_path, new_writer);
-    let mut segment_step: usize = seg_size;
-    let new_writer = |name: &str| -> Option<std::fs::File> { File::create(name).ok() };
-    loop {
-        if instrumented_state.state.exited {
-            break;
-        }
-        instrumented_state.step();
-        segment_step -= 1;
-        if segment_step == 0 {
-            segment_step = seg_size;
-            instrumented_state.split_segment(true, seg_path, new_writer);
-        }
-    }
-
-    instrumented_state.split_segment(true, seg_path, new_writer);
-    log::info!("Split done");
-}
 
 // Tests proving two transactions, one of which with logs, and aggregating them.
 #[test]
@@ -146,13 +102,12 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
     use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
     use plonky2x::prelude::DefaultParameters;
 
-    let basedir = "../emualtor/test-vectors";
     let seg_output = "/tmp/mips_output";
     let elf_path = "../emualtor/test-vectors/hello";
-    let block_no = "13284491";
     let seg_size = 65536;
 
-    split_elf_into_segs(basedir, elf_path, block_no, seg_output, seg_size);
+    let state = load_elf_with_patch(elf_path, vec![]);
+    let _ = split_prog_into_segs(state, seg_output, "", seg_size);
 
     type InnerParameters = DefaultParameters;
     type OuterParameters = Groth16WrapperParameters;
@@ -170,7 +125,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
 
     let seg_file = format!("{}/0", seg_output);
     let seg_reader = BufReader::new(File::open(seg_file)?);
-    let input_first = segment_kernel(basedir, block_no, "", seg_reader, seg_size);
+    let input_first = segment_kernel("", "", "", seg_reader, seg_size);
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
     let (root_proof_first, first_public_values) =
         all_circuits.prove_root(&all_stark, &input_first, &config, &mut timing)?;
@@ -180,7 +135,7 @@ fn test_mips_with_aggreg() -> anyhow::Result<()> {
 
     let seg_file = format!("{}/1", seg_output);
     let seg_reader = BufReader::new(File::open(seg_file)?);
-    let input = segment_kernel(basedir, block_no, "", seg_reader, seg_size);
+    let input = segment_kernel("", "", "", seg_reader, seg_size);
     let mut timing = TimingTree::new("prove root second", log::Level::Info);
     let (root_proof, public_values) =
         all_circuits.prove_root(&all_stark, &input, &config, &mut timing)?;
