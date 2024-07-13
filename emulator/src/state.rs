@@ -15,7 +15,6 @@ pub const FD_STDOUT: u32 = 1;
 pub const FD_STDERR: u32 = 2;
 pub const MIPS_EBADF: u32 = 9;
 
-pub const SEGMENT_STEPS: usize = 1024;
 pub const REGISTERS_START: u32 = 0x81020400u32;
 
 // image_id = keccak(page_hash_root || end_pc)
