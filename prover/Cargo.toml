@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zkm-emulator={  path = "../emulator" }
+zkm-emulator = { path = "../emulator" }
 #plonky2 = {             path = "../plonky2/plonky2" }
 ##starky = {              path = "../plonky2/starky" }
 #plonky2_util = {        path = "../plonky2/util" }
@@ -42,8 +42,8 @@ elf = { version = "0.7", default-features = false }
 [dev-dependencies]
 env_logger = "0.10.0"
 keccak-hash = "0.10.0"
-plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x",  branch = "zkm" }
-plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x-derive",  branch = "zkm" }
+plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x", branch = "fix/pi" }
+plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x-derive", branch = "fix/pi" }
 
 
 [features]

@@ -360,7 +360,13 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
     let builder = WrapperBuilder::<DefaultParameters, 2>::new();
     let mut circuit = builder.build();
     circuit.set_data(all_circuits.block.circuit);
-    let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);
+    let mut bit_size = vec![32usize; 16];
+    bit_size.extend(vec![8; 32]);
+    bit_size.extend(vec![64; 68]);
+    let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(
+        circuit,
+        Some((vec![], bit_size)),
+    );
     log::info!("build finish");
 
     let wrapped_proof = wrapped_circuit.prove(&block_proof).unwrap();
