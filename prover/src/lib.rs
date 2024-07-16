@@ -23,7 +23,6 @@ pub mod keccak_sponge;
 pub mod logic;
 pub mod lookup;
 pub mod memory;
-pub mod mips_emulator;
 pub mod poseidon;
 pub mod poseidon_sponge;
 pub mod proof;

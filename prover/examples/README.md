@@ -13,28 +13,33 @@ GOOS=linux GOARCH=mips GOMIPS=softfloat go build hello.go
 * Split the ELF hello into segments. Note that the flag `BLOCK_NO` is only necessary for minigeth.
 
 ```
-BASEDIR=test-vectors RUST_LOG=info ELF_PATH=test-vectors/hello BLOCK_NO=13284491 SEG_OUTPUT=/tmp/output SEG_SIZE=1024 ARGS="" \
+BASEDIR=./emulator/test-vectors RUST_LOG=info ELF_PATH=./emulator/test-vectors/minigeth BLOCK_NO=13284491 SEG_OUTPUT=/tmp/output SEG_SIZE=1024 ARGS="" \
     cargo run --release --example zkmips split
+
+OR
+
+RUST_LOG=info ELF_PATH=./emulator/test-vectors/hello  SEG_OUTPUT=/tmp/output SEG_SIZE=1024 ARGS="" \
+    cargo run --release --example zkmips split_without_preimage
 ```
 
 * Generate proof for each segment
 
 ```
-BASEDIR=test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE="/tmp/output/0" SEG_SIZE=1024 \
+BASEDIR=./emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE="/tmp/output/0" SEG_SIZE=1024 \
     cargo run --release --example zkmips prove
 ```
 
 * Aggregate proof
 
 ```
-BASEDIR=test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE="/tmp/output/0" SEG_FILE2="/tmp/output/1" SEG_SIZE=1024 \
+BASEDIR=./emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE="/tmp/output/0" SEG_FILE2="/tmp/output/1" SEG_SIZE=1024 \
     cargo run --release --example zkmips aggregate_proof
 ```
 
 * Aggregate proof all
 
 ```
-BASEDIR=test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" SEG_FILE_NUM=299 SEG_SIZE=1024 \
+BASEDIR=./emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" SEG_FILE_NUM=299 SEG_SIZE=1024 \
     cargo run --release --example zkmips aggregate_proof_all
 ```
 
@@ -58,9 +63,9 @@ rustflags = ["--cfg", 'target_os="zkvm"',"-C", "target-feature=+crt-static", "-C
 * Build the Sha2
 
 ```
-cd examples/sha2
+cd prover/examples/sha2
 cargo build --target=mips-unknown-linux-musl
-cd ../../
+cd ././
 ```
 
 * Run the host program 

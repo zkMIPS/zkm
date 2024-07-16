@@ -1,6 +1,5 @@
-use elf::{endian::AnyEndian, ElfBytes};
 use std::env;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::BufReader;
 use std::ops::Range;
 use std::time::Duration;
@@ -12,12 +11,13 @@ use plonky2x::backend::circuit::Groth16WrapperParameters;
 use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::prelude::DefaultParameters;
+use zkm_emulator::utils::{
+    get_block_path, load_elf_with_patch, split_prog_into_segs, SEGMENT_STEPS,
+};
 use zkm_prover::all_stark::AllStark;
 use zkm_prover::config::StarkConfig;
 use zkm_prover::cpu::kernel::assembler::segment_kernel;
 use zkm_prover::fixed_recursive_verifier::AllRecursiveCircuits;
-use zkm_prover::mips_emulator::state::{InstrumentedState, State, SEGMENT_STEPS};
-use zkm_prover::mips_emulator::utils::get_block_path;
 use zkm_prover::proof;
 use zkm_prover::proof::PublicValues;
 use zkm_prover::prover::prove;
@@ -25,54 +25,23 @@ use zkm_prover::verifier::verify_proof;
 
 const DEGREE_BITS_RANGE: [Range<usize>; 6] = [10..21, 12..22, 12..21, 8..21, 6..21, 13..23];
 
-fn split_elf_into_segs() {
+fn split_segs(load_preimage: bool) {
     // 1. split ELF into segs
     let basedir = env::var("BASEDIR").unwrap_or("/tmp/cannon".to_string());
     let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
-    let block_no = env::var("BLOCK_NO");
+    let block_no = env::var("BLOCK_NO").unwrap_or("".to_string());
     let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
     let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
     let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
     let args = env::var("ARGS").unwrap_or("".to_string());
     let args = args.split_whitespace().collect();
 
-    let data = fs::read(elf_path).expect("could not read file");
-    let file =
-        ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-    let (mut state, _) = State::load_elf(&file);
-    state.patch_elf(&file);
-    state.patch_stack(args);
-
-    let block_path = match block_no {
-        Ok(no) => {
-            let block_path = get_block_path(&basedir, &no, "");
-            state.load_input(&block_path);
-            block_path
-        }
-        _ => "".to_string(),
-    };
-
-    let mut instrumented_state = InstrumentedState::new(state, block_path);
-    std::fs::create_dir_all(&seg_path).unwrap();
-    let new_writer = |_: &str| -> Option<std::fs::File> { None };
-    instrumented_state.split_segment(false, &seg_path, new_writer);
-    let mut segment_step: usize = seg_size;
-    let new_writer = |name: &str| -> Option<std::fs::File> { File::create(name).ok() };
-    loop {
-        if instrumented_state.state.exited {
-            break;
-        }
-        instrumented_state.step();
-        segment_step -= 1;
-        if segment_step == 0 {
-            segment_step = seg_size;
-            instrumented_state.split_segment(true, &seg_path, new_writer);
-        }
+    let mut state = load_elf_with_patch(&elf_path, args);
+    let block_path = get_block_path(&basedir, &block_no, "");
+    if load_preimage {
+        state.load_input(&block_path);
     }
-    instrumented_state.split_segment(true, &seg_path, new_writer);
-    log::info!("Split done {}", instrumented_state.state.step);
-
-    instrumented_state.dump_memory();
+    let _ = split_prog_into_segs(state, &seg_path, &block_path, seg_size);
 }
 
 fn prove_sha2_bench() {
@@ -80,41 +49,16 @@ fn prove_sha2_bench() {
     let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
     let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
 
-    let data = fs::read(elf_path).expect("could not read file");
-    let file =
-        ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
-    let (mut state, _) = State::load_elf(&file);
-    state.patch_elf(&file);
-    state.patch_stack(vec![]);
-
+    let mut state = load_elf_with_patch(&elf_path, vec![]);
     // load input
     let input = [5u8; 32];
     state.add_input_stream(&input.to_vec());
 
-    let mut instrumented_state: Box<InstrumentedState> =
-        InstrumentedState::new(state, "".to_string());
-    std::fs::create_dir_all(&seg_path).unwrap();
-    let new_writer = |_: &str| -> Option<std::fs::File> { None };
-    instrumented_state.split_segment(false, &seg_path, new_writer);
-    let new_writer = |name: &str| -> Option<std::fs::File> { File::create(name).ok() };
-    loop {
-        if instrumented_state.state.exited {
-            break;
-        }
-        instrumented_state.step();
-    }
-    instrumented_state.split_segment(true, &seg_path, new_writer);
-    log::info!("Split done {}", instrumented_state.state.step);
+    let total_steps = split_prog_into_segs(state, &seg_path, "", 0);
 
     let seg_file = format!("{seg_path}/{}", 0);
     let seg_reader = BufReader::new(File::open(seg_file).unwrap());
-    let kernel = segment_kernel(
-        "",
-        "",
-        "",
-        seg_reader,
-        instrumented_state.state.step as usize,
-    );
+    let kernel = segment_kernel("", "", "", seg_reader, total_steps);
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
     type F = <C as GenericConfig<D>>::F;
@@ -178,7 +122,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let helper = || {
         log::info!(
-            "Help: {} split | prove | aggregate_proof | aggregate_proof_all | prove_groth16 | bench",
+            "Help: {} split | split_without_preimage | prove | aggregate_proof | aggregate_proof_all | prove_groth16 | bench",
             args[0]
         );
         std::process::exit(-1);
@@ -187,7 +131,8 @@ fn main() {
         helper();
     }
     match args[1].as_str() {
-        "split" => split_elf_into_segs(),
+        "split" => split_segs(true),
+        "split_without_preimage" => split_segs(false),
         "prove" => prove_single_seg(),
         "aggregate_proof" => aggregate_proof().unwrap(),
         "aggregate_proof_all" => aggregate_proof_all().unwrap(),
@@ -418,7 +363,13 @@ fn aggregate_proof_all() -> anyhow::Result<()> {
     let builder = WrapperBuilder::<DefaultParameters, 2>::new();
     let mut circuit = builder.build();
     circuit.set_data(all_circuits.block.circuit);
-    let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(circuit);
+    let mut bit_size = vec![32usize; 16];
+    bit_size.extend(vec![8; 32]);
+    bit_size.extend(vec![64; 68]);
+    let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(
+        circuit,
+        Some((vec![], bit_size)),
+    );
     log::info!("build finish");
 
     let wrapped_proof = wrapped_circuit.prove(&block_proof).unwrap();

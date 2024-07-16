@@ -1,9 +1,9 @@
 use super::elf::Program;
-use crate::mips_emulator::utils::get_block_path;
+use zkm_emulator::utils::get_block_path;
 
-use crate::cpu::kernel::elf::INIT_SP;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::Read};
+use zkm_emulator::memory::INIT_SP;
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Kernel {
