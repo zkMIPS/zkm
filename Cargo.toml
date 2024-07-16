@@ -17,19 +17,19 @@ inherits = "release"
 debug = true
 debug-assertions = true
 
-elf = { version = "0.7", default-features = false }
+#elf = { version = "0.7", default-features = false }
 
-sysinfo = "0.30.7"
+#sysinfo = "0.30.7"
 
-[dev-dependencies]
-env_logger = "0.10.0"
-keccak-hash = "0.10.0"
-plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x",  branch = "zkm" }
-plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x-derive",  branch = "zkm" }
-curta = { git ="https://github.com/zkMIPS/curta.git", branch = "zkm" }
+#[dev-dependencies]
+#env_logger = "0.10.0"
+#keccak-hash = "0.10.0"
+#plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x",  branch = "zkm" }
+#plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x-derive",  branch = "zkm" }
+#curta = { git ="https://github.com/zkMIPS/curta.git", branch = "zkm" }
 
-[features]
-test = []
+#[features]
+#test = []
 
 [patch."https://github.com/zkMIPS/plonky2.git"]
 plonky2 = {path = "../plonky2-origin/plonky2"}
