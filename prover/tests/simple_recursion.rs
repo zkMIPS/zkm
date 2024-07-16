@@ -1,22 +1,10 @@
 #![allow(clippy::upper_case_acronyms)]
-use std::fs::File;
-use std::time::Duration;
-
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::field::types::Field;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use std::io::BufReader;
-use zkm_emulator::utils::{load_elf_with_patch, split_prog_into_segs};
-use zkm_prover::all_stark::AllStark;
-use zkm_prover::config::StarkConfig;
-use zkm_prover::cpu::kernel::assembler::segment_kernel;
-use zkm_prover::fixed_recursive_verifier::AllRecursiveCircuits;
-use zkm_prover::proof::PublicValues;
-
-use plonky2::util::timing::TimingTree;
 
 type F = GoldilocksField;
 const D: usize = 2;
