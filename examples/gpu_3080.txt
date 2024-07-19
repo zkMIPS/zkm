@@ -1,0 +1,670 @@
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 555.42.06              Driver Version: 555.42.06      CUDA Version: 12.5     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 3080        Off |   00000000:07:00.0 Off |                  N/A |
+| 52%   31C    P8             13W /  320W |       2MiB /  10240MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  NVIDIA GeForce RTX 3080        Off |   00000000:0A:00.0 Off |                  N/A |
+| 50%   34C    P8             20W /  320W |       2MiB /  10240MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+
+
+[DEBUG zkm::cpu::bootstrap_kernel] actual root page hash: [153, 165, 40, 68, 5, 203, 248, 157, 17, 249, 210, 167, 225, 85, 111, 187, 184, 58, 234, 243, 115, 111, 204, 177, 155, 145, 157, 201, 198, 201, 249, 132]
+[INFO  zkm::cpu::bootstrap_kernel] Bootstrapping took 26061 cycles
+[INFO  zkm::generation] CPU halted after 288205 cycles
+[DEBUG zkm::cpu::bootstrap_kernel] actual root page hash: [231, 83, 211, 62, 237, 160, 101, 149, 231, 249, 241, 164, 106, 169, 135, 170, 60, 181, 1, 130, 138, 106, 71, 51, 221, 110, 181, 61, 251, 210, 10, 110]
+[INFO  zkm::generation] CPU trace padded to 524288 cycles
+[INFO  zkm::generation] Trace lengths (before padding): TraceCheckpoint { arithmetic_len: 125271, cpu_len: 524288, poseidon_len: 52120, poseidon_sponge_len: 52120, logic_len: 18082, memory_len: 3083469 }
+rate_bits: 2, cap_height: 4
+trace len: 54, values len: 131072
+ifft_kernel elapsed: 17.96
+start merkle_tree_from_coeffs: poly_num:54, values_num_per_poly:131072, log_len:17, rate_bits: 2, salt_size: 0, pad_extvalues_len: 28311552
+d_values_flatten: 0x7fbb52000000, d_ext_values_flatten: 0x7fbb52000000
+lde_kernel elapsed: 2.78
+init_lde_kernel elapsed: 0.26
+mul_shift_kernel elapsed: 0.21
+fft_kernel elapsed: 20.42
+reverse_index_bits_kernel elapsed: 5.97
+gpu leaves0: 17767677445991072470
+gpu leaves1: 13501078389761680594
+gpu leaves2: 1495916796816302840
+gpu leaves3: 13467932902213049761
+gpu leaves4: 0
+gpu leaves5: 5054502406330398659
+gpu leaves6: 0
+gpu leaves7: 18099479201188623605
+gpu capid: 0, idx: 0, hash: d1fcaa1686f285c4, 9aa8fea33279e6b2, 72cd5eb0b1c7d622, e4c3008990eaa016
+hash_leaves_kernel elapsed: 28.53
+reduce_digests_kernel elapsed: 19.92
+transpose_kernel elapsed: 2.21
+total use:80.05
+trace len: 253, values len: 524288
+ifft_kernel elapsed: 93.39
+start merkle_tree_from_coeffs: poly_num:253, values_num_per_poly:524288, log_len:19, rate_bits: 2, salt_size: 0, pad_extvalues_len: 530579456
+d_values_flatten: 0x7fbb52000000, d_ext_values_flatten: 0x7fbb52000000
+lde_kernel elapsed: 3.48
+init_lde_kernel elapsed: 4.92
+mul_shift_kernel elapsed: 4.70
+fft_kernel elapsed: 380.56
+reverse_index_bits_kernel elapsed: 113.54
+gpu leaves0: 2384513306513096973
+gpu leaves1: 16383950820742114203
+gpu leaves2: 0
+gpu leaves3: 0
+gpu leaves4: 8760165624326700578
+gpu leaves5: 1561675765139865158
+gpu leaves6: 18125024011573957467
+gpu leaves7: 14549364742561908936
+gpu capid: 0, idx: 0, hash: b67349d010e9a302, b4670da49661243a, 8cbdd38c512bc7b5, a99b7e536ba15ab9
+hash_leaves_kernel elapsed: 470.68
+reduce_digests_kernel elapsed: 69.46
+transpose_kernel elapsed: 55.49
+total use:1097.92
+trace len: 262, values len: 65536
+ifft_kernel elapsed: 10.55
+start merkle_tree_from_coeffs: poly_num:262, values_num_per_poly:65536, log_len:16, rate_bits: 2, salt_size: 0, pad_extvalues_len: 68681728
+d_values_flatten: 0x7fbb52000000, d_ext_values_flatten: 0x7fbb52000000
+lde_kernel elapsed: 0.47
+init_lde_kernel elapsed: 0.65
+mul_shift_kernel elapsed: 0.48
+fft_kernel elapsed: 42.75
+reverse_index_bits_kernel elapsed: 14.28
+gpu leaves0: 7502019737298385941
+gpu leaves1: 13409213159130968799
+gpu leaves2: 9160759314969592929
+gpu leaves3: 16654398759135536924
+gpu leaves4: 12399235102526734710
+gpu leaves5: 13671524128970344729
+gpu leaves6: 10978109539963550936
+gpu leaves7: 8487716384894210179
+gpu capid: 0, idx: 0, hash: 64df38c751fd65da, 1cb4cbdf1d8adf80, a25719ff492a0819, c8f1621ab9c9cb2a
+hash_leaves_kernel elapsed: 67.41
+reduce_digests_kernel elapsed: 9.75
+transpose_kernel elapsed: 6.53
+total use:141.67
+trace len: 110, values len: 65536
+ifft_kernel elapsed: 4.44
+start merkle_tree_from_coeffs: poly_num:110, values_num_per_poly:65536, log_len:16, rate_bits: 2, salt_size: 0, pad_extvalues_len: 28835840
+d_values_flatten: 0x7fbb52000000, d_ext_values_flatten: 0x7fbb52000000
+lde_kernel elapsed: 0.20
+init_lde_kernel elapsed: 0.27
+mul_shift_kernel elapsed: 0.20
+fft_kernel elapsed: 18.10
+reverse_index_bits_kernel elapsed: 6.07
+gpu leaves0: 8954542867684354588
+gpu leaves1: 0
+gpu leaves2: 0
+gpu leaves3: 739704758842221708
+gpu leaves4: 5583043307675045412
+gpu leaves5: 4507726639583295122
+gpu leaves6: 3432409971491544832
+gpu leaves7: 2357093303399794542
+gpu capid: 0, idx: 0, hash: c619a00671eeb359, 5c959870e8bcbc86, a16b9d9153fbbfda, 180fce2ec42ef57f
+hash_leaves_kernel elapsed: 25.41
+reduce_digests_kernel elapsed: 9.22
+transpose_kernel elapsed: 2.34
+total use:61.54
+trace len: 69, values len: 32768
+ifft_kernel elapsed: 1.37
+start merkle_tree_from_coeffs: poly_num:69, values_num_per_poly:32768, log_len:15, rate_bits: 2, salt_size: 0, pad_extvalues_len: 9043968
+d_values_flatten: 0x7fbb52000000, d_ext_values_flatten: 0x7fbb52000000
+lde_kernel elapsed: 0.07
+init_lde_kernel elapsed: 0.10
+mul_shift_kernel elapsed: 0.07
+fft_kernel elapsed: 5.63
+reverse_index_bits_kernel elapsed: 1.87
+gpu leaves0: 4972301063305437680
+gpu leaves1: 9159871954410131
+gpu leaves2: 8615823323938598766
+gpu leaves3: 5019470641316995672
+gpu leaves4: 2198671290337229183
+gpu leaves5: 13830221512168387798
+gpu leaves6: 13044710775144670508
+gpu leaves7: 11711957912542475856
+gpu capid: 0, idx: 0, hash: 7f4a4834dc278262, 7282cac93231bdbc, 8456bf85223945b7, 0b203163688b890a
+hash_leaves_kernel elapsed: 8.53
+reduce_digests_kernel elapsed: 4.87
+transpose_kernel elapsed: 0.59
+total use:21.64
+trace len: 13, values len: 4194304
+ifft_kernel elapsed: 120.05
+start merkle_tree_from_coeffs: poly_num:13, values_num_per_poly:4194304, log_len:22, rate_bits: 2, salt_size: 0, pad_extvalues_len: 218103808
+d_values_flatten: 0x7fbb52000000, d_ext_values_flatten: 0x7fbb52000000
+lde_kernel elapsed: 1.39
+init_lde_kernel elapsed: 1.96
+mul_shift_kernel elapsed: 1.93
+fft_kernel elapsed: 496.09
+reverse_index_bits_kernel elapsed: 64.54
+gpu leaves0: 17075042230493751876
+gpu leaves1: 8890285504252602257
+gpu leaves2: 11677167245027171282
+gpu leaves3: 0
+gpu leaves4: 17454643800544117548
+gpu leaves5: 14889957275965955223
+gpu leaves6: 6698759439222045057
+gpu leaves7: 0
+gpu capid: 0, idx: 0, hash: 59dde6b45eb83155, 0b4def600a0301be, 1e1955cccb3daed1, 431adfa806aef045
+hash_leaves_kernel elapsed: 230.12
+reduce_digests_kernel elapsed: 544.03
+transpose_kernel elapsed: 7.37
+total use:1345.47
+[DEBUG zkm::prover] trace_commitments: 6
+[DEBUG zkm::cross_table_lookup] Processing CTL for Arithmetic
+[DEBUG zkm::cross_table_lookup] Processing CTL for PoseidonSponge
+[DEBUG zkm::cross_table_lookup] Processing CTL for Poseidon
+[DEBUG zkm::cross_table_lookup] Processing CTL for Poseidon
+[DEBUG zkm::cross_table_lookup] Processing CTL for Logic
+[DEBUG zkm::cross_table_lookup] Processing CTL for Memory
+aux, table: Arithmetic len: 22, values len: 131072
+ifft_kernel elapsed: 3.55
+start merkle_tree_from_coeffs: poly_num:22, values_num_per_poly:131072, log_len:17, rate_bits: 2, salt_size: 0, pad_extvalues_len: 11534336
+d_values_flatten: 0x7fbb52000000, d_ext_values_flatten: 0x7fbb52000000
+lde_kernel elapsed: 0.09
+init_lde_kernel elapsed: 0.12
+mul_shift_kernel elapsed: 0.09
+fft_kernel elapsed: 14.51
+reverse_index_bits_kernel elapsed: 2.70
+gpu leaves0: 565113679884152897
+gpu leaves1: 14331459206999014936
+gpu leaves2: 3906131850138806460
+gpu leaves3: 5960592744297432388
+gpu leaves4: 6840978090309465162
+gpu leaves5: 5444920854558585
+gpu leaves6: 3123062047606919419
+gpu leaves7: 3093948048161566894
+gpu capid: 0, idx: 0, hash: b18904f2445b33a0, 88a6672d62d6f70c, 6698f9d653c223c6, 88198040a1726087
+hash_leaves_kernel elapsed: 12.20
+reduce_digests_kernel elapsed: 19.78
+transpose_kernel elapsed: 0.57
+total use:49.94
+quotient, table: Arithmetic, len: 4, values len: 131072
+cpu capid: 0, idx: 0, hash: 6c7e78313ee83f2e, 6a7beaf7e569349e, 305a5d04d0808b26, 426c4b8e8b8d891a
+cpu leaves0: 17102776417013574597
+cpu leaves1: 18117556042146353129
+cpu leaves2: 13219886569777843405
+cpu leaves3: 8134539222650308140
+cpu leaves4: 9340644669652578715
+cpu leaves5: 14200184983543191156
+cpu leaves6: 8729705459359386615
+cpu leaves7: 6842659649662233298
+cpu capid: 0, idx: 0, hash: 2b3f20714e106547, 057fdda7302bdfdd, 9aba06bd8e8b52c6, e0f53d49b8408476
+cpu leaves0: 11500515093635713920
+cpu leaves1: 4332937873176861626
+cpu leaves2: 5964274135627901350
+cpu leaves3: 2162754691763527358
+cpu leaves4: 16262150160025753037
+cpu leaves5: 4608391012215328818
+cpu leaves6: 2268956024085118991
+cpu leaves7: 12818692612250998624
+cpu capid: 0, idx: 0, hash: 0150ba2b77bb759e, a704bb235ec99ef4, f35151ff6720b116, d6ec2a01b51cad14
+cpu leaves0: 10724621265042155302
+cpu leaves1: 9699704468960618701
+cpu leaves2: 14994651248196799514
+cpu leaves3: 1217187919017879203
+cpu leaves4: 3172712550421769002
+cpu leaves5: 8763463112039737200
+cpu leaves6: 4693985198598809052
+cpu leaves7: 2611334915219201918
+cpu capid: 0, idx: 0, hash: bc3af5060e0438bd, 7486e759f410dfb7, 0ac53ae2e414a1cd, 5f9263c97831cddc
+aux, table: Cpu len: 20, values len: 524288
+ifft_kernel elapsed: 15.12
+start merkle_tree_from_coeffs: poly_num:20, values_num_per_poly:524288, log_len:19, rate_bits: 2, salt_size: 0, pad_extvalues_len: 41943040
+d_values_flatten: 0x7fbb52000000, d_ext_values_flatten: 0x7fbb52000000
+lde_kernel elapsed: 0.29
+init_lde_kernel elapsed: 0.39
+mul_shift_kernel elapsed: 0.39
+fft_kernel elapsed: 62.52
+reverse_index_bits_kernel elapsed: 10.39
+gpu leaves0: 7887968251983066632
+gpu leaves1: 5464294115802526734
+gpu leaves2: 14037134026460215196
+gpu leaves3: 1020196427816566066
+gpu leaves4: 13381133113784814053
+gpu leaves5: 12795587678250276374
+gpu leaves6: 15510114904645878635
+gpu leaves7: 18446596208580246149
+gpu capid: 0, idx: 0, hash: 32641321bda7f46d, be9901a408c4a5e9, 8409a14dcb3ff144, fa2bad9711aad82c
+hash_leaves_kernel elapsed: 45.60
+reduce_digests_kernel elapsed: 69.49
+transpose_kernel elapsed: 1.96
+total use:190.64
+quotient, table: Cpu, len: 4, values len: 524288
+cpu capid: 0, idx: 0, hash: 7de80176aaab2cd1, 66134fc757a185b3, 9ca285909a8cb16d, 09e25fface4f9ebd
+cpu leaves0: 16730633074247860323
+cpu leaves1: 4636450154606247871
+cpu leaves2: 4005142123725069455
+cpu leaves3: 9792429542100778064
+cpu leaves4: 8724442578252379380
+cpu leaves5: 8009444718242494517
+cpu leaves6: 16292962127588323110
+cpu leaves7: 12149149414048616431
+cpu capid: 0, idx: 0, hash: 60f37f3e76063040, d31886449f071009, 430d5e80f99606c2, 662004ed45bc4e19
+cpu leaves0: 10651000128380491559
+cpu leaves1: 3091151039490125944
+cpu leaves2: 1638268377520758685
+cpu leaves3: 18065351058462474577
+cpu leaves4: 16437116072151568366
+cpu leaves5: 11890061128319733757
+cpu leaves6: 3777428741758579308
+cpu leaves7: 17580133648997628449
+cpu capid: 0, idx: 0, hash: 02ea415159da40df, 156e4e2162150b36, c846541224192b64, 58fffc4c3875c1a4
+cpu leaves0: 3197396809588320745
+cpu leaves1: 3439027293799841242
+cpu leaves2: 17114643600139858965
+cpu leaves3: 4803136762480249078
+cpu leaves4: 4128193139787262820
+cpu leaves5: 13930118394516049701
+cpu leaves6: 6878640685057274657
+cpu leaves7: 2618770586951359156
+cpu capid: 0, idx: 0, hash: 2699f1f6dbfb2944, 84bbad31e5c3028e, e4e7aba311d2175e, e6a76f0bd3d18085
+cpu leaves0: 6574205334453862728
+cpu leaves1: 8045459971015095285
+cpu leaves2: 15353974169252477312
+cpu leaves3: 16730151818383367450
+cpu leaves4: 156058220545506802
+cpu leaves5: 16015480422655697851
+cpu leaves6: 13617214709139302286
+cpu leaves7: 12144926262573751758
+cpu capid: 0, idx: 0, hash: ad5dfebe6f00ee95, 3826562dcaaaed4d, 5cd122079b5211f2, 1773c59e4faf68ac
+aux, table: Poseidon len: 4, values len: 65536
+cpu capid: 0, idx: 0, hash: 109063e8535d1f3b, d3b7f2e1210bff91, 2d17cb886f00bfe0, 5db3b5a0b7e85b3b
+quotient, table: Poseidon, len: 4, values len: 65536
+cpu capid: 0, idx: 0, hash: 80b17b6c10a447a2, 6004d751d0f3a53a, 4d94e6f317bfdc48, fd855b725e730e10
+cpu leaves0: 8687570651217503867
+cpu leaves1: 292388081182420559
+cpu leaves2: 12406363682163998353
+cpu leaves3: 934098149126907339
+cpu leaves4: 17419297604022840791
+cpu leaves5: 8339444803336386207
+cpu leaves6: 15967095632765325974
+cpu leaves7: 7982381009003424579
+cpu capid: 0, idx: 0, hash: 1a6cdb096d73aa71, ac686b3868c13066, d1aa3fd23ae4557b, fffc30bd16dda38d
+cpu leaves0: 6556718316352360710
+cpu leaves1: 11657179410841423636
+cpu leaves2: 11829401079974341630
+cpu leaves3: 15693796200245659014
+cpu leaves4: 14521134287601021478
+cpu leaves5: 2707220375767139672
+cpu leaves6: 11931874871141105976
+cpu leaves7: 11222808256106697923
+cpu capid: 0, idx: 0, hash: 2d66727c228a27d0, c269333563b252c2, ea5ac0d75c0f9d18, fc58626427003857
+cpu leaves0: 7349270572996293062
+cpu leaves1: 5388329205151516036
+cpu leaves2: 8297612376807743273
+cpu leaves3: 2878990492956344053
+cpu leaves4: 7741906175676192789
+cpu leaves5: 792970388487779595
+cpu leaves6: 18149143540573836495
+cpu leaves7: 12525040589295465089
+cpu capid: 0, idx: 0, hash: c79262572d3547f8, 91ef1042ef4c74c2, 608967032ab29248, 629288f260caf01a
+aux, table: PoseidonSponge len: 40, values len: 65536
+ifft_kernel elapsed: 2.03
+start merkle_tree_from_coeffs: poly_num:40, values_num_per_poly:65536, log_len:16, rate_bits: 2, salt_size: 0, pad_extvalues_len: 10485760
+d_values_flatten: 0x7fbb52000000, d_ext_values_flatten: 0x7fbb52000000
+lde_kernel elapsed: 0.08
+init_lde_kernel elapsed: 0.11
+mul_shift_kernel elapsed: 0.09
+fft_kernel elapsed: 8.26
+reverse_index_bits_kernel elapsed: 2.17
+gpu leaves0: 14761494502643759410
+gpu leaves1: 14761494502643759410
+gpu leaves2: 1574356603422985956
+gpu leaves3: 1574356603422985956
+gpu leaves4: 12189770251625527792
+gpu leaves5: 12189770251625527792
+gpu leaves6: 17805574411983624873
+gpu leaves7: 17805574411983624873
+gpu capid: 0, idx: 0, hash: b75847cb95703c8d, 6f7ca1115c5ffed5, 9aceed71aeddcc64, 4de9e39906ffeccc
+hash_leaves_kernel elapsed: 10.27
+reduce_digests_kernel elapsed: 10.31
+transpose_kernel elapsed: 0.69
+total use:31.85
+quotient, table: PoseidonSponge, len: 4, values len: 65536
+cpu capid: 0, idx: 0, hash: 91106d2770ef4378, faa74cd8597a2a09, f72e3af76e645507, baea902429b8fa21
+cpu leaves0: 10306200371105163665
+cpu leaves1: 17063821424215658492
+cpu leaves2: 5937776835337301298
+cpu leaves3: 1380323042182794722
+cpu leaves4: 10997905252150227887
+cpu leaves5: 5742376744566782141
+cpu leaves6: 972227995578391390
+cpu leaves7: 4580360984159472951
+cpu capid: 0, idx: 0, hash: 056f1b1803926aad, d92f05901d02fc95, 17a7f2fec7c60d6e, c174023e7e20aaee
+cpu leaves0: 17830874359222823722
+cpu leaves1: 5476614269634802388
+cpu leaves2: 3487799114028496217
+cpu leaves3: 9349363685351860144
+cpu leaves4: 6955364594747650668
+cpu leaves5: 4041549346449415787
+cpu leaves6: 2135991734878098658
+cpu leaves7: 13690638175393017388
+cpu capid: 0, idx: 0, hash: 8339bc92bd2a98cb, 04353f1f8db7e460, a74af7884e1f7444, 55d841bab52ee430
+cpu leaves0: 6430961454082308206
+cpu leaves1: 16756762272289573882
+cpu leaves2: 13102482667738405813
+cpu leaves3: 17525153489577329521
+cpu leaves4: 9947831976363666033
+cpu leaves5: 1086811890699301572
+cpu leaves6: 6194914468276925956
+cpu leaves7: 2880663035847168607
+cpu capid: 0, idx: 0, hash: 31465eefad317ad3, e02aad4c4ff422b1, e90d80d02fbe8492, be0c6c2aefc36ec8
+aux, table: Logic len: 2, values len: 32768
+cpu capid: 0, idx: 0, hash: 40cf0e4f459cdc7a, 4ef9db86ba302445, 0000000000000000, 0000000000000000
+quotient, table: Logic, len: 4, values len: 32768
+cpu capid: 0, idx: 0, hash: 5fe5cc4c4480e26f, 1393c463b2725990, 5f9d4e760c319406, 0772d8f3e1e0dcb4
+cpu leaves0: 17090574847348137912
+cpu leaves1: 602341198269923525
+cpu leaves2: 11402926344775998510
+cpu leaves3: 12352215831181924226
+cpu leaves4: 7175317212796810739
+cpu leaves5: 13715016089257312238
+cpu leaves6: 7524808797848867536
+cpu leaves7: 1695979757493578298
+cpu capid: 0, idx: 0, hash: 3460a3c1ddaac812, 00633c747ae0c8bd, e0eb48f60fefdc12, 1240a08ec7439132
+cpu leaves0: 3311389574344170325
+cpu leaves1: 6749152270092723364
+cpu leaves2: 16874275121791018598
+cpu leaves3: 14439575862705861873
+cpu leaves4: 10375186204169381547
+cpu leaves5: 11360879419256983704
+cpu leaves6: 1821345719493053936
+cpu leaves7: 2203114418406582300
+cpu capid: 0, idx: 0, hash: 3733e585d2db1af5, cf40f8a88930db56, fe0e66083c3d7a3c, 8b528325adfe3d6e
+cpu leaves0: 9606225972395342460
+cpu leaves1: 17185721907252291952
+cpu leaves2: 4658280575506090481
+cpu leaves3: 17481064432423104960
+cpu leaves4: 6914240246092755884
+cpu leaves5: 4083154696350542882
+cpu leaves6: 4125263414733881957
+cpu leaves7: 16641708697298738797
+cpu capid: 0, idx: 0, hash: 04856e5d8cadb2c5, b55080f8a5c7e8cb, e0d3a67ebe19e1f0, 7ec83fada087ece1
+aux, table: Memory len: 6, values len: 4194304
+ifft_kernel elapsed: 120.21
+start merkle_tree_from_coeffs: poly_num:6, values_num_per_poly:4194304, log_len:22, rate_bits: 2, salt_size: 0, pad_extvalues_len: 100663296
+d_values_flatten: 0x7fbb52000000, d_ext_values_flatten: 0x7fbb52000000
+lde_kernel elapsed: 0.65
+init_lde_kernel elapsed: 0.93
+mul_shift_kernel elapsed: 0.90
+fft_kernel elapsed: 467.00
+reverse_index_bits_kernel elapsed: 51.64
+gpu leaves0: 11607286186027398519
+gpu leaves1: 11622960794406413328
+gpu leaves2: 97558323499660986
+gpu leaves3: 15833273299797558194
+gpu leaves4: 16644045332855682179
+gpu leaves5: 3398856700077358071
+gpu leaves6: 5623993692471994141
+gpu leaves7: 17075042230493751876
+gpu capid: 0, idx: 0, hash: 1da7d45277700c4e, 383f22b1a2afab24, 0ad61a6ee11bcbcc, 4fd684db645d512d
+hash_leaves_kernel elapsed: 119.76
+reduce_digests_kernel elapsed: 544.95
+transpose_kernel elapsed: 2.54
+total use:1187.44
+quotient, table: Memory, len: 4, values len: 4194304
+cpu capid: 0, idx: 0, hash: e93243ff18717101, b8754bd2aa51dda5, 1228822e2a19d8b8, 60fa37ae1ca1f9df
+cpu leaves0: 8513024009454659095
+cpu leaves1: 6419614071632461990
+cpu leaves2: 16033965677524837953
+cpu leaves3: 4153266223705048919
+cpu leaves4: 18347312832009771725
+cpu leaves5: 8000559658824206882
+cpu leaves6: 1961173776610056889
+cpu leaves7: 2520242197768108490
+cpu capid: 0, idx: 0, hash: fcec0aa8ba1df33c, 652ac92adc44fc27, 1c1d3de6044459a4, 10c72d1260b01c00
+cpu leaves0: 364107549820990851
+cpu leaves1: 17908187632022436966
+cpu leaves2: 14503916370605612349
+cpu leaves3: 14930464717782836297
+cpu leaves4: 15703117524977553212
+cpu leaves5: 8551481768857421659
+cpu leaves6: 10620640925706971221
+cpu leaves7: 12876264160504632477
+cpu capid: 0, idx: 0, hash: 7adc571446239e88, 27bff84285d8e143, de1ddc9723b2ccfc, fe3cf036acf31bda
+cpu leaves0: 10043919072342327966
+cpu leaves1: 10841630104770919608
+cpu leaves2: 7909312912642653827
+cpu leaves3: 1549899039334024288
+cpu leaves4: 10744429736277208792
+cpu leaves5: 1899454467765340988
+cpu leaves6: 10482494692063801580
+cpu leaves7: 1761792926912687380
+cpu capid: 0, idx: 0, hash: d6e69638cf3da9dc, 526229ed7e88b3f5, 180abbeb6fda8f6c, 19a469b79b6d59b5
+cpu leaves0: 3348794368994621806
+cpu leaves1: 12328107499708653578
+cpu leaves2: 14106774495707636397
+cpu leaves3: 637616354466299548
+cpu leaves4: 7502212576851397642
+cpu leaves5: 13714652836169045352
+cpu leaves6: 7721459894132610520
+cpu leaves7: 11822320636498765540
+cpu capid: 0, idx: 0, hash: e13faff07e5da51e, e26ba5dd33c41d62, 0da178754e2b4ed2, fe0e0bcf364945b3
+[INFO  zkmips] row:0 proof bytes:874613
+[INFO  zkmips] row:1 proof bytes:1337818
+[INFO  zkmips] row:2 proof bytes:1175116
+[INFO  zkmips] row:3 proof bytes:914471
+[INFO  zkmips] row:4 proof bytes:772428
+[INFO  zkmips] row:5 proof bytes:1176921
+[INFO  plonky2::util::timing] 65.8458s to prove
+[DEBUG plonky2::util::timing] | 7.6908s to generate all traces
+[DEBUG plonky2::util::timing] | | 2.2864s to simulate CPU
+[DEBUG plonky2::util::timing] | | 2.3635s to convert trace data to tables
+[DEBUG plonky2::util::timing] | | | 0.1115s to generate arithmetic trace
+[DEBUG plonky2::util::timing] | | | 0.2481s to generate Poseidon trace
+[DEBUG plonky2::util::timing] | | | | 0.1713s to generate trace rows
+[DEBUG plonky2::util::timing] | | | | 0.0769s to convert to PolynomialValues
+[DEBUG plonky2::util::timing] | | | 0.2256s to generate Poseidon sponge trace
+[DEBUG plonky2::util::timing] | | | | 0.1788s to generate trace rows
+[DEBUG plonky2::util::timing] | | | | 0.0469s to convert to PolynomialValues
+[DEBUG plonky2::util::timing] | | | 0.0320s to generate logic trace
+[DEBUG plonky2::util::timing] | | | | 0.0081s to generate trace rows
+[DEBUG plonky2::util::timing] | | | | 0.0240s to convert to PolynomialValues
+[DEBUG plonky2::util::timing] | | | 0.8544s to generate memory trace
+[DEBUG plonky2::util::timing] | | | | 0.3946s to generate trace rows
+[DEBUG plonky2::util::timing] | 10.1135s to compute all trace commitments
+[DEBUG plonky2::util::timing] | | 0.2914s to compute trace commitment for Arithmetic
+[DEBUG plonky2::util::timing] | | | 0.0054s to copy values
+[DEBUG plonky2::util::timing] | | | 0.0983s to FFT + build Merkle tree + transpose with gpu
+[DEBUG plonky2::util::timing] | | | 0.1284s to copy result
+[DEBUG plonky2::util::timing] | | 5.4173s to compute trace commitment for Cpu
+[DEBUG plonky2::util::timing] | | | 0.0920s to copy values
+[DEBUG plonky2::util::timing] | | | 1.1957s to FFT + build Merkle tree + transpose with gpu
+[DEBUG plonky2::util::timing] | | | 1.7417s to copy result
+[DEBUG plonky2::util::timing] | | 0.5424s to compute trace commitment for Poseidon
+[DEBUG plonky2::util::timing] | | | 0.0117s to copy values
+[DEBUG plonky2::util::timing] | | | 0.1529s to FFT + build Merkle tree + transpose with gpu
+[DEBUG plonky2::util::timing] | | | 0.0576s to copy result
+[DEBUG plonky2::util::timing] | | 0.1552s to compute trace commitment for PoseidonSponge
+[DEBUG plonky2::util::timing] | | | 0.0051s to copy values
+[DEBUG plonky2::util::timing] | | | 0.0664s to FFT + build Merkle tree + transpose with gpu
+[DEBUG plonky2::util::timing] | | | 0.0260s to copy result
+[DEBUG plonky2::util::timing] | | 0.0612s to compute trace commitment for Logic
+[DEBUG plonky2::util::timing] | | | 0.0017s to copy values
+[DEBUG plonky2::util::timing] | | | 0.0233s to FFT + build Merkle tree + transpose with gpu
+[DEBUG plonky2::util::timing] | | | 0.0085s to copy result
+[DEBUG plonky2::util::timing] | | 3.6458s to compute trace commitment for Memory
+[DEBUG plonky2::util::timing] | | | 0.0354s to copy values
+[DEBUG plonky2::util::timing] | | | 1.4669s to FFT + build Merkle tree + transpose with gpu
+[DEBUG plonky2::util::timing] | | | 0.5821s to copy result
+[DEBUG plonky2::util::timing] | 2.0704s to compute CTL data
+[DEBUG plonky2::util::timing] | 45.9541s to compute all proofs given commitments
+[DEBUG plonky2::util::timing] | | 4.9309s to prove Arithmetic STARK
+[DEBUG plonky2::util::timing] | | | 0.0000s to lookup_challenges
+[DEBUG plonky2::util::timing] | | | 0.1440s to compute lookup helper columns
+[DEBUG plonky2::util::timing] | | | 0.0004s to get auxiliary_polys
+[DEBUG plonky2::util::timing] | | | 0.1250s to compute auxiliary polynomials commitment
+[DEBUG plonky2::util::timing] | | | | 0.0024s to copy values
+[DEBUG plonky2::util::timing] | | | | 0.0538s to FFT + build Merkle tree + transpose with gpu
+[DEBUG plonky2::util::timing] | | | | 0.0138s to copy result
+[DEBUG plonky2::util::timing] | | | 0.0000s to observe aux cap
+[DEBUG plonky2::util::timing] | | | 0.0000s to observe aux cap
+[DEBUG plonky2::util::timing] | | | 0.0000s to get num_ctl_helper_polys
+[DEBUG plonky2::util::timing] | | | 4.0127s to compute quotient polys
+[DEBUG plonky2::util::timing] | | | 0.0025s to split quotient polys
+[DEBUG plonky2::util::timing] | | | 0.1215s to compute quotient commitment
+[DEBUG plonky2::util::timing] | | | | 0.0309s to FFT + blinding
+[DEBUG plonky2::util::timing] | | | | 0.0045s to transpose LDEs
+[DEBUG plonky2::util::timing] | | | | 0.0837s to build Merkle tree
+[DEBUG plonky2::util::timing] | | | 0.0223s to new stark opening set
+[DEBUG plonky2::util::timing] | | | 0.0001s to observe_openings
+[DEBUG plonky2::util::timing] | | | 0.3725s to compute openings proof
+[DEBUG plonky2::util::timing] | | | | 0.1182s to reduce batch of 80 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.1115s to reduce batch of 76 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.0029s to reduce batch of 2 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.0649s to perform final FFT 524288
+[DEBUG plonky2::util::timing] | | | | 0.0359s to fold codewords in the commitment phase
+[DEBUG plonky2::util::timing] | | | | 0.0235s to find proof-of-work witness
+[DEBUG plonky2::util::timing] | | 9.3228s to prove CPU STARK
+[DEBUG plonky2::util::timing] | | | 0.0000s to lookup_challenges
+[DEBUG plonky2::util::timing] | | | 0.0000s to compute lookup helper columns
+[DEBUG plonky2::util::timing] | | | 0.0120s to get auxiliary_polys
+[DEBUG plonky2::util::timing] | | | 0.5296s to compute auxiliary polynomials commitment
+[DEBUG plonky2::util::timing] | | | | 0.0074s to copy values
+[DEBUG plonky2::util::timing] | | | | 0.2062s to FFT + build Merkle tree + transpose with gpu
+[DEBUG plonky2::util::timing] | | | | 0.0488s to copy result
+[DEBUG plonky2::util::timing] | | | 0.0000s to observe aux cap
+[DEBUG plonky2::util::timing] | | | 0.0000s to observe aux cap
+[DEBUG plonky2::util::timing] | | | 0.0000s to get num_ctl_helper_polys
+[DEBUG plonky2::util::timing] | | | 2.0717s to compute quotient polys
+[DEBUG plonky2::util::timing] | | | 0.0082s to split quotient polys
+[DEBUG plonky2::util::timing] | | | 0.5416s to compute quotient commitment
+[DEBUG plonky2::util::timing] | | | | 0.1228s to FFT + blinding
+[DEBUG plonky2::util::timing] | | | | 0.0780s to transpose LDEs
+[DEBUG plonky2::util::timing] | | | | 0.3187s to build Merkle tree
+[DEBUG plonky2::util::timing] | | | 0.2205s to new stark opening set
+[DEBUG plonky2::util::timing] | | | 0.0005s to observe_openings
+[DEBUG plonky2::util::timing] | | | 5.4896s to compute openings proof
+[DEBUG plonky2::util::timing] | | | | 2.5402s to reduce batch of 277 polynomials
+[DEBUG plonky2::util::timing] | | | | 2.3502s to reduce batch of 273 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.0677s to reduce batch of 8 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.3104s to perform final FFT 2097152
+[DEBUG plonky2::util::timing] | | | | 0.1330s to fold codewords in the commitment phase
+[DEBUG plonky2::util::timing] | | | | 0.0032s to find proof-of-work witness
+[DEBUG plonky2::util::timing] | | 0.8360s to prove Poseidon STARK
+[DEBUG plonky2::util::timing] | | | 0.0000s to lookup_challenges
+[DEBUG plonky2::util::timing] | | | 0.0000s to compute lookup helper columns
+[DEBUG plonky2::util::timing] | | | 0.0007s to get auxiliary_polys
+[DEBUG plonky2::util::timing] | | | 0.0677s to compute auxiliary polynomials commitment
+[DEBUG plonky2::util::timing] | | | | 0.0050s to IFFT
+[DEBUG plonky2::util::timing] | | | | 0.0177s to FFT + blinding
+[DEBUG plonky2::util::timing] | | | | 0.0015s to transpose LDEs
+[DEBUG plonky2::util::timing] | | | | 0.0422s to build Merkle tree
+[DEBUG plonky2::util::timing] | | | 0.0000s to observe aux cap
+[DEBUG plonky2::util::timing] | | | 0.0000s to observe aux cap
+[DEBUG plonky2::util::timing] | | | 0.0000s to get num_ctl_helper_polys
+[DEBUG plonky2::util::timing] | | | 0.1487s to compute quotient polys
+[DEBUG plonky2::util::timing] | | | 0.0011s to split quotient polys
+[DEBUG plonky2::util::timing] | | | 0.0576s to compute quotient commitment
+[DEBUG plonky2::util::timing] | | | | 0.0129s to FFT + blinding
+[DEBUG plonky2::util::timing] | | | | 0.0027s to transpose LDEs
+[DEBUG plonky2::util::timing] | | | | 0.0407s to build Merkle tree
+[DEBUG plonky2::util::timing] | | | 0.0237s to new stark opening set
+[DEBUG plonky2::util::timing] | | | 0.0003s to observe_openings
+[DEBUG plonky2::util::timing] | | | 0.4648s to compute openings proof
+[DEBUG plonky2::util::timing] | | | | 0.1995s to reduce batch of 270 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.1945s to reduce batch of 266 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.0029s to reduce batch of 4 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.0299s to perform final FFT 262144
+[DEBUG plonky2::util::timing] | | | | 0.0220s to fold codewords in the commitment phase
+[DEBUG plonky2::util::timing] | | | | 0.0077s to find proof-of-work witness
+[DEBUG plonky2::util::timing] | | 0.8078s to prove Poseidon sponge STARK
+[DEBUG plonky2::util::timing] | | | 0.0000s to lookup_challenges
+[DEBUG plonky2::util::timing] | | | 0.0000s to compute lookup helper columns
+[DEBUG plonky2::util::timing] | | | 0.0054s to get auxiliary_polys
+[DEBUG plonky2::util::timing] | | | 0.1155s to compute auxiliary polynomials commitment
+[DEBUG plonky2::util::timing] | | | | 0.0021s to copy values
+[DEBUG plonky2::util::timing] | | | | 0.0342s to FFT + build Merkle tree + transpose with gpu
+[DEBUG plonky2::util::timing] | | | | 0.0143s to copy result
+[DEBUG plonky2::util::timing] | | | 0.0000s to observe aux cap
+[DEBUG plonky2::util::timing] | | | 0.0000s to observe aux cap
+[DEBUG plonky2::util::timing] | | | 0.0000s to get num_ctl_helper_polys
+[DEBUG plonky2::util::timing] | | | 0.2611s to compute quotient polys
+[DEBUG plonky2::util::timing] | | | 0.0011s to split quotient polys
+[DEBUG plonky2::util::timing] | | | 0.0579s to compute quotient commitment
+[DEBUG plonky2::util::timing] | | | | 0.0134s to FFT + blinding
+[DEBUG plonky2::util::timing] | | | | 0.0026s to transpose LDEs
+[DEBUG plonky2::util::timing] | | | | 0.0402s to build Merkle tree
+[DEBUG plonky2::util::timing] | | | 0.0159s to new stark opening set
+[DEBUG plonky2::util::timing] | | | 0.0002s to observe_openings
+[DEBUG plonky2::util::timing] | | | 0.2969s to compute openings proof
+[DEBUG plonky2::util::timing] | | | | 0.1141s to reduce batch of 154 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.1102s to reduce batch of 150 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.0059s to reduce batch of 8 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.0312s to perform final FFT 262144
+[DEBUG plonky2::util::timing] | | | | 0.0214s to fold codewords in the commitment phase
+[DEBUG plonky2::util::timing] | | | | 0.0057s to find proof-of-work witness
+[DEBUG plonky2::util::timing] | | 0.2458s to prove logic STARK
+[DEBUG plonky2::util::timing] | | | 0.0000s to lookup_challenges
+[DEBUG plonky2::util::timing] | | | 0.0000s to compute lookup helper columns
+[DEBUG plonky2::util::timing] | | | 0.0002s to get auxiliary_polys
+[DEBUG plonky2::util::timing] | | | 0.0323s to compute auxiliary polynomials commitment
+[DEBUG plonky2::util::timing] | | | | 0.0014s to IFFT
+[DEBUG plonky2::util::timing] | | | | 0.0047s to FFT + blinding
+[DEBUG plonky2::util::timing] | | | | 0.0012s to transpose LDEs
+[DEBUG plonky2::util::timing] | | | | 0.0241s to build Merkle tree
+[DEBUG plonky2::util::timing] | | | 0.0000s to observe aux cap
+[DEBUG plonky2::util::timing] | | | 0.0000s to observe aux cap
+[DEBUG plonky2::util::timing] | | | 0.0000s to get num_ctl_helper_polys
+[DEBUG plonky2::util::timing] | | | 0.0381s to compute quotient polys
+[DEBUG plonky2::util::timing] | | | 0.0007s to split quotient polys
+[DEBUG plonky2::util::timing] | | | 0.0351s to compute quotient commitment
+[DEBUG plonky2::util::timing] | | | | 0.0095s to FFT + blinding
+[DEBUG plonky2::util::timing] | | | | 0.0013s to transpose LDEs
+[DEBUG plonky2::util::timing] | | | | 0.0233s to build Merkle tree
+[DEBUG plonky2::util::timing] | | | 0.0051s to new stark opening set
+[DEBUG plonky2::util::timing] | | | 0.0001s to observe_openings
+[DEBUG plonky2::util::timing] | | | 0.0977s to compute openings proof
+[DEBUG plonky2::util::timing] | | | | 0.0285s to reduce batch of 75 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.0266s to reduce batch of 71 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.0007s to reduce batch of 2 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.0144s to perform final FFT 131072
+[DEBUG plonky2::util::timing] | | | | 0.0127s to fold codewords in the commitment phase
+[DEBUG plonky2::util::timing] | | | | 0.0106s to find proof-of-work witness
+[DEBUG plonky2::util::timing] | | 26.8492s to prove memory STARK
+[DEBUG plonky2::util::timing] | | | 0.0000s to lookup_challenges
+[DEBUG plonky2::util::timing] | | | 0.6730s to compute lookup helper columns
+[DEBUG plonky2::util::timing] | | | 0.0177s to get auxiliary_polys
+[DEBUG plonky2::util::timing] | | | 2.5000s to compute auxiliary polynomials commitment
+[DEBUG plonky2::util::timing] | | | | 0.0176s to copy values
+[DEBUG plonky2::util::timing] | | | | 1.3081s to FFT + build Merkle tree + transpose with gpu
+[DEBUG plonky2::util::timing] | | | | 0.1896s to copy result
+[DEBUG plonky2::util::timing] | | | 0.0000s to observe aux cap
+[DEBUG plonky2::util::timing] | | | 0.0000s to observe aux cap
+[DEBUG plonky2::util::timing] | | | 0.0000s to get num_ctl_helper_polys
+[DEBUG plonky2::util::timing] | | | 3.5107s to compute quotient polys
+[DEBUG plonky2::util::timing] | | | 0.0907s to split quotient polys
+[DEBUG plonky2::util::timing] | | | 4.8018s to compute quotient commitment
+[DEBUG plonky2::util::timing] | | | | 1.1866s to FFT + blinding
+[DEBUG plonky2::util::timing] | | | | 0.8938s to transpose LDEs
+[DEBUG plonky2::util::timing] | | | | 2.5584s to build Merkle tree
+[DEBUG plonky2::util::timing] | | | 1.0033s to new stark opening set
+[DEBUG plonky2::util::timing] | | | 0.0001s to observe_openings
+[DEBUG plonky2::util::timing] | | | 11.8956s to compute openings proof
+[DEBUG plonky2::util::timing] | | | | 3.6945s to reduce batch of 23 polynomials
+[DEBUG plonky2::util::timing] | | | | 2.7138s to reduce batch of 19 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.2760s to reduce batch of 2 polynomials
+[DEBUG plonky2::util::timing] | | | | 2.7712s to perform final FFT 16777216
+[DEBUG plonky2::util::timing] | | | | 1.8466s to fold codewords in the commitment phase
+[DEBUG plonky2::util::timing] | | | | 0.0124s to find proof-of-work witness
+[INFO  zkmips] total proof bytes:6104KB
+[DEBUG zkm::verifier] Checking proof: zkm::arithmetic::arithmetic_stark::ArithmeticStark<plonky2_field::goldilocks_field::GoldilocksField, 2>
+[DEBUG zkm::verifier] Checking proof: zkm::cpu::cpu_stark::CpuStark<plonky2_field::goldilocks_field::GoldilocksField, 2>
+[DEBUG zkm::verifier] Checking proof: zkm::poseidon::poseidon_stark::PoseidonStark<plonky2_field::goldilocks_field::GoldilocksField, 2>
+[DEBUG zkm::verifier] Checking proof: zkm::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeStark<plonky2_field::goldilocks_field::GoldilocksField, 2>
+[DEBUG zkm::verifier] Checking proof: zkm::logic::LogicStark<plonky2_field::goldilocks_field::GoldilocksField, 2>
+[DEBUG zkm::verifier] Checking proof: zkm::memory::memory_stark::MemoryStark<plonky2_field::goldilocks_field::GoldilocksField, 2>
+[INFO  zkmips] Prove done
