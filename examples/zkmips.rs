@@ -165,15 +165,13 @@ fn prove_single_seg() {
         let max_lg_n = 22;
         let fft_root_table_max = fft_root_table(1 << (max_lg_n + rate_bits)).concat();
 
-        let root_table_device = {
-            DeviceBuffer::from_slice(&fft_root_table_max).unwrap() };
+        let root_table_device = { DeviceBuffer::from_slice(&fft_root_table_max).unwrap() };
 
         let shift_powers = F::coset_shift()
             .powers()
             .take(1 << (max_lg_n))
             .collect::<Vec<_>>();
-        let shift_powers_device = {
-            DeviceBuffer::from_slice(&shift_powers).unwrap() };
+        let shift_powers_device = { DeviceBuffer::from_slice(&shift_powers).unwrap() };
 
         let max_values_num_per_poly = 1 << max_lg_n;
         let max_values_flatten_len = max_values_num_per_poly * 32;
@@ -228,7 +226,6 @@ fn prove_single_seg() {
     //     prove(&allstark, &kernel, &config, &mut timing).unwrap();
     let allproof: proof::AllProof<GoldilocksField, C, D> =
         prove_gpu(&allstark, &kernel, &config, &mut timing, &mut ctx).unwrap();
-
 
     let mut count_bytes = 0;
     for (row, proof) in allproof.stark_proofs.clone().iter().enumerate() {

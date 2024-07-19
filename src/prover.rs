@@ -12,7 +12,7 @@ use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
 #[cfg(feature = "gpu")]
 use plonky2::fri::oracle::CudaInvContext;
 
-use plonky2::fri::oracle:: PolynomialBatch;
+use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::GenericConfig;

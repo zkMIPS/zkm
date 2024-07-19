@@ -60,9 +60,9 @@ curta = { git ="https://github.com/zkMIPS/curta.git", branch = "zkm" }
 
 
 [patch.'https://github.com/zkMIPS/plonky2']
-plonky2 = {             path = "plonky2/plonky2" , features = ["cuda"]}
-plonky2_util = {        path = "plonky2/util" , features =["cuda"]}
-plonky2_maybe_rayon = { path = "plonky2/maybe_rayon" , features = ["cuda"]}
+plonky2 = {            git = "https://github.com/zkMIPS/plonky2-gpu/plonky2" , features = ["cuda"]}
+plonky2_util = {       git = "https://github.com/zkMIPS/plonky2-gpu/util" , features =["cuda"]}
+plonky2_maybe_rayon = {git = "https://github.com/zkMIPS/plonky2-gpu/maybe_rayon" , features = ["cuda"]}
 
 [features]
 default= ["gpu"]
