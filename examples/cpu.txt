@@ -1,0 +1,74 @@
+[DEBUG zkm::cpu::bootstrap_kernel] actual root page hash: [153, 165, 40, 68, 5, 203, 248, 157, 17, 249, 210, 167, 225, 85, 111, 187, 184, 58, 234, 243, 115, 111, 204, 177, 155, 145, 157, 201, 198, 201, 249, 132]
+[INFO  zkm::cpu::bootstrap_kernel] Bootstrapping took 7098 cycles
+[INFO  zkm::generation] CPU halted after 72634 cycles
+[DEBUG zkm::cpu::bootstrap_kernel] actual root page hash: [23, 99, 128, 199, 166, 191, 134, 177, 124, 148, 62, 89, 36, 3, 222, 128, 22, 110, 194, 75, 77, 153, 42, 59, 185, 212, 14, 69, 191, 253, 83, 52]
+[INFO  zkm::generation] CPU trace padded to 131072 cycles
+[INFO  zkm::generation] Trace lengths (before padding): TraceCheckpoint { arithmetic_len: 37202, cpu_len: 131072, poseidon_len: 14194, poseidon_sponge_len: 14194, logic_len: 1493, memory_len: 824986 }
+[DEBUG zkm::prover] trace_commitments: 6
+[DEBUG zkm::cross_table_lookup] Processing CTL for Arithmetic
+[DEBUG zkm::cross_table_lookup] Processing CTL for PoseidonSponge
+[DEBUG zkm::cross_table_lookup] Processing CTL for Poseidon
+[DEBUG zkm::cross_table_lookup] Processing CTL for Poseidon
+[DEBUG zkm::cross_table_lookup] Processing CTL for Logic
+[DEBUG zkm::cross_table_lookup] Processing CTL for Memory
+[INFO  zkmips] row:0 proof bytes:813564
+[INFO  zkmips] row:1 proof bytes:1164421
+[INFO  zkmips] row:2 proof bytes:1077162
+[INFO  zkmips] row:3 proof bytes:816956
+[INFO  zkmips] row:4 proof bytes:539211
+[INFO  zkmips] row:5 proof bytes:1001063
+[INFO  plonky2::util::timing] 16.2900s to prove
+[DEBUG plonky2::util::timing] | 2.9550s to generate all traces
+[DEBUG plonky2::util::timing] | | 0.2163s to simulate CPU
+[DEBUG plonky2::util::timing] | | 0.4585s to convert trace data to tables
+[DEBUG plonky2::util::timing] | | | 0.1719s to generate memory trace
+[DEBUG plonky2::util::timing] | 4.2697s to compute all trace commitments
+[DEBUG plonky2::util::timing] | | 0.3175s to compute trace commitment for Arithmetic
+[DEBUG plonky2::util::timing] | | | 0.1363s to FFT + blinding
+[DEBUG plonky2::util::timing] | | | 0.1669s to build Merkle tree
+[DEBUG plonky2::util::timing] | | 2.0877s to compute trace commitment for Cpu
+[DEBUG plonky2::util::timing] | | | 0.2423s to FFT + blinding
+[DEBUG plonky2::util::timing] | | | 0.4248s to transpose LDEs
+[DEBUG plonky2::util::timing] | | | 1.3533s to build Merkle tree
+[DEBUG plonky2::util::timing] | | 0.2057s to compute trace commitment for Poseidon
+[DEBUG plonky2::util::timing] | | | 0.1742s to build Merkle tree
+[DEBUG plonky2::util::timing] | | 1.5588s to compute trace commitment for Memory
+[DEBUG plonky2::util::timing] | | | 0.3962s to FFT + blinding
+[DEBUG plonky2::util::timing] | | | 1.0364s to build Merkle tree
+[DEBUG plonky2::util::timing] | 0.4922s to compute CTL data
+[DEBUG plonky2::util::timing] | 8.5653s to compute all proofs given commitments
+[DEBUG plonky2::util::timing] | | 0.7798s to prove Arithmetic STARK
+[DEBUG plonky2::util::timing] | | | 0.3490s to compute quotient polys
+[DEBUG plonky2::util::timing] | | | 0.1651s to compute openings proof
+[DEBUG plonky2::util::timing] | | 1.6182s to prove CPU STARK
+[DEBUG plonky2::util::timing] | | | 0.1979s to compute auxiliary polynomials commitment
+[DEBUG plonky2::util::timing] | | | | 0.1721s to build Merkle tree
+[DEBUG plonky2::util::timing] | | | 0.1695s to compute quotient polys
+[DEBUG plonky2::util::timing] | | | 1.0104s to compute openings proof
+[DEBUG plonky2::util::timing] | | | | 0.4510s to reduce batch of 277 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.4376s to reduce batch of 273 polynomials
+[DEBUG plonky2::util::timing] | | 0.1598s to prove Poseidon STARK
+[DEBUG plonky2::util::timing] | | | 0.1125s to compute openings proof
+[DEBUG plonky2::util::timing] | | 0.1660s to prove Poseidon sponge STARK
+[DEBUG plonky2::util::timing] | | 4.4412s to prove memory STARK
+[DEBUG plonky2::util::timing] | | | 0.1232s to compute lookup helper columns
+[DEBUG plonky2::util::timing] | | | 0.9630s to compute auxiliary polynomials commitment
+[DEBUG plonky2::util::timing] | | | | 0.1881s to FFT + blinding
+[DEBUG plonky2::util::timing] | | | | 0.7117s to build Merkle tree
+[DEBUG plonky2::util::timing] | | | 0.3766s to compute quotient polys
+[DEBUG plonky2::util::timing] | | | 0.6000s to compute quotient commitment
+[DEBUG plonky2::util::timing] | | | | 0.1517s to FFT + blinding
+[DEBUG plonky2::util::timing] | | | | 0.3870s to build Merkle tree
+[DEBUG plonky2::util::timing] | | | 1.5834s to compute openings proof
+[DEBUG plonky2::util::timing] | | | | 0.4023s to reduce batch of 23 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.3269s to reduce batch of 19 polynomials
+[DEBUG plonky2::util::timing] | | | | 0.5456s to perform final FFT 4194304
+[DEBUG plonky2::util::timing] | | | | 0.1690s to fold codewords in the commitment phase
+[INFO  zkmips] total proof bytes:5285KB
+[DEBUG zkm::verifier] Checking proof: zkm::arithmetic::arithmetic_stark::ArithmeticStark<plonky2_field::goldilocks_field::GoldilocksField, 2>
+[DEBUG zkm::verifier] Checking proof: zkm::cpu::cpu_stark::CpuStark<plonky2_field::goldilocks_field::GoldilocksField, 2>
+[DEBUG zkm::verifier] Checking proof: zkm::poseidon::poseidon_stark::PoseidonStark<plonky2_field::goldilocks_field::GoldilocksField, 2>
+[DEBUG zkm::verifier] Checking proof: zkm::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeStark<plonky2_field::goldilocks_field::GoldilocksField, 2>
+[DEBUG zkm::verifier] Checking proof: zkm::logic::LogicStark<plonky2_field::goldilocks_field::GoldilocksField, 2>
+[DEBUG zkm::verifier] Checking proof: zkm::memory::memory_stark::MemoryStark<plonky2_field::goldilocks_field::GoldilocksField, 2>
+[INFO  zkmips] Prove done

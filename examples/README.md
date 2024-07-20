@@ -13,14 +13,14 @@ GOOS=linux GOARCH=mips GOMIPS=softfloat go build hello.go
 * Split the ELF hello into segments. Note that the flag `BLOCK_NO` is only necessary for minigeth.
 
 ```
-BASEDIR=test-vectors RUST_LOG=info ELF_PATH=test-vectors/hello BLOCK_NO=13284491 SEG_OUTPUT=/tmp/output SEG_SIZE=1024 ARGS="" \
-    cargo run --release --example zkmips split
+BASEDIR=test-vectors RUST_LOG=info ELF_PATH=test-vectors/hello BLOCK_NO=13284491 SEG_OUTPUT=/tmp/output SEG_SIZE=262144 ARGS="" \
+    cargo run --release  --example zkmips split
 ```
 
 * Generate proof for each segment
 
 ```
-BASEDIR=test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE="/tmp/output/0" SEG_SIZE=1024 \
+BASEDIR=test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE="/tmp/output/0" SEG_SIZE=262144 \
     cargo run --release --example zkmips prove
 ```
 
