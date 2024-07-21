@@ -11,8 +11,15 @@ edition = "2021"
 #plonky2_util = {        path = "../plonky2/util" }
 #plonky2_maybe_rayon = { path = "../plonky2/maybe_rayon" }
 
+#plonky2 = {             path = "plonky2/plonky2" }
+#starky = {              path = "plonky2/starky" }
+#plonky2_util = {        path = "plonky2/util" }
+#plonky2_maybe_rayon = { path = "plonky2/maybe_rayon" }
+rustacuda = "0.1.3"
+rustacuda_core = "0.1.2"
+
 plonky2 = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
-#starky = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
+##starky = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
 plonky2_util = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
 plonky2_maybe_rayon = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
 
@@ -31,7 +38,10 @@ static_assertions = "1.1.0"
 keccak-hash = "0.10.0"
 byteorder = "1.5.0"
 hex = "0.4"
-hashbrown = { version = "0.14.0", default-features = false, features = ["ahash", "serde"] } # NOTE: When upgrading, see `ahash` dependency.
+hashbrown = { version = "0.14.0", default-features = false, features = [
+    "ahash",
+    "serde",
+] } # NOTE: When upgrading, see `ahash` dependency.
 lazy_static = "1.4.0"
 
 elf = { version = "0.7", default-features = false }
@@ -41,9 +51,30 @@ sysinfo = "0.30.7"
 [dev-dependencies]
 env_logger = "0.10.0"
 keccak-hash = "0.10.0"
-plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x",  branch = "zkm" }
-plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x-derive",  branch = "zkm" }
-curta = { git ="https://github.com/zkMIPS/curta.git", branch = "zkm" }
+
+#plonky2x = { path = "succinctx/plonky2x/core", package = "plonky2x" }
+#plonky2x-derive = {  path = "succinctx/plonky2x/derive", package = "plonky2x-derive"}
+#curta = { path = "curta/curta" }
+
+
+plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x", branch = "zkm" }
+plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x-derive", branch = "zkm" }
+curta = { git = "https://github.com/zkMIPS/curta.git", branch = "zkm" }
+
+
+[patch.'https://github.com/zkMIPS/plonky2']
+plonky2 = { git = "https://github.com/zkMIPS/plonky2-gpu/plonky2", features = [
+    "cuda",
+] }
+plonky2_util = { git = "https://github.com/zkMIPS/plonky2-gpu/util", features = [
+    "cuda",
+] }
+plonky2_maybe_rayon = { git = "https://github.com/zkMIPS/plonky2-gpu/maybe_rayon", features = [
+    "cuda",
+] }
 
 [features]
+default = ["gpu"]
 test = []
+gpu = ["plonky2/cuda"]
+cpu = []

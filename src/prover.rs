@@ -8,6 +8,10 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2::field::types::Field;
 use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
+
+#[cfg(feature = "gpu")]
+use plonky2::fri::oracle::CudaInvContext;
+
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::Challenger;
@@ -38,6 +42,22 @@ use crate::vanishing_poly::eval_vanishing_poly;
 #[cfg(any(feature = "test", test))]
 use crate::cross_table_lookup::testutils::check_ctls;
 
+#[cfg(feature = "gpu")]
+pub fn prove_gpu<F, C, const D: usize>(
+    all_stark: &AllStark<F, D>,
+    kernel: &Kernel,
+    config: &StarkConfig,
+    timing: &mut TimingTree,
+    ctx: &mut CudaInvContext<F, C, D>,
+) -> Result<AllProof<F, C, D>>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    let (proof, _outputs) = prove_with_outputs_gpu(all_stark, kernel, config, timing, ctx)?;
+    Ok(proof)
+}
+
 /// Generate traces, then create all STARK proofs.
 pub fn prove<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
@@ -51,6 +71,28 @@ where
 {
     let (proof, _outputs) = prove_with_outputs(all_stark, kernel, config, timing)?;
     Ok(proof)
+}
+
+#[cfg(feature = "gpu")]
+pub fn prove_with_outputs_gpu<F, C, const D: usize>(
+    all_stark: &AllStark<F, D>,
+    kernel: &Kernel,
+    config: &StarkConfig,
+    timing: &mut TimingTree,
+    ctx: &mut CudaInvContext<F, C, D>,
+) -> Result<(AllProof<F, C, D>, GenerationOutputs)>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    let (traces, public_values, outputs) = timed!(
+        timing,
+        "generate all traces",
+        generate_traces(all_stark, kernel, config, timing)?
+    );
+
+    let proof = prove_with_traces_gpu(all_stark, config, traces, public_values, timing, ctx)?;
+    Ok((proof, outputs))
 }
 
 /// Generate traces, then create all STARK proofs. Returns information about the post-state,
@@ -73,6 +115,148 @@ where
 
     let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
     Ok((proof, outputs))
+}
+
+#[cfg(feature = "gpu")]
+pub(crate) fn prove_with_traces_gpu<F, C, const D: usize>(
+    all_stark: &AllStark<F, D>,
+    config: &StarkConfig,
+    trace_poly_values: [Vec<PolynomialValues<F>>; NUM_TABLES],
+    public_values: PublicValues,
+    timing: &mut TimingTree,
+    ctx: &mut CudaInvContext<F, C, D>,
+) -> Result<AllProof<F, C, D>>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    let rate_bits = config.fri_config.rate_bits;
+    let cap_height = config.fri_config.cap_height;
+
+    println!("rate_bits: {}, cap_height: {}", rate_bits, cap_height);
+    let trace_commitments = timed!(
+        timing,
+        "compute all trace commitments",
+        trace_poly_values
+            .iter()
+            .zip_eq(Table::all())
+            .map(|(trace, table)| {
+                timed!(
+                    timing,
+                    &format!("compute trace commitment for {:?}", table),
+                    {
+                        println!(
+                            "trace len: {}, values len: {}",
+                            trace.len(),
+                            trace[0].values.len()
+                        );
+                        let ret = {
+                            let trace_flatten = &trace
+                                .iter()
+                                .flat_map(|p| p.values.to_vec())
+                                .collect::<Vec<_>>();
+
+                            PolynomialBatch::from_values_with_gpu(
+                                trace_flatten,
+                                trace.len(),
+                                trace[0].values.len(),
+                                rate_bits,
+                                false,
+                                cap_height,
+                                timing,
+                                ctx,
+                                table as u32,
+                            )
+                        };
+
+                        // let ret = PolynomialBatch::<F, C, D>::from_values(
+                        //     // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
+                        //     // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
+                        //     trace.clone(),
+                        //     rate_bits,
+                        //     false,
+                        //     cap_height,
+                        //     timing,
+                        //     None,
+                        // );
+
+                        ret
+                    }
+                )
+            })
+            .collect::<Vec<_>>()
+    );
+
+    log::debug!("trace_commitments: {}", trace_commitments.len());
+
+    // exit(0);
+    #[cfg(any(feature = "test", test))]
+    {
+        log::debug!("check_ctls...");
+        check_ctls(
+            &trace_poly_values,
+            &all_stark.cross_table_lookups,
+            // &get_memory_extra_looking_values(&public_values),
+        );
+        log::debug!("check_ctls done.");
+    }
+
+    let trace_caps = trace_commitments
+        .iter()
+        .map(|c| c.merkle_tree.cap.clone())
+        .collect::<Vec<_>>();
+    let mut challenger = Challenger::<F, C::Hasher>::new();
+    for cap in &trace_caps {
+        challenger.observe_cap(cap);
+    }
+
+    observe_public_values::<F, C, D>(&mut challenger, &public_values)
+        .map_err(|_| anyhow::Error::msg("Invalid conversion of public values."))?;
+
+    let ctl_challenges = get_grand_product_challenge_set(&mut challenger, config.num_challenges);
+    let ctl_data_per_table = timed!(
+        timing,
+        "compute CTL data",
+        cross_table_lookup_data::<F, D>(
+            &trace_poly_values,
+            &all_stark.cross_table_lookups,
+            &ctl_challenges,
+            all_stark.arithmetic_stark.constraint_degree()
+        )
+    );
+
+    let stark_proofs = timed!(
+        timing,
+        "compute all proofs given commitments",
+        prove_with_commitments_gpu(
+            all_stark,
+            config,
+            trace_poly_values,
+            trace_commitments,
+            ctl_data_per_table,
+            &mut challenger,
+            &ctl_challenges,
+            timing,
+            ctx,
+        )?
+    );
+
+    /*
+    #[cfg(test)]
+    {
+        check_ctls(
+            &trace_poly_values,
+            &all_stark.cross_table_lookups,
+            &get_memory_extra_looking_values(&public_values),
+        );
+    }
+    */
+
+    Ok(AllProof {
+        stark_proofs,
+        ctl_challenges,
+        public_values,
+    })
 }
 
 /// Compute all STARK proofs.
@@ -295,6 +479,130 @@ where
     ])
 }
 
+#[cfg(feature = "gpu")]
+fn prove_with_commitments_gpu<F, C, const D: usize>(
+    all_stark: &AllStark<F, D>,
+    config: &StarkConfig,
+    trace_poly_values: [Vec<PolynomialValues<F>>; NUM_TABLES],
+    trace_commitments: Vec<PolynomialBatch<F, C, D>>,
+    ctl_data_per_table: [CtlData<F>; NUM_TABLES],
+    challenger: &mut Challenger<F, C::Hasher>,
+    ctl_challenges: &GrandProductChallengeSet<F>,
+    timing: &mut TimingTree,
+    ctx: &mut CudaInvContext<F, C, D>,
+) -> Result<[StarkProofWithMetadata<F, C, D>; NUM_TABLES]>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    let arithmetic_proof = timed!(
+        timing,
+        "prove Arithmetic STARK",
+        prove_single_table_gpu(
+            &all_stark.arithmetic_stark,
+            config,
+            &trace_poly_values[Table::Arithmetic as usize],
+            &trace_commitments[Table::Arithmetic as usize],
+            &ctl_data_per_table[Table::Arithmetic as usize],
+            ctl_challenges,
+            challenger,
+            timing,
+            ctx,
+            Table::Arithmetic,
+        )?
+    );
+    let cpu_proof = timed!(
+        timing,
+        "prove CPU STARK",
+        prove_single_table_gpu(
+            &all_stark.cpu_stark,
+            config,
+            &trace_poly_values[Table::Cpu as usize],
+            &trace_commitments[Table::Cpu as usize],
+            &ctl_data_per_table[Table::Cpu as usize],
+            ctl_challenges,
+            challenger,
+            timing,
+            ctx,
+            Table::Cpu,
+        )?
+    );
+
+    let poseidon_proof = timed!(
+        timing,
+        "prove Poseidon STARK",
+        prove_single_table_gpu(
+            &all_stark.poseidon_stark,
+            config,
+            &trace_poly_values[Table::Poseidon as usize],
+            &trace_commitments[Table::Poseidon as usize],
+            &ctl_data_per_table[Table::Poseidon as usize],
+            ctl_challenges,
+            challenger,
+            timing,
+            ctx,
+            Table::Poseidon
+        )?
+    );
+    let poseidon_sponge_proof = timed!(
+        timing,
+        "prove Poseidon sponge STARK",
+        prove_single_table_gpu(
+            &all_stark.poseidon_sponge_stark,
+            config,
+            &trace_poly_values[Table::PoseidonSponge as usize],
+            &trace_commitments[Table::PoseidonSponge as usize],
+            &ctl_data_per_table[Table::PoseidonSponge as usize],
+            ctl_challenges,
+            challenger,
+            timing,
+            ctx,
+            Table::PoseidonSponge,
+        )?
+    );
+    let logic_proof = timed!(
+        timing,
+        "prove logic STARK",
+        prove_single_table_gpu(
+            &all_stark.logic_stark,
+            config,
+            &trace_poly_values[Table::Logic as usize],
+            &trace_commitments[Table::Logic as usize],
+            &ctl_data_per_table[Table::Logic as usize],
+            ctl_challenges,
+            challenger,
+            timing,
+            ctx,
+            Table::Logic
+        )?
+    );
+    let memory_proof = timed!(
+        timing,
+        "prove memory STARK",
+        prove_single_table_gpu(
+            &all_stark.memory_stark,
+            config,
+            &trace_poly_values[Table::Memory as usize],
+            &trace_commitments[Table::Memory as usize],
+            &ctl_data_per_table[Table::Memory as usize],
+            ctl_challenges,
+            challenger,
+            timing,
+            ctx,
+            Table::Memory
+        )?
+    );
+
+    Ok([
+        arithmetic_proof,
+        cpu_proof,
+        poseidon_proof,
+        poseidon_sponge_proof,
+        logic_proof,
+        memory_proof,
+    ])
+}
+
 /// Compute proof for a single STARK table.
 pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     stark: &S,
@@ -366,6 +674,12 @@ where
     };
     assert!(!auxiliary_polys.is_empty(), "No CTL?");
 
+    println!(
+        "aux len: {}, values len: {}",
+        auxiliary_polys.len(),
+        auxiliary_polys[0].values.len()
+    );
+
     let auxiliary_polys_commitment = timed!(
         timing,
         "compute auxiliary polynomials commitment",
@@ -415,7 +729,7 @@ where
             config,
         )
     );
-    let all_quotient_chunks = timed!(
+    let all_quotient_chunks: Vec<PolynomialCoeffs<F>> = timed!(
         timing,
         "split quotient polys",
         quotient_polys
@@ -430,6 +744,12 @@ where
                 quotient_poly.chunks(degree)
             })
             .collect()
+    );
+
+    println!(
+        "quotient len: {}, values len: {}",
+        all_quotient_chunks.len(),
+        all_quotient_chunks[0].coeffs.len()
     );
     let quotient_commitment = timed!(
         timing,
@@ -466,6 +786,295 @@ where
         &num_ctl_polys,
     );
     challenger.observe_openings(&openings.to_fri_openings());
+
+    let initial_merkle_trees = vec![
+        trace_commitment,
+        &auxiliary_polys_commitment,
+        &quotient_commitment,
+    ];
+
+    let opening_proof = timed!(
+        timing,
+        "compute openings proof",
+        PolynomialBatch::prove_openings(
+            &stark.fri_instance(zeta, g, num_ctl_polys.iter().sum(), num_ctl_polys, config),
+            &initial_merkle_trees,
+            challenger,
+            &fri_params,
+            timing,
+        )
+    );
+
+    let proof = StarkProof {
+        trace_cap: trace_commitment.merkle_tree.cap.clone(),
+        auxiliary_polys_cap,
+        quotient_polys_cap,
+        openings,
+        opening_proof,
+    };
+    Ok(StarkProofWithMetadata {
+        init_challenger_state,
+        proof,
+    })
+}
+#[cfg(feature = "gpu")]
+pub(crate) fn prove_single_table_gpu<F, C, S, const D: usize>(
+    stark: &S,
+    config: &StarkConfig,
+    trace_poly_values: &[PolynomialValues<F>],
+    trace_commitment: &PolynomialBatch<F, C, D>,
+    ctl_data: &CtlData<F>,
+    ctl_challenges: &GrandProductChallengeSet<F>,
+    challenger: &mut Challenger<F, C::Hasher>,
+    timing: &mut TimingTree,
+    ctx: &mut CudaInvContext<F, C, D>,
+    table: Table,
+) -> Result<StarkProofWithMetadata<F, C, D>>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+{
+    let degree = trace_poly_values[0].len();
+    let degree_bits = log2_strict(degree);
+    let fri_params = config.fri_params(degree_bits);
+    let rate_bits = config.fri_config.rate_bits;
+    let cap_height = config.fri_config.cap_height;
+    assert!(
+        fri_params.total_arities() <= degree_bits + rate_bits - cap_height,
+        "FRI total reduction arity is too large.",
+    );
+
+    let init_challenger_state = challenger.compact();
+
+    let constraint_degree = stark.constraint_degree();
+    let lookup_challenges = timed!(
+        timing,
+        "lookup_challenges",
+        stark.uses_lookups().then(|| {
+            ctl_challenges
+                .challenges
+                .iter()
+                .map(|ch| ch.beta)
+                .collect::<Vec<_>>()
+        })
+    );
+
+    let lookups = stark.lookups();
+    let lookup_helper_columns = timed!(
+        timing,
+        "compute lookup helper columns",
+        lookup_challenges.as_ref().map(|challenges| {
+            let mut columns = Vec::new();
+            for lookup in &lookups {
+                for &challenge in challenges {
+                    columns.extend(lookup_helper_columns(
+                        lookup,
+                        trace_poly_values,
+                        challenge,
+                        constraint_degree,
+                    ));
+                }
+            }
+            columns
+        })
+    );
+    let num_lookup_columns = lookup_helper_columns.as_ref().map(|v| v.len()).unwrap_or(0);
+
+    let auxiliary_polys = timed!(
+        timing,
+        "get auxiliary_polys",
+        match lookup_helper_columns {
+            None => {
+                let mut ctl_polys = ctl_data.ctl_helper_polys();
+                ctl_polys.extend(ctl_data.ctl_z_polys());
+                ctl_polys
+            }
+            Some(mut lookup_columns) => {
+                lookup_columns.extend(ctl_data.ctl_helper_polys());
+                lookup_columns.extend(ctl_data.ctl_z_polys());
+                lookup_columns
+            }
+        }
+    );
+    assert!(!auxiliary_polys.is_empty(), "No CTL?");
+
+    println!(
+        "aux, table: {:?} len: {}, values len: {}",
+        table,
+        auxiliary_polys.len(),
+        auxiliary_polys[0].values.len()
+    );
+
+    let auxiliary_polys_commitment = timed!(timing, "compute auxiliary polynomials commitment", {
+        let poly = if auxiliary_polys.len() > 4
+        // if false
+        {
+            let auxiliary_polys_flatten = &auxiliary_polys
+                .iter()
+                .flat_map(|p| p.values.to_vec())
+                .collect::<Vec<_>>();
+            PolynomialBatch::from_values_with_gpu(
+                auxiliary_polys_flatten,
+                auxiliary_polys.len(),
+                auxiliary_polys[0].values.len(),
+                rate_bits,
+                false,
+                cap_height,
+                timing,
+                ctx,
+                table as u32 + 6,
+            )
+        } else {
+            PolynomialBatch::from_values(
+                auxiliary_polys,
+                rate_bits,
+                false,
+                config.fri_config.cap_height,
+                timing,
+                None,
+            )
+        };
+        poly
+    });
+    let auxiliary_polys_cap = auxiliary_polys_commitment.merkle_tree.cap.clone();
+    timed!(
+        timing,
+        "observe aux cap",
+        challenger.observe_cap(&auxiliary_polys_cap)
+    );
+
+    let alphas = timed!(
+        timing,
+        "observe aux cap",
+        challenger.get_n_challenges(config.num_challenges)
+    );
+
+    let num_ctl_polys = timed!(
+        timing,
+        "get num_ctl_helper_polys",
+        ctl_data.num_ctl_helper_polys()
+    );
+    if cfg!(test) {
+        timed!(
+            timing,
+            "check_constraints",
+            check_constraints(
+                stark,
+                trace_commitment,
+                &auxiliary_polys_commitment,
+                lookup_challenges.as_ref(),
+                &lookups,
+                ctl_data,
+                alphas.clone(),
+                degree_bits,
+                num_lookup_columns,
+                &num_ctl_polys,
+            )
+        );
+    }
+    let quotient_polys = timed!(
+        timing,
+        "compute quotient polys",
+        compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
+            stark,
+            trace_commitment,
+            &auxiliary_polys_commitment,
+            lookup_challenges.as_ref(),
+            &lookups,
+            ctl_data,
+            alphas,
+            degree_bits,
+            num_lookup_columns,
+            &num_ctl_polys,
+            config,
+        )
+    );
+    let all_quotient_chunks: Vec<PolynomialCoeffs<F>> = timed!(
+        timing,
+        "split quotient polys",
+        quotient_polys
+            .into_par_iter()
+            .flat_map(|mut quotient_poly| {
+                quotient_poly
+                    .trim_to_len(degree * stark.quotient_degree_factor())
+                    .expect(
+                        "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
+                    );
+                // Split quotient into degree-n chunks.
+                quotient_poly.chunks(degree)
+            })
+            .collect()
+    );
+
+    println!(
+        "quotient, table: {:?}, len: {}, values len: {}",
+        table,
+        all_quotient_chunks.len(),
+        all_quotient_chunks[0].len()
+    );
+    let quotient_commitment = timed!(timing, "compute quotient commitment", {
+        // if all_quotient_chunks[0].len() == 1048576
+        // {
+        //     // let all_quotient_chunks_flatten = &all_quotient_chunks.iter().flat_map(|p|p.coeffs.to_vec()).collect::<Vec<_>>();
+        //     let values_num_per_poly = all_quotient_chunks[0].len();
+        //     let poly_num = all_quotient_chunks.len();
+        //
+        //     PolynomialBatch::from_coeffs_with_gpu(
+        //         all_quotient_chunks.clone(),
+        //         values_num_per_poly,
+        //         poly_num,
+        //         rate_bits,
+        //         false,
+        //         config.fri_config.cap_height,
+        //         timing,
+        //         ctx,
+        //         table as u32 + 12,
+        //     )
+        // }
+        // else
+        {
+            PolynomialBatch::from_coeffs(
+                all_quotient_chunks,
+                rate_bits,
+                false,
+                config.fri_config.cap_height,
+                timing,
+                None,
+            )
+        }
+    });
+    let quotient_polys_cap = quotient_commitment.merkle_tree.cap.clone();
+    challenger.observe_cap(&quotient_polys_cap);
+
+    let zeta = challenger.get_extension_challenge::<D>();
+    // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
+    // `g * zeta`, are not in our subgroup `H`. It suffices to check `zeta` only, since
+    // `(g * zeta)^n = zeta^n`, where `n` is the order of `g`.
+    let g = F::primitive_root_of_unity(degree_bits);
+    ensure!(
+        zeta.exp_power_of_2(degree_bits) != F::Extension::ONE,
+        "Opening point is in the subgroup."
+    );
+
+    let openings = timed!(
+        timing,
+        "new stark opening set",
+        StarkOpeningSet::new(
+            zeta,
+            g,
+            trace_commitment,
+            &auxiliary_polys_commitment,
+            &quotient_commitment,
+            stark.num_lookup_helper_columns(config),
+            &num_ctl_polys,
+        )
+    );
+    timed!(
+        timing,
+        "observe_openings",
+        challenger.observe_openings(&openings.to_fri_openings())
+    );
 
     let initial_merkle_trees = vec![
         trace_commitment,
