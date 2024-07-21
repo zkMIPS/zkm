@@ -246,10 +246,7 @@ fn prove_groth16() {
 }
 
 fn main() {
-    let mut builder = env_logger::Builder::from_default_env();
-    builder.format_timestamp(None);
-    builder.filter_level(LevelFilter::Debug);
-    builder.try_init().unwrap_or_default();
+    env_logger::try_init().unwrap_or_default();
     let args: Vec<String> = env::args().collect();
     let helper = || {
         log::info!(
