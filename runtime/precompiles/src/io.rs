@@ -60,13 +60,6 @@ pub fn read<T: DeserializeOwned>() -> T {
     bincode::deserialize(&vec).expect("deserialization failed")
 }
 
-pub fn commit<T: Serialize>(value: &T) {
-    let writer = SyscallWriter {
-        fd: FD_PUBLIC_VALUES,
-    };
-    bincode::serialize_into(writer, value).expect("serialization failed");
-}
-
 pub fn commit_slice(buf: &[u8]) {
     let mut my_writer: SyscallWriter = SyscallWriter {
         fd: FD_PUBLIC_VALUES,
@@ -74,14 +67,21 @@ pub fn commit_slice(buf: &[u8]) {
     my_writer.write_all(buf).unwrap();
 }
 
-pub fn hint<T: Serialize>(value: &T) {
-    let writer = SyscallWriter { fd: FD_HINT };
-    bincode::serialize_into(writer, value).expect("serialization failed");
+pub fn commit<T: Serialize>(value: &T) {
+    let mut buf = Vec::new();
+    bincode::serialize_into(&mut buf, value).expect("serialization failed");
+    commit_slice(buf.as_slice());
 }
 
 pub fn hint_slice(buf: &[u8]) {
     let mut my_reader: SyscallWriter = SyscallWriter { fd: FD_HINT };
     my_reader.write_all(buf).unwrap();
+}
+
+pub fn hint<T: Serialize>(value: &T) {
+    let mut buf = Vec::new();
+    bincode::serialize_into(&mut buf, value).expect("serialization failed");
+    hint_slice(buf.as_slice());
 }
 
 /// Write the data `buf` to the file descriptor `fd` using `Write::write_all` .
