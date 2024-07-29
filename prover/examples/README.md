@@ -65,12 +65,12 @@ rustflags = ["--cfg", 'target_os="zkvm"',"-C", "target-feature=+crt-static", "-C
 ```
 cd prover/examples/sha2 (Or prover/examples/revme)
 cargo build --target=mips-unknown-linux-musl
-cd ././
 ```
 
 * Run the host program 
 
 ```
+cd ../..
 RUST_LOG=info ELF_PATH=examples/sha2/target/mips-unknown-linux-musl/debug/sha2-bench SEG_OUTPUT=/tmp/output cargo run --release --example zkmips bench
 
 Or
