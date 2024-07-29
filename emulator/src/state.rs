@@ -507,7 +507,7 @@ impl InstrumentedState {
 
         self.state.dump_info = true;
 
-        log::debug!("syscall {}", syscall_num);
+        log::debug!("syscall {} {} {} {}", syscall_num, a0, a1, a2);
 
         match syscall_num {
             0xF0 => {
@@ -526,13 +526,14 @@ impl InstrumentedState {
                     warn!("not enough vecs in hint input stream");
                 }
 
-                let vec = &self.state.input_stream[self.state.input_stream_ptr];
+                let vec: &Vec<u8> = &self.state.input_stream[self.state.input_stream_ptr];
                 self.state.input_stream_ptr += 1;
                 assert_eq!(
                     vec.len() as u32,
                     a1,
                     "hint input stream read length mismatch"
                 );
+                log::debug!("input: {:?}", vec);
                 assert_eq!(a0 % 4, 0, "hint read address not aligned to 4 bytes");
                 for i in (0..a1).step_by(4) {
                     // Get each byte in the chunk
@@ -542,7 +543,7 @@ impl InstrumentedState {
                     let b2 = vec.get(i as usize + 1).copied().unwrap_or(0);
                     let b3 = vec.get(i as usize + 2).copied().unwrap_or(0);
                     let b4 = vec.get(i as usize + 3).copied().unwrap_or(0);
-                    let word = u32::from_le_bytes([b1, b2, b3, b4]);
+                    let word = u32::from_be_bytes([b1, b2, b3, b4]);
 
                     // Save the data into runtime state so the runtime will use the desired data instead of
                     // 0 when first reading/writing from this address.
