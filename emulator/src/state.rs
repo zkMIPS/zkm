@@ -3,16 +3,19 @@ use crate::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use elf::abi::{PT_LOAD, PT_TLS};
 use elf::endian::AnyEndian;
 use log::{trace, warn};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 use std::fs;
-use std::io::{stderr, stdout, Write};
+use std::io::{stderr, stdout, Read, Write};
 use std::path::Path;
 
 pub const FD_STDIN: u32 = 0;
 pub const FD_STDOUT: u32 = 1;
 pub const FD_STDERR: u32 = 2;
+pub const FD_PUBLIC_VALUES: u32 = 3;
+pub const FD_HINT: u32 = 4;
 pub const MIPS_EBADF: u32 = 9;
 
 pub const REGISTERS_START: u32 = 0x81020400u32;
@@ -30,6 +33,8 @@ pub struct Segment {
     pub end_pc: u32,
     pub input_stream: Vec<Vec<u8>>,
     pub input_stream_ptr: usize,
+    pub public_values_stream: Vec<u8>,
+    pub public_values_stream_ptr: usize,
 }
 
 pub struct State {
@@ -64,9 +69,22 @@ pub struct State {
     /// A ptr to the current position in the input stream incremented by HINT_READ opcode.
     pub input_stream_ptr: usize,
 
+    /// A stream of public values from the program (global to entire program).
+    pub public_values_stream: Vec<u8>,
+
+    /// A ptr to the current position in the public values stream, incremented when reading from public_values_stream.
+    pub public_values_stream_ptr: usize,
+
     pub exited: bool,
     pub exit_code: u8,
     dump_info: bool,
+}
+
+impl Read for State {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.read_public_values_slice(buf);
+        Ok(buf.len())
+    }
 }
 
 impl Display for State {
@@ -96,6 +114,8 @@ impl State {
             brk: 0,
             input_stream: Vec::new(),
             input_stream_ptr: 0,
+            public_values_stream: Vec::new(),
+            public_values_stream_ptr: 0,
             exited: false,
             exit_code: 0,
             dump_info: false,
@@ -118,6 +138,8 @@ impl State {
             brk: 0,
             input_stream: Vec::new(),
             input_stream_ptr: 0,
+            public_values_stream: Vec::new(),
+            public_values_stream_ptr: 0,
             exited: false,
             exit_code: 0,
             dump_info: false,
@@ -342,6 +364,20 @@ impl State {
         self.input_stream.push(buf);
     }
 
+    pub fn read_public_values<T: DeserializeOwned>(&mut self) -> T {
+        let result = bincode::deserialize_from::<_, T>(self);
+        result.unwrap()
+    }
+
+    pub fn read_public_values_slice(&mut self, buf: &mut [u8]) {
+        let len = buf.len();
+        let start = self.public_values_stream_ptr;
+        let end = start + len;
+        assert!(end <= self.public_values_stream.len());
+        buf.copy_from_slice(&self.public_values_stream[start..end]);
+        self.public_values_stream_ptr = end;
+    }
+
     pub fn load_preimage(&mut self, blockpath: String) {
         let mut hash_bytes = [0u8; 32];
         for i in 0..8 {
@@ -430,7 +466,10 @@ pub struct InstrumentedState {
     pre_image_id: [u8; 32],
     pre_hash_root: [u8; 32],
     block_path: String,
+    pre_input: Vec<Vec<u8>>,
     pre_input_ptr: usize,
+    pre_public_values: Vec<u8>,
+    pre_public_values_ptr: usize,
 }
 
 impl Display for InstrumentedState {
@@ -450,7 +489,10 @@ impl InstrumentedState {
             pre_image_id: [0u8; 32],
             pre_hash_root: [0u8; 32],
             pre_segment_id: 0u32,
+            pre_input: Vec::new(),
             pre_input_ptr: 0,
+            pre_public_values: Vec::new(),
+            pre_public_values_ptr: 0,
         })
     }
 
@@ -465,7 +507,7 @@ impl InstrumentedState {
 
         self.state.dump_info = true;
 
-        log::debug!("syscall {}", syscall_num);
+        log::debug!("syscall {} {} {} {}", syscall_num, a0, a1, a2);
 
         match syscall_num {
             0xF0 => {
@@ -484,13 +526,14 @@ impl InstrumentedState {
                     warn!("not enough vecs in hint input stream");
                 }
 
-                let vec = &self.state.input_stream[self.state.input_stream_ptr];
+                let vec: &Vec<u8> = &self.state.input_stream[self.state.input_stream_ptr];
                 self.state.input_stream_ptr += 1;
                 assert_eq!(
                     vec.len() as u32,
                     a1,
                     "hint input stream read length mismatch"
                 );
+                log::debug!("input: {:?}", vec);
                 assert_eq!(a0 % 4, 0, "hint read address not aligned to 4 bytes");
                 for i in (0..a1).step_by(4) {
                     // Get each byte in the chunk
@@ -500,7 +543,7 @@ impl InstrumentedState {
                     let b2 = vec.get(i as usize + 1).copied().unwrap_or(0);
                     let b3 = vec.get(i as usize + 2).copied().unwrap_or(0);
                     let b4 = vec.get(i as usize + 3).copied().unwrap_or(0);
-                    let word = u32::from_le_bytes([b1, b2, b3, b4]);
+                    let word = u32::from_be_bytes([b1, b2, b3, b4]);
 
                     // Save the data into runtime state so the runtime will use the desired data instead of
                     // 0 when first reading/writing from this address.
@@ -564,6 +607,10 @@ impl InstrumentedState {
                 // write
                 // args: a0 = fd, a1 = addr, a2 = count
                 // returns: v0 = written, v1 = err code
+                let bytes = (0..a2)
+                    .map(|i| self.state.memory.byte(a1 + i))
+                    .collect::<Vec<u8>>();
+                let slice = bytes.as_slice();
                 match a0 {
                     // todo: track memory read
                     FD_STDOUT => {
@@ -582,6 +629,14 @@ impl InstrumentedState {
                         {
                             panic!("read range from memory failed {}", e);
                         }
+                        v0 = a2;
+                    }
+                    FD_PUBLIC_VALUES => {
+                        self.state.public_values_stream.extend_from_slice(slice);
+                        v0 = a2;
+                    }
+                    FD_HINT => {
+                        self.state.input_stream.push(slice.to_vec());
                         v0 = a2;
                     }
                     _ => {
@@ -1187,8 +1242,10 @@ impl InstrumentedState {
                 image_id,
                 end_pc: self.state.pc,
                 page_hash_root,
-                input_stream: self.state.input_stream.clone(),
+                input_stream: self.pre_input.clone(),
                 input_stream_ptr: self.pre_input_ptr,
+                public_values_stream: self.pre_public_values.clone(),
+                public_values_stream_ptr: self.pre_public_values_ptr,
             };
             let name = format!("{output}/{}", self.pre_segment_id);
             log::debug!("split: file {}", name);
@@ -1198,7 +1255,10 @@ impl InstrumentedState {
             self.pre_segment_id += 1;
         }
 
+        self.pre_input = self.state.input_stream.clone();
         self.pre_input_ptr = self.state.input_stream_ptr;
+        self.pre_public_values = self.state.public_values_stream.clone();
+        self.pre_public_values_ptr = self.state.public_values_stream_ptr;
         self.pre_pc = self.state.pc;
         self.pre_image_id = image_id;
         self.pre_hash_root = page_hash_root;

@@ -877,7 +877,7 @@ pub(crate) fn load_input<F: RichField>(
         let b2 = vec.get(i + 1).copied().unwrap_or(0);
         let b3 = vec.get(i + 2).copied().unwrap_or(0);
         let b4 = vec.get(i + 3).copied().unwrap_or(0);
-        let word = u32::from_le_bytes([b1, b2, b3, b4]);
+        let word = u32::from_be_bytes([b1, b2, b3, b4]);
 
         if j == 8 {
             state.traces.push_cpu(cpu_row);

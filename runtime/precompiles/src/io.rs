@@ -4,7 +4,12 @@
 use crate::syscall_write;
 use crate::{syscall_hint_len, syscall_hint_read};
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::alloc::Layout;
+use std::io::Write;
+
+const FD_HINT: u32 = 4;
+pub const FD_PUBLIC_VALUES: u32 = 3;
 
 #[allow(dead_code)]
 pub struct SyscallWriter {
@@ -53,4 +58,33 @@ pub fn read_vec() -> Vec<u8> {
 pub fn read<T: DeserializeOwned>() -> T {
     let vec = read_vec();
     bincode::deserialize(&vec).expect("deserialization failed")
+}
+
+pub fn commit_slice(buf: &[u8]) {
+    let mut my_writer: SyscallWriter = SyscallWriter {
+        fd: FD_PUBLIC_VALUES,
+    };
+    my_writer.write_all(buf).unwrap();
+}
+
+pub fn commit<T: Serialize>(value: &T) {
+    let mut buf = Vec::new();
+    bincode::serialize_into(&mut buf, value).expect("serialization failed");
+    commit_slice(buf.as_slice());
+}
+
+pub fn hint_slice(buf: &[u8]) {
+    let mut my_reader: SyscallWriter = SyscallWriter { fd: FD_HINT };
+    my_reader.write_all(buf).unwrap();
+}
+
+pub fn hint<T: Serialize>(value: &T) {
+    let mut buf = Vec::new();
+    bincode::serialize_into(&mut buf, value).expect("serialization failed");
+    hint_slice(buf.as_slice());
+}
+
+/// Write the data `buf` to the file descriptor `fd` using `Write::write_all` .
+pub fn write(fd: u32, buf: &[u8]) {
+    SyscallWriter { fd }.write_all(buf).unwrap();
 }

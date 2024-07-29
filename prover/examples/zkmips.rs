@@ -1,5 +1,6 @@
 use std::env;
 use std::fs::File;
+use std::io::prelude::*;
 use std::io::BufReader;
 use std::ops::Range;
 use std::time::Duration;
@@ -54,7 +55,50 @@ fn prove_sha2_bench() {
     let input = [5u8; 32];
     state.add_input_stream(&input.to_vec());
 
-    let total_steps = split_prog_into_segs(state, &seg_path, "", 0);
+    let (total_steps, mut state) = split_prog_into_segs(state, &seg_path, "", 0);
+
+    let value = state.read_public_values::<[u8; 32]>();
+    log::info!("public value: {:X?}", value);
+
+    let seg_file = format!("{seg_path}/{}", 0);
+    let seg_reader = BufReader::new(File::open(seg_file).unwrap());
+    let kernel = segment_kernel("", "", "", seg_reader, total_steps);
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
+
+    let allstark: AllStark<F, D> = AllStark::default();
+    let config = StarkConfig::standard_fast_config();
+    let mut timing = TimingTree::new("prove", log::Level::Info);
+    let allproof: proof::AllProof<GoldilocksField, C, D> =
+        prove(&allstark, &kernel, &config, &mut timing).unwrap();
+    let mut count_bytes = 0;
+    for (row, proof) in allproof.stark_proofs.clone().iter().enumerate() {
+        let proof_str = serde_json::to_string(&proof.proof).unwrap();
+        log::info!("row:{} proof bytes:{}", row, proof_str.len());
+        count_bytes += proof_str.len();
+    }
+    timing.filter(Duration::from_millis(100)).print();
+    log::info!("total proof bytes:{}KB", count_bytes / 1024);
+    verify_proof(&allstark, allproof, &config).unwrap();
+    log::info!("Prove done");
+}
+
+fn prove_revm() {
+    // 1. split ELF into segs
+    let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
+    let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
+    let json_path = env::var("JSON_PATH").expect("JSON file is missing");
+
+    let mut f = File::open(json_path).unwrap();
+    let mut data = vec![];
+    f.read_to_end(&mut data).unwrap();
+
+    let mut state = load_elf_with_patch(&elf_path, vec![]);
+    // load input
+    state.add_input_stream(&data);
+
+    let (total_steps, mut _state) = split_prog_into_segs(state, &seg_path, "", 0);
 
     let seg_file = format!("{seg_path}/{}", 0);
     let seg_reader = BufReader::new(File::open(seg_file).unwrap());
@@ -120,7 +164,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let helper = || {
         log::info!(
-            "Help: {} split | split_without_preimage | prove | aggregate_proof | aggregate_proof_all | prove_groth16 | bench",
+            "Help: {} split | split_without_preimage | prove | aggregate_proof | aggregate_proof_all | prove_groth16 | bench | revm",
             args[0]
         );
         std::process::exit(-1);
@@ -136,6 +180,7 @@ fn main() {
         "aggregate_proof_all" => aggregate_proof_all().unwrap(),
         "prove_groth16" => prove_groth16(),
         "bench" => prove_sha2_bench(),
+        "revm" => prove_revm(),
         _ => helper(),
     };
 }

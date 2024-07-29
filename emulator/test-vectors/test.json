@@ -1,0 +1,36 @@
+{
+    "_info": null,
+    "env": {
+      "currentCoinbase": "0x0000000000000000000000000000000000000000",
+      "currentDifficulty": "0x400000000",
+      "currentGasLimit": "0x1388",
+      "currentNumber": "0x0",
+      "currentTimestamp": "0x0",
+      "currentBaseFee": "0x3b9aca00",
+      "previousHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "currentRandom": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "currentBeaconRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "currentWithdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "parentBlobGasUsed": "0x0",
+      "parentExcessBlobGas": "0x0"
+    },
+    "pre": {},
+    "post": {},
+    "transaction": {
+      "data": [],
+      "gasLimit": [],
+      "gasPrice": null,
+      "nonce": "0x0",
+      "secretKey": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "sender": "0x0000000000000000000000000000000000000000",
+      "to": "0x0000000000000000000000000000000000000000",
+      "value": [],
+      "maxFeePerGas": null,
+      "maxPriorityFeePerGas": null,
+      "accessLists": [],
+      "blobVersionedHashes": [],
+      "maxFeePerBlobGas": null
+    },
+    "out": null
+  }
+  

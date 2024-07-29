@@ -60,10 +60,10 @@ linker = <path-to>/mips-linux-muslsf-gcc"
 rustflags = ["--cfg", 'target_os="zkvm"',"-C", "target-feature=+crt-static", "-C", "link-arg=-g"]
 ```
 
-* Build the Sha2
+* Build the Sha2/Revme
 
 ```
-cd prover/examples/sha2
+cd prover/examples/sha2 (Or prover/examples/revme)
 cargo build --target=mips-unknown-linux-musl
 cd ././
 ```
@@ -72,4 +72,8 @@ cd ././
 
 ```
 RUST_LOG=info ELF_PATH=examples/sha2/target/mips-unknown-linux-musl/debug/sha2-bench SEG_OUTPUT=/tmp/output cargo run --release --example zkmips bench
+
+Or
+
+RUST_LOG=info ELF_PATH=examples/revme/target/mips-unknown-linux-musl/debug/evm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output cargo run --release --example zkmips revm
 ```
