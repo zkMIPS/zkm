@@ -54,7 +54,10 @@ fn prove_sha2_bench() {
     let input = [5u8; 32];
     state.add_input_stream(&input.to_vec());
 
-    let total_steps = split_prog_into_segs(state, &seg_path, "", 0);
+    let (total_steps, mut state) = split_prog_into_segs(state, &seg_path, "", 0);
+
+    let value = state.read_public_values::<[u8; 32]>();
+    log::info!("public value: {:X?}", value);
 
     let seg_file = format!("{seg_path}/{}", 0);
     let seg_reader = BufReader::new(File::open(seg_file).unwrap());

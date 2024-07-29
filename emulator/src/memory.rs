@@ -255,6 +255,11 @@ impl Memory {
         }
     }
 
+    pub fn byte(&mut self, addr: u32) -> u8 {
+        let word = self.get_memory(addr & 0xFFFFFFFC);
+        word.to_le_bytes()[(addr & 3) as usize]
+    }
+
     fn alloc_page(&mut self, page_index: u32) -> Rc<RefCell<CachedPage>> {
         let cached_page = Rc::new(RefCell::new(CachedPage::new()));
         self.pages.insert(page_index, cached_page.clone());

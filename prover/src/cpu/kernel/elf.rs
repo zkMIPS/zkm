@@ -32,6 +32,8 @@ pub struct Program {
     pub page_hash_root: [u8; 32],
     pub input_stream: Vec<Vec<u8>>,
     pub input_stream_ptr: usize,
+    pub public_values_stream: Vec<u8>,
+    pub public_values_stream_ptr: usize,
 }
 
 impl Program {
@@ -254,6 +256,8 @@ impl Program {
             page_hash_root,
             input_stream: Vec::new(),
             input_stream_ptr: 0,
+            public_values_stream: Vec::new(),
+            public_values_stream_ptr: 0,
         })
     }
 
@@ -334,6 +338,8 @@ impl Program {
             page_hash_root,
             input_stream: segment.input_stream,
             input_stream_ptr: segment.input_stream_ptr,
+            public_values_stream: segment.public_values_stream,
+            public_values_stream_ptr: segment.public_values_stream_ptr,
         })
     }
 }
