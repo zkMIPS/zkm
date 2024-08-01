@@ -56,14 +56,14 @@ tar -zxvf mips-linux-muslsf-cross.tgz
 
 ```
 [target.mips-unknown-linux-musl]
-linker = <path-to>/mips-linux-muslsf-gcc"
+linker = "<path-to>/mips-linux-muslsf-cross/bin/mips-linux-muslsf-gcc"
 rustflags = ["--cfg", 'target_os="zkvm"',"-C", "target-feature=+crt-static", "-C", "link-arg=-g"]
 ```
 
 * Build the Sha2/Revme
 
 ```
-cd prover/examples/sha2 (Or prover/examples/revme)
+cd prover/examples/sha2
 cargo build --target=mips-unknown-linux-musl
 ```
 
