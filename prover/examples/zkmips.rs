@@ -52,13 +52,25 @@ fn prove_sha2_bench() {
 
     let mut state = load_elf_with_patch(&elf_path, vec![]);
     // load input
-    let input = [5u8; 32];
-    state.add_input_stream(&input.to_vec());
+    let args = env::var("ARGS").unwrap_or("data-to-hash".to_string());
+    // assume the first arg is the hash output(which is a public input), and the second is the input.
+    let args: Vec<&str> = args.split_whitespace().collect();
+    assert_eq!(args.len(), 2);
+
+    let public_input: Vec<u8> = hex::decode(args[0]).unwrap();
+    state.add_input_stream(&public_input);
+    log::info!("expected public value in hex: {:X?}", args[0]);
+    log::info!("expected public value: {:X?}", public_input);
+
+    let private_input = args[1].as_bytes();
+    log::info!("private input value: {:X?}", private_input);
+    state.add_input_stream(&private_input);
 
     let (total_steps, mut state) = split_prog_into_segs(state, &seg_path, "", 0);
 
     let value = state.read_public_values::<[u8; 32]>();
     log::info!("public value: {:X?}", value);
+    log::info!("public value: {} in hex", hex::encode(value));
 
     let seg_file = format!("{seg_path}/{}", 0);
     let seg_reader = BufReader::new(File::open(seg_file).unwrap());
