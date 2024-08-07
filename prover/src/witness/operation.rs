@@ -1435,7 +1435,7 @@ pub(crate) fn generate_signext<F: Field>(
     row.general.io_mut().rt_le = bits_le.try_into().unwrap();
 
     let bits = bits as usize;
-    let is_signed = (in0 >> (bits - 1)) != 0;
+    let is_signed = ((in0 >> (bits - 1)) & 0x1) != 0;
     let signed = ((1 << (32 - bits)) - 1) << bits;
     let mask = (1 << bits) - 1;
     let result = if is_signed {
