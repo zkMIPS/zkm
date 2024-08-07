@@ -257,7 +257,7 @@ impl Memory {
 
     pub fn byte(&mut self, addr: u32) -> u8 {
         let word = self.get_memory(addr & 0xFFFFFFFC);
-        word.to_le_bytes()[(addr & 3) as usize]
+        word.to_be_bytes()[(addr & 3) as usize]
     }
 
     fn alloc_page(&mut self, page_index: u32) -> Rc<RefCell<CachedPage>> {

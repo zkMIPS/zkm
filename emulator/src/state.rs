@@ -946,9 +946,9 @@ impl InstrumentedState {
         }
 
         if opcode == 0x1C && fun == 0x1 {
-           // maddu
-           self.handle_hilo(fun, rs, rt, rd_reg);
-           return;
+            // maddu
+            self.handle_hilo(fun, rs, rt, rd_reg);
+            return;
         }
 
         if opcode == 0 && fun == 0x34 && val == 1 {
