@@ -91,12 +91,18 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             rt,
             rd,
         )), // SLL: rd = rt << sa
-        (0b000000, 0b000010, _) => Ok(Operation::BinaryArithmetic(
-            arithmetic::BinaryOperator::SRL,
-            sa,
-            rt,
-            rd,
-        )), // SRL: rd = rt >> sa
+        (0b000000, 0b000010, _) => {
+            if rs == 1 {
+                Ok(Operation::Ror(rd, rt, sa))
+            } else {
+                Ok(Operation::BinaryArithmetic(
+                    arithmetic::BinaryOperator::SRL,
+                    sa,
+                    rt,
+                    rd,
+                ))
+            }
+        } // SRL: rd = rt >> sa
         (0b000000, 0b000011, _) => Ok(Operation::BinaryArithmetic(
             arithmetic::BinaryOperator::SRA,
             sa,
@@ -328,6 +334,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::MstoreGeneral(..) => &mut flags.m_op_store,
         Operation::Nop => &mut flags.nop,
         Operation::Ext(_, _, _, _) => &mut flags.ext,
+        Operation::Ror(_, _, _) => &mut flags.ror,
         Operation::Rdhwr(_, _) => &mut flags.rdhwr,
         Operation::Signext(_, _, 8u8) => &mut flags.signext8,
         Operation::Signext(_, _, _) => &mut flags.signext16,
@@ -413,7 +420,6 @@ fn perform_op<F: RichField>(
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SRAV, rs, rt, rd) => {
             generate_srav(rs, rt, rd, state, row)?
         }
-
         Operation::BinaryArithmetic(op, rs, rt, rd) => {
             generate_binary_arithmetic_op(op, rs, rt, rd, state, row)?
         }
@@ -441,6 +447,7 @@ fn perform_op<F: RichField>(
         Operation::SetContext => generate_set_context(state, row)?,
         Operation::Nop => generate_nop(state, row)?,
         Operation::Ext(rt, rs, msbd, lsb) => generate_extract(rt, rs, msbd, lsb, state, row)?,
+        Operation::Ror(rd, rt, sa) => generate_ror(rd, rt, sa, state, row)?,
         Operation::Rdhwr(rt, rd) => generate_rdhwr(rt, rd, state, row)?,
         Operation::Signext(rd, rt, bits) => generate_signext(rd, rt, bits, state, row)?,
         Operation::SwapHalf(rd, rt) => generate_swaphalf(rd, rt, state, row)?,

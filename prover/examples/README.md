@@ -67,13 +67,17 @@ cd prover/examples/sha2
 cargo build --target=mips-unknown-linux-musl
 ```
 
-* Run the host program 
+* Run the host program
+
+// echo -n 'world!' | sha256sum
+// 711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d
 
 ```
 cd ../..
-RUST_LOG=info ELF_PATH=examples/sha2/target/mips-unknown-linux-musl/debug/sha2-bench SEG_OUTPUT=/tmp/output cargo run --release --example zkmips bench
+
+ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" RUST_LOG=info ELF_PATH=examples/sha2/target/mips-unknown-linux-musl/debug/sha2-bench SEG_OUTPUT=/tmp/output cargo run --release --example zkmips bench
 
 Or
 
-RUST_LOG=info ELF_PATH=examples/revme/target/mips-unknown-linux-musl/debug/evm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output cargo run --release --example zkmips revm
+RUST_LOG=info ELF_PATH=examples/revme/target/mips-unknown-linux-musl/debug/evm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips revm
 ```

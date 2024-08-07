@@ -36,6 +36,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub signext16: T,
     pub swaphalf: T,
     pub teq: T,
+    pub ror: T,
 
     pub syscall: T,
 }
