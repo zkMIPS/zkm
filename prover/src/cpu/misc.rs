@@ -423,11 +423,11 @@ pub fn eval_packed_ror<P: PackedField>(
 
         let mut rd_bits = [P::ZEROS; 32];
         for i in 0..32 {
-            for j in 0..32 - i {
+            for j in 0..32-i {
                 rd_bits[j] = rt_bits[j + i];
             }
-            for j in 32 - i..32 {
-                rd_bits[j] = rt_bits[32 - j];
+            for j in 32-i..32 {
+                rd_bits[j] = rt_bits[j + i - 32];
             }
 
             let rd_val = limb_from_bits_le(rd_bits.to_vec());
@@ -435,7 +435,7 @@ pub fn eval_packed_ror<P: PackedField>(
             let is_sa = lv.general.misc().is_lsb[i];
             let cur_index = P::Scalar::from_canonical_usize(i);
             yield_constr.constraint(filter * is_sa * (sa - cur_index));
-            yield_constr.constraint(filter * is_sa * (rd_val - rd_result));
+            yield_constr.constraint(filter * is_sa * (rd_result - rd_val));
         }
     }
 }
@@ -473,14 +473,14 @@ pub fn eval_ext_circuit_ror<F: RichField + Extendable<D>, const D: usize>(
 
         let mut rd_bits = [builder.zero_extension(); 32];
         for i in 0..32 {
-            for j in 0..32 - i {
+            for j in 0..32-i {
                 rd_bits[j] = rt_bits[j + i];
             }
-            for j in 32 - i..32 {
-                rd_bits[j] = rt_bits[32 - j];
+            for j in 32-i..32 {
+                rd_bits[j] = rt_bits[j + i - 32];
             }
 
-            let rd_val = limb_from_bits_le_recursive(builder, rd_bits.to_vec());
+            let rd_val = limb_from_bits_le_recursive(builder, rd_bits);
 
             let is_sa = lv.general.misc().is_lsb[i];
             let cur_index = builder.constant_extension(F::Extension::from_canonical_usize(i));

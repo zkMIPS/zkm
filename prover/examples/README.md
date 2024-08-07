@@ -75,5 +75,5 @@ RUST_LOG=info ELF_PATH=examples/sha2/target/mips-unknown-linux-musl/debug/sha2-b
 
 Or
 
-RUST_LOG=info ELF_PATH=examples/revme/target/mips-unknown-linux-musl/debug/evm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output cargo run --release --example zkmips revm
+RUST_LOG=info ELF_PATH=examples/revme/target/mips-unknown-linux-musl/debug/evm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips revm
 ```
