@@ -787,7 +787,7 @@ pub(crate) fn generate_ror<F: Field>(
     let (input0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
 
     let sin = (input0 as u64) + ((input0 as u64) << 32);
-    let result = (sin >> sa) as usize;
+    let result = (sin >> sa) as u32;
 
     let bits_le = (0..32)
         .map(|i| {
