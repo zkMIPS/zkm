@@ -125,6 +125,7 @@ pub(crate) enum Operation {
     MstoreGeneral(MemOp, u8, u8, u32),
     Nop,
     Ext(u8, u8, u8, u8),
+    Ror(u8, u8, u8),
     Rdhwr(u8, u8),
     Signext(u8, u8, u8),
     SwapHalf(u8, u8),
@@ -771,6 +772,36 @@ pub(crate) fn generate_srav<F: Field>(
     let outlog = reg_write_with_log(rd, 2, result as usize, state, &mut row)?;
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
+    state.traces.push_memory(outlog);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_ror<F: Field>(
+    rd: u8,
+    rt: u8,
+    sa: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (input0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
+
+    let sin = (input0 as u64) + ((input0 as u64) << 32);
+    let result = (sin >> sa) as usize;
+
+    let bits_le = (0..32)
+        .map(|i| {
+            let bit = (input0 >> i) & 0x01;
+            F::from_canonical_u32(bit as u32)
+        })
+        .collect_vec();
+    row.general.misc_mut().rs_bits = bits_le.try_into().unwrap();
+
+    row.general.misc_mut().is_lsb = [F::ZERO; 32];
+    row.general.misc_mut().is_lsb[sa as usize] = F::ONE;
+
+    let outlog = reg_write_with_log(rd, 1, result as usize, state, &mut row)?;
+    state.traces.push_memory(log_in0);
     state.traces.push_memory(outlog);
     state.traces.push_cpu(row);
     Ok(())

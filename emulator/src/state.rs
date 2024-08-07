@@ -759,6 +759,14 @@ impl InstrumentedState {
     fn handle_hilo(&mut self, fun: u32, rs: u32, rt: u32, store_reg: u32) {
         let mut val = 0u32;
         match fun {
+            0x01 => {
+                // maddu
+                let mut acc = (rs as u64).wrapping_mul(rt as u64);
+                let hilo = ((self.state.hi as u64) << 32).wrapping_add(self.state.lo as u64);
+                acc = acc.wrapping_add(hilo);
+                self.state.hi = (acc >> 32) as u32;
+                self.state.lo = acc as u32;
+            }
             0x10 => {
                 // mfhi
                 val = self.state.hi;
@@ -937,6 +945,12 @@ impl InstrumentedState {
             }
         }
 
+        if opcode == 0x1C && fun == 0x1 {
+           // maddu
+           self.handle_hilo(fun, rs, rt, rd_reg);
+           return;
+        }
+
         if opcode == 0 && fun == 0x34 && val == 1 {
             self.handle_trap();
         }
@@ -1007,7 +1021,11 @@ impl InstrumentedState {
                     } else if fun == 0x00 {
                         return rt << shamt; // sll
                     } else if fun == 0x02 {
-                        return rt >> shamt; // srl
+                        if (insn >> 21) & 0x1F == 1 {
+                            return rt >> shamt | rt << (32 - shamt); // ror
+                        } else if (insn >> 21) & 0x1F == 0 {
+                            return rt >> shamt; // srl
+                        }
                     } else if fun == 0x03 {
                         return sign_extension(rt >> shamt, 32 - shamt); // sra
                     } else if fun == 0x04 {
@@ -1067,6 +1085,10 @@ impl InstrumentedState {
                 return rt << 16; // lui
             } else if opcode == 0x1c {
                 // SPECIAL2
+                if fun == 1 {
+                    //maddu: do nothing here
+                    return rs;
+                }
                 if fun == 2 {
                     // mul
                     return rs.wrapping_mul(rt);
@@ -1092,6 +1114,13 @@ impl InstrumentedState {
                     let mask = (1 << (msbd + 1)) - 1;
                     let i = (rs >> lsb) & mask;
                     return i;
+                } else if fun == 4 {
+                    // ins
+                    let msb = (insn >> 11) & 0x1F;
+                    let lsb = (insn >> 6) & 0x1F;
+                    let size = msb - lsb + 1;
+                    let mask = (1u32 << size) - 1;
+                    return (rt & !(mask << lsb)) | ((rs & mask) << lsb);
                 } else if fun == 0b111011 {
                     //rdhwr
                     let rd = (insn >> 11) & 0x1F;
