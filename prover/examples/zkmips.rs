@@ -105,7 +105,7 @@ fn prove_multi_seg_common(
     let seg_file = format!("{}/{}", seg_dir, 0);
     log::info!("Process segment 0");
     let seg_reader = BufReader::new(File::open(seg_file)?);
-    let input_first = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
+    let input_first = segment_kernel(basedir, block, file, seg_reader, seg_size);
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
     let (mut agg_proof, mut updated_agg_public_values) =
         all_circuits.prove_root(&all_stark, &input_first, &config, &mut timing)?;
@@ -120,7 +120,7 @@ fn prove_multi_seg_common(
         let seg_file = format!("{}/{}", seg_dir, 1);
         log::info!("Process segment 1");
         let seg_reader = BufReader::new(File::open(seg_file)?);
-        let input = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
+        let input = segment_kernel(basedir, block, file, seg_reader, seg_size);
         timing = TimingTree::new("prove root second", log::Level::Info);
         let (root_proof, public_values) =
             all_circuits.prove_root(&all_stark, &input, &config, &mut timing)?;
@@ -154,7 +154,7 @@ fn prove_multi_seg_common(
         let seg_file = format!("{}/{}", seg_dir, base_seg + (i << 1));
         log::info!("Process segment {}", base_seg + (i << 1));
         let seg_reader = BufReader::new(File::open(&seg_file)?);
-        let input_first = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
+        let input_first = segment_kernel(basedir, block, file, seg_reader, seg_size);
         let mut timing = TimingTree::new("prove root first", log::Level::Info);
         let (root_proof_first, first_public_values) =
             all_circuits.prove_root(&all_stark, &input_first, &config, &mut timing)?;
@@ -165,7 +165,7 @@ fn prove_multi_seg_common(
         let seg_file = format!("{}/{}", seg_dir, base_seg + (i << 1) + 1);
         log::info!("Process segment {}", base_seg + (i << 1) + 1);
         let seg_reader = BufReader::new(File::open(&seg_file)?);
-        let input = segment_kernel(&basedir, &block, &file, seg_reader, seg_size);
+        let input = segment_kernel(basedir, block, file, seg_reader, seg_size);
         let mut timing = TimingTree::new("prove root second", log::Level::Info);
         let (root_proof, public_values) =
             all_circuits.prove_root(&all_stark, &input, &config, &mut timing)?;
@@ -271,7 +271,7 @@ fn prove_sha2_bench() {
     log::info!("public value: {} in hex", hex::encode(value));
 
     let seg_file = format!("{seg_path}/{}", 0);
-    prove_single_seg_common(&seg_file, &"", &"", &"", total_steps);
+    prove_single_seg_common(&seg_file, "", "", "", total_steps);
 }
 
 fn prove_revm() {
@@ -298,9 +298,9 @@ fn prove_revm() {
 
     if seg_num == 1 {
         let seg_file = format!("{seg_path}/{}", 0);
-        prove_single_seg_common(&seg_file, &"", &"", &"", total_steps)
+        prove_single_seg_common(&seg_file, "", "", "", total_steps)
     } else {
-        prove_multi_seg_common(&seg_path, &"", &"", &"", seg_size, seg_num).unwrap()
+        prove_multi_seg_common(&seg_path, "", "", "", seg_size, seg_num).unwrap()
     }
 }
 
