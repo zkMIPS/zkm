@@ -25,7 +25,7 @@ pub fn split_prog_into_segs(
     seg_path: &str,
     block_path: &str,
     seg_size: usize,
-) -> usize {
+) -> (usize, Box<State>) {
     let mut instrumented_state = InstrumentedState::new(state, block_path.to_string());
     std::fs::create_dir_all(seg_path).unwrap();
     let new_writer = |_: &str| -> Option<std::fs::File> { None };
@@ -47,5 +47,8 @@ pub fn split_prog_into_segs(
     log::info!("Split done {}", instrumented_state.state.step);
 
     instrumented_state.dump_memory();
-    instrumented_state.state.step as usize
+    (
+        instrumented_state.state.step as usize,
+        instrumented_state.state,
+    )
 }
