@@ -209,7 +209,9 @@ impl Memory {
             Some(page) => page,
         };
 
-        self.rtrace.entry(page_index).or_insert_with(|| page.borrow().clone().data);
+        self.rtrace
+            .entry(page_index)
+            .or_insert_with(|| page.borrow().clone().data);
 
         if level < 2 {
             self.set_hash_trace(page_index, level + 1);
@@ -234,11 +236,12 @@ impl Memory {
                 // lookup in page
                 let page_addr = (addr as usize) & PAGE_ADDR_MASK;
 
-                if let std::collections::btree_map::Entry::Vacant(e) = self.rtrace.entry(page_index) {
+                if let std::collections::btree_map::Entry::Vacant(e) = self.rtrace.entry(page_index)
+                {
                     e.insert(cached_page.data);
                     self.set_hash_trace(page_index, 0);
                 };
-                    
+
                 u32::from_be_bytes(
                     (&cached_page.data[page_addr..page_addr + 4])
                         .try_into()
