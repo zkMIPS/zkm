@@ -1303,7 +1303,7 @@ impl InstrumentedState {
 
 /// se extends the number to 32 bit with sign.
 fn sign_extension(dat: u32, idx: u32) -> u32 {
-    let is_signed = (dat >> (idx - 1)) != 0;
+    let is_signed = ((dat >> (idx - 1)) & 1) != 0;
     let signed = ((1u32 << (32 - idx)) - 1) << idx;
     let mask = (1u32 << idx) - 1;
     if is_signed {
