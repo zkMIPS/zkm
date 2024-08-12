@@ -209,12 +209,7 @@ impl Memory {
             Some(page) => page,
         };
 
-        match self.rtrace.get(&page_index) {
-            None => {
-                self.rtrace.insert(page_index, page.borrow().clone().data);
-            }
-            Some(_) => {}
-        };
+        self.rtrace.entry(page_index).or_insert_with(|| page.borrow().clone().data);
 
         if level < 2 {
             self.set_hash_trace(page_index, level + 1);
@@ -239,13 +234,11 @@ impl Memory {
                 // lookup in page
                 let page_addr = (addr as usize) & PAGE_ADDR_MASK;
 
-                match self.rtrace.get(&page_index) {
-                    None => {
-                        self.rtrace.insert(page_index, cached_page.data);
-                        self.set_hash_trace(page_index, 0);
-                    }
-                    Some(_) => {}
+                if let std::collections::btree_map::Entry::Vacant(e) = self.rtrace.entry(page_index) {
+                    e.insert(cached_page.data);
+                    self.set_hash_trace(page_index, 0);
                 };
+                    
                 u32::from_be_bytes(
                     (&cached_page.data[page_addr..page_addr + 4])
                         .try_into()
@@ -291,12 +284,9 @@ impl Memory {
             }
         };
 
-        match self.rtrace.get(&page_index) {
-            None => {
-                self.rtrace.insert(page_index, cached_page.borrow().data);
-                self.set_hash_trace(page_index, 0);
-            }
-            Some(_) => {}
+        if let std::collections::btree_map::Entry::Vacant(e) = self.rtrace.entry(page_index) {
+            e.insert(cached_page.borrow().data);
+            self.set_hash_trace(page_index, 0);
         };
 
         self.wtrace[0].insert(page_index, cached_page.clone());
@@ -346,12 +336,9 @@ impl Memory {
                 Some(page) => page,
             };
 
-            match self.rtrace.get(&page_index) {
-                None => {
-                    self.rtrace.insert(page_index, page.borrow().data);
-                    self.set_hash_trace(page_index, 0);
-                }
-                Some(_) => {}
+            if let std::collections::btree_map::Entry::Vacant(e) = self.rtrace.entry(page_index) {
+                e.insert(page.borrow().data);
+                self.set_hash_trace(page_index, 0);
             };
 
             self.wtrace[0].insert(page_index, page.clone());
