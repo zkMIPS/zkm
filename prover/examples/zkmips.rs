@@ -116,6 +116,7 @@ fn prove_multi_seg_common(
     all_circuits.verify_root(agg_proof.clone())?;
 
     let mut base_seg = seg_start_id + 1;
+    let mut seg_num = seg_file_number - 1;
     let mut is_agg = false;
 
     if seg_file_number % 2 == 0 {
@@ -150,9 +151,11 @@ fn prove_multi_seg_common(
 
         is_agg = true;
         base_seg = seg_start_id + 2;
+        seg_num -= 1;
+        
     }
 
-    for i in 0..(seg_file_number - base_seg) / 2 {
+    for i in 0..seg_num / 2 {
         let seg_file = format!("{}/{}", seg_dir, base_seg + (i << 1));
         log::info!("Process segment {}", seg_file);
         let seg_reader = BufReader::new(File::open(&seg_file)?);
