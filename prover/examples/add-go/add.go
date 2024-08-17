@@ -4,7 +4,7 @@ import "github.com/zkMIPS/zkm/go-runtime/zkm_runtime"
 
 type DataId uint32
 
-// 使用 iota 来创建枚举
+// use iota to create enum
 const (
 	TYPE1 DataId = iota
 	TYPE2
