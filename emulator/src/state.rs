@@ -237,14 +237,14 @@ impl State {
                             .expect("set memory range failed");
                     }
                     _ => {
-                        // if name.contains("sys_common") && name.contains("thread_info") {
-                        //    log::debug!("patch {}", name);
-                        //    let r: Vec<u8> = vec![0x03, 0xe0, 0x00, 0x08, 0, 0, 0, 0];
-                        //    let r = Box::new(r.as_slice());
-                        //    self.memory
-                        //        .set_memory_range(symbol.st_value as u32, r)
-                        //        .expect("set memory range failed");
-                        //}
+                        if name.contains("sys_common") && name.contains("thread_info") {
+                            log::debug!("patch {}", name);
+                            let r: Vec<u8> = vec![0x03, 0xe0, 0x00, 0x08, 0, 0, 0, 0];
+                            let r = Box::new(r.as_slice());
+                            self.memory
+                                .set_memory_range(symbol.st_value as u32, r)
+                                .expect("set memory range failed");
+                        }
                     }
                 },
                 Err(e) => {
@@ -1303,7 +1303,7 @@ impl InstrumentedState {
 
 /// se extends the number to 32 bit with sign.
 fn sign_extension(dat: u32, idx: u32) -> u32 {
-    let is_signed = (dat >> (idx - 1)) != 0;
+    let is_signed = ((dat >> (idx - 1)) & 1) != 0;
     let signed = ((1u32 << (32 - idx)) - 1) << idx;
     let mask = (1u32 << idx) - 1;
     if is_signed {
