@@ -43,6 +43,23 @@ BASEDIR=./emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/t
     cargo run --release --example zkmips aggregate_proof_all
 ```
 
+### Prove Go sdk code
+The SDK provide Read and Commit interface to read input and commit output.
+Take add-go as example:
+
+* Build the add-go
+
+```
+cd prover/examples/add-go
+GOOS=linux GOARCH=mips GOMIPS=softfloat go build .
+cd ../../
+```
+* Run the host program 
+
+```
+RUST_LOG=info ELF_PATH=examples/add-go/go-add SEG_OUTPUT=/tmp/output cargo run --release --example zkmips goexample
+```
+
 ## Prove the Rust code 
 
 * Download and install toolchain for mips
