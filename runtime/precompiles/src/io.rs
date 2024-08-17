@@ -88,3 +88,10 @@ pub fn hint<T: Serialize>(value: &T) {
 pub fn write(fd: u32, buf: &[u8]) {
     SyscallWriter { fd }.write_all(buf).unwrap();
 }
+
+/// Write the data `buf` to the file descriptor `fd` using `Write::write_all` .
+pub fn print(buf: Vec<u8>) {
+    SyscallWriter { fd: 2u32 }
+        .write_all(buf.as_slice())
+        .unwrap();
+}

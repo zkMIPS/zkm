@@ -82,6 +82,8 @@ pub(crate) const SYSHINTREAD: usize = 241;
 pub(crate) const FD_STDIN: usize = 0;
 pub(crate) const FD_STDOUT: usize = 1;
 pub(crate) const FD_STDERR: usize = 2;
+pub(crate) const FD_PUBLIC_VALUES: usize = 3;
+pub(crate) const FD_HINT: usize = 4;
 
 pub(crate) const MIPSEBADF: usize = 0x9;
 
@@ -1027,7 +1029,7 @@ pub(crate) fn generate_syscall<F: RichField>(
             row.general.syscall_mut().sysnum[6] = F::ONE;
             match a0 {
                 // fdStdout
-                FD_STDOUT | FD_STDERR => {
+                FD_STDOUT | FD_STDERR | FD_PUBLIC_VALUES | FD_HINT => {
                     row.general.syscall_mut().a0[1] = F::ONE;
                     row.general.syscall_mut().cond[7] = F::ONE;
                     v0 = a2;
