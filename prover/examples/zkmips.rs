@@ -40,7 +40,7 @@ fn split_segments() {
 
     let mut state = load_elf_with_patch(&elf_path, args);
     let block_path = get_block_path(&basedir, &block_no, "");
-    if block_no != "" {
+    if !block_no.is_empty() {
         state.load_input(&block_path);
     }
     let _ = split_prog_into_segs(state, &seg_path, &block_path, seg_size);
@@ -413,12 +413,21 @@ fn prove_segments() {
     let seg_start_id = seg_start_id.parse::<_>().unwrap_or(0usize);
     let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
     let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
-   
+
     if seg_num == 1 {
         let seg_file = format!("{seg_dir}/{}", seg_start_id);
         prove_single_seg_common(&seg_file, &basedir, &block, &file, seg_size)
     } else {
-        prove_multi_seg_common(&seg_dir, &basedir, &block, &file, seg_size, seg_num, seg_start_id).unwrap()
+        prove_multi_seg_common(
+            &seg_dir,
+            &basedir,
+            &block,
+            &file,
+            seg_size,
+            seg_num,
+            seg_start_id,
+        )
+        .unwrap()
     }
 }
 
@@ -442,5 +451,3 @@ fn main() {
         _ => helper(),
     };
 }
-
-
