@@ -152,7 +152,6 @@ fn prove_multi_seg_common(
         is_agg = true;
         base_seg = seg_start_id + 2;
         seg_num -= 1;
-        
     }
 
     for i in 0..seg_num / 2 {
