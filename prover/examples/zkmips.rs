@@ -383,7 +383,7 @@ fn prove_add_example() {
     );
     log::info!("public input: {:X?}", data);
 
-    let (total_steps, mut state) = split_prog_into_segs(state, &seg_path, "", 0);
+    let (total_steps, mut state) = split_prog_into_segs(state, &seg_path, "", seg_size);
 
     let value = state.read_public_values::<Data>();
     log::info!("public value: {:X?}", value);
