@@ -45,7 +45,7 @@ BASEDIR=./emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/t
 
 ### Prove Go sdk code
 The SDK provide Read and Commit interface to read input and commit output.
-Take add-go as example:
+Take add-go for example:
 
 * Build the add-go
 
@@ -57,7 +57,7 @@ cd ../../
 * Run the host program 
 
 ```
-RUST_LOG=info ELF_PATH=examples/add-go/go-add SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips goexample
+RUST_LOG=info ELF_PATH=examples/add-go/go-add HOST_PROGRAM=add_example SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips host
 ```
 
 ## Prove the Rust code 
@@ -92,9 +92,9 @@ cargo build --target=mips-unknown-linux-musl
 
 cd ../..
 
-ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" RUST_LOG=info ELF_PATH=examples/sha2/target/mips-unknown-linux-musl/debug/sha2-bench SEG_OUTPUT=/tmp/output cargo run --release --example zkmips bench
+ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" RUST_LOG=info ELF_PATH=examples/sha2/target/mips-unknown-linux-musl/debug/sha2-bench HOST_PROGRAM=sha2_bench SEG_OUTPUT=/tmp/output cargo run --release --example zkmips host
 
 Or
 
-RUST_LOG=info ELF_PATH=examples/revme/target/mips-unknown-linux-musl/debug/evm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips revm
+RUST_LOG=info ELF_PATH=examples/revme/target/mips-unknown-linux-musl/debug/evm HOST_PROGRAM=revm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips host
 ```

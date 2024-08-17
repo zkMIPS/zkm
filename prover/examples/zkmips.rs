@@ -405,12 +405,22 @@ fn prove_groth16() {
     todo!()
 }
 
+fn prove_host() {
+    let host_program = env::var("HOST_PROGRAM").expect("host_program name is missing");
+    match host_program.as_str() {
+        "sha2_bench" => prove_sha2_bench(),
+        "revm" => prove_revm(),
+        "add_example" => prove_add_example(),
+        _ => log::error!("Host program {} is not supported!", host_program),
+    };
+}
+
 fn main() {
     env_logger::try_init().unwrap_or_default();
     let args: Vec<String> = env::args().collect();
     let helper = || {
         log::info!(
-            "Help: {} split | split_without_preimage | prove | aggregate_proof | aggregate_proof_all | prove_groth16 | bench | revm | goexample",
+            "Help: {} split | split_without_preimage | prove | aggregate_proof | aggregate_proof_all | prove_groth16 | host",
             args[0]
         );
         std::process::exit(-1);
@@ -425,9 +435,7 @@ fn main() {
         "aggregate_proof" => aggregate_proof().unwrap(),
         "aggregate_proof_all" => aggregate_proof_all().unwrap(),
         "prove_groth16" => prove_groth16(),
-        "bench" => prove_sha2_bench(),
-        "revm" => prove_revm(),
-        "goexample" => prove_add_example(),
+        "host" => prove_host(),
         _ => helper(),
     };
 }
