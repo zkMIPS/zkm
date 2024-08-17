@@ -338,6 +338,12 @@ pub struct Data {
     pub input12: String,
 }
 
+impl Default for Data {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Data {
     pub fn new() -> Self {
         let array = [1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 10u8];
@@ -357,6 +363,7 @@ impl Data {
         }
     }
 }
+
 fn prove_add_example() {
     // 1. split ELF into segs
     let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
