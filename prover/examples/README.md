@@ -57,7 +57,7 @@ cd ../../
 * Run the host program 
 
 ```
-RUST_LOG=info ELF_PATH=examples/add-go/go-add SEG_OUTPUT=/tmp/output cargo run --release --example zkmips goexample
+RUST_LOG=info ELF_PATH=examples/add-go/go-add SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips goexample
 ```
 
 ## Prove the Rust code 

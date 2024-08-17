@@ -403,7 +403,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let helper = || {
         log::info!(
-            "Help: {} split | split_without_preimage | prove | aggregate_proof | aggregate_proof_all | prove_groth16 | bench | revm | gobench",
+            "Help: {} split | split_without_preimage | prove | aggregate_proof | aggregate_proof_all | prove_groth16 | bench | revm | goexample",
             args[0]
         );
         std::process::exit(-1);
