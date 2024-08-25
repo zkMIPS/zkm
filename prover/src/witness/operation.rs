@@ -1453,15 +1453,13 @@ pub(crate) fn generate_maddu<F: Field>(
     let (result, overflow) = (mul as u64).overflowing_add(addend as u64);
     let log_out0 = reg_write_with_log(33, 4, (result >> 32) as usize, state, &mut row)?;
     let log_out1 = reg_write_with_log(32, 5, (result as u32) as usize, state, &mut row)?;
-    let log_out2 = reg_write_with_log(0, 6, ((overflow as u64) << 32) as usize, state, &mut row)?;
-
+    row.general.misc_mut().auxm = F::from_canonical_usize((overflow as usize) << 32);
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_in3);
     state.traces.push_memory(log_out0);
     state.traces.push_memory(log_out1);
-    state.traces.push_memory(log_out2);
     state.traces.push_cpu(row);
     Ok(())
 }

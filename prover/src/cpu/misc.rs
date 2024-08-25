@@ -671,7 +671,7 @@ pub fn eval_packed_maddu<P: PackedField>(
         let lo = lv.mem_channels[3].value;
         let hi_result: P = lv.mem_channels[4].value;
         let lo_result = lv.mem_channels[5].value;
-        let carry = lv.mem_channels[6].value;
+        let carry = lv.general.misc().auxm;
         let scale = P::Scalar::from_canonical_usize(1 << 32);
         let result = hi_result * scale + lo_result;
         let mul = rs * rt;
@@ -744,7 +744,7 @@ pub fn eval_ext_circuit_maddu<F: RichField + Extendable<D>, const D: usize>(
         let lo = lv.mem_channels[3].value;
         let hi_result = lv.mem_channels[4].value;
         let lo_result = lv.mem_channels[5].value;
-        let carry = lv.mem_channels[6].value;
+        let carry = lv.general.misc().auxm;
         let scale = builder.constant_extension(F::Extension::from_canonical_usize(1 << 32));
         let result = builder.mul_extension(hi_result, scale);
         let result = builder.add_extension(result, lo_result);
