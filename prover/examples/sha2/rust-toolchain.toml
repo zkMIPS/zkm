@@ -1,4 +1,0 @@
-[toolchain]
-channel = "nightly-2023-03-06-x86_64-unknown-linux-gnu"
-targets = ["mips-unknown-linux-musl"]
-profile = "minimal"

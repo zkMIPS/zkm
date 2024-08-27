@@ -2,3 +2,4 @@
 /Cargo.lock
 /output
 /examples/target
+**/.DS_Store

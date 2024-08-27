@@ -1,0 +1,1 @@
+{"rustc":7461401932790371676,"features":"","target":0,"profile":0,"path":0,"deps":[[16859105048871006744,"build_script_build",false,3493722903555372540]],"local":[{"RerunIfChanged":{"output":"mips-unknown-linux-musl/debug/build/libc-235976d0d08776eb/output","paths":["build.rs"]}}],"rustflags":[],"metadata":0,"config":0,"compile_kind":0}
