@@ -401,8 +401,9 @@ pub fn eval_packed_insert<P: PackedField>(
     let filter = lv.op.ins;
 
     // Check rt Reg
+    // addr(channels[1]) == rt
+    // addr(channels[2]) == rt
     {
-        // rt src
         let rt_reg_read = lv.mem_channels[1].addr_virtual;
         let rt_reg_write = lv.mem_channels[2].addr_virtual;
         let rt_src = limb_from_bits_le(lv.rt_bits);
@@ -412,6 +413,7 @@ pub fn eval_packed_insert<P: PackedField>(
     }
 
     // Check rs Reg
+    // addr(channels[0]) == rs
     {
         let rs_reg = lv.mem_channels[0].addr_virtual;
         let rs_dst = limb_from_bits_le(lv.rs_bits);
@@ -419,6 +421,19 @@ pub fn eval_packed_insert<P: PackedField>(
     }
 
     // Check ins result
+    // is_lsb[i] = 1 if i = lsb
+    // is_lsb[i] = 0 if i != lsb
+    // is_lsb[i] * (lsb - i) == 0
+    // auxs = 1 << lsd
+    // is_lsb[i] * (auxs - (i << 1)) == 0
+    // size = msb -lsb
+    // is_msb[i] = 1 if i = size
+    // is_msb[i] = 0 if i != size
+    // is_msb[i] * (size - i) == 0
+    // auxm = rt & !(mask << lsb)
+    // auxl = rs[0 : size+1]
+    // is_msb[i] * (auxl - rs[0:i+1]) == 0
+    // result == auxm + auxl * auxs
     {
         let msb = limb_from_bits_le(lv.rd_bits);
         let rs_bits = lv.general.misc().rs_bits;
@@ -458,6 +473,8 @@ pub fn eval_ext_circuit_insert<F: RichField + Extendable<D>, const D: usize>(
     let filter = lv.op.ins;
 
     // Check rt Reg
+    // addr(channels[1]) == rt
+    // addr(channels[2]) == rt
     {
         let rt_reg_read = lv.mem_channels[1].addr_virtual;
         let rt_reg_write = lv.mem_channels[2].addr_virtual;
@@ -473,6 +490,7 @@ pub fn eval_ext_circuit_insert<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Check rs Reg
+    // addr(channels[0]) == rs
     {
         let rs_reg = lv.mem_channels[0].addr_virtual;
         let rs_src = limb_from_bits_le_recursive(builder, lv.rs_bits);
@@ -481,7 +499,20 @@ pub fn eval_ext_circuit_insert<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 
-    // Check insert result
+    // Check ins result
+    // is_lsb[i] = 1 if i = lsb
+    // is_lsb[i] = 0 if i != lsb
+    // is_lsb[i] * (lsb - i) == 0
+    // auxs = 1 << lsd
+    // is_lsb[i] * (auxs - (i << 1)) == 0
+    // size = msb -lsb
+    // is_msb[i] = 1 if i = size
+    // is_msb[i] = 0 if i != size
+    // is_msb[i] * (size - i) == 0
+    // auxm = rt & !(mask << lsb)
+    // auxl = rs[0 : size+1]
+    // is_msb[i] * (auxl - rs[0:i+1]) == 0
+    // result == auxm + auxl * auxs
     {
         let msb = limb_from_bits_le_recursive(builder, lv.rd_bits);
         let rs_bits = lv.general.misc().rs_bits;
@@ -632,6 +663,7 @@ pub fn eval_packed_maddu<P: PackedField>(
     let filter = lv.op.maddu;
 
     // Check rs Reg
+    // addr(channels[0]) == rs
     {
         let rs_reg = lv.mem_channels[0].addr_virtual;
         let rs_src = limb_from_bits_le(lv.rs_bits);
@@ -639,6 +671,7 @@ pub fn eval_packed_maddu<P: PackedField>(
     }
 
     // Check rt Reg
+    // addr(channels[1]) == rt
     {
         let rt_reg = lv.mem_channels[1].addr_virtual;
         let rt_dst = limb_from_bits_le(lv.rt_bits);
@@ -646,6 +679,8 @@ pub fn eval_packed_maddu<P: PackedField>(
     }
 
     // Check hi Reg
+    // addr(channels[2]) == 33
+    // addr(channels[4]) == 33
     {
         let hi_reg_read = lv.mem_channels[2].addr_virtual;
         let hi_reg_write = lv.mem_channels[4].addr_virtual;
@@ -655,6 +690,8 @@ pub fn eval_packed_maddu<P: PackedField>(
     }
 
     // Check lo Reg
+    // addr(channels[3]) == 32
+    // addr(channels[5]) == 32
     {
         let lo_reg_read = lv.mem_channels[3].addr_virtual;
         let lo_reg_write = lv.mem_channels[5].addr_virtual;
@@ -664,6 +701,10 @@ pub fn eval_packed_maddu<P: PackedField>(
     }
 
     // Check maddu result
+    // carry = overflow << 32
+    // scale = 1 << 32
+    // carry * (carry - scale) == 0
+    // result +  (overflow << 32) == (hi,lo) + rs * rt
     {
         let rs = lv.mem_channels[0].value;
         let rt = lv.mem_channels[1].value;
@@ -691,6 +732,7 @@ pub fn eval_ext_circuit_maddu<F: RichField + Extendable<D>, const D: usize>(
     let filter = lv.op.maddu;
 
     // Check rs Reg
+    // addr(channels[0]) == rs
     {
         let rs_reg = lv.mem_channels[0].addr_virtual;
         let rs_src = limb_from_bits_le_recursive(builder, lv.rs_bits);
@@ -700,6 +742,7 @@ pub fn eval_ext_circuit_maddu<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Check rt Reg
+    // addr(channels[1]) == rt
     {
         let rt_reg = lv.mem_channels[1].addr_virtual;
         let rt_src = limb_from_bits_le_recursive(builder, lv.rt_bits);
@@ -709,6 +752,8 @@ pub fn eval_ext_circuit_maddu<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Check hi Reg
+    // addr(channels[2]) == 33
+    // addr(channels[4]) == 33
     {
         let hi_reg_read = lv.mem_channels[2].addr_virtual;
         let hi_reg_write = lv.mem_channels[4].addr_virtual;
@@ -723,6 +768,8 @@ pub fn eval_ext_circuit_maddu<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Check lo Reg
+    // addr(channels[3]) == 32
+    // addr(channels[5]) == 32
     {
         let lo_reg_read = lv.mem_channels[3].addr_virtual;
         let lo_reg_write = lv.mem_channels[5].addr_virtual;
@@ -737,6 +784,10 @@ pub fn eval_ext_circuit_maddu<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Check maddu result
+    // carry = overflow << 32
+    // scale = 1 << 32
+    // carry * (carry - scale) == 0
+    // result +  (overflow << 32) == (hi,lo) + rs * rt
     {
         let rs = lv.mem_channels[0].value;
         let rt = lv.mem_channels[1].value;
