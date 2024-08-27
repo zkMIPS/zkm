@@ -34,6 +34,7 @@ use crate::arithmetic::utils::{read_value, read_value_i64_limbs, u32_to_array};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Generates a shift operation (either SLL(V) or SRL(V)).
+///
 /// The inputs are stored in the form `(shift, input, 1 << shift)`.
 /// NB: if `shift >= 32`, then the third register holds 0.
 /// We leverage the functions in mul.rs and div.rs to carry out
