@@ -281,12 +281,7 @@ fn prove_sha2_rust() {
         seg_num = (total_steps + seg_size - 1) / seg_size;
     }
 
-    if seg_num == 1 {
-        let seg_file = format!("{seg_path}/{}", 0);
-        prove_single_seg_common(&seg_file, "", "", "", total_steps)
-    } else {
-        prove_multi_seg_common(&seg_path, "", "", "", seg_size, seg_num, 0).unwrap()
-    }
+    prove_multi_seg_common(&seg_path, "", "", "", seg_size, seg_num, 0).unwrap()
 }
 
 fn prove_sha2_go() {
@@ -327,13 +322,8 @@ fn prove_sha2_go() {
     if seg_size != 0 {
         seg_num = (total_steps + seg_size - 1) / seg_size;
     }
-
-    if seg_num == 1 {
-        let seg_file = format!("{seg_path}/{}", 0);
-        prove_single_seg_common(&seg_file, "", "", "", total_steps)
-    } else {
-        prove_multi_seg_common(&seg_path, "", "", "", seg_size, seg_num, 0).unwrap()
-    }
+    
+    prove_multi_seg_common(&seg_path, "", "", "", seg_size, seg_num, 0).unwrap()
 }
 
 fn prove_revm() {
