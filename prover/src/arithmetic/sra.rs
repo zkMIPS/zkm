@@ -23,6 +23,7 @@ use crate::arithmetic::utils::{read_value, u32_to_array};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Generates a shift operation (SRA(V).
+///
 /// The inputs are stored in the form `(shift, input, 1 >> shift)`.
 /// NB: if `shift >= 32`, then the third register holds 0.
 /// We leverage the functions in div.rs to carry out

@@ -127,6 +127,8 @@ pub(crate) enum Operation {
     MstoreGeneral(MemOp, u8, u8, u32),
     Nop,
     Ext(u8, u8, u8, u8),
+    Ins(u8, u8, u8, u8),
+    Maddu(u8, u8),
     Ror(u8, u8, u8),
     Rdhwr(u8, u8),
     Signext(u8, u8, u8),
@@ -1392,6 +1394,75 @@ pub(crate) fn generate_extract<F: Field>(
     Ok(())
 }
 
+pub(crate) fn generate_insert<F: Field>(
+    rt: u8,
+    rs: u8,
+    msb: u8,
+    lsb: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    assert!(msb < 32);
+    assert!(lsb <= msb);
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let mask = (1 << (msb - lsb + 1)) - 1;
+    let mask_field = mask << lsb;
+
+    let rs_bits_le = (0..32)
+        .map(|i| {
+            let bit: usize = (in0 >> i) & 0x01;
+            F::from_canonical_u32(bit as u32)
+        })
+        .collect_vec();
+    row.general.misc_mut().rs_bits = rs_bits_le.try_into().unwrap();
+
+    row.general.misc_mut().is_msb = [F::ZERO; 32];
+    row.general.misc_mut().is_msb[(msb - lsb) as usize] = F::ONE;
+    row.general.misc_mut().is_lsb = [F::ZERO; 32];
+    row.general.misc_mut().is_lsb[lsb as usize] = F::ONE;
+    row.general.misc_mut().auxs = F::from_canonical_u32(1 << lsb);
+
+    row.general.misc_mut().auxm = F::from_canonical_u32((in1 & !mask_field) as u32);
+    row.general.misc_mut().auxl = F::from_canonical_u32((in0 & mask) as u32);
+    row.general.misc_mut().auxs = F::from_canonical_u32((1 << lsb) as u32);
+
+    let result = (in1 & !mask_field) | ((in0 << lsb) & mask_field);
+    let log_out0 = reg_write_with_log(rt, 2, result, state, &mut row)?;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+
+    Ok(())
+}
+
+pub(crate) fn generate_maddu<F: Field>(
+    rt: u8,
+    rs: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let (in2, log_in2) = reg_read_with_log(33, 2, state, &mut row)?;
+    let (in3, log_in3) = reg_read_with_log(32, 3, state, &mut row)?;
+    let mul = in0 * in1;
+    let addend = (in2 << 32) + in3;
+    let (result, overflow) = (mul as u64).overflowing_add(addend as u64);
+    let log_out0 = reg_write_with_log(33, 4, (result >> 32) as usize, state, &mut row)?;
+    let log_out1 = reg_write_with_log(32, 5, (result as u32) as usize, state, &mut row)?;
+    row.general.misc_mut().auxm = F::from_canonical_usize((overflow as usize) << 32);
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_in3);
+    state.traces.push_memory(log_out0);
+    state.traces.push_memory(log_out1);
+    state.traces.push_cpu(row);
+    Ok(())
+}
 pub(crate) fn generate_rdhwr<F: Field>(
     rt: u8,
     rd: u8,

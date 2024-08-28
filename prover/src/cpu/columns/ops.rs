@@ -31,6 +31,8 @@ pub struct OpsColumnsView<T: Copy> {
     pub m_op_store: T,
     pub nop: T,
     pub ext: T,
+    pub ins: T,
+    pub maddu: T,
     pub rdhwr: T,
     pub signext8: T,
     pub signext16: T,

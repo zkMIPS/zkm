@@ -863,8 +863,8 @@ impl InstrumentedState {
         let mut rs = self.state.registers[((insn >> 21) & 0x1f) as usize];
         let mut rd_reg = rt_reg;
         let fun = insn & 0x3f;
-        if opcode == 0 || opcode == 0x1c || (opcode == 0x1F && fun == 0x20) {
-            // R-type (stores rd)
+        if opcode == 0 || opcode == 0x1c || (opcode == 0x1F && (fun == 0x20 || fun == 4)) {
+            // R-type (stores rd), partial Special3 insts: ins, seb, seh, wsbh
             rt = self.state.registers[rt_reg as usize];
             rd_reg = (insn >> 11) & 0x1f;
         } else if opcode < 0x20 {
