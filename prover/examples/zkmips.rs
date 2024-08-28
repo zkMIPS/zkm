@@ -299,7 +299,7 @@ fn prove_sha2_go() {
     assert_eq!(args.len(), 2);
 
     let mut data = Data::new();
-    
+
     // Fill in the input data
     data.input10 = hex::decode(args[0]).unwrap();
     data.input12 = args[1].to_string();
@@ -322,7 +322,7 @@ fn prove_sha2_go() {
     if seg_size != 0 {
         seg_num = (total_steps + seg_size - 1) / seg_size;
     }
-    
+
     prove_multi_seg_common(&seg_path, "", "", "", seg_size, seg_num, 0).unwrap()
 }
 
