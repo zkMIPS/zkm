@@ -151,13 +151,13 @@ where
                             trace[0].values.len()
                         );
                         let ret = {
-                            let trace_flatten = &trace
-                                .par_iter()
-                                .flat_map(|p| p.values.to_vec())
-                                .collect::<Vec<_>>();
+                            // let trace_flatten = &trace
+                            //     .par_iter()
+                            //     .flat_map(|p| p.values.to_vec())
+                            //     .collect::<Vec<_>>();
 
                             PolynomialBatch::from_values_with_gpu(
-                                trace_flatten,
+                                trace,
                                 trace.len(),
                                 trace[0].values.len(),
                                 rate_bits,
@@ -910,12 +910,12 @@ where
         let poly = if auxiliary_polys.len() > 4
         // if false
         {
-            let auxiliary_polys_flatten = &auxiliary_polys
-                .iter()
-                .flat_map(|p| p.values.to_vec())
-                .collect::<Vec<_>>();
+            // let auxiliary_polys_flatten = &auxiliary_polys
+            //     .iter()
+            //     .flat_map(|p| p.values.to_vec())
+            //     .collect::<Vec<_>>();
             PolynomialBatch::from_values_with_gpu(
-                auxiliary_polys_flatten,
+                &auxiliary_polys,
                 auxiliary_polys.len(),
                 auxiliary_polys[0].values.len(),
                 rate_bits,
@@ -1086,12 +1086,13 @@ where
     let opening_proof = timed!(
         timing,
         "compute openings proof",
-        PolynomialBatch::prove_openings(
+        PolynomialBatch::prove_openings_gpu(
             &stark.fri_instance(zeta, g, num_ctl_polys.iter().sum(), num_ctl_polys, config),
             &initial_merkle_trees,
             challenger,
             &fri_params,
             timing,
+            ctx,
         )
     );
 

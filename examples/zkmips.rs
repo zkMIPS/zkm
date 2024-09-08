@@ -22,6 +22,7 @@ use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::prelude::DefaultParameters;
 use std::sync::Arc;
+use plonky2::fri::oracle::create_task;
 use zkm::all_stark::AllStark;
 use zkm::config::StarkConfig;
 use zkm::cpu::kernel::assembler::segment_kernel;
@@ -220,6 +221,23 @@ fn prove_single_seg() {
             ctx: _ctx,
         };
     }
+
+    create_task(&mut ctx, 0, 16, 54, 0, 2, 4);
+    create_task(&mut ctx, 1, 17, 253, 0, 2, 4);
+    create_task(&mut ctx, 2, 14, 262, 0, 2, 4);
+    create_task(&mut ctx, 3, 14, 110, 0, 2, 4);
+    create_task(&mut ctx, 4, 11, 69, 0, 2, 4);
+    create_task(&mut ctx, 5, 20, 13, 0, 2, 4);
+    create_task(&mut ctx, 6, 16, 22, 0, 2, 4);
+    create_task(&mut ctx, 7, 17, 20, 0, 2, 4);
+    create_task(&mut ctx, 9, 14, 40, 0, 2, 4);
+    create_task(&mut ctx, 11, 20, 6, 0, 2, 4);
+    create_task(&mut ctx, 12, 16, 4, 0, 2, 4);
+    create_task(&mut ctx, 13, 17, 4, 0, 2, 4);
+    create_task(&mut ctx, 14, 14, 4, 0, 2, 4);
+    create_task(&mut ctx, 15, 14, 4, 0, 2, 4);
+    create_task(&mut ctx, 16, 11, 4, 0, 2, 4);
+    create_task(&mut ctx, 17, 20, 4, 0, 2, 4);
 
     let mut timing = TimingTree::new("prove", log::Level::Info);
     // let allproof: proof::AllProof<GoldilocksField, C, D> =
