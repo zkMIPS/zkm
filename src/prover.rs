@@ -152,7 +152,7 @@ where
                         );
                         let ret = {
                             let trace_flatten = &trace
-                                .iter()
+                                .par_iter()
                                 .flat_map(|p| p.values.to_vec())
                                 .collect::<Vec<_>>();
 
@@ -1015,24 +1015,25 @@ where
     );
     let quotient_commitment = timed!(timing, "compute quotient commitment", {
         // if all_quotient_chunks[0].len() == 1048576
-        // {
-        //     // let all_quotient_chunks_flatten = &all_quotient_chunks.iter().flat_map(|p|p.coeffs.to_vec()).collect::<Vec<_>>();
-        //     let values_num_per_poly = all_quotient_chunks[0].len();
-        //     let poly_num = all_quotient_chunks.len();
-        //
-        //     PolynomialBatch::from_coeffs_with_gpu(
-        //         all_quotient_chunks.clone(),
-        //         values_num_per_poly,
-        //         poly_num,
-        //         rate_bits,
-        //         false,
-        //         config.fri_config.cap_height,
-        //         timing,
-        //         ctx,
-        //         table as u32 + 12,
-        //     )
-        // }
-        // else
+        if true
+        {
+            // let all_quotient_chunks_flatten = &all_quotient_chunks.iter().flat_map(|p|p.coeffs.to_vec()).collect::<Vec<_>>();
+            let values_num_per_poly = all_quotient_chunks[0].len();
+            let poly_num = all_quotient_chunks.len();
+
+            PolynomialBatch::from_coeffs_with_gpu(
+                all_quotient_chunks.clone(),
+                values_num_per_poly,
+                poly_num,
+                rate_bits,
+                false,
+                config.fri_config.cap_height,
+                timing,
+                ctx,
+                table as u32 + 12,
+            )
+        }
+        else
         {
             PolynomialBatch::from_coeffs(
                 all_quotient_chunks,
