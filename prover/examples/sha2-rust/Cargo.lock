@@ -180,7 +180,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sha2-bench"
+name = "sha2-rust"
 version = "0.1.0"
 dependencies = [
  "sha2",

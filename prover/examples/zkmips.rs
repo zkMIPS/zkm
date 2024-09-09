@@ -251,7 +251,7 @@ fn prove_sha2_rust() {
     // 1. split ELF into segs
     let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
     let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
-    let seg_size = env::var("SEG_SIZE").unwrap_or("0".to_string());
+    let seg_size = env::var("SEG_SIZE").unwrap_or("65536".to_string());
     let seg_size = seg_size.parse::<_>().unwrap_or(0);
 
     let mut state = load_elf_with_patch(&elf_path, vec![]);
@@ -280,7 +280,6 @@ fn prove_sha2_rust() {
     if seg_size != 0 {
         seg_num = (total_steps + seg_size - 1) / seg_size;
     }
-
     prove_multi_seg_common(&seg_path, "", "", "", seg_size, seg_num, 0).unwrap()
 }
 
