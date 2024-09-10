@@ -68,7 +68,7 @@ rustflags = ["--cfg", 'target_os="zkvm"',"-C", "target-feature=+crt-static", "-C
 * Build the Sha2/Revme
 
 ```
-cd prover/examples/sha2
+cd prover/examples/sha2-rust
 cargo build --target=mips-unknown-linux-musl
 ```
 
@@ -80,7 +80,7 @@ cargo build --target=mips-unknown-linux-musl
 
 cd ../..
 
-ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" RUST_LOG=info ELF_PATH=examples/sha2/target/mips-unknown-linux-musl/debug/sha2-bench HOST_PROGRAM=sha2_bench SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
+ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" RUST_LOG=info ELF_PATH=examples/sha2-rust/target/mips-unknown-linux-musl/debug/sha2-rust HOST_PROGRAM=sha2_rust SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
 
 Or
 
