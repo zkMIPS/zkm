@@ -1,5 +1,8 @@
 //! Ported from Entrypoint for SP1 zkVM.
 //!
+
+use crate::libm;
+
 #[no_mangle]
 pub extern "C" fn acos(x: f64) -> f64 {
     libm::acos(x)
