@@ -22,6 +22,7 @@ use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::prelude::DefaultParameters;
 use std::sync::Arc;
+use plonky2::field::extension::Extendable;
 use plonky2::fri::oracle::create_task;
 use zkm::all_stark::AllStark;
 use zkm::config::StarkConfig;
@@ -144,7 +145,7 @@ fn prove_single_seg() {
     let allstark: AllStark<F, D> = AllStark::default();
     let config = StarkConfig::standard_fast_config();
 
-    let mut ctx;
+    let mut ctx: plonky2::fri::oracle::CudaInvContext<GoldilocksField, C, D>;
     {
         rustacuda::init(CudaFlags::empty()).unwrap();
         let device_index = 0;
@@ -165,17 +166,30 @@ fn prove_single_seg() {
         // println!("max_lg_n: {}", max_lg_n);
         let max_lg_n = 22;
         let fft_root_table_max = fft_root_table(1 << (max_lg_n + rate_bits)).concat();
+        let root_table_device = {
+            DeviceBuffer::from_slice(&fft_root_table_max).unwrap() };
 
-        let root_table_device = { DeviceBuffer::from_slice(&fft_root_table_max).unwrap() };
+        let fft_root_table_ext = fft_root_table::<<F as Extendable<{ D }>>::Extension>(1 << (24)).concat();
+        let root_table_ext_device = {
+            DeviceBuffer::from_slice(&fft_root_table_ext).unwrap() };
 
         let shift_powers = F::coset_shift()
             .powers()
             .take(1 << (max_lg_n))
             .collect::<Vec<_>>();
-        let shift_powers_device = { DeviceBuffer::from_slice(&shift_powers).unwrap() };
+        let shift_powers_device = {
+            DeviceBuffer::from_slice(&shift_powers).unwrap() };
+
+        let shift_powers_ext = <<F as Extendable<{ D }>>::Extension>::coset_shift()
+            .powers()
+            .take(1 << (22))
+            .collect::<Vec<_>>();
+        let shift_powers_ext_device = {
+            DeviceBuffer::from_slice(&shift_powers_ext).unwrap() };
 
         let max_values_num_per_poly = 1 << max_lg_n;
         let max_values_flatten_len = max_values_num_per_poly * 32;
+        // let max_values_flatten_len = 132644864;
         let max_ext_values_flatten_len =
             (max_values_flatten_len + salt_size * max_values_num_per_poly) * (1 << rate_bits);
         let mut ext_values_flatten: Vec<F> = Vec::with_capacity(max_ext_values_flatten_len);
@@ -217,27 +231,47 @@ fn prove_single_seg() {
             cache_mem_device,
             root_table_device,
             shift_powers_device,
+            // cache_mem_ext_device,
+            root_table_ext_device,
+            shift_powers_ext_device,
             tasks: BTreeMap::new(),
             ctx: _ctx,
         };
     }
 
-    create_task(&mut ctx, 0, 16, 54, 0, 2, 4);
-    create_task(&mut ctx, 1, 17, 253, 0, 2, 4);
-    create_task(&mut ctx, 2, 14, 262, 0, 2, 4);
-    create_task(&mut ctx, 3, 14, 110, 0, 2, 4);
-    create_task(&mut ctx, 4, 11, 69, 0, 2, 4);
-    create_task(&mut ctx, 5, 20, 13, 0, 2, 4);
-    create_task(&mut ctx, 6, 16, 22, 0, 2, 4);
-    create_task(&mut ctx, 7, 17, 20, 0, 2, 4);
-    create_task(&mut ctx, 9, 14, 40, 0, 2, 4);
-    create_task(&mut ctx, 11, 20, 6, 0, 2, 4);
-    create_task(&mut ctx, 12, 16, 4, 0, 2, 4);
-    create_task(&mut ctx, 13, 17, 4, 0, 2, 4);
-    create_task(&mut ctx, 14, 14, 4, 0, 2, 4);
-    create_task(&mut ctx, 15, 14, 4, 0, 2, 4);
-    create_task(&mut ctx, 16, 11, 4, 0, 2, 4);
-    create_task(&mut ctx, 17, 20, 4, 0, 2, 4);
+    // create_task(&mut ctx, 0, 16, 54, 0, 2, 4);
+    // create_task(&mut ctx, 1, 17, 253, 0, 2, 4);
+    // create_task(&mut ctx, 2, 14, 262, 0, 2, 4);
+    // create_task(&mut ctx, 3, 14, 110, 0, 2, 4);
+    // create_task(&mut ctx, 4, 11, 69, 0, 2, 4);
+    // create_task(&mut ctx, 5, 20, 13, 0, 2, 4);
+    // create_task(&mut ctx, 6, 16, 22, 0, 2, 4);
+    // create_task(&mut ctx, 7, 17, 20, 0, 2, 4);
+    // create_task(&mut ctx, 9, 14, 40, 0, 2, 4);
+    // create_task(&mut ctx, 11, 20, 6, 0, 2, 4);
+    // create_task(&mut ctx, 12, 16, 4, 0, 2, 4);
+    // create_task(&mut ctx, 13, 17, 4, 0, 2, 4);
+    // create_task(&mut ctx, 14, 14, 4, 0, 2, 4);
+    // create_task(&mut ctx, 15, 14, 4, 0, 2, 4);
+    // create_task(&mut ctx, 16, 11, 4, 0, 2, 4);
+    // create_task(&mut ctx, 17, 20, 4, 0, 2, 4);
+
+    create_task(&mut ctx, 0, 17, 54, 0, 2, 4);
+    create_task(&mut ctx, 1, 19, 253, 0, 2, 4);
+    create_task(&mut ctx, 2, 16, 262, 0, 2, 4);
+    create_task(&mut ctx, 3, 16, 110, 0, 2, 4);
+    create_task(&mut ctx, 4, 15, 69, 0, 2, 4);
+    create_task(&mut ctx, 5, 22, 13, 0, 2, 4);
+    create_task(&mut ctx, 6, 17, 22, 0, 2, 4);
+    create_task(&mut ctx, 12, 17, 4, 0, 2, 4);
+    create_task(&mut ctx, 7, 19, 20, 0, 2, 4);
+    create_task(&mut ctx, 13, 19, 4, 0, 2, 4);
+    create_task(&mut ctx, 14, 16, 4, 0, 2, 4);
+    create_task(&mut ctx, 9, 16, 40, 0, 2, 4);
+    create_task(&mut ctx, 15, 16, 4, 0, 2, 4);
+    create_task(&mut ctx, 16, 15, 4, 0, 2, 4);
+    create_task(&mut ctx, 11, 22, 6, 0, 2, 4);
+    create_task(&mut ctx, 17, 22, 4, 0, 2, 4);
 
     let mut timing = TimingTree::new("prove", log::Level::Info);
     // let allproof: proof::AllProof<GoldilocksField, C, D> =
