@@ -256,14 +256,31 @@ fn prove_single_seg() {
     // create_task(&mut ctx, 16, 11, 4, 0, 2, 4);
     // create_task(&mut ctx, 17, 20, 4, 0, 2, 4);
 
-    create_task(&mut ctx, 0, 17, 54, 0, 2, 4);
+    // create_task(&mut ctx, 0, 17, 54, 0, 2, 4);
+    // create_task(&mut ctx, 1, 19, 253, 0, 2, 4);
+    // create_task(&mut ctx, 2, 16, 262, 0, 2, 4);
+    // create_task(&mut ctx, 3, 16, 110, 0, 2, 4);
+    // create_task(&mut ctx, 4, 15, 69, 0, 2, 4);
+    // create_task(&mut ctx, 5, 22, 13, 0, 2, 4);
+    // create_task(&mut ctx, 6, 17, 22, 0, 2, 4);
+    // create_task(&mut ctx, 12, 17, 4, 0, 2, 4);
+    // create_task(&mut ctx, 7, 19, 20, 0, 2, 4);
+    // create_task(&mut ctx, 13, 19, 4, 0, 2, 4);
+    // create_task(&mut ctx, 14, 16, 4, 0, 2, 4);
+    // create_task(&mut ctx, 9, 16, 40, 0, 2, 4);
+    // create_task(&mut ctx, 15, 16, 4, 0, 2, 4);
+    // create_task(&mut ctx, 16, 15, 4, 0, 2, 4);
+    // create_task(&mut ctx, 11, 22, 6, 0, 2, 4);
+    // create_task(&mut ctx, 17, 22, 4, 0, 2, 4);
+
+    create_task(&mut ctx, 0, 18, 54, 0, 2, 4);
     create_task(&mut ctx, 1, 19, 253, 0, 2, 4);
     create_task(&mut ctx, 2, 16, 262, 0, 2, 4);
     create_task(&mut ctx, 3, 16, 110, 0, 2, 4);
     create_task(&mut ctx, 4, 15, 69, 0, 2, 4);
     create_task(&mut ctx, 5, 22, 13, 0, 2, 4);
-    create_task(&mut ctx, 6, 17, 22, 0, 2, 4);
-    create_task(&mut ctx, 12, 17, 4, 0, 2, 4);
+    create_task(&mut ctx, 6, 18, 22, 0, 2, 4);
+    create_task(&mut ctx, 12, 18, 4, 0, 2, 4);
     create_task(&mut ctx, 7, 19, 20, 0, 2, 4);
     create_task(&mut ctx, 13, 19, 4, 0, 2, 4);
     create_task(&mut ctx, 14, 16, 4, 0, 2, 4);
@@ -274,10 +291,11 @@ fn prove_single_seg() {
     create_task(&mut ctx, 17, 22, 4, 0, 2, 4);
 
     let mut timing = TimingTree::new("prove", log::Level::Info);
-    // let allproof: proof::AllProof<GoldilocksField, C, D> =
-    //     prove(&allstark, &kernel, &config, &mut timing).unwrap();
     let allproof: proof::AllProof<GoldilocksField, C, D> =
-        prove_gpu(&allstark, &kernel, &config, &mut timing, &mut ctx).unwrap();
+        prove(&allstark, &kernel, &config, &mut timing).unwrap();
+    // let allproof: proof::AllProof<GoldilocksField, C, D> =
+    //     prove_gpu(&allstark, &kernel, &config, &mut timing, &mut ctx).unwrap();
+
 
     let mut count_bytes = 0;
     for (row, proof) in allproof.stark_proofs.clone().iter().enumerate() {
