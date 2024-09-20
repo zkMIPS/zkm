@@ -93,7 +93,7 @@ pub(crate) fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
                 )
             }
 
-            generate_exit_kernel::<F>(state, kernel);
+            //generate_exit_kernel::<F>(state, kernel);
 
             // Padding
             let mut row = CpuColumnsView::<F>::default();
