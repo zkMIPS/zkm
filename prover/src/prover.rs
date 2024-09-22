@@ -258,7 +258,7 @@ where
     );
     let logic_proof = timed!(
         timing,
-        "prove logic STARK",
+        "prove Logic STARK",
         prove_single_table(
             &all_stark.logic_stark,
             config,
@@ -272,7 +272,7 @@ where
     );
     let memory_proof = timed!(
         timing,
-        "prove memory STARK",
+        "prove Memory STARK",
         prove_single_table(
             &all_stark.memory_stark,
             config,

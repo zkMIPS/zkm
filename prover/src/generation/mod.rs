@@ -13,7 +13,6 @@ use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::exit_kernel::generate_exit_kernel;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
@@ -93,7 +92,7 @@ pub(crate) fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
                 )
             }
 
-            generate_exit_kernel::<F>(state, kernel);
+            //generate_exit_kernel::<F>(state, kernel);
 
             // Padding
             let mut row = CpuColumnsView::<F>::default();
