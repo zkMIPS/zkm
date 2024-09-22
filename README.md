@@ -39,7 +39,7 @@ There are two ways to prove the program:
 - Hardware: X86 CPU, 32 cores, 32G memory
 - OS: Ubuntu22
 
-| Cycles Per Segment | RAM |
+| Instructions Per Segment | RAM |
 | ------------------ | --- |
 | 32768              | 13G |
 | 65536              | 19G |
