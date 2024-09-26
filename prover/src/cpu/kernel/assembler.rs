@@ -31,7 +31,7 @@ pub fn segment_kernel<T: Read>(
 
     let mut final_step = steps;
     if p.step != 0 {
-        assert!(p.step < steps);
+        assert!(p.step <= steps);
         final_step = p.step;
     }
 
