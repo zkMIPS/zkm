@@ -30,21 +30,22 @@ pub fn split_prog_into_segs(
     std::fs::create_dir_all(seg_path).unwrap();
     let new_writer = |_: &str| -> Option<std::fs::File> { None };
     instrumented_state.split_segment(false, seg_path, new_writer);
-    let mut segment_step: usize = seg_size;
     let new_writer = |name: &str| -> Option<std::fs::File> { File::create(name).ok() };
     loop {
         if instrumented_state.state.exited {
             break;
         }
-        instrumented_state.step();
-        segment_step -= 1;
-        if segment_step == 0 {
-            segment_step = seg_size;
+        let cycles = instrumented_state.step();
+        if cycles >= seg_size as u64 {
             instrumented_state.split_segment(true, seg_path, new_writer);
         }
     }
     instrumented_state.split_segment(true, seg_path, new_writer);
-    log::info!("Split done {}", instrumented_state.state.step);
+    log::info!(
+        "Split done {} : {}",
+        instrumented_state.state.step,
+        instrumented_state.state.cycle
+    );
 
     instrumented_state.dump_memory();
     (

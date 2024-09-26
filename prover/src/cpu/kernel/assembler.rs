@@ -29,12 +29,18 @@ pub fn segment_kernel<T: Read>(
     let p: Program = Program::load_segment(seg_reader).unwrap();
     let blockpath = get_block_path(basedir, block, file);
 
+    let mut final_step = steps;
+    if p.step != 0 {
+        assert!(p.step < steps);
+        final_step = p.step;
+    }
+
     Kernel {
         program: p,
         ordered_labels: vec![],
         global_labels: HashMap::new(),
         blockpath,
-        steps,
+        steps: final_step,
     }
 }
 
