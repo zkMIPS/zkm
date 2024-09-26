@@ -43,13 +43,13 @@ pub fn split_prog_into_segs(
     instrumented_state.split_segment(true, seg_path, new_writer);
     log::info!(
         "Split done {} : {}",
-        instrumented_state.state.step,
-        instrumented_state.state.cycle
+        instrumented_state.state.total_step,
+        instrumented_state.state.total_cycle
     );
 
     instrumented_state.dump_memory();
     (
-        instrumented_state.state.step as usize,
+        instrumented_state.state.total_step as usize,
         instrumented_state.state,
     )
 }

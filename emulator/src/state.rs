@@ -1275,7 +1275,8 @@ impl InstrumentedState {
         output: &str,
         new_writer: fn(&str) -> Option<W>,
     ) {
-        self.state.total_cycle += self.state.cycle;
+        self.state.total_cycle +=
+            self.state.cycle + (self.state.memory.page_count() + 1) * PAGE_CYCLES;
         self.state.total_step += self.state.step;
         self.state.memory.update_page_hash();
         let regiters = self.state.get_registers_bytes();
