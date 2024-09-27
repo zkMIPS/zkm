@@ -278,7 +278,7 @@ fn prove_sha2_rust() {
 
     let mut seg_num = 1usize;
     if seg_size != 0 {
-        seg_num = (total_steps + seg_size - 1) / seg_size;
+        seg_num = (total_steps + seg_size - 1).div_ceil(seg_size);
     }
     prove_multi_seg_common(&seg_path, "", "", "", seg_size, seg_num, 0).unwrap()
 }
@@ -319,7 +319,7 @@ fn prove_sha2_go() {
 
     let mut seg_num = 1usize;
     if seg_size != 0 {
-        seg_num = (total_steps + seg_size - 1) / seg_size;
+        seg_num = (total_steps + seg_size - 1).div_ceil(seg_size);
     }
 
     prove_multi_seg_common(&seg_path, "", "", "", seg_size, seg_num, 0).unwrap()
@@ -344,7 +344,7 @@ fn prove_revm() {
 
     let mut seg_num = 1usize;
     if seg_size != 0 {
-        seg_num = (total_steps + seg_size - 1) / seg_size;
+        seg_num = (total_steps + seg_size - 1).div_ceil(seg_size);
     }
 
     if seg_num == 1 {
@@ -430,7 +430,7 @@ fn prove_add_example() {
 
     let mut seg_num = 1usize;
     if seg_size != 0 {
-        seg_num = (total_steps + seg_size - 1) / seg_size;
+        seg_num = (total_steps + seg_size - 1).div_ceil(seg_size);
     }
 
     if seg_num == 1 {

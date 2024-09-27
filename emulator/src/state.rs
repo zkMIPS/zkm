@@ -19,6 +19,12 @@ pub const FD_HINT: u32 = 4;
 pub const MIPS_EBADF: u32 = 9;
 
 pub const REGISTERS_START: u32 = 0x81020400u32;
+pub const PAGE_LOAD_CYCLES: u64 = 128;
+pub const PAGE_HASH_CYCLES: u64 = 1;
+pub const PAGE_CYCLES: u64 = PAGE_LOAD_CYCLES + PAGE_HASH_CYCLES;
+pub const IMAGE_ID_CYCLES: u64 = 3;
+pub const MAX_INSTRUCTION_CYCLES: u64 = PAGE_CYCLES * 6; //TOFIX
+pub const RESERVE_CYCLES: u64 = IMAGE_ID_CYCLES + MAX_INSTRUCTION_CYCLES;
 
 // image_id = keccak(page_hash_root || end_pc)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
@@ -31,6 +37,7 @@ pub struct Segment {
     pub image_id: [u8; 32],
     pub page_hash_root: [u8; 32],
     pub end_pc: u32,
+    pub step: u64,
     pub input_stream: Vec<Vec<u8>>,
     pub input_stream_ptr: usize,
     pub public_values_stream: Vec<u8>,
@@ -62,6 +69,11 @@ pub struct State {
 
     /// step tracks the total step has been executed.
     pub step: u64,
+    pub total_step: u64,
+
+    /// cycle tracks the total cycle has been executed.
+    pub cycle: u64,
+    pub total_cycle: u64,
 
     /// A stream of input values (global to the entire program).
     pub input_stream: Vec<Vec<u8>>,
@@ -111,6 +123,9 @@ impl State {
             heap: 0,
             local_user: 0,
             step: 0,
+            total_step: 0,
+            cycle: 0,
+            total_cycle: 0,
             brk: 0,
             input_stream: Vec::new(),
             input_stream_ptr: 0,
@@ -135,6 +150,9 @@ impl State {
             heap: 0x20000000,
             local_user: 0,
             step: 0,
+            total_step: 0,
+            cycle: 0,
+            total_cycle: 0,
             brk: 0,
             input_stream: Vec::new(),
             input_stream_ptr: 0,
@@ -406,6 +424,7 @@ impl State {
             .set_memory_range(0x31000004, data)
             .expect("set memory range failed");
 
+        self.cycle += (data_len as u64 + 35) / 32;
         let len = data_len & 3;
         let end = data_len % POSEIDON_RATE_BYTES;
 
@@ -535,6 +554,9 @@ impl InstrumentedState {
                 );
                 log::debug!("input: {:?}", vec);
                 assert_eq!(a0 % 4, 0, "hint read address not aligned to 4 bytes");
+                if a1 >= 1 {
+                    self.state.cycle += (a1 as u64 + 31) / 32;
+                }
                 for i in (0..a1).step_by(4) {
                     // Get each byte in the chunk
                     let b1 = vec[i as usize];
@@ -837,6 +859,7 @@ impl InstrumentedState {
         }
 
         self.state.step += 1;
+        self.state.cycle += 1;
 
         // fetch instruction
         let insn = self.state.memory.get_memory(self.state.pc);
@@ -1229,7 +1252,7 @@ impl InstrumentedState {
         );
     }
 
-    pub fn step(&mut self) {
+    pub fn step(&mut self) -> u64 {
         let dump: bool = self.state.dump_info;
         self.state.dump_info = false;
 
@@ -1241,6 +1264,8 @@ impl InstrumentedState {
                 self.state.registers
             );
         };
+
+        self.state.cycle + (self.state.memory.page_count() + 1) * PAGE_CYCLES + RESERVE_CYCLES
     }
 
     /// the caller should provide a write to write segemnt if proof is true
@@ -1250,6 +1275,9 @@ impl InstrumentedState {
         output: &str,
         new_writer: fn(&str) -> Option<W>,
     ) {
+        self.state.total_cycle +=
+            self.state.cycle + (self.state.memory.page_count() + 1) * PAGE_CYCLES;
+        self.state.total_step += self.state.step;
         self.state.memory.update_page_hash();
         let regiters = self.state.get_registers_bytes();
 
@@ -1270,6 +1298,7 @@ impl InstrumentedState {
                 pre_image_id: self.pre_image_id,
                 image_id,
                 end_pc: self.state.pc,
+                step: self.state.step,
                 page_hash_root,
                 input_stream: self.pre_input.clone(),
                 input_stream_ptr: self.pre_input_ptr,
@@ -1291,6 +1320,8 @@ impl InstrumentedState {
         self.pre_pc = self.state.pc;
         self.pre_image_id = image_id;
         self.pre_hash_root = page_hash_root;
+        self.state.cycle = 0;
+        self.state.step = 0;
     }
 
     pub fn dump_memory(&mut self) {
