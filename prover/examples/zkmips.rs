@@ -270,7 +270,8 @@ fn prove_sha2_rust() {
     log::info!("public value: {} in hex", hex::encode(value));
 
     if seg_num == 1 {
-        prove_single_seg_common(&seg_path, "", "", "")
+        let seg_file = format!("{seg_path}/{}", 0);
+        prove_single_seg_common(&seg_file, "", "", "")
     } else {
         prove_multi_seg_common(&seg_path, "", "", "", seg_num, 0).unwrap()
     }
@@ -311,7 +312,8 @@ fn prove_sha2_go() {
     log::info!("public value: {:X?}", value);
 
     if seg_num == 1 {
-        prove_single_seg_common(&seg_path, "", "", "")
+        let seg_file = format!("{seg_path}/{}", 0);
+        prove_single_seg_common(&seg_file, "", "", "")
     } else {
         prove_multi_seg_common(&seg_path, "", "", "", seg_num, 0).unwrap()
     }
