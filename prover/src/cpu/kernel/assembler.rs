@@ -14,33 +14,19 @@ pub struct Kernel {
     //  should be preprocessed after loading code
     pub(crate) global_labels: HashMap<String, usize>,
     pub blockpath: String,
-    pub steps: usize,
 }
 
 pub const MAX_MEM: u32 = 0x80000000;
 
-pub fn segment_kernel<T: Read>(
-    basedir: &str,
-    block: &str,
-    file: &str,
-    seg_reader: T,
-    steps: usize,
-) -> Kernel {
+pub fn segment_kernel<T: Read>(basedir: &str, block: &str, file: &str, seg_reader: T) -> Kernel {
     let p: Program = Program::load_segment(seg_reader).unwrap();
     let blockpath = get_block_path(basedir, block, file);
-
-    let mut final_step = steps;
-    if p.step != 0 {
-        assert!(p.step <= steps);
-        final_step = p.step;
-    }
 
     Kernel {
         program: p,
         ordered_labels: vec![],
         global_labels: HashMap::new(),
         blockpath,
-        steps: final_step,
     }
 }
 

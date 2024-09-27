@@ -480,7 +480,7 @@ pub struct InstrumentedState {
     /// writer for stderr
     stderr_writer: Box<dyn Write>,
 
-    pre_segment_id: u32,
+    pub pre_segment_id: u32,
     pre_pc: u32,
     pre_image_id: [u8; 32],
     pre_hash_root: [u8; 32],

@@ -31,7 +31,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Decode the trace record
     // 1. Decode instruction and fill in cpu columns
     // 2. Decode memory and fill in memory columns
-    let mut state = GenerationState::<F>::new(kernel.steps, kernel).unwrap();
+    let mut state = GenerationState::<F>::new(kernel.program.step, kernel).unwrap();
     generate_bootstrap_kernel::<F>(&mut state, kernel);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state, kernel)?);
