@@ -13,7 +13,6 @@ use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::exit_kernel::generate_exit_kernel;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
@@ -32,7 +31,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Decode the trace record
     // 1. Decode instruction and fill in cpu columns
     // 2. Decode memory and fill in memory columns
-    let mut state = GenerationState::<F>::new(kernel.steps, kernel).unwrap();
+    let mut state = GenerationState::<F>::new(kernel.program.step, kernel).unwrap();
     generate_bootstrap_kernel::<F>(&mut state, kernel);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state, kernel)?);
@@ -93,7 +92,7 @@ pub(crate) fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
                 )
             }
 
-            generate_exit_kernel::<F>(state, kernel);
+            //generate_exit_kernel::<F>(state, kernel);
 
             // Padding
             let mut row = CpuColumnsView::<F>::default();

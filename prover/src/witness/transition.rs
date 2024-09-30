@@ -277,7 +277,9 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         (0b001110, _, _) => Ok(Operation::BinaryLogicImm(logic::Op::Xor, rs, rt, offset)), // XORI: rt = rs + zext(imm)
         (0b000000, 0b001100, _) => Ok(Operation::Syscall), // Syscall
         (0b110011, _, _) => Ok(Operation::Nop),            // Pref
+        (0b011100, 0b000001, _) => Ok(Operation::Maddu(rt, rs)), // rdhwr
         (0b011111, 0b000000, _) => Ok(Operation::Ext(rt, rs, rd, sa)), // ext
+        (0b011111, 0b000100, _) => Ok(Operation::Ins(rt, rs, rd, sa)), // ins
         (0b011111, 0b111011, _) => Ok(Operation::Rdhwr(rt, rd)), // rdhwr
         (0b011111, 0b100000, _) => {
             if sa == 0b011000 {
@@ -334,6 +336,8 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::MstoreGeneral(..) => &mut flags.m_op_store,
         Operation::Nop => &mut flags.nop,
         Operation::Ext(_, _, _, _) => &mut flags.ext,
+        Operation::Ins(_, _, _, _) => &mut flags.ins,
+        Operation::Maddu(_, _) => &mut flags.maddu,
         Operation::Ror(_, _, _) => &mut flags.ror,
         Operation::Rdhwr(_, _) => &mut flags.rdhwr,
         Operation::Signext(_, _, 8u8) => &mut flags.signext8,
@@ -447,6 +451,8 @@ fn perform_op<F: RichField>(
         Operation::SetContext => generate_set_context(state, row)?,
         Operation::Nop => generate_nop(state, row)?,
         Operation::Ext(rt, rs, msbd, lsb) => generate_extract(rt, rs, msbd, lsb, state, row)?,
+        Operation::Ins(rt, rs, msb, lsb) => generate_insert(rt, rs, msb, lsb, state, row)?,
+        Operation::Maddu(rt, rs) => generate_maddu(rt, rs, state, row)?,
         Operation::Ror(rd, rt, sa) => generate_ror(rd, rt, sa, state, row)?,
         Operation::Rdhwr(rt, rd) => generate_rdhwr(rt, rd, state, row)?,
         Operation::Signext(rd, rt, bits) => generate_signext(rd, rt, bits, state, row)?,

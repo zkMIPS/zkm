@@ -47,9 +47,11 @@ use crate::verifier::verify_proof;
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
 const THRESHOLD_DEGREE_BITS: usize = 13;
 
-/// Contains all recursive circuits used in the system. For each STARK and each initial
-/// `degree_bits`, this contains a chain of recursive circuits for shrinking that STARK from
-/// `degree_bits` to a constant `THRESHOLD_DEGREE_BITS`. It also contains a special root circuit
+/// Contains all recursive circuits used in the system.
+///
+/// For each STARK and each initial `degree_bits`, this contains a chain of
+/// recursive circuits for shrinking that STARK from `degree_bits` to a constant
+/// `THRESHOLD_DEGREE_BITS`. It also contains a special root circuit
 /// for combining each STARK's shrunk wrapper proof into a single proof.
 #[derive(Eq, PartialEq, Debug)]
 pub struct AllRecursiveCircuits<F, C, const D: usize>

@@ -46,15 +46,9 @@ fn split_segments() {
     let _ = split_prog_into_segs(state, &seg_path, &block_path, seg_size);
 }
 
-fn prove_single_seg_common(
-    seg_file: &str,
-    basedir: &str,
-    block: &str,
-    file: &str,
-    seg_size: usize,
-) {
+fn prove_single_seg_common(seg_file: &str, basedir: &str, block: &str, file: &str) {
     let seg_reader = BufReader::new(File::open(seg_file).unwrap());
-    let kernel = segment_kernel(basedir, block, file, seg_reader, seg_size);
+    let kernel = segment_kernel(basedir, block, file, seg_reader);
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -181,7 +175,6 @@ fn prove_multi_seg_common(
     basedir: &str,
     block: &str,
     file: &str,
-    seg_size: usize,
     seg_file_number: usize,
     seg_start_id: usize,
 ) -> anyhow::Result<()> {
@@ -206,7 +199,7 @@ fn prove_multi_seg_common(
     let seg_file = format!("{}/{}", seg_dir, seg_start_id);
     log::info!("Process segment {}", seg_file);
     let seg_reader = BufReader::new(File::open(seg_file)?);
-    let input_first = segment_kernel(basedir, block, file, seg_reader, seg_size);
+    let input_first = segment_kernel(basedir, block, file, seg_reader);
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
     let (mut agg_proof, mut updated_agg_public_values) =
         all_circuits.prove_root(&all_stark, &input_first, &config, &mut timing)?;
@@ -222,7 +215,7 @@ fn prove_multi_seg_common(
         let seg_file = format!("{}/{}", seg_dir, seg_start_id + 1);
         log::info!("Process segment {}", seg_file);
         let seg_reader = BufReader::new(File::open(seg_file)?);
-        let input = segment_kernel(basedir, block, file, seg_reader, seg_size);
+        let input = segment_kernel(basedir, block, file, seg_reader);
         timing = TimingTree::new("prove root second", log::Level::Info);
         let (root_proof, public_values) =
             all_circuits.prove_root(&all_stark, &input, &config, &mut timing)?;
@@ -257,7 +250,7 @@ fn prove_multi_seg_common(
         let seg_file = format!("{}/{}", seg_dir, base_seg + (i << 1));
         log::info!("Process segment {}", seg_file);
         let seg_reader = BufReader::new(File::open(&seg_file)?);
-        let input_first = segment_kernel(basedir, block, file, seg_reader, seg_size);
+        let input_first = segment_kernel(basedir, block, file, seg_reader);
         let mut timing = TimingTree::new("prove root first", log::Level::Info);
         let (root_proof_first, first_public_values) =
             all_circuits.prove_root(&all_stark, &input_first, &config, &mut timing)?;
@@ -268,7 +261,7 @@ fn prove_multi_seg_common(
         let seg_file = format!("{}/{}", seg_dir, base_seg + (i << 1) + 1);
         log::info!("Process segment {}", seg_file);
         let seg_reader = BufReader::new(File::open(&seg_file)?);
-        let input = segment_kernel(basedir, block, file, seg_reader, seg_size);
+        let input = segment_kernel(basedir, block, file, seg_reader);
         let mut timing = TimingTree::new("prove root second", log::Level::Info);
         let (root_proof, public_values) =
             all_circuits.prove_root(&all_stark, &input, &config, &mut timing)?;
@@ -346,10 +339,12 @@ fn prove_multi_seg_common(
     result
 }
 
-fn prove_sha2_bench() {
+fn prove_sha2_rust() {
     // 1. split ELF into segs
     let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
     let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
+    let seg_size = env::var("SEG_SIZE").unwrap_or("65536".to_string());
+    let seg_size = seg_size.parse::<_>().unwrap_or(0);
 
     let mut state = load_elf_with_patch(&elf_path, vec![]);
     // load input
@@ -367,14 +362,60 @@ fn prove_sha2_bench() {
     log::info!("private input value: {:X?}", private_input);
     state.add_input_stream(&private_input);
 
-    let (total_steps, mut state) = split_prog_into_segs(state, &seg_path, "", 0);
+    let (_total_steps, seg_num, mut state) = split_prog_into_segs(state, &seg_path, "", seg_size);
 
     let value = state.read_public_values::<[u8; 32]>();
     log::info!("public value: {:X?}", value);
     log::info!("public value: {} in hex", hex::encode(value));
 
-    let seg_file = format!("{seg_path}/{}", 0);
-    prove_single_seg_common(&seg_file, "", "", "", total_steps);
+    if seg_num == 1 {
+        let seg_file = format!("{seg_path}/{}", 0);
+        prove_single_seg_common(&seg_file, "", "", "")
+    } else {
+        prove_multi_seg_common(&seg_path, "", "", "", seg_num, 0).unwrap()
+    }
+}
+
+fn prove_sha2_go() {
+    // 1. split ELF into segs
+    let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
+    let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
+    let seg_size = env::var("SEG_SIZE").unwrap_or("0".to_string());
+    let seg_size = seg_size.parse::<_>().unwrap_or(0);
+
+    let mut state = load_elf_with_patch(&elf_path, vec![]);
+    // load input
+    let args = env::var("ARGS").unwrap_or("data-to-hash".to_string());
+    // assume the first arg is the hash output(which is a public input), and the second is the input.
+    let args: Vec<&str> = args.split_whitespace().collect();
+    assert_eq!(args.len(), 2);
+
+    let mut data = Data::new();
+
+    // Fill in the input data
+    data.input10 = hex::decode(args[0]).unwrap();
+    data.input12 = args[1].to_string();
+
+    state.add_input_stream(&data);
+    log::info!(
+        "enum {} {} {}",
+        DataId::TYPE1 as u8,
+        DataId::TYPE2 as u8,
+        DataId::TYPE3 as u8
+    );
+    log::info!("public input: {:X?}", data);
+
+    let (_total_steps, seg_num, mut state) = split_prog_into_segs(state, &seg_path, "", seg_size);
+
+    let value = state.read_public_values::<Data>();
+    log::info!("public value: {:X?}", value);
+
+    if seg_num == 1 {
+        let seg_file = format!("{seg_path}/{}", 0);
+        prove_single_seg_common(&seg_file, "", "", "")
+    } else {
+        prove_multi_seg_common(&seg_path, "", "", "", seg_num, 0).unwrap()
+    }
 }
 
 fn prove_revm() {
@@ -392,18 +433,13 @@ fn prove_revm() {
     // load input
     state.add_input_stream(&data);
 
-    let (total_steps, mut _state) = split_prog_into_segs(state, &seg_path, "", seg_size);
-
-    let mut seg_num = 1usize;
-    if seg_size != 0 {
-        seg_num = (total_steps + seg_size - 1) / seg_size;
-    }
+    let (_total_steps, seg_num, mut _state) = split_prog_into_segs(state, &seg_path, "", seg_size);
 
     if seg_num == 1 {
         let seg_file = format!("{seg_path}/{}", 0);
-        prove_single_seg_common(&seg_file, "", "", "", total_steps)
+        prove_single_seg_common(&seg_file, "", "", "")
     } else {
-        prove_multi_seg_common(&seg_path, "", "", "", seg_size, seg_num, 0).unwrap()
+        prove_multi_seg_common(&seg_path, "", "", "", seg_num, 0).unwrap()
     }
 }
 
@@ -475,28 +511,24 @@ fn prove_add_example() {
     );
     log::info!("public input: {:X?}", data);
 
-    let (total_steps, mut state) = split_prog_into_segs(state, &seg_path, "", seg_size);
+    let (_total_steps, seg_num, mut state) = split_prog_into_segs(state, &seg_path, "", seg_size);
 
     let value = state.read_public_values::<Data>();
     log::info!("public value: {:X?}", value);
 
-    let mut seg_num = 1usize;
-    if seg_size != 0 {
-        seg_num = (total_steps + seg_size - 1) / seg_size;
-    }
-
     if seg_num == 1 {
         let seg_file = format!("{seg_path}/{}", 0);
-        prove_single_seg_common(&seg_file, "", "", "", total_steps)
+        prove_single_seg_common(&seg_file, "", "", "")
     } else {
-        prove_multi_seg_common(&seg_path, "", "", "", seg_size, seg_num, 0).unwrap()
+        prove_multi_seg_common(&seg_path, "", "", "", seg_num, 0).unwrap()
     }
 }
 
 fn prove_host() {
     let host_program = env::var("HOST_PROGRAM").expect("host_program name is missing");
     match host_program.as_str() {
-        "sha2_bench" => prove_sha2_bench(),
+        "sha2_rust" => prove_sha2_rust(),
+        "sha2_go" => prove_sha2_go(),
         "revm" => prove_revm(),
         "add_example" => prove_add_example(),
         _ => log::error!("Host program {} is not supported!", host_program),
@@ -512,23 +544,12 @@ fn prove_segments() {
     let seg_num = seg_num.parse::<_>().unwrap_or(1usize);
     let seg_start_id = env::var("SEG_START_ID").unwrap_or("0".to_string());
     let seg_start_id = seg_start_id.parse::<_>().unwrap_or(0usize);
-    let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
-    let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
 
     if seg_num == 1 {
         let seg_file = format!("{seg_dir}/{}", seg_start_id);
-        prove_single_seg_common(&seg_file, &basedir, &block, &file, seg_size)
+        prove_single_seg_common(&seg_file, &basedir, &block, &file)
     } else {
-        prove_multi_seg_common(
-            &seg_dir,
-            &basedir,
-            &block,
-            &file,
-            seg_size,
-            seg_num,
-            seg_start_id,
-        )
-        .unwrap()
+        prove_multi_seg_common(&seg_dir, &basedir, &block, &file, seg_num, seg_start_id).unwrap()
     }
 }
 

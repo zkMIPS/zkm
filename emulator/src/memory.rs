@@ -161,8 +161,8 @@ impl Memory {
         }
     }
 
-    pub fn page_count(&self) -> usize {
-        self.pages.len()
+    pub fn page_count(&self) -> u64 {
+        self.rtrace.len() as u64
     }
 
     pub fn for_each_page<T: Fn(u32, &Rc<RefCell<CachedPage>>) -> Result<(), String>>(
