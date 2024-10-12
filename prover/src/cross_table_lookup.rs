@@ -437,7 +437,7 @@ pub(crate) struct CtlZData<'a, F: Field> {
     pub(crate) filter: Vec<Option<Filter<F>>>,
 }
 
-impl<'a, F: Field> CtlData<'a, F> {
+impl<F: Field> CtlData<'_, F> {
     pub fn len(&self) -> usize {
         self.zs_columns.len()
     }

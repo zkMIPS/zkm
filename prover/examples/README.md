@@ -13,21 +13,21 @@ GOOS=linux GOARCH=mips GOMIPS=softfloat go build hello.go
 * Split the ELF hello into segments. Note that the flag `BLOCK_NO` is only necessary for minigeth.
 
 ```
-BASEDIR=./emulator/test-vectors RUST_LOG=info ELF_PATH=./emulator/test-vectors/minigeth BLOCK_NO=13284491 SEG_OUTPUT=/tmp/output SEG_SIZE=1024 ARGS="" \
+BASEDIR=./emulator/test-vectors RUST_LOG=info ELF_PATH=./emulator/test-vectors/minigeth BLOCK_NO=13284491 SEG_OUTPUT=/tmp/output SEG_SIZE=65536 ARGS="" \
     cargo run --release --example zkmips split
 ```
 
 * Generate proof for specific segment (Set SEG_START_ID to specific segment id and set SEG_NUM to 1)
 
 ```
-BASEDIR=./emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" SEG_START_ID=0 SEG_NUM=1 SEG_SIZE=1024 \
+BASEDIR=./emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" SEG_START_ID=0 SEG_NUM=1 SEG_SIZE=65536 \
     cargo run --release --example zkmips prove_segments
 ```
 
 * Aggregate proof all segments (Set SEG_START_ID to 0, and set SEG_NUM to the total segments number)
 
 ```
-BASEDIR=./emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" SEG_START_ID=0 SEG_NUM=299 SEG_SIZE=1024 \
+BASEDIR=./emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" SEG_START_ID=0 SEG_NUM=299 SEG_SIZE=65536 \
     cargo run --release --example zkmips prove_segments
 ```
 
