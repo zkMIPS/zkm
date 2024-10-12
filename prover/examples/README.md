@@ -50,6 +50,8 @@ RUST_LOG=info ELF_PATH=examples/add-go/go-add HOST_PROGRAM=add_example SEG_OUTPU
 
 ## Prove the Rust code 
 
+**Note**: the "mips-linux-muslsf-cross" supports Linux only. If your are using a MacOS, please refer to [#147](https://github.com/zkMIPS/zkm/issues/147). 
+
 * Download and install toolchain for mips
 
 ```
@@ -69,7 +71,7 @@ rustflags = ["--cfg", 'target_os="zkvm"',"-C", "target-feature=+crt-static", "-C
 
 ```
 cd prover/examples/sha2-rust
-cargo build --target=mips-unknown-linux-musl
+cargo build -r --target=mips-unknown-linux-musl
 ```
 
 * Run the host program
@@ -80,9 +82,9 @@ cargo build --target=mips-unknown-linux-musl
 
 cd ../..
 
-ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" RUST_LOG=info ELF_PATH=examples/sha2-rust/target/mips-unknown-linux-musl/debug/sha2-rust HOST_PROGRAM=sha2_rust SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
+ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" RUST_LOG=info ELF_PATH=examples/sha2-rust/target/mips-unknown-linux-musl/release/sha2-rust HOST_PROGRAM=sha2_rust SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
 
 Or
 
-RUST_LOG=info ELF_PATH=examples/revme/target/mips-unknown-linux-musl/debug/evm HOST_PROGRAM=revm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips prove_host_program
+RUST_LOG=info ELF_PATH=examples/revme/target/mips-unknown-linux-musl/release/evm HOST_PROGRAM=revm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips prove_host_program
 ```

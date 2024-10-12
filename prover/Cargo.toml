@@ -48,3 +48,6 @@ plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "
 
 [features]
 test = []
+
+[profile.release]
+debug = true
