@@ -1,3 +1,5 @@
+#![feature(allocator_api)]
+
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs::File;
@@ -5,6 +7,8 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::ops::Range;
 use std::time::Duration;
+
+use log::LevelFilter;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
@@ -24,6 +28,26 @@ use zkm_prover::proof;
 use zkm_prover::proof::PublicValues;
 use zkm_prover::prover::prove;
 use zkm_prover::verifier::verify_proof;
+
+#[cfg(feature = "gpu")]
+use zkm_prover::prover::prove_gpu;
+#[cfg(feature = "gpu")]
+use rustacuda::{
+    memory::DeviceBuffer, prelude::*,
+};
+#[cfg(feature = "gpu")]
+use plonky2::{
+    plonk::config::Hasher,
+    field::fft::fft_root_table,
+    field::types::Field,
+    field::extension::Extendable,
+    fri::oracle::{CudaInnerContext, MyAllocator, create_task},
+};
+#[cfg(feature = "gpu")]
+use std::{
+    collections::BTreeMap, sync::Arc,
+};
+
 
 const DEGREE_BITS_RANGE: [Range<usize>; 6] = [10..21, 12..22, 12..21, 8..21, 6..21, 13..23];
 
@@ -47,6 +71,14 @@ fn split_segments() {
 }
 
 fn prove_single_seg_common(seg_file: &str, basedir: &str, block: &str, file: &str) {
+    #[cfg(feature = "gpu")]
+    prove_single_seg_gpu(seg_file, basedir, block, file);
+
+    #[cfg(not(feature = "gpu"))]
+    prove_single_seg_cpu(seg_file, basedir, block, file);
+}
+
+fn prove_single_seg_cpu(seg_file: &str, basedir: &str, block: &str, file: &str) {
     let seg_reader = BufReader::new(File::open(seg_file).unwrap());
     let kernel = segment_kernel(basedir, block, file, seg_reader);
 
@@ -66,6 +98,207 @@ fn prove_single_seg_common(seg_file: &str, basedir: &str, block: &str, file: &st
         count_bytes += proof_str.len();
     }
     timing.filter(Duration::from_millis(100)).print();
+    log::info!("total proof bytes:{}KB", count_bytes / 1024);
+    verify_proof(&allstark, allproof, &config).unwrap();
+    log::info!("Prove done");
+}
+
+#[cfg(feature = "gpu")]
+fn prove_single_seg_gpu(seg_file: &str, basedir: &str, block: &str, file: &str) {
+    let seg_reader = BufReader::new(File::open(seg_file).unwrap());
+    let kernel = segment_kernel(&basedir, &block, &file, seg_reader);
+
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
+
+    let allstark: AllStark<F, D> = AllStark::default();
+    let config = StarkConfig::standard_fast_config();
+
+    let mut ctx: plonky2::fri::oracle::CudaInvContext<GoldilocksField, C, D>;
+    {
+        rustacuda::init(CudaFlags::empty()).unwrap();
+        let device_index = 0;
+        let device = Device::get_device(device_index).unwrap();
+        let _ctx =
+            Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)
+                .unwrap();
+        let stream = Stream::new(StreamFlags::NON_BLOCKING, None).unwrap();
+        let stream2 = Stream::new(StreamFlags::NON_BLOCKING, None).unwrap();
+
+        let rate_bits = config.fri_config.rate_bits;
+        let blinding = false;
+        const SALT_SIZE: usize = 4;
+        let cap_height = config.fri_config.cap_height;
+        let salt_size = if blinding { SALT_SIZE } else { 0 };
+
+        // let max_lg_n = tasks.iter().max_by_key(|kv|kv.1.lg_n).unwrap().1.lg_n;
+        // println!("max_lg_n: {}", max_lg_n);
+        let max_lg_n = 22;
+        let fft_root_table_max = fft_root_table(1 << (max_lg_n + rate_bits)).concat();
+        let root_table_device = {
+            DeviceBuffer::from_slice(&fft_root_table_max).unwrap() };
+
+        let fft_root_table_ext = fft_root_table::<<F as Extendable<{ D }>>::Extension>(1 << (24)).concat();
+        let root_table_ext_device = {
+            DeviceBuffer::from_slice(&fft_root_table_ext).unwrap() };
+
+        let shift_powers = F::coset_shift()
+            .powers()
+            .take(1 << (max_lg_n))
+            .collect::<Vec<_>>();
+        let shift_powers_device = {
+            DeviceBuffer::from_slice(&shift_powers).unwrap() };
+
+        let shift_powers_ext = <<F as Extendable<{ D }>>::Extension>::coset_shift()
+            .powers()
+            .take(1 << (22))
+            .collect::<Vec<_>>();
+        let shift_powers_ext_device = {
+            DeviceBuffer::from_slice(&shift_powers_ext).unwrap() };
+
+        let max_values_num_per_poly = 1 << max_lg_n;
+        let max_values_flatten_len = max_values_num_per_poly * 32;
+        // let max_values_flatten_len = 132644864;
+        let max_ext_values_flatten_len =
+            (max_values_flatten_len + salt_size * max_values_num_per_poly) * (1 << rate_bits);
+        let mut ext_values_flatten: Vec<F> = Vec::with_capacity(max_ext_values_flatten_len);
+        unsafe {
+            ext_values_flatten.set_len(max_ext_values_flatten_len);
+        }
+
+        let mut values_flatten: Vec<F, MyAllocator> =
+            Vec::with_capacity_in(max_values_flatten_len, MyAllocator {});
+        unsafe {
+            values_flatten.set_len(max_values_flatten_len);
+        }
+
+        let len_cap = 1 << cap_height;
+        let num_digests = 2 * (max_values_num_per_poly * (1 << rate_bits) - len_cap);
+        let num_digests_and_caps = num_digests + len_cap;
+        let mut digests_and_caps_buf: Vec<<<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash> =
+            Vec::with_capacity(num_digests_and_caps);
+        unsafe {
+            digests_and_caps_buf.set_len(num_digests_and_caps);
+        }
+
+        let pad_extvalues_len = max_ext_values_flatten_len;
+        let cache_mem_device = {
+            unsafe {
+                DeviceBuffer::<F>::uninitialized(
+                    // values_flatten_len +
+                    pad_extvalues_len + max_ext_values_flatten_len + digests_and_caps_buf.len() * 4,
+                )
+            }
+            .unwrap()
+        };
+
+        ctx = plonky2::fri::oracle::CudaInvContext {
+            inner: CudaInnerContext { stream, stream2 },
+            ext_values_flatten: Arc::new(ext_values_flatten),
+            values_flatten: Arc::new(values_flatten),
+            digests_and_caps_buf: Arc::new(digests_and_caps_buf),
+            cache_mem_device,
+            root_table_device,
+            shift_powers_device,
+            // cache_mem_ext_device,
+            root_table_ext_device,
+            shift_powers_ext_device,
+            tasks: BTreeMap::new(),
+            ctx: _ctx,
+        };
+    }
+
+    // create_task(&mut ctx, 0, 16, 54, 0, 2, 4);
+    // create_task(&mut ctx, 1, 17, 253, 0, 2, 4);
+    // create_task(&mut ctx, 2, 14, 262, 0, 2, 4);
+    // create_task(&mut ctx, 3, 14, 110, 0, 2, 4);
+    // create_task(&mut ctx, 4, 11, 69, 0, 2, 4);
+    // create_task(&mut ctx, 5, 20, 13, 0, 2, 4);
+    // create_task(&mut ctx, 6, 16, 22, 0, 2, 4);
+    // create_task(&mut ctx, 7, 17, 20, 0, 2, 4);
+    // create_task(&mut ctx, 9, 14, 40, 0, 2, 4);
+    // create_task(&mut ctx, 11, 20, 6, 0, 2, 4);
+    // create_task(&mut ctx, 12, 16, 4, 0, 2, 4);
+    // create_task(&mut ctx, 13, 17, 4, 0, 2, 4);
+    // create_task(&mut ctx, 14, 14, 4, 0, 2, 4);
+    // create_task(&mut ctx, 15, 14, 4, 0, 2, 4);
+    // create_task(&mut ctx, 16, 11, 4, 0, 2, 4);
+    // create_task(&mut ctx, 17, 20, 4, 0, 2, 4);
+
+    // create_task(&mut ctx, 0, 17, 54, 0, 2, 4);
+    // create_task(&mut ctx, 1, 19, 253, 0, 2, 4);
+    // create_task(&mut ctx, 2, 16, 262, 0, 2, 4);
+    // create_task(&mut ctx, 3, 16, 110, 0, 2, 4);
+    // create_task(&mut ctx, 4, 15, 69, 0, 2, 4);
+    // create_task(&mut ctx, 5, 22, 13, 0, 2, 4);
+    // create_task(&mut ctx, 6, 17, 22, 0, 2, 4);
+    // create_task(&mut ctx, 12, 17, 4, 0, 2, 4);
+    // create_task(&mut ctx, 7, 19, 20, 0, 2, 4);
+    // create_task(&mut ctx, 13, 19, 4, 0, 2, 4);
+    // create_task(&mut ctx, 14, 16, 4, 0, 2, 4);
+    // create_task(&mut ctx, 9, 16, 40, 0, 2, 4);
+    // create_task(&mut ctx, 15, 16, 4, 0, 2, 4);
+    // create_task(&mut ctx, 16, 15, 4, 0, 2, 4);
+    // create_task(&mut ctx, 11, 22, 6, 0, 2, 4);
+    // create_task(&mut ctx, 17, 22, 4, 0, 2, 4);
+
+    // create_task(&mut ctx, 0, 18, 54, 0, 2, 4);
+    // create_task(&mut ctx, 1, 19, 253, 0, 2, 4);
+    // create_task(&mut ctx, 2, 16, 262, 0, 2, 4);
+    // create_task(&mut ctx, 3, 16, 110, 0, 2, 4);
+    // create_task(&mut ctx, 4, 15, 69, 0, 2, 4);
+    // create_task(&mut ctx, 5, 22, 13, 0, 2, 4);
+    // create_task(&mut ctx, 6, 18, 22, 0, 2, 4);
+    // create_task(&mut ctx, 12, 18, 4, 0, 2, 4);
+    // create_task(&mut ctx, 7, 19, 20, 0, 2, 4);
+    // create_task(&mut ctx, 13, 19, 4, 0, 2, 4);
+    // create_task(&mut ctx, 14, 16, 4, 0, 2, 4);
+    // create_task(&mut ctx, 9, 16, 40, 0, 2, 4);
+    // create_task(&mut ctx, 15, 16, 4, 0, 2, 4);
+    // create_task(&mut ctx, 16, 15, 4, 0, 2, 4);
+    // create_task(&mut ctx, 11, 22, 6, 0, 2, 4);
+    // create_task(&mut ctx, 17, 22, 4, 0, 2, 4);
+
+    create_task(&mut ctx, 0, 17, 54, 0, 2, 4);
+    create_task(&mut ctx, 1, 18, 256, 0, 2, 4);
+    create_task(&mut ctx, 2, 15, 262, 0, 2, 4);
+    create_task(&mut ctx, 3, 15, 110, 0, 2, 4);
+    create_task(&mut ctx, 4, 15, 69, 0, 2, 4);
+    create_task(&mut ctx, 5, 21, 13, 0, 2, 4);
+    create_task(&mut ctx, 6, 17, 22, 0, 2, 4);
+    create_task(&mut ctx, 12, 17, 4, 0, 2, 4);
+    create_task(&mut ctx, 7, 18, 20, 0, 2, 4);
+    create_task(&mut ctx, 13, 18, 4, 0, 2, 4);
+    create_task(&mut ctx, 14, 15, 4, 0, 2, 4);
+    create_task(&mut ctx, 9, 15, 40, 0, 2, 4);
+    create_task(&mut ctx, 15, 15, 4, 0, 2, 4);
+    create_task(&mut ctx, 16, 15, 4, 0, 2, 4);
+    create_task(&mut ctx, 11, 21, 6, 0, 2, 4);
+    create_task(&mut ctx, 17, 21, 4, 0, 2, 4);
+
+    let mut timing = TimingTree::new("prove", log::Level::Info);
+
+    let use_gpu_prove = env::var("USE_GPU_PROVE").unwrap_or("0".to_string()) == "1";
+    let allproof: proof::AllProof<GoldilocksField, C, D> = if use_gpu_prove {
+        prove_gpu(&allstark, &kernel, &config, &mut timing, &mut ctx).unwrap()
+    } else {
+        prove(&allstark, &kernel, &config, &mut timing).unwrap()
+    };
+    //     prove(&allstark, &kernel, &config, &mut timing).unwrap();
+    // let allproof: proof::AllProof<GoldilocksField, C, D> =
+    //     prove_gpu(&allstark, &kernel, &config, &mut timing, &mut ctx).unwrap();
+
+
+    let mut count_bytes = 0;
+    for (row, proof) in allproof.stark_proofs.clone().iter().enumerate() {
+        let proof_str = serde_json::to_string(&proof.proof).unwrap();
+        log::info!("row:{} proof bytes:{}", row, proof_str.len());
+        count_bytes += proof_str.len();
+    }
+    // timing.filter(Duration::from_millis(100)).print();
+    timing.print();
+
     log::info!("total proof bytes:{}KB", count_bytes / 1024);
     verify_proof(&allstark, allproof, &config).unwrap();
     log::info!("Prove done");
@@ -455,7 +688,11 @@ fn prove_segments() {
 }
 
 fn main() {
-    env_logger::try_init().unwrap_or_default();
+    //env_logger::try_init().unwrap_or_default();
+    let mut builder = env_logger::Builder::from_default_env();
+    builder.format_timestamp(None);
+    builder.filter_level(LevelFilter::Debug);
+    builder.try_init().unwrap_or_default();
     let args: Vec<String> = env::args().collect();
     let helper = || {
         log::info!(
