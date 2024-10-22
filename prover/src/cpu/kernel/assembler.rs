@@ -50,10 +50,9 @@ impl Kernel {
 
     /// Read public input from input stream index 0
     pub fn read_public_inputs(&self) -> Vec<u8> {
-        if let Some(first) = self.program.input_stream.get(0) {
-            // let input = bincode::deserialize::<Vec<u8>>(first).expect("deserialization failed");
-            let input = first.to_vec();
-            input
+        if let Some(first) = self.program.input_stream.first() {
+            // bincode::deserialize::<Vec<u8>>(first).expect("deserialization failed")
+            first.to_vec()
         } else {
             vec![]
         }

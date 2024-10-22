@@ -40,14 +40,15 @@ fn split_segments() {
     let args: Vec<&str> = args.split_whitespace().collect();
     let mut state = load_elf_with_patch(&elf_path, vec![]);
 
-    if args.len() > 0 {
+    if !args.is_empty() {
         let public_input: Vec<u8> = args[0].as_bytes().to_vec();
+        log::info!("public input value {:X?}", public_input);
         state.add_input_stream(&public_input);
     }
 
     if args.len() > 1 {
-        for i in 1..args.len() {
-            let private_input = args[i].as_bytes().to_vec();
+        for (i, arg) in args.iter().enumerate().skip(1) {
+            let private_input = arg.as_bytes().to_vec();
             log::info!("private input value {}: {:X?}", i, private_input);
             state.add_input_stream(&private_input);
         }
