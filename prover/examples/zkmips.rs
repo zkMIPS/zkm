@@ -35,10 +35,24 @@ fn split_segments() {
     let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
     let seg_size = env::var("SEG_SIZE").unwrap_or(format!("{SEGMENT_STEPS}"));
     let seg_size = seg_size.parse::<_>().unwrap_or(SEGMENT_STEPS);
-    let args = env::var("ARGS").unwrap_or("".to_string());
-    let args = args.split_whitespace().collect();
+    let args = env::var("ARGS").unwrap_or("data-to-hash".to_string());
+    // assume the first arg is the hash output(which is a public input), and the others are the input.
+    let args: Vec<&str> = args.split_whitespace().collect();
+    let mut state = load_elf_with_patch(&elf_path, vec![]);
 
-    let mut state = load_elf_with_patch(&elf_path, args);
+    if args.len() > 0 {
+        let public_input: Vec<u8> = hex::decode(args[0]).unwrap();
+        state.add_input_stream(&public_input);
+    }
+
+    if args.len() > 1 {
+        for i in 1..args.len() {
+            let private_input = args[i].as_bytes().to_vec();
+            log::info!("private input value {}: {:X?}", i, private_input);
+            state.add_input_stream(&private_input);
+        }
+    }
+
     let block_path = get_block_path(&basedir, &block_no, "");
     if !block_no.is_empty() {
         state.load_input(&block_path);
