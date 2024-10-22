@@ -8,7 +8,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
-use crate::all_stark::NUM_PUBLIC_INPUT_USERDATA;
+// use crate::all_stark::NUM_PUBLIC_INPUT_USERDATA;
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
@@ -47,9 +47,10 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Execute the trace record
 
     // Generate the public values and outputs
-    let mut userdata = kernel.read_public_inputs();
+    // let mut userdata = kernel.read_public_inputs();
     // assert!(userdata.len() <= NUM_PUBLIC_INPUT_USERDATA);
     // userdata.resize(NUM_PUBLIC_INPUT_USERDATA, 0u8);
+    let userdata = kernel.read_public_inputs();
 
     let public_values = PublicValues {
         roots_before: MemRoots {
