@@ -1,7 +1,7 @@
 #!/bin/bash
 FEAT=
 if [ X"$#" != X"0" ]; then
-  export USE_GPU_PROVE=1
+  #export USE_GPU_PROVE=1
   FEAT='--features gpu,cuda'
 fi
 echo "$FEAT"

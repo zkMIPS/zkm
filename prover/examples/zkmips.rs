@@ -26,6 +26,7 @@ use zkm_prover::cpu::kernel::assembler::segment_kernel;
 use zkm_prover::fixed_recursive_verifier::AllRecursiveCircuits;
 use zkm_prover::proof;
 use zkm_prover::proof::PublicValues;
+#[cfg(not(feature = "gpu"))]
 use zkm_prover::prover::prove;
 use zkm_prover::verifier::verify_proof;
 
@@ -78,6 +79,7 @@ fn prove_single_seg_common(seg_file: &str, basedir: &str, block: &str, file: &st
     prove_single_seg_cpu(seg_file, basedir, block, file);
 }
 
+#[cfg(not(feature = "gpu"))]
 fn prove_single_seg_cpu(seg_file: &str, basedir: &str, block: &str, file: &str) {
     let seg_reader = BufReader::new(File::open(seg_file).unwrap());
     let kernel = segment_kernel(basedir, block, file, seg_reader);

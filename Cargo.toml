@@ -7,14 +7,14 @@ members = [
 resolver = "2"
 
 [patch.'https://github.com/zkMIPS/plonky2']
-plonky2 = {             path = "../plonky2-gpu/plonky2" }
-plonky2_util = {        path = "../plonky2-gpu/util" }
-plonky2_field = {       path = "../plonky2-gpu/field" }
-plonky2_maybe_rayon = { path = "../plonky2-gpu/maybe_rayon" }
-#plonky2 = { git = "https://github.com/zkMIPS/plonky2-gpu.git" }
-#plonky2_util = { git = "https://github.com/zkMIPS/plonky2-gpu.git" }
-#plonky2_field = { git = "https://github.com/zkMIPS/plonky2-gpu.git" }
-#plonky2_maybe_rayon = { git = "https://github.com/zkMIPS/plonky2-gpu.git" }
+#plonky2 = {             path = "../plonky2-gpu/plonky2" }
+#plonky2_util = {        path = "../plonky2-gpu/util" }
+#plonky2_field = {       path = "../plonky2-gpu/field" }
+#plonky2_maybe_rayon = { path = "../plonky2-gpu/maybe_rayon" }
+plonky2 = { git = "https://github.com/zkMIPS/plonky2-gpu.git" }
+plonky2_util = { git = "https://github.com/zkMIPS/plonky2-gpu.git" }
+plonky2_field = { git = "https://github.com/zkMIPS/plonky2-gpu.git" }
+plonky2_maybe_rayon = { git = "https://github.com/zkMIPS/plonky2-gpu.git" }
 
 [profile.release]
 opt-level = 3
