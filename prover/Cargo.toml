@@ -16,6 +16,7 @@ bincode = "1.3.3"
 
 plonky2 = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
 #starky = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
+plonky2_field = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
 plonky2_util = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
 plonky2_maybe_rayon = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
 
@@ -50,7 +51,7 @@ plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "
 
 [features]
 test = []
-gpu = ["plonky2/cuda", "rustacuda", "rustacuda_core"]
+gpu = ["plonky2/cuda", "plonky2_field/cuda", "rustacuda", "rustacuda_core"]
 cpu = []
 cuda = []
 
