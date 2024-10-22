@@ -209,57 +209,6 @@ fn prove_single_seg_gpu(seg_file: &str, basedir: &str, block: &str, file: &str) 
         };
     }
 
-    // create_task(&mut ctx, 0, 16, 54, 0, 2, 4);
-    // create_task(&mut ctx, 1, 17, 253, 0, 2, 4);
-    // create_task(&mut ctx, 2, 14, 262, 0, 2, 4);
-    // create_task(&mut ctx, 3, 14, 110, 0, 2, 4);
-    // create_task(&mut ctx, 4, 11, 69, 0, 2, 4);
-    // create_task(&mut ctx, 5, 20, 13, 0, 2, 4);
-    // create_task(&mut ctx, 6, 16, 22, 0, 2, 4);
-    // create_task(&mut ctx, 7, 17, 20, 0, 2, 4);
-    // create_task(&mut ctx, 9, 14, 40, 0, 2, 4);
-    // create_task(&mut ctx, 11, 20, 6, 0, 2, 4);
-    // create_task(&mut ctx, 12, 16, 4, 0, 2, 4);
-    // create_task(&mut ctx, 13, 17, 4, 0, 2, 4);
-    // create_task(&mut ctx, 14, 14, 4, 0, 2, 4);
-    // create_task(&mut ctx, 15, 14, 4, 0, 2, 4);
-    // create_task(&mut ctx, 16, 11, 4, 0, 2, 4);
-    // create_task(&mut ctx, 17, 20, 4, 0, 2, 4);
-
-    // create_task(&mut ctx, 0, 17, 54, 0, 2, 4);
-    // create_task(&mut ctx, 1, 19, 253, 0, 2, 4);
-    // create_task(&mut ctx, 2, 16, 262, 0, 2, 4);
-    // create_task(&mut ctx, 3, 16, 110, 0, 2, 4);
-    // create_task(&mut ctx, 4, 15, 69, 0, 2, 4);
-    // create_task(&mut ctx, 5, 22, 13, 0, 2, 4);
-    // create_task(&mut ctx, 6, 17, 22, 0, 2, 4);
-    // create_task(&mut ctx, 12, 17, 4, 0, 2, 4);
-    // create_task(&mut ctx, 7, 19, 20, 0, 2, 4);
-    // create_task(&mut ctx, 13, 19, 4, 0, 2, 4);
-    // create_task(&mut ctx, 14, 16, 4, 0, 2, 4);
-    // create_task(&mut ctx, 9, 16, 40, 0, 2, 4);
-    // create_task(&mut ctx, 15, 16, 4, 0, 2, 4);
-    // create_task(&mut ctx, 16, 15, 4, 0, 2, 4);
-    // create_task(&mut ctx, 11, 22, 6, 0, 2, 4);
-    // create_task(&mut ctx, 17, 22, 4, 0, 2, 4);
-
-    // create_task(&mut ctx, 0, 18, 54, 0, 2, 4);
-    // create_task(&mut ctx, 1, 19, 253, 0, 2, 4);
-    // create_task(&mut ctx, 2, 16, 262, 0, 2, 4);
-    // create_task(&mut ctx, 3, 16, 110, 0, 2, 4);
-    // create_task(&mut ctx, 4, 15, 69, 0, 2, 4);
-    // create_task(&mut ctx, 5, 22, 13, 0, 2, 4);
-    // create_task(&mut ctx, 6, 18, 22, 0, 2, 4);
-    // create_task(&mut ctx, 12, 18, 4, 0, 2, 4);
-    // create_task(&mut ctx, 7, 19, 20, 0, 2, 4);
-    // create_task(&mut ctx, 13, 19, 4, 0, 2, 4);
-    // create_task(&mut ctx, 14, 16, 4, 0, 2, 4);
-    // create_task(&mut ctx, 9, 16, 40, 0, 2, 4);
-    // create_task(&mut ctx, 15, 16, 4, 0, 2, 4);
-    // create_task(&mut ctx, 16, 15, 4, 0, 2, 4);
-    // create_task(&mut ctx, 11, 22, 6, 0, 2, 4);
-    // create_task(&mut ctx, 17, 22, 4, 0, 2, 4);
-
     create_task(&mut ctx, 0, 17, 54, 0, 2, 4);
     create_task(&mut ctx, 1, 18, 256, 0, 2, 4);
     create_task(&mut ctx, 2, 15, 262, 0, 2, 4);
@@ -278,16 +227,8 @@ fn prove_single_seg_gpu(seg_file: &str, basedir: &str, block: &str, file: &str) 
     create_task(&mut ctx, 17, 21, 4, 0, 2, 4);
 
     let mut timing = TimingTree::new("prove", log::Level::Info);
-
-    let use_gpu_prove = env::var("USE_GPU_PROVE").unwrap_or("0".to_string()) == "1";
-    let allproof: proof::AllProof<GoldilocksField, C, D> = if use_gpu_prove {
-        prove_gpu(&allstark, &kernel, &config, &mut timing, &mut ctx).unwrap()
-    } else {
-        prove(&allstark, &kernel, &config, &mut timing).unwrap()
-    };
-    //     prove(&allstark, &kernel, &config, &mut timing).unwrap();
-    // let allproof: proof::AllProof<GoldilocksField, C, D> =
-    //     prove_gpu(&allstark, &kernel, &config, &mut timing, &mut ctx).unwrap();
+    let allproof: proof::AllProof<GoldilocksField, C, D> =
+        prove_gpu(&allstark, &kernel, &config, &mut timing, &mut ctx).unwrap();
 
 
     let mut count_bytes = 0;
