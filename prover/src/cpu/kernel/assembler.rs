@@ -2,6 +2,7 @@ use super::elf::Program;
 use zkm_emulator::utils::get_block_path;
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{collections::HashMap, io::Read};
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -52,7 +53,10 @@ impl Kernel {
     pub fn read_public_inputs(&self) -> Vec<u8> {
         if let Some(first) = self.program.input_stream.first() {
             // bincode::deserialize::<Vec<u8>>(first).expect("deserialization failed")
-            first.to_vec()
+            let mut hasher = Sha256::new();
+            hasher.update(first.to_vec());
+            let result = hasher.finalize();
+            result.to_vec()
         } else {
             vec![]
         }
