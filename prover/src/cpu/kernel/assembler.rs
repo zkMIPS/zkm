@@ -2,8 +2,8 @@ use super::elf::Program;
 use zkm_emulator::utils::get_block_path;
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{collections::HashMap, io::Read};
-use zkm_emulator::memory::INIT_SP;
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Kernel {
@@ -49,33 +49,16 @@ impl Kernel {
             .find_map(|(k, v)| (*v == offset).then(|| k.clone()))
     }
 
-    /// Read public input from memory at page INIT_SP
+    /// Read public input from input stream index 0
     pub fn read_public_inputs(&self) -> Vec<u8> {
-        let arg_size = self.program.image.get(&INIT_SP).unwrap();
-        if *arg_size == 0 {
-            return vec![];
+        if let Some(first) = self.program.input_stream.first() {
+            // bincode::deserialize::<Vec<u8>>(first).expect("deserialization failed")
+            let mut hasher = Sha256::new();
+            hasher.update(first);
+            let result = hasher.finalize();
+            result.to_vec()
+        } else {
+            vec![]
         }
-
-        let paddr = INIT_SP + 4;
-        let daddr = self.program.image.get(&paddr).unwrap();
-        log::trace!("Try read input at {}", daddr.to_be());
-        let mut args = vec![];
-        let mut value_addr = daddr.to_be();
-        let mut b = false;
-        while !b {
-            let value = self.program.image.get(&value_addr).unwrap();
-            let bytes = value.to_le_bytes();
-            for c in bytes.iter() {
-                if *c != 0 {
-                    args.push(*c)
-                } else {
-                    b = true;
-                    break;
-                }
-            }
-            value_addr += 4;
-        }
-        log::trace!("Read public input: {:?}", args);
-        args
     }
 }
