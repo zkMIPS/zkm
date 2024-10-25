@@ -38,6 +38,7 @@ hashbrown = { version = "0.14.0", default-features = false, features = ["ahash",
 lazy_static = "1.4.0"
 
 elf = { version = "0.7", default-features = false }
+sha2 = { version = "0.10.8", default-features = false }
 
 rustacuda = { version = "0.1.3", optional = true }
 rustacuda_core = { version = "0.1.2", optional = true }
