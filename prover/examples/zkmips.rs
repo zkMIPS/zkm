@@ -117,6 +117,9 @@ fn prove_single_seg_gpu(seg_file: &str, basedir: &str, block: &str, file: &str) 
     let allstark: AllStark<F, D> = AllStark::default();
     let config = StarkConfig::standard_fast_config();
 
+    let max_lg_n = 22;
+    let max_values_flatten_len = (1<<max_lg_n) * 32;
+
     let mut ctx: plonky2::fri::oracle::CudaInvContext<GoldilocksField, C, D>;
     {
         rustacuda::init(CudaFlags::empty()).unwrap();
@@ -134,9 +137,6 @@ fn prove_single_seg_gpu(seg_file: &str, basedir: &str, block: &str, file: &str) 
         let cap_height = config.fri_config.cap_height;
         let salt_size = if blinding { SALT_SIZE } else { 0 };
 
-        // let max_lg_n = tasks.iter().max_by_key(|kv|kv.1.lg_n).unwrap().1.lg_n;
-        // println!("max_lg_n: {}", max_lg_n);
-        let max_lg_n = 22;
         let fft_root_table_max = fft_root_table(1 << (max_lg_n + rate_bits)).concat();
         let root_table_device = {
             DeviceBuffer::from_slice(&fft_root_table_max).unwrap() };
@@ -160,7 +160,6 @@ fn prove_single_seg_gpu(seg_file: &str, basedir: &str, block: &str, file: &str) 
             DeviceBuffer::from_slice(&shift_powers_ext).unwrap() };
 
         let max_values_num_per_poly = 1 << max_lg_n;
-        let max_values_flatten_len = max_values_num_per_poly * 32;
         // let max_values_flatten_len = 132644864;
         let max_ext_values_flatten_len =
             (max_values_flatten_len + salt_size * max_values_num_per_poly) * (1 << rate_bits);
@@ -211,22 +210,29 @@ fn prove_single_seg_gpu(seg_file: &str, basedir: &str, block: &str, file: &str) 
         };
     }
 
-    create_task(&mut ctx, 0, 17, 54, 0, 2, 4);
-    create_task(&mut ctx, 1, 18, 256, 0, 2, 4);
-    create_task(&mut ctx, 2, 15, 262, 0, 2, 4);
-    create_task(&mut ctx, 3, 15, 110, 0, 2, 4);
-    create_task(&mut ctx, 4, 15, 69, 0, 2, 4);
-    create_task(&mut ctx, 5, 21, 13, 0, 2, 4);
-    create_task(&mut ctx, 6, 17, 22, 0, 2, 4);
-    create_task(&mut ctx, 12, 17, 4, 0, 2, 4);
-    create_task(&mut ctx, 7, 18, 20, 0, 2, 4);
-    create_task(&mut ctx, 13, 18, 4, 0, 2, 4);
-    create_task(&mut ctx, 14, 15, 4, 0, 2, 4);
-    create_task(&mut ctx, 9, 15, 40, 0, 2, 4);
-    create_task(&mut ctx, 15, 15, 4, 0, 2, 4);
-    create_task(&mut ctx, 16, 15, 4, 0, 2, 4);
-    create_task(&mut ctx, 11, 21, 6, 0, 2, 4);
-    create_task(&mut ctx, 17, 21, 4, 0, 2, 4);
+    //create_task(&mut ctx, 0, 17, 54, 0, 2, 4);
+    //create_task(&mut ctx, 1, 18, 256, 0, 2, 4);
+    //create_task(&mut ctx, 2, 15, 262, 0, 2, 4);
+    //create_task(&mut ctx, 3, 15, 110, 0, 2, 4);
+    //create_task(&mut ctx, 4, 15, 69, 0, 2, 4);
+    //create_task(&mut ctx, 5, 21, 13, 0, 2, 4);
+    //create_task(&mut ctx, 6, 17, 22, 0, 2, 4);
+    //create_task(&mut ctx, 12, 17, 4, 0, 2, 4);
+    //create_task(&mut ctx, 7, 18, 20, 0, 2, 4);
+    //create_task(&mut ctx, 13, 18, 4, 0, 2, 4);
+    //create_task(&mut ctx, 14, 15, 4, 0, 2, 4);
+    //create_task(&mut ctx, 9, 15, 40, 0, 2, 4);
+    //create_task(&mut ctx, 15, 15, 4, 0, 2, 4);
+    //create_task(&mut ctx, 16, 15, 4, 0, 2, 4);
+    //create_task(&mut ctx, 11, 21, 6, 0, 2, 4);
+    //create_task(&mut ctx, 17, 21, 4, 0, 2, 4);
+    let use_dynamic_alloc = std::env::var("USE_DYNAMIC_ALLOC").unwrap_or("0".to_string()) == "1";
+
+    if !use_dynamic_alloc {
+        for i in 0..18 {
+            create_task(&mut ctx, i, max_lg_n, max_values_flatten_len/(1<<max_lg_n), 0, 2, 4);
+        }
+    }
 
     let mut timing = TimingTree::new("prove", log::Level::Info);
     let allproof: proof::AllProof<GoldilocksField, C, D> =
