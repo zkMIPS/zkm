@@ -58,7 +58,7 @@ impl Kernel {
             let result = hasher.finalize();
             result.to_vec()
         } else {
-            vec![]
+            vec!(0u8; 32)
         }
     }
 }
