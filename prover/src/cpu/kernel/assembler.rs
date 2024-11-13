@@ -54,7 +54,11 @@ impl Kernel {
         let mut hasher = Sha256::new();
         let public_input = if let Some(first) = self.program.input_stream.first() {
             // bincode::deserialize::<Vec<u8>>(first).expect("deserialization failed")
-            first
+            if first.is_empty() {
+                &vec![0u8; 32]
+            } else {
+                first
+            }
         } else {
             &vec![0u8; 32]
         };
