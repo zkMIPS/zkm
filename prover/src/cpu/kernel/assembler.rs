@@ -1,6 +1,6 @@
 use super::elf::Program;
 use zkm_emulator::utils::get_block_path;
-
+use crate::all_stark::NUM_PUBLIC_INPUT_USERDATA;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::HashMap, io::Read};
@@ -55,12 +55,12 @@ impl Kernel {
         let public_input = if let Some(first) = self.program.input_stream.first() {
             // bincode::deserialize::<Vec<u8>>(first).expect("deserialization failed")
             if first.is_empty() {
-                &vec![0u8; 32]
+                &vec![0u8; NUM_PUBLIC_INPUT_USERDATA]
             } else {
                 first
             }
         } else {
-            &vec![0u8; 32]
+            &vec![0u8; NUM_PUBLIC_INPUT_USERDATA]
         };
 
         hasher.update(public_input);
