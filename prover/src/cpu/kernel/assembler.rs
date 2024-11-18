@@ -1,9 +1,9 @@
 use super::elf::Program;
-use zkm_emulator::utils::get_block_path;
 use crate::all_stark::NUM_PUBLIC_INPUT_USERDATA;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::HashMap, io::Read};
+use zkm_emulator::utils::get_block_path;
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Kernel {
