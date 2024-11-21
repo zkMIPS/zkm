@@ -6,13 +6,16 @@ use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
 use crate::{arithmetic, logic};
+
 use anyhow::{Context, Result};
 
 use plonky2::field::types::Field;
 
 use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use itertools::Itertools;
+use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
+use plonky2::plonk::config::GenericConfig;
 use std::fs;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
@@ -78,6 +81,7 @@ pub(crate) const SYSSETTHREADAREA: usize = 4283;
 
 pub(crate) const SYSHINTLEN: usize = 240;
 pub(crate) const SYSHINTREAD: usize = 241;
+pub(crate) const SYSVERIFY: usize = 242;
 
 pub(crate) const FD_STDIN: usize = 0;
 pub(crate) const FD_STDOUT: usize = 1;
@@ -136,12 +140,16 @@ pub(crate) enum Operation {
     Teq(u8, u8),
 }
 
-pub(crate) fn generate_cond_mov_op<F: Field>(
+pub(crate) fn generate_cond_mov_op<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     cond: MovCond,
     rs: u8,
     rt: u8,
     rd: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
@@ -169,11 +177,15 @@ pub(crate) fn generate_cond_mov_op<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_count_op<F: Field>(
+pub(crate) fn generate_count_op<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     is_clo: bool,
     rs: u8,
     rd: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
@@ -212,12 +224,16 @@ pub(crate) fn generate_count_op<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_binary_logic_op<F: Field>(
+pub(crate) fn generate_binary_logic_op<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     op: logic::Op,
     rs: u8,
     rt: u8,
     rd: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
@@ -235,12 +251,16 @@ pub(crate) fn generate_binary_logic_op<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_binary_logic_imm_op<F: Field>(
+pub(crate) fn generate_binary_logic_imm_op<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     op: logic::Op,
     rs: u8,
     rd: u8,
     imm: u32,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
@@ -257,12 +277,16 @@ pub(crate) fn generate_binary_logic_imm_op<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_binary_arithmetic_op<F: Field>(
+pub(crate) fn generate_binary_arithmetic_op<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     operator: arithmetic::BinaryOperator,
     rs: u8,
     rt: u8,
     rd: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     assert!(![
@@ -287,12 +311,16 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_binary_arithmetic_hilo_op<F: Field>(
+pub(crate) fn generate_binary_arithmetic_hilo_op<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     operator: arithmetic::BinaryOperator,
     rs: u8,
     rt: u8,
     _rd: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     assert!([
@@ -340,12 +368,16 @@ pub(crate) fn generate_binary_arithmetic_hilo_op<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_binary_arithmetic_imm_op<F: Field>(
+pub(crate) fn generate_binary_arithmetic_imm_op<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     rs: u8,
     rt: u8,
     imm: u32,
     operator: arithmetic::BinaryOperator,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
@@ -364,11 +396,15 @@ pub(crate) fn generate_binary_arithmetic_imm_op<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_lui<F: Field>(
+pub(crate) fn generate_lui<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     _rs: u8,
     rt: u8,
     imm: u32,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let in0 = sign_extend::<16>(imm);
@@ -390,8 +426,12 @@ pub(crate) fn generate_lui<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_keccak_general<F: Field>(
-    _state: &mut GenerationState<F>,
+pub(crate) fn generate_keccak_general<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    _state: &mut GenerationState<F, C, D>,
     _row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     //row.is_keccak_sponge = F::ONE;
@@ -432,10 +472,14 @@ pub(crate) fn generate_keccak_general<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_jump<F: Field>(
+pub(crate) fn generate_jump<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     link: u8,
     target: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (target_pc, target_op) = reg_read_with_log(target, 0, state, &mut row)?;
@@ -448,12 +492,16 @@ pub(crate) fn generate_jump<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_branch<F: Field>(
+pub(crate) fn generate_branch<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     cond: BranchCond,
     src1: u8,
     src2: u8,
     target: u32,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (src1, src1_op) = reg_read_with_log(src1, 0, state, &mut row)?;
@@ -513,10 +561,14 @@ pub(crate) fn generate_branch<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_jumpi<F: Field>(
+pub(crate) fn generate_jumpi<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     link: u8,
     target: u32,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (mut target_pc, _) = (target as usize).overflowing_shl(2);
@@ -537,10 +589,14 @@ pub(crate) fn generate_jumpi<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_jumpdirect<F: Field>(
+pub(crate) fn generate_jumpdirect<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     link: u8,
     target: u32,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let target = sign_extend::<16>(target);
@@ -559,16 +615,24 @@ pub(crate) fn generate_jumpdirect<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_pc<F: Field>(
-    state: &mut GenerationState<F>,
+pub(crate) fn generate_pc<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
     row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     state.traces.push_cpu(row);
     Ok(())
 }
 
-pub(crate) fn generate_get_context<F: Field>(
-    _state: &mut GenerationState<F>,
+pub(crate) fn generate_get_context<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    _state: &mut GenerationState<F, C, D>,
     _row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     /*
@@ -578,8 +642,12 @@ pub(crate) fn generate_get_context<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_set_context<F: Field>(
-    _state: &mut GenerationState<F>,
+pub(crate) fn generate_set_context<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    _state: &mut GenerationState<F, C, D>,
     _row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     /*
@@ -654,12 +722,16 @@ pub(crate) fn generate_set_context<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_shift_imm<F: Field>(
+pub(crate) fn generate_shift_imm<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     op: arithmetic::BinaryOperator,
     sa: u8,
     rt: u8,
     rd: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     assert!([
@@ -690,11 +762,15 @@ pub(crate) fn generate_shift_imm<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_sllv<F: Field>(
+pub(crate) fn generate_sllv<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     rs: u8,
     rt: u8,
     rd: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (input0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
@@ -720,11 +796,15 @@ pub(crate) fn generate_sllv<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_srlv<F: Field>(
+pub(crate) fn generate_srlv<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     rs: u8,
     rt: u8,
     rd: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (input0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
@@ -750,11 +830,15 @@ pub(crate) fn generate_srlv<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_srav<F: Field>(
+pub(crate) fn generate_srav<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     rs: u8,
     rt: u8,
     rd: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (input0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
@@ -781,11 +865,15 @@ pub(crate) fn generate_srav<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_ror<F: Field>(
+pub(crate) fn generate_ror<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     rd: u8,
     rt: u8,
     sa: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (input0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
@@ -811,8 +899,12 @@ pub(crate) fn generate_ror<F: Field>(
     Ok(())
 }
 
-pub(crate) fn load_preimage<F: RichField>(
-    state: &mut GenerationState<F>,
+pub(crate) fn load_preimage<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
     kernel: &Kernel,
 ) -> Result<()> {
     let mut hash_bytes = [0u8; 32];
@@ -890,8 +982,58 @@ pub(crate) fn load_preimage<F: RichField>(
     Ok(())
 }
 
-pub(crate) fn load_input<F: RichField>(
-    state: &mut GenerationState<F>,
+pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    state: &mut GenerationState<F, C, D>,
+    addr: usize,
+    size: usize,
+) -> Result<()> {
+    assert!(size == 64);
+    let mut claim_digest = [0u8; 32];
+    {
+        let mut cpu_row = CpuColumnsView::default();
+        cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+        for i in 0..8 {
+            let address = MemoryAddress::new(0, Segment::Code, addr + i * 4);
+            let (mem, op) = mem_read_gp_with_log_and_fill(i, address, state, &mut cpu_row);
+            claim_digest[i * 4..i * 4 + 4].copy_from_slice(mem.to_be_bytes().as_ref());
+            state.traces.push_memory(op);
+        }
+        state.traces.push_cpu(cpu_row);
+    }
+
+    let mut control_root = [0u8; 32];
+    {
+        let mut cpu_row = CpuColumnsView::default();
+        cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+        for i in 0..8 {
+            let address = MemoryAddress::new(0, Segment::Code, addr + 32 + i * 4);
+            let (mem, op) = mem_read_gp_with_log_and_fill(i, address, state, &mut cpu_row);
+            control_root[i * 4..i * 4 + 4].copy_from_slice(mem.to_be_bytes().as_ref());
+            state.traces.push_memory(op);
+        }
+        state.traces.push_cpu(cpu_row);
+    }
+
+    log::debug!("SYS_VERIFY: ({:?}, {:?})", claim_digest, control_root);
+
+    let assumption = state.find_assumption(&claim_digest, &control_root);
+
+    // Mark the assumption as accessed, pushing it to the head of the list, and return the success code.
+    match assumption {
+        Some(assumpt) => {
+            state.assumptions_used.borrow_mut().insert(0, assumpt);
+        }
+        None => panic!("Assumption Not Found"),
+    }
+    Ok(())
+}
+
+pub(crate) fn load_input<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
     addr: usize,
     size: usize,
 ) -> Result<()> {
@@ -931,8 +1073,12 @@ pub(crate) fn load_input<F: RichField>(
     Ok(())
 }
 
-pub(crate) fn generate_syscall<F: RichField>(
-    state: &mut GenerationState<F>,
+pub(crate) fn generate_syscall<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
     kernel: &Kernel,
 ) -> Result<(), ProgramError> {
@@ -944,6 +1090,7 @@ pub(crate) fn generate_syscall<F: RichField>(
     let mut v1 = 0usize;
     let mut is_load_preimage = false;
     let mut is_load_input = false;
+    let mut is_verify = false;
     let result = match sys_num {
         SYSGETPID => {
             row.general.syscall_mut().sysnum[0] = F::ONE;
@@ -1086,6 +1233,10 @@ pub(crate) fn generate_syscall<F: RichField>(
             is_load_input = true;
             Ok(())
         }
+        SYSVERIFY => {
+            is_verify = true;
+            Ok(())
+        }
         _ => {
             row.general.syscall_mut().sysnum[11] = F::ONE;
             Ok(())
@@ -1107,15 +1258,23 @@ pub(crate) fn generate_syscall<F: RichField>(
     if is_load_input {
         let _ = load_input(state, a0, a1);
     }
+
+    if is_verify {
+        let _ = verify(state, a1, a2);
+    }
     result
 }
 
-pub(crate) fn generate_mload_general<F: Field>(
+pub(crate) fn generate_mload_general<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     op: MemOp,
     base: u8,
     rt_reg: u8,
     offset: u32,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (rs, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
@@ -1224,12 +1383,16 @@ pub(crate) fn generate_mload_general<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_mstore_general<F: Field>(
+pub(crate) fn generate_mstore_general<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     op: MemOp,
     base: u8,
     rt_reg: u8,
     offset: u32,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (rs, log_in1) = reg_read_with_log(base, 0, state, &mut row)?;
@@ -1346,8 +1509,12 @@ pub(crate) fn generate_mstore_general<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_nop<F: Field>(
-    state: &mut GenerationState<F>,
+pub(crate) fn generate_nop<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
     row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     state.traces.push_cpu(row);
@@ -1355,12 +1522,16 @@ pub(crate) fn generate_nop<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_extract<F: Field>(
+pub(crate) fn generate_extract<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     rt: u8,
     rs: u8,
     msbd: u8,
     lsb: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     assert!(msbd + lsb < 32);
@@ -1394,12 +1565,16 @@ pub(crate) fn generate_extract<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_insert<F: Field>(
+pub(crate) fn generate_insert<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     rt: u8,
     rs: u8,
     msb: u8,
     lsb: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     assert!(msb < 32);
@@ -1438,10 +1613,14 @@ pub(crate) fn generate_insert<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_maddu<F: Field>(
+pub(crate) fn generate_maddu<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     rt: u8,
     rs: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
@@ -1463,10 +1642,14 @@ pub(crate) fn generate_maddu<F: Field>(
     state.traces.push_cpu(row);
     Ok(())
 }
-pub(crate) fn generate_rdhwr<F: Field>(
+pub(crate) fn generate_rdhwr<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     rt: u8,
     rd: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     row.general.misc_mut().rd_index = F::from_canonical_u8(rd);
@@ -1490,11 +1673,15 @@ pub(crate) fn generate_rdhwr<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_signext<F: Field>(
+pub(crate) fn generate_signext<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     rd: u8,
     rt: u8,
     bits: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
@@ -1526,10 +1713,14 @@ pub(crate) fn generate_signext<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_swaphalf<F: Field>(
+pub(crate) fn generate_swaphalf<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     rd: u8,
     rt: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
@@ -1556,10 +1747,14 @@ pub(crate) fn generate_swaphalf<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_teq<F: Field>(
+pub(crate) fn generate_teq<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     rs: u8,
     rt: u8,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;

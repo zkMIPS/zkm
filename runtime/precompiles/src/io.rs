@@ -1,14 +1,14 @@
 //! Ported from Precompiles for SP1 zkVM.
 
 #![allow(unused_unsafe)]
+use crate::syscall_verify;
 use crate::syscall_write;
 use crate::{syscall_hint_len, syscall_hint_read};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use std::alloc::Layout;
 use sha2::{Digest, Sha256};
+use std::alloc::Layout;
 use std::io::Write;
-use crate::syscall_verify;
 
 const FD_HINT: u32 = 4;
 pub const FD_PUBLIC_VALUES: u32 = 3;
@@ -85,9 +85,7 @@ pub fn verify<T: Serialize>(image_id: Vec<u8>, public_input: &T) {
     hasher.update(buf);
     let digest: [u8; 32] = hasher.finalize().into();
 
-    unsafe {
-        syscall_verify(&digest, &ZERO)
-    }
+    unsafe { syscall_verify(&digest, &ZERO) }
 }
 
 pub fn hint_slice(buf: &[u8]) {

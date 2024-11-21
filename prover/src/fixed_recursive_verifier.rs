@@ -33,9 +33,10 @@ use crate::cross_table_lookup::{
     get_grand_product_challenge_set_target, verify_cross_table_lookups_circuit, CrossTableLookup,
     GrandProductChallengeSet,
 };
+use crate::generation::state::{AssumptionReceipts, AssumptionUsage};
 use crate::get_challenges::observe_public_values_target;
 use crate::proof::{MemRootsTarget, PublicValues, PublicValuesTarget, StarkProofWithMetadata};
-use crate::prover::prove;
+use crate::prover::{prove, prove_with_assumptions};
 use crate::recursive_verifier::{
     add_common_recursion_gates, add_virtual_public_values, recursive_stark_circuit,
     set_public_value_targets, PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
@@ -43,6 +44,7 @@ use crate::recursive_verifier::{
 use crate::stark::Stark;
 use crate::verifier::verify_proof;
 //use crate::util::h256_limbs;
+use std::{cell::RefCell, rc::Rc};
 
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
 const THRESHOLD_DEGREE_BITS: usize = 13;
@@ -748,6 +750,69 @@ where
         let root_proof = self.root.circuit.prove(root_inputs)?;
 
         Ok((root_proof, all_proof.public_values))
+    }
+
+    pub fn prove_root_with_assumption(
+        &self,
+        all_stark: &AllStark<F, D>,
+        kernel: &Kernel,
+        config: &StarkConfig,
+        timing: &mut TimingTree,
+        assumptions: AssumptionReceipts<F, C, D>,
+    ) -> anyhow::Result<(
+        ProofWithPublicInputs<F, C, D>,
+        PublicValues,
+        Rc<RefCell<AssumptionUsage<F, C, D>>>,
+    )> {
+        let (all_proof, receipts) =
+            prove_with_assumptions::<F, C, D>(all_stark, kernel, config, timing, assumptions)?;
+        verify_proof(all_stark, all_proof.clone(), config).unwrap();
+        let mut root_inputs = PartialWitness::new();
+
+        for table in 0..NUM_TABLES {
+            let stark_proof = &all_proof.stark_proofs[table];
+            let original_degree_bits = stark_proof.proof.recover_degree_bits(config);
+            let table_circuits = &self.by_table[table];
+            let shrunk_proof = table_circuits
+                .by_stark_size
+                .get(&original_degree_bits)
+                .ok_or_else(|| {
+                    anyhow::Error::msg(format!(
+                        "Missing preprocessed circuits for {:?} table with size {}.",
+                        Table::all()[table],
+                        original_degree_bits,
+                    ))
+                })?
+                .shrink(stark_proof, &all_proof.ctl_challenges)?;
+            let index_verifier_data = table_circuits
+                .by_stark_size
+                .keys()
+                .position(|&size| size == original_degree_bits)
+                .unwrap();
+            root_inputs.set_target(
+                self.root.index_verifier_data[table],
+                F::from_canonical_usize(index_verifier_data),
+            );
+            root_inputs.set_proof_with_pis_target(&self.root.proof_with_pis[table], &shrunk_proof);
+        }
+
+        root_inputs.set_verifier_data_target(
+            &self.root.cyclic_vk,
+            &self.aggregation.circuit.verifier_only,
+        );
+
+        set_public_value_targets(
+            &mut root_inputs,
+            &self.root.public_values,
+            &all_proof.public_values,
+        )
+        .map_err(|_| {
+            anyhow::Error::msg("Invalid conversion when setting public values targets.")
+        })?;
+
+        let root_proof = self.root.circuit.prove(root_inputs)?;
+
+        Ok((root_proof, all_proof.public_values, receipts))
     }
 
     pub fn verify_root(&self, agg_proof: ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {

@@ -20,6 +20,7 @@ use zkm_prover::all_stark::AllStark;
 use zkm_prover::config::StarkConfig;
 use zkm_prover::cpu::kernel::assembler::segment_kernel;
 use zkm_prover::fixed_recursive_verifier::AllRecursiveCircuits;
+use zkm_prover::generation::state::{AssumptionReceipt, AssumptionReceipts, Receipt};
 use zkm_prover::proof;
 use zkm_prover::proof::PublicValues;
 use zkm_prover::prover::prove;
@@ -292,12 +293,64 @@ fn prove_sha2_rust() {
     }
 }
 
+fn prove_fib(
+    elf_path: &str,
+    seg_path: &str,
+) -> Receipt<<PoseidonGoldilocksConfig as GenericConfig<2>>::F, PoseidonGoldilocksConfig, 2> {
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
+
+    let mut state = load_elf_with_patch(elf_path, vec![]);
+
+    let n = 4u32;
+    let result: u32 = 5u32;
+    state.add_input_stream(&result);
+    state.add_input_stream(&n);
+
+    let (_total_steps, seg_num, mut state) = split_prog_into_segs(state, seg_path, "", 0);
+
+    let value = state.read_public_values::<u32>();
+    log::info!("public value: {:X?}", value);
+
+    assert!(seg_num == 1);
+
+    let all_stark = AllStark::<F, D>::default();
+    let config = StarkConfig::standard_fast_config();
+    // Preprocess all circuits.
+    let all_circuits =
+        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &DEGREE_BITS_RANGE, &config);
+
+    let seg_file: String = format!("{}/{}", seg_path, 0);
+    log::info!("Process segment {}", seg_file);
+    let seg_reader = BufReader::new(File::open(seg_file).unwrap());
+    let input_first = segment_kernel("", "", "", seg_reader);
+    let mut timing = TimingTree::new("prove root first", log::Level::Info);
+    let (agg_proof, updated_agg_public_values) = all_circuits
+        .prove_root(&all_stark, &input_first, &config, &mut timing)
+        .unwrap();
+
+    timing.filter(Duration::from_millis(100)).print();
+    all_circuits.verify_root(agg_proof.clone()).unwrap();
+
+    return Receipt::<F, C, D> {
+        proof: agg_proof,
+        userdata: updated_agg_public_values.userdata.clone(),
+    };
+}
+
 fn prove_sha2_precompile() {
     // 1. split ELF into segs
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
+
     let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
+    let precompile_path = env::var("PRECOMPILE_PATH").expect("ELF file is missing");
     let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
-    let seg_size = env::var("SEG_SIZE").unwrap_or("65536".to_string());
-    let seg_size = seg_size.parse::<_>().unwrap_or(0);
+    let mut receipts: AssumptionReceipts<F, C, D> = vec![];
+    let receipt = prove_fib(&precompile_path, &seg_path);
+    receipts.push(receipt.into());
 
     let mut state = load_elf_with_patch(&elf_path, vec![]);
     // load input
@@ -315,20 +368,55 @@ fn prove_sha2_precompile() {
     log::info!("private input value: {:X?}", private_input);
     state.add_input_stream(&private_input);
 
-
-    let (_total_steps, seg_num, mut state) = split_prog_into_segs(state, &seg_path, "", seg_size);
+    let (_total_steps, _seg_num, mut state) = split_prog_into_segs(state, &seg_path, "", 0);
 
     let value = state.read_public_values::<[u8; 32]>();
     log::info!("public value: {:X?}", value);
     log::info!("public value: {} in hex", hex::encode(value));
-    /*
-    if seg_num == 1 {
-        let seg_file = format!("{seg_path}/{}", 0);
-        prove_single_seg_common(&seg_file, "", "", "")
-    } else {
-        prove_multi_seg_common(&seg_path, "", "", "", seg_num, 0).unwrap()
+
+    let all_stark = AllStark::<F, D>::default();
+    let config = StarkConfig::standard_fast_config();
+    // Preprocess all circuits.
+    let all_circuits =
+        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &DEGREE_BITS_RANGE, &config);
+
+    let seg_file: String = format!("{}/{}", seg_path, 0);
+    log::info!("Process segment {}", seg_file);
+    let seg_reader = BufReader::new(File::open(seg_file).unwrap());
+    let kernel = segment_kernel("", "", "", seg_reader);
+
+    let mut timing = TimingTree::new("prove", log::Level::Info);
+    let (mut agg_proof, mut updated_agg_public_values, receipts_used) = all_circuits
+        .prove_root_with_assumption(&all_stark, &kernel, &config, &mut timing, receipts)
+        .unwrap();
+
+    timing = TimingTree::new("prove aggression", log::Level::Info);
+
+    for assumption in receipts_used.borrow_mut().iter_mut() {
+        let receipt = assumption.1.clone();
+        match receipt {
+            AssumptionReceipt::Proven(receipt) => {
+                // We can duplicate the proofs here because the state hasn't mutated.
+                (agg_proof, updated_agg_public_values) = all_circuits
+                    .prove_aggregation(
+                        false,
+                        &agg_proof,
+                        false,
+                        &receipt.proof,
+                        updated_agg_public_values.clone(),
+                    )
+                    .unwrap();
+            }
+            AssumptionReceipt::Unresolved(assumpt) => {
+                log::error!("unresolved assumption: {:X?}", assumpt);
+            }
+        }
     }
-    */
+
+    timing.filter(Duration::from_millis(100)).print();
+    all_circuits.verify_aggregation(&agg_proof).unwrap();
+    timing.filter(Duration::from_millis(100)).print();
+    all_circuits.verify_root(agg_proof.clone()).unwrap();
 }
 
 fn prove_sha2_go() {
