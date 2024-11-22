@@ -13,6 +13,7 @@ use plonky2x::backend::circuit::Groth16WrapperParameters;
 use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::prelude::DefaultParameters;
+use sha2::{Digest, Sha256};
 use zkm_emulator::utils::{
     get_block_path, load_elf_with_patch, split_prog_into_segs, SEGMENT_STEPS,
 };
@@ -346,27 +347,35 @@ fn prove_sha2_precompile() {
     type F = <C as GenericConfig<D>>::F;
 
     let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
-    let precompile_path = env::var("PRECOMPILE_PATH").expect("ELF file is missing");
+    let precompile_path = env::var("PRECOMPILE_PATH").expect("PRECOMPILE ELF file is missing");
     let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
     let mut receipts: AssumptionReceipts<F, C, D> = vec![];
     let receipt = prove_fib(&precompile_path, &seg_path);
+
+    let mut hasher = Sha256::new();
+    hasher.update(receipt.proof.to_bytes());
+    let elf_id: [u8; 32] = hasher.finalize().into();
+    log::info!(
+        "elf_id: {:?}, data: {:?}",
+        elf_id.to_vec(),
+        receipt.userdata
+    );
+
     receipts.push(receipt.into());
 
     let mut state = load_elf_with_patch(&elf_path, vec![]);
-    // load input
-    let args = env::var("ARGS").unwrap_or("data-to-hash".to_string());
-    // assume the first arg is the hash output(which is a public input), and the second is the input.
-    let args: Vec<&str> = args.split_whitespace().collect();
-    assert_eq!(args.len(), 2);
 
-    let public_input: Vec<u8> = hex::decode(args[0]).unwrap();
-    state.add_input_stream(&public_input);
-    log::info!("expected public value in hex: {:X?}", args[0]);
-    log::info!("expected public value: {:X?}", public_input);
+    let public_input: [u8; 32] = [
+        37, 148, 182, 169, 46, 191, 177, 195, 49, 45, 235, 125, 1, 192, 21, 251, 149, 233, 251,
+        233, 189, 123, 198, 181, 39, 175, 7, 129, 62, 199, 185, 16,
+    ];
+    state.add_input_stream(&public_input.to_vec());
+    log::info!("expected public value: {:?}", public_input);
 
-    let private_input = args[1].as_bytes().to_vec();
-    log::info!("private input value: {:X?}", private_input);
+    let private_input: u32 = 5u32;
+    log::info!("private input value: {:?}", private_input);
     state.add_input_stream(&private_input);
+    state.add_input_stream(&elf_id);
 
     let (_total_steps, _seg_num, mut state) = split_prog_into_segs(state, &seg_path, "", 0);
 
@@ -390,6 +399,7 @@ fn prove_sha2_precompile() {
         .prove_root_with_assumption(&all_stark, &kernel, &config, &mut timing, receipts)
         .unwrap();
 
+    log::info!("Process assumptions");
     timing = TimingTree::new("prove aggression", log::Level::Info);
 
     for assumption in receipts_used.borrow_mut().iter_mut() {
@@ -412,7 +422,7 @@ fn prove_sha2_precompile() {
             }
         }
     }
-
+    log::info!("verify");
     timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_aggregation(&agg_proof).unwrap();
     timing.filter(Duration::from_millis(100)).print();
