@@ -36,7 +36,7 @@ pub fn split_prog_into_segs(
             break;
         }
         let cycles = instrumented_state.step();
-        if cycles > (seg_size -1) as u64 {
+        if cycles > (seg_size - 1) as u64 {
             instrumented_state.split_segment(true, seg_path, new_writer);
         }
     }

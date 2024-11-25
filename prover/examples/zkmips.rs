@@ -395,7 +395,7 @@ fn prove_sha2_precompile() {
     let kernel = segment_kernel("", "", "", seg_reader);
 
     let mut timing = TimingTree::new("prove", log::Level::Info);
-    let (mut agg_proof, mut updated_agg_public_values, receipts_used) = all_circuits
+    let (agg_proof, _updated_agg_public_values, receipts_used) = all_circuits
         .prove_root_with_assumption(&all_stark, &kernel, &config, &mut timing, receipts)
         .unwrap();
 
@@ -406,16 +406,7 @@ fn prove_sha2_precompile() {
         let receipt = assumption.1.clone();
         match receipt {
             AssumptionReceipt::Proven(receipt) => {
-                // We can duplicate the proofs here because the state hasn't mutated.
-                (agg_proof, updated_agg_public_values) = all_circuits
-                    .prove_aggregation(
-                        false,
-                        &agg_proof,
-                        false,
-                        &receipt.proof,
-                        updated_agg_public_values.clone(),
-                    )
-                    .unwrap();
+                all_circuits.verify_root(receipt.proof.clone()).unwrap();
             }
             AssumptionReceipt::Unresolved(assumpt) => {
                 log::error!("unresolved assumption: {:X?}", assumpt);
@@ -423,8 +414,6 @@ fn prove_sha2_precompile() {
         }
     }
     log::info!("verify");
-    timing.filter(Duration::from_millis(100)).print();
-    all_circuits.verify_aggregation(&agg_proof).unwrap();
     timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_root(agg_proof.clone()).unwrap();
 }
