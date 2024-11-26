@@ -6,11 +6,11 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 zkm_runtime::entrypoint!(main);
-const SHA_ELF:[u8; 32] = [129, 12, 162, 243, 13, 71, 77, 130, 253, 215, 203, 135, 109, 246, 146, 134, 227, 92, 220, 161, 120, 228, 132, 97, 48, 91, 180, 2, 192, 82, 162, 109];
+const SHA_ELF:[u8; 32] = [83, 70, 149, 120, 71, 122, 247, 101, 174, 227, 186, 199, 6, 32, 152, 39, 176, 153, 148, 65, 154, 248, 140, 95, 163, 122, 249, 151, 112, 84, 68, 192];
 
 pub fn main() {
     let public_input: Vec<u8> = zkm_runtime::io::read();
-    let input: [u8; 32] = zkm_runtime::io::read();
+    let input: Vec<u8> = zkm_runtime::io::read();
 
 
     zkm_runtime::io::verify(SHA_ELF.to_vec(), &input);
