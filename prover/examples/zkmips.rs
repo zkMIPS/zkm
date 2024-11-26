@@ -13,7 +13,6 @@ use plonky2x::backend::circuit::Groth16WrapperParameters;
 use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::prelude::DefaultParameters;
-use sha2::{Digest, Sha256};
 use zkm_emulator::utils::{
     get_block_path, load_elf_with_patch, split_prog_into_segs, SEGMENT_STEPS,
 };
@@ -294,7 +293,15 @@ fn prove_sha2_rust() {
     }
 }
 
-fn prove_fib(
+fn u32_array_to_u8_vec(u32_array: &[u32; 8]) -> Vec<u8> {
+    let mut u8_vec = Vec::with_capacity(u32_array.len() * 4);
+    for &item in u32_array {
+        u8_vec.extend_from_slice(&item.to_le_bytes());
+    }
+    u8_vec
+}
+
+fn prove_sha_5_precompile(
     elf_path: &str,
     seg_path: &str,
 ) -> Receipt<<PoseidonGoldilocksConfig as GenericConfig<2>>::F, PoseidonGoldilocksConfig, 2> {
@@ -303,11 +310,13 @@ fn prove_fib(
     type F = <C as GenericConfig<D>>::F;
 
     let mut state = load_elf_with_patch(elf_path, vec![]);
-
-    let n = 4u32;
-    let result: u32 = 5u32;
-    state.add_input_stream(&result);
-    state.add_input_stream(&n);
+    let n: u32 = 5;
+    let public_input: [u8; 32] = [
+        37, 148, 182, 169, 46, 191, 177, 195, 49, 45, 235, 125, 1, 192, 21, 251, 149, 233, 251,
+        233, 189, 123, 198, 181, 39, 175, 7, 129, 62, 199, 185, 16,
+    ];
+    state.add_input_stream(&public_input.to_vec());
+    state.add_input_stream(&n.to_le_bytes().to_vec());
 
     let (_total_steps, seg_num, mut state) = split_prog_into_segs(state, seg_path, "", 0);
 
@@ -336,6 +345,7 @@ fn prove_fib(
 
     Receipt::<F, C, D> {
         proof: agg_proof,
+        root_before: u32_array_to_u8_vec(&updated_agg_public_values.roots_before.root),
         userdata: updated_agg_public_values.userdata.clone(),
     }
 }
@@ -350,14 +360,11 @@ fn prove_sha2_precompile() {
     let precompile_path = env::var("PRECOMPILE_PATH").expect("PRECOMPILE ELF file is missing");
     let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
     let mut receipts: AssumptionReceipts<F, C, D> = vec![];
-    let receipt = prove_fib(&precompile_path, &seg_path);
+    let receipt = prove_sha_5_precompile(&precompile_path, &seg_path);
 
-    let mut hasher = Sha256::new();
-    hasher.update(receipt.proof.to_bytes());
-    let elf_id: [u8; 32] = hasher.finalize().into();
     log::info!(
         "elf_id: {:?}, data: {:?}",
-        elf_id.to_vec(),
+        receipt.root_before,
         receipt.userdata
     );
 
@@ -366,16 +373,18 @@ fn prove_sha2_precompile() {
     let mut state = load_elf_with_patch(&elf_path, vec![]);
 
     let public_input: [u8; 32] = [
-        37, 148, 182, 169, 46, 191, 177, 195, 49, 45, 235, 125, 1, 192, 21, 251, 149, 233, 251,
-        233, 189, 123, 198, 181, 39, 175, 7, 129, 62, 199, 185, 16,
+        91, 15, 50, 181, 63, 91, 186, 46, 9, 26, 167, 190, 200, 232, 40, 101, 149, 181, 253, 89,
+        24, 150, 142, 102, 14, 67, 78, 221, 18, 205, 95, 28,
     ];
     state.add_input_stream(&public_input.to_vec());
     log::info!("expected public value: {:?}", public_input);
 
-    let private_input: u32 = 5u32;
+    let private_input: [u8; 32] = [
+        37, 148, 182, 169, 46, 191, 177, 195, 49, 45, 235, 125, 1, 192, 21, 251, 149, 233, 251,
+        233, 189, 123, 198, 181, 39, 175, 7, 129, 62, 199, 185, 16,
+    ];
     log::info!("private input value: {:?}", private_input);
     state.add_input_stream(&private_input);
-    state.add_input_stream(&elf_id);
 
     let (_total_steps, _seg_num, mut state) = split_prog_into_segs(state, &seg_path, "", 0);
 

@@ -16,6 +16,7 @@ pub const ZERO: [u8; 32] = [0u8; 32];
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Receipt<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub proof: ProofWithPublicInputs<F, C, D>,
+    pub root_before: Vec<u8>,
     pub userdata: Vec<u8>,
 }
 
@@ -26,11 +27,7 @@ where
 {
     pub fn claim_digest(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
-        hasher.update(self.proof.to_bytes());
-        let elf_id: [u8; 32] = hasher.finalize().into();
-        log::info!("elf_id: {:?}, data: {:?}", elf_id.to_vec(), self.userdata);
-        let mut hasher = Sha256::new();
-        hasher.update(elf_id);
+        hasher.update(self.root_before.clone());
         hasher.update(self.userdata.clone());
         let digest: [u8; 32] = hasher.finalize().into();
         digest

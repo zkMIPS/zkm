@@ -6,16 +6,16 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 zkm_runtime::entrypoint!(main);
+const SHA_ELF:[u8; 32] = [0u8;32]; //TOFIX
 
 pub fn main() {
     let public_input: Vec<u8> = zkm_runtime::io::read();
-    let input: u32 = zkm_runtime::io::read();
-    let elf_id: [u8; 32] = zkm_runtime::io::read();
+    let input: [u8; 32] = zkm_runtime::io::read();
 
 
-    zkm_runtime::io::verify(elf_id.to_vec(), &input);
+    zkm_runtime::io::verify(SHA_ELF.to_vec(), &input);
     let mut hasher = Sha256::new();
-    hasher.update(input.to_le_bytes().to_vec());
+    hasher.update(input);
     let result = hasher.finalize();
 
     let output: [u8; 32] = result.into();
