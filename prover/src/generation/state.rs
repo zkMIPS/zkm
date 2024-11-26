@@ -30,7 +30,7 @@ where
         let elf_id: [u8; 32] = hasher.finalize().into();
         log::info!("elf_id: {:?}, data: {:?}", elf_id.to_vec(), self.userdata);
         let mut hasher = Sha256::new();
-        hasher.update(elf_id.to_vec());
+        hasher.update(elf_id);
         hasher.update(self.userdata.clone());
         let digest: [u8; 32] = hasher.finalize().into();
         digest
@@ -52,7 +52,7 @@ pub struct Assumption {
 pub enum AssumptionReceipt<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     // A [Receipt] for a proven assumption.
-    Proven(Receipt<F, C, D>),
+    Proven(Box<Receipt<F, C, D>>),
 
     // An [Assumption] that is not directly proven to be true.
     Unresolved(Assumption),
@@ -83,7 +83,7 @@ where
 {
     /// Create a proven assumption from a [Receipt].
     fn from(receipt: Receipt<F, C, D>) -> Self {
-        Self::Proven(receipt)
+        Self::Proven(Box::new(receipt))
     }
 }
 

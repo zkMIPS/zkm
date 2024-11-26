@@ -86,7 +86,7 @@ pub fn verify<T: Serialize>(image_id: Vec<u8>, public_input: &T) {
 
     let mut hasher = Sha256::new();
     hasher.update(image_id);
-    hasher.update(input_digest.to_vec());
+    hasher.update(input_digest);
     let digest: [u8; 32] = hasher.finalize().into();
 
     unsafe { syscall_verify(&digest, &ZERO) }
