@@ -8,3 +8,4 @@ echo "$FEAT"
 
 BASEDIR=../emulator/test-vectors RUST_LOG=info ELF_PATH=../emulator/test-vectors/minigeth BLOCK_NO=13284491 SEG_OUTPUT=/tmp/output SEG_SIZE=262144 ARGS="1" \
     cargo run $FEAT --release --example zkmips split
+#    cargo run $FEAT --config ../config.toml --release --example zkmips split
