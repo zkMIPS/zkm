@@ -334,10 +334,10 @@ fn prove_fib(
     timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_root(agg_proof.clone()).unwrap();
 
-    return Receipt::<F, C, D> {
+    Receipt::<F, C, D> {
         proof: agg_proof,
         userdata: updated_agg_public_values.userdata.clone(),
-    };
+    }
 }
 
 fn prove_sha2_precompile() {
