@@ -320,8 +320,8 @@ fn prove_sha_5_precompile(
 
     let (_total_steps, seg_num, mut state) = split_prog_into_segs(state, seg_path, "", 0);
 
-    let value = state.read_public_values::<u32>();
-    log::info!("public value: {:X?}", value);
+    let value = state.read_public_values::<[u8; 32]>();
+    log::info!("public value: {:?}", value);
 
     assert!(seg_num == 1);
 
