@@ -3,7 +3,7 @@ FEAT=
 CONF=
 
 if [ X"$#" != X"0" ]; then
-  FEAT='--features gpu,cuda'
+  FEAT='--features gpu'
   CONF='--config ../config.toml'
 fi
 echo "$FEAT"
