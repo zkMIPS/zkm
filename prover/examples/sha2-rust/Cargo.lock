@@ -225,17 +225,16 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 [[package]]
 name = "zkm-precompiles"
 version = "0.1.0"
-source = "git+https://github.com/zkMIPS/zkm#ab68657c118b076c430cef3a303a267a9ade88c7"
 dependencies = [
  "bincode",
  "cfg-if",
  "serde",
+ "sha2",
 ]
 
 [[package]]
 name = "zkm-runtime"
 version = "0.1.0"
-source = "git+https://github.com/zkMIPS/zkm#ab68657c118b076c430cef3a303a267a9ade88c7"
 dependencies = [
  "bincode",
  "cfg-if",

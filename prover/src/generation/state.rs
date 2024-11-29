@@ -27,6 +27,7 @@ where
 {
     pub fn claim_digest(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
+
         hasher.update(self.root_before.clone());
         hasher.update(self.userdata.clone());
         let digest: [u8; 32] = hasher.finalize().into();

@@ -62,13 +62,13 @@ fn split_segments() {
     let _ = split_prog_into_segs(state, &seg_path, &block_path, seg_size);
 }
 
+const D: usize = 2;
+type C = PoseidonGoldilocksConfig;
+type F = <C as GenericConfig<D>>::F;
+
 fn prove_single_seg_common(seg_file: &str, basedir: &str, block: &str, file: &str) {
     let seg_reader = BufReader::new(File::open(seg_file).unwrap());
     let kernel = segment_kernel(basedir, block, file, seg_reader);
-
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
 
     let allstark: AllStark<F, D> = AllStark::default();
     let config = StarkConfig::standard_fast_config();
@@ -97,10 +97,6 @@ fn prove_multi_seg_common(
 ) -> anyhow::Result<()> {
     type InnerParameters = DefaultParameters;
     type OuterParameters = Groth16WrapperParameters;
-
-    type F = GoldilocksField;
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
 
     if seg_file_number < 2 {
         panic!("seg file number must >= 2\n");
@@ -304,11 +300,7 @@ fn u32_array_to_u8_vec(u32_array: &[u32; 8]) -> Vec<u8> {
 fn prove_sha_5_precompile(
     elf_path: &str,
     seg_path: &str,
-) -> Receipt<<PoseidonGoldilocksConfig as GenericConfig<2>>::F, PoseidonGoldilocksConfig, 2> {
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
-
+) -> Receipt<<C as GenericConfig<D>>::F, C, D> {
     let mut state = load_elf_with_patch(elf_path, vec![]);
     let n: u32 = 5;
     let public_input: [u8; 32] = [
@@ -352,10 +344,6 @@ fn prove_sha_5_precompile(
 
 fn prove_sha2_precompile() {
     // 1. split ELF into segs
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
-
     let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
     let precompile_path = env::var("PRECOMPILE_PATH").expect("PRECOMPILE ELF file is missing");
     let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
