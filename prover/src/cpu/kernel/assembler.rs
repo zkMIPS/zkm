@@ -1,9 +1,9 @@
 use super::elf::Program;
-use zkm_emulator::utils::get_block_path;
-
+use crate::all_stark::NUM_PUBLIC_INPUT_USERDATA;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::HashMap, io::Read};
+use zkm_emulator::utils::get_block_path;
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Kernel {
@@ -51,14 +51,20 @@ impl Kernel {
 
     /// Read public input from input stream index 0
     pub fn read_public_inputs(&self) -> Vec<u8> {
-        if let Some(first) = self.program.input_stream.first() {
+        let mut hasher = Sha256::new();
+        let public_input = if let Some(first) = self.program.input_stream.first() {
             // bincode::deserialize::<Vec<u8>>(first).expect("deserialization failed")
-            let mut hasher = Sha256::new();
-            hasher.update(first);
-            let result = hasher.finalize();
-            result.to_vec()
+            if first.is_empty() {
+                &vec![0u8; NUM_PUBLIC_INPUT_USERDATA]
+            } else {
+                first
+            }
         } else {
-            vec![0u8; 32]
-        }
+            &vec![0u8; NUM_PUBLIC_INPUT_USERDATA]
+        };
+
+        hasher.update(public_input);
+        let result = hasher.finalize();
+        result.to_vec()
     }
 }
