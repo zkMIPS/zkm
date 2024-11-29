@@ -52,7 +52,7 @@ plonky2x-derive = { git = "https://github.com/zkMIPS/succinctx.git", package = "
 
 [features]
 test = []
-gpu = ["plonky2/cuda", "plonky2_field/cuda", "rustacuda", "rustacuda_core"]
+gpu = ["rustacuda", "rustacuda_core"]
 cpu = []
 cuda = []
 
