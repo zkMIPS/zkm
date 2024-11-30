@@ -19,6 +19,8 @@ use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeOp;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
+use plonky2::field::extension::Extendable;
+use plonky2::plonk::config::GenericConfig;
 
 fn to_byte_checked(n: u32) -> u8 {
     let res: u8 = n.to_le_bytes()[0];
@@ -47,9 +49,13 @@ pub(crate) fn fill_channel_with_value<F: Field>(row: &mut CpuColumnsView<F>, n: 
     channel.value = F::from_canonical_u32(val);
 }
 
-pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
+pub(crate) fn mem_read_code_with_log_and_fill<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     address: MemoryAddress,
-    state: &GenerationState<F>,
+    state: &GenerationState<F, C, D>,
     row: &mut CpuColumnsView<F>,
 ) -> (u32, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::Code, address, state);
@@ -94,10 +100,14 @@ pub(crate) fn sign_extend<const N: usize>(value: u32) -> u32 {
     }
 }
 
-pub(crate) fn reg_read_with_log<F: Field>(
+pub(crate) fn reg_read_with_log<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     index: u8,
     channel: usize,
-    state: &GenerationState<F>,
+    state: &GenerationState<F, C, D>,
     row: &mut CpuColumnsView<F>,
 ) -> Result<(usize, MemoryOp), ProgramError> {
     let result = {
@@ -143,11 +153,15 @@ pub(crate) fn reg_read_with_log<F: Field>(
     Ok((result, op))
 }
 
-pub(crate) fn reg_write_with_log<F: Field>(
+pub(crate) fn reg_write_with_log<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     index: u8,
     channel: usize,
     value: usize,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     row: &mut CpuColumnsView<F>,
 ) -> Result<MemoryOp, ProgramError> {
     if index == 0 {
@@ -204,10 +218,14 @@ pub(crate) fn reg_write_with_log<F: Field>(
     Ok(op)
 }
 
-pub(crate) fn reg_zero_write_with_log<F: Field>(
+pub(crate) fn reg_zero_write_with_log<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     channel: usize,
     value: usize,
-    state: &mut GenerationState<F>,
+    state: &mut GenerationState<F, C, D>,
     row: &mut CpuColumnsView<F>,
 ) -> MemoryOp {
     let address = MemoryAddress::new(0, Segment::RegisterFile, 0);
@@ -232,10 +250,14 @@ pub(crate) fn reg_zero_write_with_log<F: Field>(
     op
 }
 
-pub(crate) fn mem_read_with_log<F: Field>(
+pub(crate) fn mem_read_with_log<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     channel: MemoryChannel,
     address: MemoryAddress,
-    state: &GenerationState<F>,
+    state: &GenerationState<F, C, D>,
 ) -> (u32, MemoryOp) {
     let val = state.memory.get(address).to_be();
     let op = MemoryOp::new(
@@ -250,8 +272,12 @@ pub(crate) fn mem_read_with_log<F: Field>(
 
 /// Pushes without writing in memory. This happens in opcodes where a push immediately follows a pop.
 /// The pushed value may be loaded in a memory channel, without creating a memory operation.
-pub(crate) fn push_no_write<F: Field>(
-    _state: &mut GenerationState<F>,
+pub(crate) fn push_no_write<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    _state: &mut GenerationState<F, C, D>,
     row: &mut CpuColumnsView<F>,
     val: u32,
     channel_opt: Option<usize>,
@@ -270,10 +296,14 @@ pub(crate) fn push_no_write<F: Field>(
     }
 }
 
-pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
+pub(crate) fn mem_read_gp_with_log_and_fill<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     n: usize,
     address: MemoryAddress,
-    state: &GenerationState<F>,
+    state: &GenerationState<F, C, D>,
     row: &mut CpuColumnsView<F>,
 ) -> (u32, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::GeneralPurpose(n), address, state);
@@ -289,10 +319,14 @@ pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
     (val, op)
 }
 
-pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
+pub(crate) fn mem_write_gp_log_and_fill<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     n: usize,
     address: MemoryAddress,
-    state: &GenerationState<F>,
+    state: &GenerationState<F, C, D>,
     row: &mut CpuColumnsView<F>,
     val: u32, // LE
 ) -> MemoryOp {
@@ -309,10 +343,14 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     op
 }
 
-pub(crate) fn mem_write_log<F: Field>(
+pub(crate) fn mem_write_log<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     channel: MemoryChannel,
     address: MemoryAddress,
-    state: &GenerationState<F>,
+    state: &GenerationState<F, C, D>,
     val: u32, // LE
 ) -> MemoryOp {
     MemoryOp::new(
@@ -324,8 +362,12 @@ pub(crate) fn mem_write_log<F: Field>(
     )
 }
 
-pub(crate) fn poseidon_sponge_log<F: RichField>(
-    state: &mut GenerationState<F>,
+pub(crate) fn poseidon_sponge_log<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
     base_address: Vec<MemoryAddress>,
     input: Vec<u8>, // BE
 ) {
@@ -421,8 +463,8 @@ pub(crate) fn poseidon_sponge_log<F: RichField>(
     });
 }
 
-fn xor_into_sponge<F: Field>(
-    state: &mut GenerationState<F>,
+fn xor_into_sponge<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    state: &mut GenerationState<F, C, D>,
     sponge_state: &mut [u8; KECCAK_WIDTH_BYTES],
     block: &[u8; KECCAK_RATE_BYTES],
 ) {

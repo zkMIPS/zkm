@@ -5,6 +5,7 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::config::GenericConfig;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
@@ -22,8 +23,12 @@ use zkm_emulator::memory::{
 };
 use zkm_emulator::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 
-pub(crate) fn generate_bootstrap_kernel<F: RichField>(
-    state: &mut GenerationState<F>,
+pub(crate) fn generate_bootstrap_kernel<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
     kernel: &Kernel,
 ) {
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
@@ -66,8 +71,12 @@ pub(crate) fn generate_bootstrap_kernel<F: RichField>(
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
 
-pub(crate) fn check_image_id<F: RichField>(
-    state: &mut GenerationState<F>,
+pub(crate) fn check_image_id<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
     kernel: &Kernel,
     post: bool,
 ) {
@@ -170,8 +179,12 @@ pub(crate) fn check_image_id<F: RichField>(
     state.traces.push_cpu(cpu_row);
 }
 
-pub(crate) fn check_memory_page_hash<F: RichField>(
-    state: &mut GenerationState<F>,
+pub(crate) fn check_memory_page_hash<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
     kernel: &Kernel,
     addr: u32,
     update: bool,

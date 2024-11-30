@@ -15,10 +15,18 @@ use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::mem_write_gp_log_and_fill;
 use crate::witness::util::reg_zero_write_with_log;
+use plonky2::plonk::config::GenericConfig;
 use zkm_emulator::page::PAGE_ADDR_MASK;
 use zkm_emulator::state::REGISTERS_START;
 
-pub(crate) fn generate_exit_kernel<F: RichField>(state: &mut GenerationState<F>, kernel: &Kernel) {
+pub(crate) fn generate_exit_kernel<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
+    kernel: &Kernel,
+) {
     //  check exit pc = end pc
     assert_eq!(kernel.program.end_pc, state.registers.program_counter);
     let mut cpu_row = CpuColumnsView::default();

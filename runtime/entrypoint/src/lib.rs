@@ -1,5 +1,5 @@
 //! Ported from Entrypoint for SP1 zkVM.
-
+#![feature(asm_experimental_arch)]
 pub mod heap;
 pub mod syscalls;
 pub mod io {
