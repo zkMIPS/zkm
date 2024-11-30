@@ -458,7 +458,8 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_KECCAK_SPONGE_COLUMNS>
+    type EvaluationFrame<FE, P, const D2: usize>
+        = StarkFrame<P, NUM_KECCAK_SPONGE_COLUMNS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;

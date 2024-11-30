@@ -88,3 +88,23 @@ Or
 
 RUST_LOG=info ELF_PATH=examples/revme/target/mips-unknown-linux-musl/release/evm HOST_PROGRAM=revm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips prove_host_program
 ```
+
+## Prove precompile code
+* Build the sha2-rust
+```
+cd prover/examples/sha2-rust
+cargo build -r --target=mips-unknown-linux-musl
+```
+
+* Build the sha2-precompile
+```
+cd prover/examples/sha2-precompile
+cargo build -r --target=mips-unknown-linux-musl
+```
+
+* Run the host program
+```
+cd ../..
+
+RUST_LOG=info PRECOMPILE_PATH=examples/sha2-rust/target/mips-unknown-linux-musl/release/sha2-rust ELF_PATH=examples/sha2-precompile/target/mips-unknown-linux-musl/release/sha2-precompile HOST_PROGRAM=sha2_precompile SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
+```

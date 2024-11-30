@@ -24,3 +24,6 @@ pub const HINT_LEN: u32 = 0x00_00_00_F0;
 
 /// Executes `HINT_READ`.
 pub const HINT_READ: u32 = 0x00_00_00_F1;
+
+/// Executes `HINT_READ`.
+pub const VERIFY: u32 = 0x00_00_00_F2;

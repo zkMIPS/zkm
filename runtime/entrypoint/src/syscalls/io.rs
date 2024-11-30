@@ -61,3 +61,26 @@ pub extern "C" fn syscall_hint_read(ptr: *mut u8, len: usize) {
     #[cfg(not(target_os = "zkvm"))]
     unreachable!()
 }
+
+#[allow(unused_variables)]
+#[no_mangle]
+pub extern "C" fn syscall_verify(claim_digest: &[u8; 32], control_root: &[u8; 32]) {
+    let mut to_host = [0u8; 64];
+    to_host[..32].copy_from_slice(claim_digest);
+    to_host[32..].copy_from_slice(control_root);
+
+    cfg_if::cfg_if! {
+        if #[cfg(target_os = "zkvm")] {
+            unsafe {
+                asm!(
+                    "syscall",
+                    in("$2") crate::syscalls::VERIFY,
+                    in("$5") to_host.as_ptr() as u32,
+                    in("$6") 64u32,
+                )
+            }
+        } else {
+            unreachable!()
+        }
+    }
+}

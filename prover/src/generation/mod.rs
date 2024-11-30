@@ -1,10 +1,12 @@
 pub(crate) mod outputs;
-pub(crate) mod state;
+pub mod state;
+use crate::generation::state::{AssumptionReceipts, AssumptionUsage};
 use crate::proof::{MemRoots, PublicValues};
 use anyhow::anyhow;
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
+use plonky2::plonk::config::GenericConfig;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
@@ -18,7 +20,9 @@ use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
 use crate::witness::transition::transition;
 
-pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
+use std::{cell::RefCell, rc::Rc};
+
+pub fn generate_traces<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     all_stark: &AllStark<F, D>,
     kernel: &Kernel,
     config: &StarkConfig,
@@ -31,8 +35,8 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     // Decode the trace record
     // 1. Decode instruction and fill in cpu columns
     // 2. Decode memory and fill in memory columns
-    let mut state = GenerationState::<F>::new(kernel.program.step, kernel).unwrap();
-    generate_bootstrap_kernel::<F>(&mut state, kernel);
+    let mut state = GenerationState::<F, C, D>::new(kernel.program.step, kernel).unwrap();
+    generate_bootstrap_kernel::<F, C, D>(&mut state, kernel);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state, kernel)?);
 
@@ -71,9 +75,75 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     Ok((tables, public_values, outputs))
 }
 
+pub fn generate_traces_with_assumptions<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    all_stark: &AllStark<F, D>,
+    kernel: &Kernel,
+    config: &StarkConfig,
+    timing: &mut TimingTree,
+    assumptions: AssumptionReceipts<F, C, D>,
+) -> anyhow::Result<(
+    [Vec<PolynomialValues<F>>; NUM_TABLES],
+    PublicValues,
+    GenerationOutputs,
+    Rc<RefCell<AssumptionUsage<F, C, D>>>,
+)> {
+    // Decode the trace record
+    // 1. Decode instruction and fill in cpu columns
+    // 2. Decode memory and fill in memory columns
+    let mut state = GenerationState::<F, C, D>::new(kernel.program.step, kernel).unwrap();
+    for assumption in assumptions.iter() {
+        state.add_assumption(assumption.clone());
+    }
+    generate_bootstrap_kernel::<F, C, D>(&mut state, kernel);
+
+    timed!(timing, "simulate CPU", simulate_cpu(&mut state, kernel)?);
+
+    log::info!(
+        "Trace lengths (before padding): {:?}",
+        state.traces.get_lengths()
+    );
+
+    let outputs = get_outputs(&mut state)
+        .map_err(|err| anyhow!("Failed to generate post-state info: {:?}", err))?;
+
+    // Execute the trace record
+
+    // Generate the public values and outputs
+    // let mut userdata = kernel.read_public_inputs();
+    // assert!(userdata.len() <= NUM_PUBLIC_INPUT_USERDATA);
+    // userdata.resize(NUM_PUBLIC_INPUT_USERDATA, 0u8);
+    let userdata = kernel.read_public_inputs();
+
+    assert!(userdata.len() == NUM_PUBLIC_INPUT_USERDATA);
+
+    let public_values = PublicValues {
+        roots_before: MemRoots {
+            root: unsafe { std::mem::transmute::<[u8; 32], [u32; 8]>(kernel.program.pre_image_id) },
+        },
+        roots_after: MemRoots {
+            root: unsafe { std::mem::transmute::<[u8; 32], [u32; 8]>(kernel.program.image_id) },
+        },
+        userdata,
+    };
+    let tables = timed!(
+        timing,
+        "convert trace data to tables",
+        state.traces.into_tables(all_stark, config, timing)
+    );
+    Ok((tables, public_values, outputs, state.assumptions_used))
+}
+
 /// Perform MIPS instruction and transit state
-pub(crate) fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
-    state: &mut GenerationState<F>,
+pub(crate) fn simulate_cpu<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
     kernel: &Kernel,
 ) -> anyhow::Result<()> {
     let mut step = 0;

@@ -377,10 +377,11 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonSpongeStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonSpongeStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_POSEIDON_SPONGE_COLUMNS>
-        where
-            FE: FieldExtension<D2, BaseField = F>,
-            P: PackedField<Scalar = FE>;
+    type EvaluationFrame<FE, P, const D2: usize>
+        = StarkFrame<P, NUM_POSEIDON_SPONGE_COLUMNS>
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
 
     type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_POSEIDON_SPONGE_COLUMNS>;
 
