@@ -356,6 +356,7 @@ fn prove_sha2_precompile() {
         receipt.userdata
     );
 
+    let image_id = receipt.root_before.clone();
     receipts.push(receipt.into());
 
     let mut state = load_elf_with_patch(&elf_path, vec![]);
@@ -373,6 +374,8 @@ fn prove_sha2_precompile() {
     ];
     log::info!("private input value: {:?}", private_input);
     state.add_input_stream(&private_input.to_vec());
+
+    state.add_input_stream(&image_id);
 
     let (_total_steps, _seg_num, mut state) = split_prog_into_segs(state, &seg_path, "", 0);
 
