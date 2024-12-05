@@ -32,24 +32,19 @@ use zkm_prover::prover::prove;
 use zkm_prover::verifier::verify_proof;
 
 #[cfg(feature = "gpu")]
-use zkm_prover::prover::prove_gpu;
-#[cfg(feature = "gpu")]
-use rustacuda::{
-    memory::DeviceBuffer, prelude::*,
-};
-#[cfg(feature = "gpu")]
 use plonky2::{
-    plonk::config::Hasher,
+    field::extension::Extendable,
     field::fft::fft_root_table,
     field::types::Field,
-    field::extension::Extendable,
-    fri::oracle::{CudaInnerContext, MyAllocator, create_task},
+    fri::oracle::{create_task, CudaInnerContext, MyAllocator},
+    plonk::config::Hasher,
 };
 #[cfg(feature = "gpu")]
-use std::{
-    collections::BTreeMap, sync::Arc,
-};
-
+use rustacuda::{memory::DeviceBuffer, prelude::*};
+#[cfg(feature = "gpu")]
+use std::{collections::BTreeMap, sync::Arc};
+#[cfg(feature = "gpu")]
+use zkm_prover::prover::prove_gpu;
 
 const DEGREE_BITS_RANGE: [Range<usize>; 6] = [10..21, 12..22, 12..21, 8..21, 6..21, 13..23];
 
@@ -122,8 +117,9 @@ fn prove_single_seg_cpu(seg_file: &str, basedir: &str, block: &str, file: &str) 
 }
 
 #[cfg(feature = "gpu")]
-fn create_gpu_context(config: &StarkConfig) -> plonky2::fri::oracle::CudaInvContext<GoldilocksField, PoseidonGoldilocksConfig, 2>
-{
+fn create_gpu_context(
+    config: &StarkConfig,
+) -> plonky2::fri::oracle::CudaInvContext<GoldilocksField, PoseidonGoldilocksConfig, 2> {
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
     type F = <C as GenericConfig<D>>::F;
@@ -131,15 +127,13 @@ fn create_gpu_context(config: &StarkConfig) -> plonky2::fri::oracle::CudaInvCont
     rustacuda::init(CudaFlags::empty()).unwrap();
     let device_index = 0;
     let device = Device::get_device(device_index).unwrap();
-    let _ctx =
-        Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)
-            .unwrap();
+    let _ctx = Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)
+        .unwrap();
     let stream = Stream::new(StreamFlags::NON_BLOCKING, None).unwrap();
     let stream2 = Stream::new(StreamFlags::NON_BLOCKING, None).unwrap();
 
     let max_lg_n = 22;
-    let max_values_flatten_len = (1<<max_lg_n) * 32;
-
+    let max_values_flatten_len = (1 << max_lg_n) * 32;
 
     let rate_bits = config.fri_config.rate_bits;
     let blinding = false;
@@ -148,26 +142,23 @@ fn create_gpu_context(config: &StarkConfig) -> plonky2::fri::oracle::CudaInvCont
     let salt_size = if blinding { SALT_SIZE } else { 0 };
 
     let fft_root_table_max = fft_root_table(1 << (max_lg_n + rate_bits)).concat();
-    let root_table_device = {
-        DeviceBuffer::from_slice(&fft_root_table_max).unwrap() };
+    let root_table_device = { DeviceBuffer::from_slice(&fft_root_table_max).unwrap() };
 
-    let fft_root_table_ext = fft_root_table::<<F as Extendable<{ D }>>::Extension>(1 << (24)).concat();
-    let root_table_ext_device = {
-        DeviceBuffer::from_slice(&fft_root_table_ext).unwrap() };
+    let fft_root_table_ext =
+        fft_root_table::<<F as Extendable<{ D }>>::Extension>(1 << (24)).concat();
+    let root_table_ext_device = { DeviceBuffer::from_slice(&fft_root_table_ext).unwrap() };
 
     let shift_powers = F::coset_shift()
         .powers()
         .take(1 << (max_lg_n))
         .collect::<Vec<_>>();
-    let shift_powers_device = {
-        DeviceBuffer::from_slice(&shift_powers).unwrap() };
+    let shift_powers_device = { DeviceBuffer::from_slice(&shift_powers).unwrap() };
 
     let shift_powers_ext = <<F as Extendable<{ D }>>::Extension>::coset_shift()
         .powers()
         .take(1 << (22))
         .collect::<Vec<_>>();
-    let shift_powers_ext_device = {
-        DeviceBuffer::from_slice(&shift_powers_ext).unwrap() };
+    let shift_powers_ext_device = { DeviceBuffer::from_slice(&shift_powers_ext).unwrap() };
 
     let max_values_num_per_poly = 1 << max_lg_n;
     // let max_values_flatten_len = 132644864;
@@ -201,7 +192,7 @@ fn create_gpu_context(config: &StarkConfig) -> plonky2::fri::oracle::CudaInvCont
                 pad_extvalues_len + max_ext_values_flatten_len + digests_and_caps_buf.len() * 4,
             )
         }
-            .unwrap()
+        .unwrap()
     };
 
     let mut ctx = plonky2::fri::oracle::CudaInvContext {
@@ -223,7 +214,15 @@ fn create_gpu_context(config: &StarkConfig) -> plonky2::fri::oracle::CudaInvCont
 
     if !use_dynamic_alloc {
         for i in 0..18 {
-            create_task(&mut ctx, i, max_lg_n, max_values_flatten_len/(1<<max_lg_n), 0, 2, 4);
+            create_task(
+                &mut ctx,
+                i,
+                max_lg_n,
+                max_values_flatten_len / (1 << max_lg_n),
+                0,
+                2,
+                4,
+            );
         }
     }
 
@@ -248,7 +247,6 @@ fn prove_single_seg_gpu(seg_file: &str, basedir: &str, block: &str, file: &str) 
     let allproof: proof::AllProof<GoldilocksField, C, D> =
         prove_gpu(&allstark, &kernel, &config, &mut timing, &mut ctx).unwrap();
 
-
     let mut count_bytes = 0;
     for (row, proof) in allproof.stark_proofs.clone().iter().enumerate() {
         let proof_str = serde_json::to_string(&proof.proof).unwrap();
@@ -272,10 +270,12 @@ fn prove_multi_seg_common(
     seg_start_id: usize,
 ) -> anyhow::Result<()> {
     #[cfg(feature = "gpu")]
-    let ret = prove_multi_seg_common_gpu(seg_dir, basedir, block, file, seg_file_number, seg_start_id);
+    let ret =
+        prove_multi_seg_common_gpu(seg_dir, basedir, block, file, seg_file_number, seg_start_id);
 
     #[cfg(not(feature = "gpu"))]
-    let ret = prove_multi_seg_common_cpu(seg_dir, basedir, block, file, seg_file_number, seg_start_id);
+    let ret =
+        prove_multi_seg_common_cpu(seg_dir, basedir, block, file, seg_file_number, seg_start_id);
 
     ret
 }
@@ -446,7 +446,6 @@ fn prove_multi_seg_common_cpu(
     result
 }
 
-
 #[cfg(feature = "gpu")]
 fn prove_multi_seg_common_gpu(
     seg_dir: &str,
@@ -532,8 +531,13 @@ fn prove_multi_seg_common_gpu(
         let seg_reader = BufReader::new(File::open(&seg_file)?);
         let input_first = segment_kernel(basedir, block, file, seg_reader);
         let mut timing = TimingTree::new("prove root first", log::Level::Info);
-        let (root_proof_first, first_public_values) =
-            all_circuits.prove_root_gpu(&all_stark, &input_first, &config, &mut timing, &mut ctx)?;
+        let (root_proof_first, first_public_values) = all_circuits.prove_root_gpu(
+            &all_stark,
+            &input_first,
+            &config,
+            &mut timing,
+            &mut ctx,
+        )?;
 
         timing.filter(Duration::from_millis(100)).print();
         all_circuits.verify_root(root_proof_first.clone())?;
@@ -664,6 +668,7 @@ fn u32_array_to_u8_vec(u32_array: &[u32; 8]) -> Vec<u8> {
     u8_vec
 }
 
+#[cfg(not(feature = "gpu"))]
 fn prove_sha_5_precompile(
     elf_path: &str,
     seg_path: &str,
@@ -709,6 +714,54 @@ fn prove_sha_5_precompile(
     }
 }
 
+#[cfg(feature = "gpu")]
+fn prove_sha_5_precompile_gpu(
+    elf_path: &str,
+    seg_path: &str,
+    ctx: &mut plonky2::fri::oracle::CudaInvContext<F, C, D>,
+) -> Receipt<<C as GenericConfig<D>>::F, C, D> {
+    let mut state = load_elf_with_patch(elf_path, vec![]);
+    let n: u32 = 5;
+    let public_input: [u8; 32] = [
+        37, 148, 182, 169, 46, 191, 177, 195, 49, 45, 235, 125, 1, 192, 21, 251, 149, 233, 251,
+        233, 189, 123, 198, 181, 39, 175, 7, 129, 62, 199, 185, 16,
+    ];
+    state.add_input_stream(&public_input.to_vec());
+    state.add_input_stream(&n.to_le_bytes().to_vec());
+
+    let (_total_steps, seg_num, mut state) = split_prog_into_segs(state, seg_path, "", 0);
+
+    let value = state.read_public_values::<[u8; 32]>();
+    log::info!("public value: {:?}", value);
+
+    assert!(seg_num == 1);
+
+    let all_stark = AllStark::<F, D>::default();
+    let config = StarkConfig::standard_fast_config();
+    // Preprocess all circuits.
+    let all_circuits =
+        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &DEGREE_BITS_RANGE, &config);
+
+    let seg_file: String = format!("{}/{}", seg_path, 0);
+    log::info!("Process segment {}", seg_file);
+    let seg_reader = BufReader::new(File::open(seg_file).unwrap());
+    let input_first = segment_kernel("", "", "", seg_reader);
+    let mut timing = TimingTree::new("prove root with gpu first", log::Level::Info);
+    let (agg_proof, updated_agg_public_values) = all_circuits
+        .prove_root_gpu(&all_stark, &input_first, &config, &mut timing, ctx)
+        .unwrap();
+
+    timing.filter(Duration::from_millis(100)).print();
+    all_circuits.verify_root(agg_proof.clone()).unwrap();
+
+    Receipt::<F, C, D> {
+        proof: agg_proof,
+        root_before: u32_array_to_u8_vec(&updated_agg_public_values.roots_before.root),
+        userdata: updated_agg_public_values.userdata.clone(),
+    }
+}
+
+#[cfg(not(feature = "gpu"))]
 fn prove_sha2_precompile() {
     // 1. split ELF into segs
     let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
@@ -764,6 +817,94 @@ fn prove_sha2_precompile() {
     let mut timing = TimingTree::new("prove", log::Level::Info);
     let (agg_proof, _updated_agg_public_values, receipts_used) = all_circuits
         .prove_root_with_assumption(&all_stark, &kernel, &config, &mut timing, receipts)
+        .unwrap();
+
+    log::info!("Process assumptions");
+    timing = TimingTree::new("prove aggression", log::Level::Info);
+
+    for assumption in receipts_used.borrow_mut().iter_mut() {
+        let receipt = assumption.1.clone();
+        match receipt {
+            AssumptionReceipt::Proven(receipt) => {
+                all_circuits.verify_root(receipt.proof.clone()).unwrap();
+            }
+            AssumptionReceipt::Unresolved(assumpt) => {
+                log::error!("unresolved assumption: {:X?}", assumpt);
+            }
+        }
+    }
+    log::info!("verify");
+    timing.filter(Duration::from_millis(100)).print();
+    all_circuits.verify_root(agg_proof.clone()).unwrap();
+}
+
+#[cfg(feature = "gpu")]
+fn prove_sha2_precompile_gpu() {
+    log::info!("prove sha2 precompile with gpu");
+
+    let config = StarkConfig::standard_fast_config();
+    let mut ctx = create_gpu_context(&config);
+
+    // 1. split ELF into segs
+    let elf_path = env::var("ELF_PATH").expect("ELF file is missing");
+    let precompile_path = env::var("PRECOMPILE_PATH").expect("PRECOMPILE ELF file is missing");
+    let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
+    let mut receipts: AssumptionReceipts<F, C, D> = vec![];
+    let receipt = prove_sha_5_precompile_gpu(&precompile_path, &seg_path, &mut ctx);
+
+    log::info!(
+        "elf_id: {:?}, data: {:?}",
+        receipt.root_before,
+        receipt.userdata
+    );
+
+    let image_id = receipt.root_before.clone();
+    receipts.push(receipt.into());
+
+    let mut state = load_elf_with_patch(&elf_path, vec![]);
+
+    let public_input: [u8; 32] = [
+        91, 15, 50, 181, 63, 91, 186, 46, 9, 26, 167, 190, 200, 232, 40, 101, 149, 181, 253, 89,
+        24, 150, 142, 102, 14, 67, 78, 221, 18, 205, 95, 28,
+    ];
+    state.add_input_stream(&public_input.to_vec());
+    log::info!("expected public value: {:?}", public_input);
+
+    let private_input: [u8; 32] = [
+        37, 148, 182, 169, 46, 191, 177, 195, 49, 45, 235, 125, 1, 192, 21, 251, 149, 233, 251,
+        233, 189, 123, 198, 181, 39, 175, 7, 129, 62, 199, 185, 16,
+    ];
+    log::info!("private input value: {:?}", private_input);
+    state.add_input_stream(&private_input.to_vec());
+
+    state.add_input_stream(&image_id);
+
+    let (_total_steps, _seg_num, mut state) = split_prog_into_segs(state, &seg_path, "", 0);
+
+    let value = state.read_public_values::<[u8; 32]>();
+    log::info!("public value: {:X?}", value);
+    log::info!("public value: {} in hex", hex::encode(value));
+
+    let all_stark = AllStark::<F, D>::default();
+    // Preprocess all circuits.
+    let all_circuits =
+        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &DEGREE_BITS_RANGE, &config);
+
+    let seg_file: String = format!("{}/{}", seg_path, 0);
+    log::info!("Process segment {}", seg_file);
+    let seg_reader = BufReader::new(File::open(seg_file).unwrap());
+    let kernel = segment_kernel("", "", "", seg_reader);
+
+    let mut timing = TimingTree::new("prove with gpu", log::Level::Info);
+    let (agg_proof, _updated_agg_public_values, receipts_used) = all_circuits
+        .prove_root_with_assumption_gpu(
+            &all_stark,
+            &kernel,
+            &config,
+            &mut timing,
+            receipts,
+            &mut ctx,
+        )
         .unwrap();
 
     log::info!("Process assumptions");
@@ -937,7 +1078,13 @@ fn prove_host() {
     let host_program = env::var("HOST_PROGRAM").expect("host_program name is missing");
     match host_program.as_str() {
         "sha2_rust" => prove_sha2_rust(),
-        "sha2_precompile" => prove_sha2_precompile(),
+        "sha2_precompile" => {
+            #[cfg(feature = "gpu")]
+            prove_sha2_precompile_gpu();
+
+            #[cfg(not(feature = "gpu"))]
+            prove_sha2_precompile();
+        }
         "sha2_go" => prove_sha2_go(),
         "revm" => prove_revm(),
         "add_example" => prove_add_example(),

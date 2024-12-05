@@ -91,6 +91,24 @@ where
 }
 
 #[cfg(feature = "gpu")]
+pub fn prove_with_assumptions_gpu<F, C, const D: usize>(
+    all_stark: &AllStark<F, D>,
+    kernel: &Kernel,
+    config: &StarkConfig,
+    timing: &mut TimingTree,
+    assumptions: AssumptionReceipts<F, C, D>,
+    ctx: &mut CudaInvContext<F, C, D>,
+) -> Result<(AllProof<F, C, D>, Rc<RefCell<AssumptionUsage<F, C, D>>>)>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    let (proof, _outputs, receipts) =
+        prove_with_output_and_assumptions_gpu(all_stark, kernel, config, timing, assumptions, ctx)?;
+    Ok((proof, receipts))
+}
+
+#[cfg(feature = "gpu")]
 pub fn prove_with_outputs_gpu<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
     kernel: &Kernel,
@@ -164,6 +182,41 @@ where
     );
 
     let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
+    Ok((proof, outputs, receipts))
+}
+
+/// Generate traces, then create all STARK proofs. Returns information about the post-state,
+/// intended for debugging, in addition to the proof.
+#[cfg(feature = "gpu")]
+pub fn prove_with_output_and_assumptions_gpu<F, C, const D: usize>(
+    all_stark: &AllStark<F, D>,
+    kernel: &Kernel,
+    config: &StarkConfig,
+    timing: &mut TimingTree,
+    assumptions: AssumptionReceipts<F, C, D>,
+    ctx: &mut CudaInvContext<F, C, D>,
+) -> Result<(
+    AllProof<F, C, D>,
+    GenerationOutputs,
+    Rc<RefCell<AssumptionUsage<F, C, D>>>,
+)>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    let (traces, public_values, outputs, receipts) = timed!(
+        timing,
+        "generate all traces",
+        generate_traces_with_assumptions::<F, C, D>(
+            all_stark,
+            kernel,
+            config,
+            timing,
+            assumptions
+        )?
+    );
+
+    let proof = prove_with_traces_gpu(all_stark, config, traces, public_values, timing, ctx)?;
     Ok((proof, outputs, receipts))
 }
 
