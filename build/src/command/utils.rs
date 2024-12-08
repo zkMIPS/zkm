@@ -1,3 +1,4 @@
+//! Ported from build for SP1.
 use anyhow::{Context, Result};
 use std::{
     io::{BufRead, BufReader},
@@ -52,7 +53,6 @@ pub(crate) fn get_rust_compiler_flags() -> String {
         "target-feature=+crt-static".to_string(),
         "-C".to_string(),
         "link-arg=-g".to_string(),
-
     ];
     rust_flags.join("\x1f")
 }

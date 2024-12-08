@@ -66,5 +66,6 @@ fn prove_fib_example() {
 }
 
 fn main() {
+    env_logger::try_init().unwrap_or_default();
     prove_fib_example();
 }
