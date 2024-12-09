@@ -1,3 +1,5 @@
+
+
 # Examples
 
 ## Prove the Golang code 
@@ -67,44 +69,68 @@ linker = "<path-to>/mips-linux-muslsf-cross/bin/mips-linux-muslsf-gcc"
 rustflags = ["--cfg", 'target_os="zkvm"',"-C", "target-feature=+crt-static", "-C", "link-arg=-g"]
 ```
 
-* Build the Sha2/Revme
+* Build and run Sha2/revme (**new**)
 
 ```
-cd prover/examples/sha2-rust
-cargo build -r --target=mips-unknown-linux-musl
+cd prover/examples/sha2-rust/script
+
+# echo -n 'world!' | sha256sum
+# 711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d
+
+ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" RUST_LOG=info SEG_OUTPUT=/tmp/output cargo run --release
+
+Or
+
+RUST_LOG=info JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release
+
 ```
 
-* Run the host program
+Or build and run separately
+
+- build the sha2/revme program
+
+```
+cd prover/examples/sha2-rust/script
+cargo check
+```
+
+* Run the sha2/revme host program
 
 ```
 # echo -n 'world!' | sha256sum
 # 711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d
 
-cd ../..
+cd ../../../
 
-ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" RUST_LOG=info ELF_PATH=examples/sha2-rust/target/mips-unknown-linux-musl/release/sha2-rust HOST_PROGRAM=sha2_rust SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
+ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" RUST_LOG=info ELF_PATH=examples/sha2-rust/program/elf/mips-unknown-linux-musl HOST_PROGRAM=sha2_rust SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
 
 Or
 
-RUST_LOG=info ELF_PATH=examples/revme/target/mips-unknown-linux-musl/release/evm HOST_PROGRAM=revm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips prove_host_program
+cd ../../../
+
+RUST_LOG=info ELF_PATH=examples/revme/program/elf/mips-unknown-linux-musl HOST_PROGRAM=revm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips prove_host_program
 ```
 
 ## Prove precompile code
-* Build the sha2-rust
+* Build the sha2-rust (**new**)
 ```
-cd prover/examples/sha2-rust
-cargo build -r --target=mips-unknown-linux-musl
-```
-
-* Build the sha2-precompile
-```
-cd prover/examples/sha2-precompile
-cargo build -r --target=mips-unknown-linux-musl
+cd prover/examples/sha2-rust/script
+cargo check
 ```
 
-* Run the host program
+* Build and run the sha2-precompile (**new**)
 ```
-cd ../..
+cd prover/examples/sha2-precompile/script
+RUST_LOG=info PRECOMPILE_PATH=../../sha2-rust/program/elf/mips-unknown-linux-musl SEG_OUTPUT=/tmp/output cargo run --release
+```
 
-RUST_LOG=info PRECOMPILE_PATH=examples/sha2-rust/target/mips-unknown-linux-musl/release/sha2-rust ELF_PATH=examples/sha2-precompile/target/mips-unknown-linux-musl/release/sha2-precompile HOST_PROGRAM=sha2_precompile SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
+Or build/run sha2-precompile separately
+
+```
+cd ../../sha2-precompile/script
+cargo check
+
+cd ../../../
+
+RUST_LOG=info PRECOMPILE_PATH=examples/sha2-rust/program/elf/mips-unknown-linux-musl ELF_PATH=examples/sha2-precompile/program/elf/mips-unknown-linux-musl HOST_PROGRAM=sha2_precompile SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
 ```
