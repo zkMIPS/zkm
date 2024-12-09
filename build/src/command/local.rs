@@ -35,6 +35,6 @@ pub(crate) fn create_local_command(
             "CARGO_TARGET_DIR",
             program_metadata.target_directory.join(HELPER_TARGET_SUBDIR),
         )
-        .args(&get_program_build_args(args));
+        .args(get_program_build_args(args));
     command
 }

@@ -1,5 +1,3 @@
-
-
 # Examples
 
 ## Prove the Golang code 
