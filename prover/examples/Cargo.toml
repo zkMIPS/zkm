@@ -1,0 +1,17 @@
+[workspace]
+members = [
+  "revme/script",
+  "sha2-rust/script",
+  "sha2-precompile/script",
+  "zkmips"
+]
+resolver = "2"
+
+[workspace.package]
+version = "1.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+zkm-prover = { path = "../../prover" }
+zkm-emulator = { path = "../../emulator" }
+zkm-build = { path = "../../build" }
