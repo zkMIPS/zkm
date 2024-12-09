@@ -81,7 +81,9 @@ ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" R
 
 Or
 
-RUST_LOG=info JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release
+cd prover/examples/revme/script
+
+RUST_LOG=info JSON_PATH=../../../../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release
 
 ```
 
@@ -120,7 +122,7 @@ cargo check
 
 * Build and run the sha2-precompile (**new**)
 ```
-cd prover/examples/sha2-precompile/script
+cd ../../sha2-precompile/script
 RUST_LOG=info PRECOMPILE_PATH=../../sha2-rust/program/elf/mips-unknown-linux-musl SEG_OUTPUT=/tmp/output cargo run --release
 ```
 

@@ -2,8 +2,7 @@
 members = [
   "revme/script",
   "sha2-rust/script",
-  "sha2-precompile/script",
-  "zkmips"
+  "sha2-precompile/script"
 ]
 resolver = "2"
 
