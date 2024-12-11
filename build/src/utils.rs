@@ -1,4 +1,3 @@
-//! Ported from build for SP1.
 use std::{fs, path::Path};
 
 use anyhow::Result;

@@ -1,4 +1,3 @@
-//! Ported from build for SP1.
 use anyhow::{Context, Result};
 use std::{
     io::{BufRead, BufReader},

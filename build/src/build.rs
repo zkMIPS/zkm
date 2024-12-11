@@ -1,4 +1,3 @@
-//! Ported from build for SP1.
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -62,13 +61,13 @@ pub(crate) fn build_program_internal(path: &str, args: Option<BuildArgs>) {
         .map(|p| p.name.as_str())
         .unwrap_or("Program");
 
-    // Skip the program build if the SP1_SKIP_PROGRAM_BUILD environment variable is set to true.
+    // Skip the program build if the ZKM_SKIP_PROGRAM_BUILD environment variable is set to true.
     let skip_program_build = std::env::var("ZKM_SKIP_PROGRAM_BUILD")
         .map(|v| v.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
     if skip_program_build {
         println!(
-            "cargo:warning=Build skipped for {} at {} due to SP1_SKIP_PROGRAM_BUILD flag",
+            "cargo:warning=Build skipped for {} at {} due to ZKM_SKIP_PROGRAM_BUILD flag",
             root_package_name,
             current_datetime()
         );

@@ -1,4 +1,3 @@
-//! Ported from build for SP1.
 mod build;
 mod command;
 mod utils;

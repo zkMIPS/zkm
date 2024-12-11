@@ -1,4 +1,3 @@
-//! Ported from build for SP1.
 use std::process::Command;
 
 use crate::{BuildArgs, HELPER_TARGET_SUBDIR};
