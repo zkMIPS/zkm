@@ -1,5 +1,5 @@
 [package]
-name = "revme-script"
+name = "revme-host"
 version = { workspace = true }
 edition = { workspace = true }
 publish = false

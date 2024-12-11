@@ -70,7 +70,7 @@ rustflags = ["--cfg", 'target_os="zkvm"',"-C", "target-feature=+crt-static", "-C
 * Build and run Sha2/revme (**new**)
 
 ```
-cd prover/examples/sha2-rust/script
+cd prover/examples/sha2-rust/host
 
 # echo -n 'world!' | sha256sum
 # 711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d
@@ -79,7 +79,7 @@ ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" R
 
 Or
 
-cd prover/examples/revme/script
+cd prover/examples/revme/host
 
 RUST_LOG=info JSON_PATH=../../../../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release
 
@@ -90,7 +90,7 @@ Or build and run separately
 - build the sha2/revme program
 
 ```
-cd prover/examples/sha2-rust/script
+cd prover/examples/sha2-rust/host
 cargo check
 ```
 
@@ -102,35 +102,35 @@ cargo check
 
 cd ../../../
 
-ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" RUST_LOG=info ELF_PATH=examples/sha2-rust/program/elf/mips-unknown-linux-musl HOST_PROGRAM=sha2_rust SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
+ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" RUST_LOG=info ELF_PATH=examples/sha2-rust/guest/elf/mips-unknown-linux-musl HOST_PROGRAM=sha2_rust SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
 
 Or
 
 cd ../../../
 
-RUST_LOG=info ELF_PATH=examples/revme/program/elf/mips-unknown-linux-musl HOST_PROGRAM=revm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips prove_host_program
+RUST_LOG=info ELF_PATH=examples/revme/guest/elf/mips-unknown-linux-musl HOST_PROGRAM=revm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips prove_host_program
 ```
 
 ## Prove precompile code
 * Build the sha2-rust (**new**)
 ```
-cd prover/examples/sha2-rust/script
+cd prover/examples/sha2-rust/host
 cargo check
 ```
 
 * Build and run the sha2-precompile (**new**)
 ```
-cd ../../sha2-precompile/script
-RUST_LOG=info PRECOMPILE_PATH=../../sha2-rust/program/elf/mips-unknown-linux-musl SEG_OUTPUT=/tmp/output cargo run --release
+cd ../../sha2-precompile/host
+RUST_LOG=info PRECOMPILE_PATH=../../sha2-rust/guest/elf/mips-unknown-linux-musl SEG_OUTPUT=/tmp/output cargo run --release
 ```
 
 Or build/run sha2-precompile separately
 
 ```
-cd ../../sha2-precompile/script
+cd ../../sha2-precompile/host
 cargo check
 
 cd ../../../
 
-RUST_LOG=info PRECOMPILE_PATH=examples/sha2-rust/program/elf/mips-unknown-linux-musl ELF_PATH=examples/sha2-precompile/program/elf/mips-unknown-linux-musl HOST_PROGRAM=sha2_precompile SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
+RUST_LOG=info PRECOMPILE_PATH=examples/sha2-rust/guest/elf/mips-unknown-linux-musl ELF_PATH=examples/sha2-precompile/guest/elf/mips-unknown-linux-musl HOST_PROGRAM=sha2_precompile SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
 ```

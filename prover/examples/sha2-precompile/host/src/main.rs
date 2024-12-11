@@ -20,7 +20,7 @@ const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 type F = <C as GenericConfig<D>>::F;
 
-const ELF_PATH: &str = "../program/elf/mips-unknown-linux-musl";
+const ELF_PATH: &str = "../guest/elf/mips-unknown-linux-musl";
 
 fn u32_array_to_u8_vec(u32_array: &[u32; 8]) -> Vec<u8> {
     let mut u8_vec = Vec::with_capacity(u32_array.len() * 4);

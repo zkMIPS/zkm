@@ -1,8 +1,8 @@
 [workspace]
 members = [
-  "revme/script",
-  "sha2-rust/script",
-  "sha2-precompile/script"
+  "revme/host",
+  "sha2-rust/host",
+  "sha2-precompile/host"
 ]
 resolver = "2"
 
