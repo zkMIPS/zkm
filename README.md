@@ -39,15 +39,8 @@ There are two ways to prove the program:
 - Hardware: X86 CPU, 32 cores, 32G memory
 - OS: Ubuntu22
 
-| Instructions Per Segment | RAM |
-| ------------------ | --- |
-| 32768              | 13G |
-| 65536              | 19G |
-| 262144             | 27G |
-
-Please note that in order to run an ZKM Prover that is **competitive**, the machine will need more than these requirements.
 ### 2.1.1 Local Proving Guide
-An end-to-end example has been presented in [examples](https://github.com/zkMIPS/zkm/blob/main/prover/examples).
+An end-to-end example has been presented in [examples](https://github.com/zkMIPS/zkm/tree/main/prover/examples#examples).
 ## 2.2 Network Proving
 > [!NOTE]
 > The proving network is demo at present. The production version is coming soon.
