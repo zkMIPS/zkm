@@ -13,39 +13,41 @@ GOOS=linux GOARCH=mips GOMIPS=softfloat go build hello.go
 * Split the ELF hello into segments. Note that the flag `BLOCK_NO` is only necessary for minigeth.
 
 ```
-BASEDIR=./emulator/test-vectors RUST_LOG=info ELF_PATH=./emulator/test-vectors/minigeth BLOCK_NO=13284491 SEG_OUTPUT=/tmp/output SEG_SIZE=65536 ARGS="" \
-    cargo run --release --example zkmips split
+cd prover/examples/split-seg
+
+BASEDIR=../../../emulator/test-vectors RUST_LOG=info ELF_PATH=../../../emulator/test-vectors/minigeth BLOCK_NO=13284491 SEG_OUTPUT=/tmp/output SEG_SIZE=65536 ARGS="" cargo run --release
 ```
 
 * Generate proof for specific segment (Set SEG_START_ID to specific segment id and set SEG_NUM to 1)
 
 ```
-BASEDIR=./emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" SEG_START_ID=0 SEG_NUM=1 SEG_SIZE=65536 \
-    cargo run --release --example zkmips prove_segments
+cd ../prove-seg
+BASEDIR=../../../emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" SEG_START_ID=0 SEG_NUM=1 SEG_SIZE=65536 \
+    cargo run --release
 ```
 
 * Aggregate proof all segments (Set SEG_START_ID to 0, and set SEG_NUM to the total segments number)
 
 ```
-BASEDIR=./emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" SEG_START_ID=0 SEG_NUM=299 SEG_SIZE=65536 \
-    cargo run --release --example zkmips prove_segments
+BASEDIR=../../../emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" SEG_START_ID=0 SEG_NUM=299 SEG_SIZE=65536 \
+    cargo run --release
 ```
 
 ### Prove Go sdk code
 The SDK provide Read and Commit interface to read input and commit output.
-Take add-go for example:
+Take sha2-go for example:
 
-* Build the add-go
+* Build the sha2-go
 
 ```
-cd prover/examples/add-go
+cd prover/examples/sha2-go/guest
 GOOS=linux GOARCH=mips GOMIPS=softfloat go build .
-cd ../../
 ```
 * Run the host program 
 
 ```
-RUST_LOG=info ELF_PATH=examples/add-go/go-add HOST_PROGRAM=add_example SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips prove_host_program
+cd ../host
+ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" RUST_LOG=info SEG_OUTPUT=/tmp/output cargo run --release
 ```
 
 ## Prove the Rust code 
@@ -85,32 +87,6 @@ RUST_LOG=info JSON_PATH=../../../../emulator/test-vectors/test.json SEG_OUTPUT=/
 
 ```
 
-Or build and run separately
-
-- build the sha2/revme program
-
-```
-cd prover/examples/sha2-rust/host
-cargo check
-```
-
-* Run the sha2/revme host program
-
-```
-# echo -n 'world!' | sha256sum
-# 711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d
-
-cd ../../../
-
-ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" RUST_LOG=info ELF_PATH=examples/sha2-rust/guest/elf/mips-unknown-linux-musl HOST_PROGRAM=sha2_rust SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
-
-Or
-
-cd ../../../
-
-RUST_LOG=info ELF_PATH=examples/revme/guest/elf/mips-unknown-linux-musl HOST_PROGRAM=revm JSON_PATH=../emulator/test-vectors/test.json SEG_OUTPUT=/tmp/output SEG_SIZE=262144 cargo run --release --example zkmips prove_host_program
-```
-
 ## Prove precompile code
 * Build the sha2-rust (**new**)
 ```
@@ -122,15 +98,4 @@ cargo check
 ```
 cd ../../sha2-precompile/host
 RUST_LOG=info PRECOMPILE_PATH=../../sha2-rust/guest/elf/mips-unknown-linux-musl SEG_OUTPUT=/tmp/output cargo run --release
-```
-
-Or build/run sha2-precompile separately
-
-```
-cd ../../sha2-precompile/host
-cargo check
-
-cd ../../../
-
-RUST_LOG=info PRECOMPILE_PATH=examples/sha2-rust/guest/elf/mips-unknown-linux-musl ELF_PATH=examples/sha2-precompile/guest/elf/mips-unknown-linux-musl HOST_PROGRAM=sha2_precompile SEG_OUTPUT=/tmp/output cargo run --release --example zkmips prove_host_program
 ```
