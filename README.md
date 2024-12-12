@@ -40,7 +40,7 @@ There are two ways to prove the program:
 - OS: Ubuntu22
 
 ### 2.1.1 Local Proving Guide
-An end-to-end example has been presented in [examples](https://github.com/zkMIPS/zkm/blob/main/prover/examples).
+An end-to-end example has been presented in [examples](https://github.com/zkMIPS/zkm/tree/main/prover/examples#examples).
 ## 2.2 Network Proving
 > [!NOTE]
 > The proving network is demo at present. The production version is coming soon.
