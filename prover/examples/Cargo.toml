@@ -1,0 +1,19 @@
+[workspace]
+members = [
+  "revme/host",
+  "sha2-rust/host",
+  "sha2-precompile/host",
+  "sha2-go/host",
+  "split-seg",
+  "prove-seg"
+]
+resolver = "2"
+
+[workspace.package]
+version = "1.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+zkm-prover = { path = "../../prover" }
+zkm-emulator = { path = "../../emulator" }
+zkm-build = { path = "../../build" }
