@@ -27,9 +27,7 @@ pub(crate) fn create_local_command(
     //    toolchain.
     command
         .current_dir(canonicalized_program_dir)
-        .env("RUSTUP_TOOLCHAIN", "nightly-2023-04-06")
         .env("CARGO_ENCODED_RUSTFLAGS", get_rust_compiler_flags())
-        .env_remove("RUSTC")
         .env(
             "CARGO_TARGET_DIR",
             program_metadata.target_directory.join(HELPER_TARGET_SUBDIR),

@@ -6,7 +6,7 @@ pub use build::execute_build_program;
 
 use clap::Parser;
 
-const BUILD_TARGET: &str = "mips-unknown-linux-musl";
+const BUILD_TARGET: &str = "mips-zkm-zkvm-elf";
 // const DEFAULT_TAG: &str = "v1.0.0";
 const DEFAULT_OUTPUT_DIR: &str = "elf";
 const HELPER_TARGET_SUBDIR: &str = "elf-compilation";
