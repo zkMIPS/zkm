@@ -6,10 +6,10 @@ pub use build::execute_build_program;
 
 use clap::Parser;
 
-const BUILD_TARGET: &str = "mips-unknown-linux-musl";
-// const DEFAULT_TAG: &str = "v1.0.0";
-const DEFAULT_OUTPUT_DIR: &str = "elf";
-const HELPER_TARGET_SUBDIR: &str = "elf-compilation";
+pub const BUILD_TARGET: &str = "mips-unknown-linux-musl";
+//pub const DEFAULT_TAG: &str = "v1.0.0";
+pub const DEFAULT_OUTPUT_DIR: &str = "elf";
+pub const HELPER_TARGET_SUBDIR: &str = "elf-compilation";
 
 /// Compile an ZKM program.
 ///
