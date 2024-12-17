@@ -43,7 +43,6 @@ pub(crate) struct GenerationStateCheckpoint {
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Assumption {
     pub claim: [u8; 32],
-    pub control_root: [u8; 32],
 }
 
 #[derive(Clone, Debug)]
@@ -147,7 +146,6 @@ where
     pub(crate) fn find_assumption(
         &self,
         claim_digest: &[u8; 32],
-        control_root: &[u8; 32],
     ) -> Option<(Assumption, AssumptionReceipt<F, C, D>)> {
         for assumption_receipt in self.assumptions.borrow().iter() {
             let cached_claim_digest = assumption_receipt.claim_digest();
@@ -163,7 +161,6 @@ where
             return Some((
                 Assumption {
                     claim: *claim_digest,
-                    control_root: *control_root,
                 },
                 assumption_receipt.clone(),
             ));

@@ -1001,22 +1001,9 @@ pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
         state.traces.push_cpu(cpu_row);
     }
 
-    let mut control_root = [0u8; 32];
-    {
-        let mut cpu_row = CpuColumnsView::default();
-        cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-        for i in 0..8 {
-            let address = MemoryAddress::new(0, Segment::Code, addr + 32 + i * 4);
-            let (mem, op) = mem_read_gp_with_log_and_fill(i, address, state, &mut cpu_row);
-            control_root[i * 4..i * 4 + 4].copy_from_slice(mem.to_be_bytes().as_ref());
-            state.traces.push_memory(op);
-        }
-        state.traces.push_cpu(cpu_row);
-    }
+    log::debug!("SYS_VERIFY: ({:?})", claim_digest);
 
-    log::debug!("SYS_VERIFY: ({:?}, {:?})", claim_digest, control_root);
-
-    let assumption = state.find_assumption(&claim_digest, &control_root);
+    let assumption = state.find_assumption(&claim_digest);
 
     // Mark the assumption as accessed, pushing it to the head of the list, and return the success code.
     match assumption {

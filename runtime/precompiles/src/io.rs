@@ -89,7 +89,7 @@ pub fn verify<T: Serialize>(image_id: Vec<u8>, public_input: &T) {
     hasher.update(input_digest);
     let digest: [u8; 32] = hasher.finalize().into();
 
-    unsafe { syscall_verify(&digest, &ZERO) }
+    unsafe { syscall_verify(&digest) }
 }
 
 pub fn hint_slice(buf: &[u8]) {
