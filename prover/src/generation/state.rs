@@ -1,5 +1,6 @@
 // use keccak_hash::keccak;
 use crate::cpu::kernel::assembler::Kernel;
+use crate::proof::PublicValues;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryState;
 use crate::witness::state::RegistersState;
@@ -13,28 +14,6 @@ use std::{cell::RefCell, rc::Rc};
 
 pub const ZERO: [u8; 32] = [0u8; 32];
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Receipt<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
-    pub proof: ProofWithPublicInputs<F, C, D>,
-    pub root_before: Vec<u8>,
-    pub userdata: Vec<u8>,
-}
-
-impl<F, C, const D: usize> Receipt<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
-    pub fn claim_digest(&self) -> [u8; 32] {
-        let mut hasher = Sha256::new();
-
-        hasher.update(self.root_before.clone());
-        hasher.update(self.userdata.clone());
-        let digest: [u8; 32] = hasher.finalize().into();
-        digest
-    }
-}
-
 pub(crate) struct GenerationStateCheckpoint {
     pub(crate) registers: RegistersState,
     pub(crate) traces: TraceCheckpoint,
@@ -46,10 +25,38 @@ pub struct Assumption {
 }
 
 #[derive(Clone, Debug)]
+pub struct ReceiptClaim {
+    pub elf_id: Vec<u8>, // pre image id
+    pub commit: Vec<u8>, // commit info
+}
+
+#[derive(Clone, Debug)]
+pub struct InnerReceipt<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+    pub proof: ProofWithPublicInputs<F, C, D>,
+    pub values: PublicValues,
+    pub claim: ReceiptClaim,
+}
+
+impl<F, C, const D: usize> InnerReceipt<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    pub fn claim_digest(&self) -> [u8; 32] {
+        let mut hasher = Sha256::new();
+
+        hasher.update(self.claim.elf_id.clone());
+        hasher.update(self.claim.commit.clone());
+        let digest: [u8; 32] = hasher.finalize().into();
+        digest
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum AssumptionReceipt<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     // A [Receipt] for a proven assumption.
-    Proven(Box<Receipt<F, C, D>>),
+    Proven(Box<InnerReceipt<F, C, D>>),
 
     // An [Assumption] that is not directly proven to be true.
     Unresolved(Assumption),
@@ -73,13 +80,13 @@ where
 pub type AssumptionReceipts<F, C, const D: usize> = Vec<AssumptionReceipt<F, C, D>>;
 pub type AssumptionUsage<F, C, const D: usize> = Vec<(Assumption, AssumptionReceipt<F, C, D>)>;
 
-impl<F, C, const D: usize> From<Receipt<F, C, D>> for AssumptionReceipt<F, C, D>
+impl<F, C, const D: usize> From<InnerReceipt<F, C, D>> for AssumptionReceipt<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
     /// Create a proven assumption from a [Receipt].
-    fn from(receipt: Receipt<F, C, D>) -> Self {
+    fn from(receipt: InnerReceipt<F, C, D>) -> Self {
         Self::Proven(Box::new(receipt))
     }
 }
@@ -92,6 +99,104 @@ where
     /// Create an unresolved assumption from an [Assumption].
     fn from(assumption: Assumption) -> Self {
         Self::Unresolved(assumption)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CompositeReceipt<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+> {
+    pub program_receipt: InnerReceipt<F, C, D>,
+    pub assumption_used: Rc<RefCell<AssumptionUsage<F, C, D>>>,
+}
+
+impl<F, C, const D: usize> CompositeReceipt<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    pub fn claim_digest(&self) -> [u8; 32] {
+        let mut hasher = Sha256::new();
+
+        hasher.update(self.program_receipt.claim.elf_id.clone());
+        hasher.update(self.program_receipt.claim.commit.clone());
+        let digest: [u8; 32] = hasher.finalize().into();
+        digest
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum Receipt<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+    Segments(InnerReceipt<F, C, D>),
+    Composite(CompositeReceipt<F, C, D>),
+}
+
+impl<F, C, const D: usize> Receipt<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    pub fn claim_digest(&self) -> [u8; 32] {
+        match self {
+            Self::Segments(receipt) => receipt.claim_digest(),
+            Self::Composite(receipt) => receipt.claim_digest(),
+        }
+    }
+
+    pub fn proof(&self) -> ProofWithPublicInputs<F, C, D> {
+        match self {
+            Self::Segments(receipt) => receipt.proof.clone(),
+            Self::Composite(receipt) => receipt.program_receipt.proof.clone(),
+        }
+    }
+
+    pub fn values(&self) -> PublicValues {
+        match self {
+            Self::Segments(receipt) => receipt.values.clone(),
+            Self::Composite(receipt) => receipt.program_receipt.values.clone(),
+        }
+    }
+
+    pub fn claim(&self) -> ReceiptClaim {
+        match self {
+            Self::Segments(receipt) => receipt.claim.clone(),
+            Self::Composite(receipt) => receipt.program_receipt.claim.clone(),
+        }
+    }
+
+    pub fn assumptions(&self) -> Rc<RefCell<AssumptionUsage<F, C, D>>> {
+        match self {
+            Self::Segments(_receipt) => Rc::new(RefCell::new(Vec::new())),
+            Self::Composite(receipt) => receipt.assumption_used.clone(),
+        }
+    }
+}
+
+impl<F, C, const D: usize> From<Receipt<F, C, D>> for InnerReceipt<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    /// Create a proven assumption from a [Receipt].
+    fn from(receipt: Receipt<F, C, D>) -> Self {
+        match receipt {
+            Receipt::<F, C, D>::Segments(segments_receipt) => segments_receipt,
+            Receipt::<F, C, D>::Composite(composite_receipt) => composite_receipt.program_receipt,
+        }
+    }
+}
+
+impl<F, C, const D: usize> From<Receipt<F, C, D>> for AssumptionReceipt<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    /// Create a proven assumption from a [Receipt].
+    fn from(receipt: Receipt<F, C, D>) -> Self {
+        let inner: InnerReceipt<F, C, D> = receipt.into();
+        inner.into()
     }
 }
 

@@ -33,7 +33,9 @@ use crate::cross_table_lookup::{
     get_grand_product_challenge_set_target, verify_cross_table_lookups_circuit, CrossTableLookup,
     GrandProductChallengeSet,
 };
-use crate::generation::state::{AssumptionReceipts, AssumptionUsage};
+use crate::generation::state::{
+    AssumptionReceipt, AssumptionReceipts, CompositeReceipt, InnerReceipt, Receipt, ReceiptClaim,
+};
 use crate::get_challenges::observe_public_values_target;
 use crate::proof::{MemRootsTarget, PublicValues, PublicValuesTarget, StarkProofWithMetadata};
 use crate::prover::{prove, prove_with_assumptions};
@@ -42,9 +44,9 @@ use crate::recursive_verifier::{
     set_public_value_targets, PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
+use crate::util::u32_array_to_u8_vec;
 use crate::verifier::verify_proof;
 //use crate::util::h256_limbs;
-use std::{cell::RefCell, rc::Rc};
 
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
 const THRESHOLD_DEGREE_BITS: usize = 13;
@@ -701,7 +703,7 @@ where
         kernel: &Kernel,
         config: &StarkConfig,
         timing: &mut TimingTree,
-    ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
+    ) -> anyhow::Result<Receipt<F, C, D>> {
         let all_proof = prove::<F, C, D>(all_stark, kernel, config, timing)?;
         verify_proof(all_stark, all_proof.clone(), config).unwrap();
         let mut root_inputs = PartialWitness::new();
@@ -749,7 +751,14 @@ where
 
         let root_proof = self.root.circuit.prove(root_inputs)?;
 
-        Ok((root_proof, all_proof.public_values))
+        Ok(Receipt::Segments(InnerReceipt {
+            proof: root_proof,
+            values: all_proof.public_values.clone(),
+            claim: ReceiptClaim {
+                elf_id: u32_array_to_u8_vec(&all_proof.public_values.roots_before.root),
+                commit: all_proof.public_values.userdata.clone(),
+            },
+        }))
     }
 
     pub fn prove_root_with_assumption(
@@ -759,12 +768,11 @@ where
         config: &StarkConfig,
         timing: &mut TimingTree,
         assumptions: AssumptionReceipts<F, C, D>,
-    ) -> anyhow::Result<(
-        ProofWithPublicInputs<F, C, D>,
-        PublicValues,
-        Rc<RefCell<AssumptionUsage<F, C, D>>>,
-    )> {
-        let (all_proof, receipts) =
+    ) -> anyhow::Result<Receipt<F, C, D>> {
+        if assumptions.is_empty() {
+            return self.prove_root(all_stark, kernel, config, timing);
+        }
+        let (all_proof, assumption_used) =
             prove_with_assumptions::<F, C, D>(all_stark, kernel, config, timing, assumptions)?;
         verify_proof(all_stark, all_proof.clone(), config).unwrap();
         let mut root_inputs = PartialWitness::new();
@@ -812,30 +820,46 @@ where
 
         let root_proof = self.root.circuit.prove(root_inputs)?;
 
-        Ok((root_proof, all_proof.public_values, receipts))
+        let program_receipt = InnerReceipt {
+            proof: root_proof,
+            values: all_proof.public_values.clone(),
+            claim: ReceiptClaim {
+                elf_id: u32_array_to_u8_vec(&all_proof.public_values.roots_before.root),
+                commit: all_proof.public_values.userdata.clone(),
+            },
+        };
+        Ok(Receipt::Composite(CompositeReceipt {
+            program_receipt,
+            assumption_used,
+        }))
     }
 
-    pub fn verify_root(&self, agg_proof: ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
-        self.root.circuit.verify(agg_proof)
+    pub fn verify_root(&self, agg_receipt: Receipt<F, C, D>) -> anyhow::Result<()> {
+        self.root.circuit.verify(agg_receipt.proof())
     }
 
     pub fn prove_aggregation(
         &self,
         lhs_is_agg: bool,
-        lhs_proof: &ProofWithPublicInputs<F, C, D>,
+        lhs_receipt: &Receipt<F, C, D>,
         rhs_is_agg: bool,
-        rhs_proof: &ProofWithPublicInputs<F, C, D>,
-        public_values: PublicValues,
-    ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
+        rhs_receipt: &Receipt<F, C, D>,
+    ) -> anyhow::Result<Receipt<F, C, D>> {
         let mut agg_inputs = PartialWitness::new();
 
+        let public_values = PublicValues {
+            roots_before: lhs_receipt.values().roots_before,
+            roots_after: rhs_receipt.values().roots_after,
+            userdata: rhs_receipt.values().userdata,
+        };
+
         agg_inputs.set_bool_target(self.aggregation.lhs.is_agg, lhs_is_agg);
-        agg_inputs.set_proof_with_pis_target(&self.aggregation.lhs.agg_proof, lhs_proof);
-        agg_inputs.set_proof_with_pis_target(&self.aggregation.lhs.evm_proof, lhs_proof);
+        agg_inputs.set_proof_with_pis_target(&self.aggregation.lhs.agg_proof, &lhs_receipt.proof());
+        agg_inputs.set_proof_with_pis_target(&self.aggregation.lhs.evm_proof, &lhs_receipt.proof());
 
         agg_inputs.set_bool_target(self.aggregation.rhs.is_agg, rhs_is_agg);
-        agg_inputs.set_proof_with_pis_target(&self.aggregation.rhs.agg_proof, rhs_proof);
-        agg_inputs.set_proof_with_pis_target(&self.aggregation.rhs.evm_proof, rhs_proof);
+        agg_inputs.set_proof_with_pis_target(&self.aggregation.rhs.agg_proof, &rhs_receipt.proof());
+        agg_inputs.set_proof_with_pis_target(&self.aggregation.rhs.evm_proof, &rhs_receipt.proof());
 
         agg_inputs.set_verifier_data_target(
             &self.aggregation.cyclic_vk,
@@ -852,16 +876,34 @@ where
         })?;
 
         let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
-        Ok((aggregation_proof, public_values))
+        let inner = InnerReceipt {
+            proof: aggregation_proof,
+            values: public_values,
+            claim: ReceiptClaim {
+                elf_id: lhs_receipt.claim().clone().elf_id,
+                commit: rhs_receipt.claim().clone().commit,
+            },
+        };
+
+        let assumptions = lhs_receipt.assumptions();
+        for assumption in rhs_receipt.assumptions().borrow().iter() {
+            assumptions.borrow_mut().insert(0, assumption.clone());
+        }
+
+        if assumptions.borrow().is_empty() {
+            Ok(Receipt::Segments(inner))
+        } else {
+            Ok(Receipt::Composite(CompositeReceipt {
+                program_receipt: inner,
+                assumption_used: assumptions,
+            }))
+        }
     }
 
-    pub fn verify_aggregation(
-        &self,
-        agg_proof: &ProofWithPublicInputs<F, C, D>,
-    ) -> anyhow::Result<()> {
-        self.aggregation.circuit.verify(agg_proof.clone())?;
+    pub fn verify_aggregation(&self, receipt: &Receipt<F, C, D>) -> anyhow::Result<()> {
+        self.aggregation.circuit.verify(receipt.proof())?;
         check_cyclic_proof_verifier_data(
-            agg_proof,
+            &receipt.proof(),
             &self.aggregation.circuit.verifier_only,
             &self.aggregation.circuit.common,
         )
@@ -869,37 +911,39 @@ where
 
     pub fn prove_block(
         &self,
-        opt_parent_block_proof: Option<&ProofWithPublicInputs<F, C, D>>,
-        agg_root_proof: &ProofWithPublicInputs<F, C, D>,
-        public_values: PublicValues,
-    ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
+        opt_parent_block_receipt: Option<&Receipt<F, C, D>>,
+        agg_root_receipt: &Receipt<F, C, D>,
+    ) -> anyhow::Result<Receipt<F, C, D>> {
         let mut block_inputs = PartialWitness::new();
 
         block_inputs.set_bool_target(
             self.block.has_parent_block,
-            opt_parent_block_proof.is_some(),
+            opt_parent_block_receipt.is_some(),
         );
-        if let Some(parent_block_proof) = opt_parent_block_proof {
-            block_inputs
-                .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
+        if let Some(parent_block_receipt) = opt_parent_block_receipt {
+            block_inputs.set_proof_with_pis_target(
+                &self.block.parent_block_proof,
+                &parent_block_receipt.proof(),
+            );
         } else {
             // Initialize `state_root_after`.
             let mut nonzero_pis = HashMap::new();
             let state_trie_root_before_keys = 0..8;
             for (key, &value) in
-                state_trie_root_before_keys.zip_eq(&public_values.roots_before.root)
+                state_trie_root_before_keys.zip_eq(&agg_root_receipt.values().roots_before.root)
             {
                 nonzero_pis.insert(key, F::from_canonical_u32(value));
             }
 
             let state_trie_root_after_keys = 8..16;
-            for (key, &value) in state_trie_root_after_keys.zip_eq(&public_values.roots_before.root)
+            for (key, &value) in
+                state_trie_root_after_keys.zip_eq(&agg_root_receipt.values().roots_before.root)
             {
                 nonzero_pis.insert(key, F::from_canonical_u32(value));
             }
 
-            let userdata_keys = 16..16 + public_values.userdata.len();
-            for (key, &value) in userdata_keys.zip_eq(&public_values.userdata) {
+            let userdata_keys = 16..16 + agg_root_receipt.values().userdata.len();
+            for (key, &value) in userdata_keys.zip_eq(&agg_root_receipt.values().userdata) {
                 nonzero_pis.insert(key, F::from_canonical_u8(value));
             }
 
@@ -913,24 +957,56 @@ where
             );
         }
 
-        block_inputs.set_proof_with_pis_target(&self.block.agg_root_proof, agg_root_proof);
+        block_inputs
+            .set_proof_with_pis_target(&self.block.agg_root_proof, &agg_root_receipt.proof());
 
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
-        set_public_value_targets(&mut block_inputs, &self.block.public_values, &public_values)
-            .map_err(|_| {
-                anyhow::Error::msg("Invalid conversion when setting public values targets.")
-            })?;
+        set_public_value_targets(
+            &mut block_inputs,
+            &self.block.public_values,
+            &agg_root_receipt.values(),
+        )
+        .map_err(|_| {
+            anyhow::Error::msg("Invalid conversion when setting public values targets.")
+        })?;
 
         let block_proof = self.block.circuit.prove(block_inputs)?;
-        Ok((block_proof, public_values))
+        let inner = InnerReceipt {
+            proof: block_proof,
+            values: agg_root_receipt.values(),
+            claim: agg_root_receipt.claim(),
+        };
+        match agg_root_receipt {
+            Receipt::Segments(_receipt) => Ok(Receipt::Segments(inner)),
+            Receipt::Composite(receipt) => Ok(Receipt::Composite(CompositeReceipt {
+                program_receipt: inner,
+                assumption_used: receipt.assumption_used.clone(),
+            })),
+        }
     }
 
-    pub fn verify_block(&self, block_proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
-        self.block.circuit.verify(block_proof.clone())?;
+    pub fn verify_block(&self, block_receipt: &Receipt<F, C, D>) -> anyhow::Result<()> {
+        self.block.circuit.verify(block_receipt.proof())?;
+        match block_receipt {
+            Receipt::Segments(_receipt) => (),
+            Receipt::Composite(receipt) => {
+                for assumption in receipt.assumption_used.borrow_mut().iter_mut() {
+                    let receipt = assumption.1.clone();
+                    match receipt {
+                        AssumptionReceipt::<F, C, D>::Proven(inner) => {
+                            self.verify_root(Receipt::Segments(*inner))?;
+                        }
+                        AssumptionReceipt::Unresolved(assumpt) => {
+                            log::error!("unresolved assumption: {:X?}", assumpt);
+                        }
+                    }
+                }
+            }
+        };
         check_cyclic_proof_verifier_data(
-            block_proof,
+            &block_receipt.proof(),
             &self.block.circuit.verifier_only,
             &self.block.circuit.common,
         )
