@@ -123,34 +123,38 @@ pub fn prove_segments(
         all_circuits.verify_aggregation(&agg_receipt)?;
     }
 
-    let block_receipt = all_circuits.prove_block(None, &agg_receipt)?;
-
     log::info!(
         "proof size: {:?}",
         serde_json::to_string(&agg_receipt.proof().proof)
             .unwrap()
             .len()
     );
+    let final_receipt =  if seg_file_number > 1 {
+        let block_receipt = all_circuits.prove_block(None, &agg_receipt)?;
+        all_circuits.verify_block(&block_receipt)?;
+        let build_path = "../verifier/data".to_string();
+        let path = format!("{}/test_circuit/", build_path);
+        let builder = WrapperBuilder::<DefaultParameters, 2>::new();
+        let mut circuit = builder.build();
+        circuit.set_data(all_circuits.block.circuit);
+        let mut bit_size = vec![32usize; 16];
+        bit_size.extend(vec![8; 32]);
+        bit_size.extend(vec![64; 68]);
+        let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(
+            circuit,
+            Some((vec![], bit_size)),
+        );
+        let wrapped_proof = wrapped_circuit.prove(&block_receipt.proof()).unwrap();
+        wrapped_proof.save(path).unwrap();
+    
+        block_receipt
+    } else {
+        agg_receipt
+    };
 
-    all_circuits.verify_block(&block_receipt)?;
 
-    let build_path = "../verifier/data".to_string();
-    let path = format!("{}/test_circuit/", build_path);
-    let builder = WrapperBuilder::<DefaultParameters, 2>::new();
-    let mut circuit = builder.build();
-    circuit.set_data(all_circuits.block.circuit);
-    let mut bit_size = vec![32usize; 16];
-    bit_size.extend(vec![8; 32]);
-    bit_size.extend(vec![64; 68]);
-    let wrapped_circuit = WrappedCircuit::<InnerParameters, OuterParameters, D>::build(
-        circuit,
-        Some((vec![], bit_size)),
-    );
     log::info!("build finish");
 
-    let wrapped_proof = wrapped_circuit.prove(&block_receipt.proof()).unwrap();
-    wrapped_proof.save(path).unwrap();
-
     total_timing.filter(Duration::from_millis(100)).print();
-    Ok(block_receipt)
+    Ok(final_receipt)
 }
