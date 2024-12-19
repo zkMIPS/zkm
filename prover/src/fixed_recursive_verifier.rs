@@ -38,7 +38,7 @@ use crate::generation::state::{
 };
 use crate::get_challenges::observe_public_values_target;
 use crate::proof::{MemRootsTarget, PublicValues, PublicValuesTarget, StarkProofWithMetadata};
-use crate::prover::{prove, prove_with_assumptions};
+use crate::prover::{prove_with_output_and_assumptions, prove_with_outputs};
 use crate::recursive_verifier::{
     add_common_recursion_gates, add_virtual_public_values, recursive_stark_circuit,
     set_public_value_targets, PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
@@ -704,7 +704,7 @@ where
         config: &StarkConfig,
         timing: &mut TimingTree,
     ) -> anyhow::Result<Receipt<F, C, D>> {
-        let all_proof = prove::<F, C, D>(all_stark, kernel, config, timing)?;
+        let (all_proof, output) = prove_with_outputs::<F, C, D>(all_stark, kernel, config, timing)?;
         verify_proof(all_stark, all_proof.clone(), config).unwrap();
         let mut root_inputs = PartialWitness::new();
 
@@ -756,7 +756,7 @@ where
             values: all_proof.public_values.clone(),
             claim: ReceiptClaim {
                 elf_id: u32_array_to_u8_vec(&all_proof.public_values.roots_before.root),
-                commit: all_proof.public_values.userdata.clone(),
+                commit: output.output.clone(),
             },
         }))
     }
@@ -772,8 +772,13 @@ where
         if assumptions.is_empty() {
             return self.prove_root(all_stark, kernel, config, timing);
         }
-        let (all_proof, assumption_used) =
-            prove_with_assumptions::<F, C, D>(all_stark, kernel, config, timing, assumptions)?;
+        let (all_proof, output, assumption_used) = prove_with_output_and_assumptions::<F, C, D>(
+            all_stark,
+            kernel,
+            config,
+            timing,
+            assumptions,
+        )?;
         verify_proof(all_stark, all_proof.clone(), config).unwrap();
         let mut root_inputs = PartialWitness::new();
 
@@ -825,7 +830,7 @@ where
             values: all_proof.public_values.clone(),
             claim: ReceiptClaim {
                 elf_id: u32_array_to_u8_vec(&all_proof.public_values.roots_before.root),
-                commit: all_proof.public_values.userdata.clone(),
+                commit: output.output.clone(),
             },
         };
         Ok(Receipt::Composite(CompositeReceipt {
