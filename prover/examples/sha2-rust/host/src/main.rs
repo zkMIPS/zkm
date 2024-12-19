@@ -214,7 +214,7 @@ fn prove_multi_seg_common(
     result
 }
 
-const ELF_PATH: &str = "../guest/elf/mips-unknown-linux-musl";
+const ELF_PATH: &str = "../guest/elf/mips-zkm-zkvm-elf";
 
 fn prove_sha2_rust() {
     // 1. split ELF into segs

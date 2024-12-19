@@ -45,13 +45,17 @@ pub(crate) fn get_program_build_args(args: &BuildArgs) -> Vec<String> {
 pub(crate) fn get_rust_compiler_flags() -> String {
     let rust_flags = [
         "-C".to_string(),
-        "target-cpu=mips32".to_string(),
-        "--cfg".to_string(),
-        "target_os=\"zkvm\"".to_string(),
+        "target-cpu=mips2".to_string(),
         "-C".to_string(),
         "target-feature=+crt-static".to_string(),
         "-C".to_string(),
+        "link-arg=-nostdlib".to_string(),
+        "-C".to_string(),
         "link-arg=-g".to_string(),
+        //"-C".to_string(),
+        //"link-arg=-nostartfiles".to_string(),
+        "-C".to_string(),
+        "link-arg=--entry=main".to_string(),
     ];
     rust_flags.join("\x1f")
 }
