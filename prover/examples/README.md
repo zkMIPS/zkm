@@ -52,21 +52,10 @@ ARGS="711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d world!" R
 
 ## Prove the Rust code 
 
-**Note**: the "mips-linux-muslsf-cross" supports Linux only. If your are using a MacOS, please refer to [#147](https://github.com/zkMIPS/zkm/issues/147). 
-
-* Download and install toolchain for mips
+* Download and install toolchain for mips-zkm-zkvm-elf
 
 ```
-wget http://musl.cc/mips-linux-muslsf-cross.tgz
-tar -zxvf mips-linux-muslsf-cross.tgz
-```
-
-* Modify ~/.cargo/config:
-
-```
-[target.mips-unknown-linux-musl]
-linker = "<path-to>/mips-linux-muslsf-cross/bin/mips-linux-muslsf-gcc"
-rustflags = ["--cfg", 'target_os="zkvm"',"-C", "target-feature=+crt-static", "-C", "link-arg=-g"]
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/zkMIPS/toolchain/refs/heads/main/setup.sh | sh
 ```
 
 * Build and run Sha2/revme (**new**)
