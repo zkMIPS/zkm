@@ -81,15 +81,11 @@ pub fn verify<T: Serialize>(image_id: Vec<u8>, public_input: &T) {
     bincode::serialize_into(&mut buf, public_input).expect("serialization failed");
 
     let mut hasher = Sha256::new();
-    hasher.update(buf);
-    let input_digest: [u8; 32] = hasher.finalize().into();
-
-    let mut hasher = Sha256::new();
     hasher.update(image_id);
-    hasher.update(input_digest);
+    hasher.update(buf);
     let digest: [u8; 32] = hasher.finalize().into();
 
-    unsafe { syscall_verify(&digest, &ZERO) }
+    unsafe { syscall_verify(&digest) }
 }
 
 pub fn hint_slice(buf: &[u8]) {
