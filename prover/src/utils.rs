@@ -129,7 +129,7 @@ pub fn prove_segments(
             .unwrap()
             .len()
     );
-    let final_receipt =  if seg_file_number > 1 {
+    let final_receipt = if seg_file_number > 1 {
         let block_receipt = all_circuits.prove_block(None, &agg_receipt)?;
         all_circuits.verify_block(&block_receipt)?;
         let build_path = "../verifier/data".to_string();
@@ -146,12 +146,11 @@ pub fn prove_segments(
         );
         let wrapped_proof = wrapped_circuit.prove(&block_receipt.proof()).unwrap();
         wrapped_proof.save(path).unwrap();
-    
+
         block_receipt
     } else {
         agg_receipt
     };
-
 
     log::info!("build finish");
 

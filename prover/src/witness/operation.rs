@@ -987,7 +987,7 @@ pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     addr: usize,
     size: usize,
 ) -> Result<()> {
-    assert!(size == 64);
+    assert!(size == 32);
     let mut claim_digest = [0u8; 32];
     {
         let mut cpu_row = CpuColumnsView::default();
