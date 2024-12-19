@@ -65,7 +65,7 @@ fn prove_sha2_precompile() {
         233, 189, 123, 198, 181, 39, 175, 7, 129, 62, 199, 185, 16,
     ];
     log::info!("private input value: {:?}", private_input);
-    state.add_input_stream(&private_input.to_vec());
+    state.add_input_stream(&private_input);
 
     state.add_input_stream(&image_id);
 
