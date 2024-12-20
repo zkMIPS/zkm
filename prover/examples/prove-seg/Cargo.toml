@@ -7,10 +7,7 @@ publish = false
 [dependencies]
 zkm-prover = { workspace = true }
 zkm-emulator = { workspace = true }
-plonky2 = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
-plonky2_util = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
-plonky2_maybe_rayon = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
-plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x", branch = "zkm" }
+zkm-utils = { path = "../utils" }
 
 log = { version = "0.4.14", default-features = false }
 serde = { version = "1.0.144", features = ["derive"] }

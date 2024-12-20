@@ -987,7 +987,7 @@ pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     addr: usize,
     size: usize,
 ) -> Result<()> {
-    assert!(size == 64);
+    assert!(size == 32);
     let mut claim_digest = [0u8; 32];
     {
         let mut cpu_row = CpuColumnsView::default();
@@ -1001,22 +1001,9 @@ pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
         state.traces.push_cpu(cpu_row);
     }
 
-    let mut control_root = [0u8; 32];
-    {
-        let mut cpu_row = CpuColumnsView::default();
-        cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-        for i in 0..8 {
-            let address = MemoryAddress::new(0, Segment::Code, addr + 32 + i * 4);
-            let (mem, op) = mem_read_gp_with_log_and_fill(i, address, state, &mut cpu_row);
-            control_root[i * 4..i * 4 + 4].copy_from_slice(mem.to_be_bytes().as_ref());
-            state.traces.push_memory(op);
-        }
-        state.traces.push_cpu(cpu_row);
-    }
+    log::debug!("SYS_VERIFY: ({:?})", claim_digest);
 
-    log::debug!("SYS_VERIFY: ({:?}, {:?})", claim_digest, control_root);
-
-    let assumption = state.find_assumption(&claim_digest, &control_root);
+    let assumption = state.find_assumption(&claim_digest);
 
     // Mark the assumption as accessed, pushing it to the head of the list, and return the success code.
     match assumption {
@@ -1073,6 +1060,38 @@ pub(crate) fn load_input<
     Ok(())
 }
 
+pub(crate) fn commit<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    state: &mut GenerationState<F, C, D>,
+    addr: usize,
+    size: usize,
+) -> Result<()> {
+    let map_addr = addr;
+
+    let mut cpu_row = CpuColumnsView::default();
+    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+    let mut j = 0;
+    for i in (0..size).step_by(4) {
+        if j == 8 {
+            state.traces.push_cpu(cpu_row);
+            cpu_row = CpuColumnsView::default();
+            cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+            j = 0;
+        }
+
+        // Get each byte in the chunk
+        let addr = MemoryAddress::new(0, Segment::Code, map_addr + i);
+        let (data, mem_op) = mem_read_gp_with_log_and_fill(j, addr, state, &mut cpu_row);
+        state.traces.push_memory(mem_op);
+        let len = if i + 3 >= size { size - i } else { 4 };
+        state
+            .public_values_stream
+            .extend_from_slice(&data.to_be_bytes()[..len]);
+        j += 1;
+    }
+    state.traces.push_cpu(cpu_row);
+    Ok(())
+}
+
 pub(crate) fn generate_syscall<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -1091,6 +1110,7 @@ pub(crate) fn generate_syscall<
     let mut is_load_preimage = false;
     let mut is_load_input = false;
     let mut is_verify = false;
+    let mut is_commit = false;
     let result = match sys_num {
         SYSGETPID => {
             row.general.syscall_mut().sysnum[0] = F::ONE;
@@ -1178,11 +1198,17 @@ pub(crate) fn generate_syscall<
             row.general.syscall_mut().sysnum[6] = F::ONE;
             match a0 {
                 // fdStdout
-                FD_STDOUT | FD_STDERR | FD_PUBLIC_VALUES | FD_HINT => {
+                FD_STDOUT | FD_STDERR | FD_HINT => {
                     row.general.syscall_mut().a0[1] = F::ONE;
                     row.general.syscall_mut().cond[7] = F::ONE;
                     v0 = a2;
                 } // fdStdout
+                FD_PUBLIC_VALUES => {
+                    row.general.syscall_mut().a0[1] = F::ONE;
+                    row.general.syscall_mut().cond[7] = F::ONE;
+                    is_commit = true;
+                    v0 = a2;
+                }
                 _ => {
                     row.general.syscall_mut().a0[2] = F::ONE;
                     row.general.syscall_mut().cond[6] = F::ONE;
@@ -1261,6 +1287,9 @@ pub(crate) fn generate_syscall<
 
     if is_verify {
         let _ = verify(state, a1, a2);
+    }
+    if is_commit {
+        let _ = commit(state, a1, a2);
     }
     result
 }

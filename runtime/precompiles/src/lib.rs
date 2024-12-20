@@ -16,5 +16,5 @@ extern "C" {
     pub fn syscall_hint_len() -> usize;
     pub fn syscall_hint_read(ptr: *mut u8, len: usize);
     pub fn sys_alloc_aligned(bytes: usize, align: usize) -> *mut u8;
-    pub fn syscall_verify(claim_digest: &[u8; 32], control_root: &[u8; 32]);
+    pub fn syscall_verify(claim_digest: &[u8; 32]);
 }

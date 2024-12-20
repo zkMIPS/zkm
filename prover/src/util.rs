@@ -1,6 +1,5 @@
-use std::mem::{size_of, transmute_copy, ManuallyDrop};
-
 use itertools::Itertools;
+use std::mem::{size_of, transmute_copy, ManuallyDrop};
 
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
@@ -60,4 +59,12 @@ pub(crate) unsafe fn transmute_no_compile_time_size_checks<T, U>(value: T) -> U 
     let value = ManuallyDrop::new(value);
     // Copy the bit pattern. The original value is no longer safe to use.
     transmute_copy(&value)
+}
+
+pub fn u32_array_to_u8_vec(u32_array: &[u32; 8]) -> Vec<u8> {
+    let mut u8_vec = Vec::with_capacity(u32_array.len() * 4);
+    for &item in u32_array {
+        u8_vec.extend_from_slice(&item.to_le_bytes());
+    }
+    u8_vec
 }

@@ -2,8 +2,8 @@
 name = "zkm-build"
 description = "Build an ZKM program."
 readme = "README.md"
-version = "0.1.0"
-edition = "2021"
+version = { workspace = true }
+edition = { workspace = true }
 
 [dependencies]
 cargo_metadata = "0.18.1"
