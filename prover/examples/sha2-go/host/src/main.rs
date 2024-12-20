@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::env;
 
 use zkm_emulator::utils::{load_elf_with_patch, split_prog_into_segs};
-use zkm_prover::utils::prove_segments;
+use zkm_utils::utils::prove_segments;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum DataId {

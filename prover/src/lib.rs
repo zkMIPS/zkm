@@ -31,7 +31,6 @@ pub mod recursive_verifier;
 pub mod stark;
 pub mod stark_testing;
 pub mod util;
-pub mod utils;
 pub mod vanishing_poly;
 pub mod verifier;
 pub mod witness;

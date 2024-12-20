@@ -11,7 +11,15 @@ fn prove_segments() {
     let seg_start_id = env::var("SEG_START_ID").unwrap_or("0".to_string());
     let seg_start_id = seg_start_id.parse::<_>().unwrap_or(0usize);
 
-    let _ =utils::prove_segments(&seg_dir, &basedir, &block, &file, seg_num, seg_start_id, vec![]);
+    let _ = utils::prove_segments(
+        &seg_dir,
+        &basedir,
+        &block,
+        &file,
+        seg_num,
+        seg_start_id,
+        vec![],
+    );
 }
 
 fn main() {

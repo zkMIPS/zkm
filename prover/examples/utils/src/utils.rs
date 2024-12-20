@@ -10,11 +10,11 @@ use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::prelude::DefaultParameters;
 
-use crate::all_stark::AllStark;
-use crate::config::StarkConfig;
-use crate::cpu::kernel::assembler::segment_kernel;
-use crate::fixed_recursive_verifier::AllRecursiveCircuits;
-use crate::generation::state::{AssumptionReceipts, Receipt};
+use zkm_prover::all_stark::AllStark;
+use zkm_prover::config::StarkConfig;
+use zkm_prover::cpu::kernel::assembler::segment_kernel;
+use zkm_prover::fixed_recursive_verifier::AllRecursiveCircuits;
+use zkm_prover::generation::state::{AssumptionReceipts, Receipt};
 
 const DEGREE_BITS_RANGE: [Range<usize>; 6] = [10..21, 12..22, 12..21, 8..21, 6..21, 13..23];
 

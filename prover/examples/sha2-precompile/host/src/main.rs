@@ -3,17 +3,14 @@ use std::env;
 use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
 use zkm_emulator::utils::{load_elf_with_patch, split_prog_into_segs};
-use zkm_prover::utils::prove_segments;
 use zkm_prover::generation::state::{AssumptionReceipts, Receipt};
+use zkm_utils::utils::prove_segments;
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 type F = <C as GenericConfig<D>>::F;
 
-fn prove_sha_5_precompile(
-    elf_path: &str,
-    seg_path: &str,
-) -> Receipt<F, C, D> {
+fn prove_sha_5_precompile(elf_path: &str, seg_path: &str) -> Receipt<F, C, D> {
     let mut state = load_elf_with_patch(elf_path, vec![]);
     let n: u32 = 5;
     let public_input: [u8; 32] = [

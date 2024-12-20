@@ -1,9 +1,9 @@
 use std::env;
-use std::io::Read;
 use std::fs::File;
+use std::io::Read;
 
 use zkm_emulator::utils::{load_elf_with_patch, split_prog_into_segs};
-use zkm_prover::utils::prove_segments;
+use zkm_utils::utils::prove_segments;
 
 const ELF_PATH: &str = "../guest/elf/mips-zkm-zkvm-elf";
 

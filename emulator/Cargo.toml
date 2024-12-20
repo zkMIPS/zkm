@@ -1,7 +1,7 @@
 [package]
 name = "zkm-emulator"
-version = "0.1.0"
-edition = "2021"
+version = { workspace = true }
+edition = { workspace = true }
 
 [dependencies]
 plonky2 = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
