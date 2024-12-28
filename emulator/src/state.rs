@@ -1049,7 +1049,7 @@ impl InstrumentedState {
                         return rt << shamt; // sll
                     } else if fun == 0x02 {
                         if (insn >> 21) & 0x1F == 1 {
-                            return rt >> shamt | rt << (32 - shamt); // ror
+                            return (rt >> shamt) | (rt << (32 - shamt)); // ror
                         } else if (insn >> 21) & 0x1F == 0 {
                             return rt >> shamt; // srl
                         }
