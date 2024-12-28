@@ -27,7 +27,7 @@ pub(crate) fn generate<F: PrimeField64>(
             let (diff, cy) = left_in.overflowing_sub(right_in);
             let mut cy_val = cy as u32;
             if (left_in & 0x80000000u32) != (right_in & 0x80000000u32) {
-                cy_val = 1u32 << 16 | (!cy as u32);
+                cy_val = (1u32 << 16) | (!cy as u32);
             }
 
             u32_to_array(&mut lv[AUX_INPUT_REGISTER_0], diff);
