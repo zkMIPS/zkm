@@ -152,46 +152,54 @@ impl<T: Copy> Traces<T> {
             poseidon_sponge_ops,
         } = self;
 
-        let mut memory_trace= vec![];
-        let mut arithmetic_trace= vec![];
-        let mut cpu_trace= vec![];
-        let mut poseidon_trace= vec![];
-        let mut poseidon_sponge_trace= vec![];
+        let mut memory_trace = vec![];
+        let mut arithmetic_trace = vec![];
+        let mut cpu_trace = vec![];
+        let mut poseidon_trace = vec![];
+        let mut poseidon_sponge_trace = vec![];
         let mut logic_trace = vec![];
 
         timed!(
             timing,
             "convert trace to table parallelly",
             rayon::join(
-                ||
-                    rayon::join (
-                        ||  memory_trace = all_stark.memory_stark.generate_trace(
-                                memory_ops,
-                                &mut TimingTree::new("memory", log::Level::Info),
-                            ),
-                        ||  arithmetic_trace = all_stark.arithmetic_stark.generate_trace(arithmetic_ops),
+                || rayon::join(
+                    || memory_trace = all_stark.memory_stark.generate_trace(
+                        memory_ops,
+                        &mut TimingTree::new("memory", log::Level::Info),
                     ),
-                ||  {
-                    rayon::join (
-                        ||  cpu_trace = trace_rows_to_poly_values(
+                    || arithmetic_trace = all_stark.arithmetic_stark.generate_trace(arithmetic_ops),
+                ),
+                || {
+                    rayon::join(
+                        || {
+                            cpu_trace = trace_rows_to_poly_values(
                                 cpu.into_iter().map(|x| x.into()).collect(),
-                            ),
-                        ||  poseidon_trace =  all_stark.poseidon_stark.generate_trace(
-                                poseidon_inputs, min_rows,
+                            )
+                        },
+                        || {
+                            poseidon_trace = all_stark.poseidon_stark.generate_trace(
+                                poseidon_inputs,
+                                min_rows,
                                 &mut TimingTree::new("poseidon", log::Level::Info),
-                            ),
+                            )
+                        },
                     );
-                    rayon::join (
-                        ||  poseidon_sponge_trace =  all_stark.poseidon_sponge_stark.generate_trace(
+                    rayon::join(
+                        || {
+                            poseidon_sponge_trace = all_stark.poseidon_sponge_stark.generate_trace(
                                 poseidon_sponge_ops,
                                 min_rows,
                                 &mut TimingTree::new("poseidon_sponge", log::Level::Info),
-                            ),
-                        ||  logic_trace =  all_stark.logic_stark.generate_trace(
+                            )
+                        },
+                        || {
+                            logic_trace = all_stark.logic_stark.generate_trace(
                                 logic_ops,
                                 min_rows,
                                 &mut TimingTree::new("logic", log::Level::Info),
-                            ),
+                            )
+                        },
                     );
                 },
             )
