@@ -1,7 +1,9 @@
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
+use plonky2::timed;
 use plonky2::util::timing::TimingTree;
+use plonky2_maybe_rayon::rayon;
 use std::cmp::max;
 
 use crate::all_stark::{AllStark, MIN_TRACE_LEN, NUM_TABLES};
@@ -134,7 +136,7 @@ impl<T: Copy> Traces<T> {
         self,
         all_stark: &AllStark<T, D>,
         config: &StarkConfig,
-        _timing: &mut TimingTree,
+        timing: &mut TimingTree,
     ) -> [Vec<PolynomialValues<T>>; NUM_TABLES]
     where
         T: RichField + Extendable<D>,
@@ -157,38 +159,42 @@ impl<T: Copy> Traces<T> {
         let mut poseidon_sponge_trace= vec![];
         let mut logic_trace = vec![];
 
-        rayon::join(
-            ||
-                rayon::join (
-                    ||  memory_trace = all_stark.memory_stark.generate_trace(
-                            memory_ops,
-                            &mut TimingTree::new("memory", log::Level::Info),
-                        ),
-                    ||  arithmetic_trace = all_stark.arithmetic_stark.generate_trace(arithmetic_ops),
-                ),
-            ||  {
-                rayon::join (
-                    ||  cpu_trace = trace_rows_to_poly_values(
-                            cpu.into_iter().map(|x| x.into()).collect(),
-                        ),
-                    ||  poseidon_trace =  all_stark.poseidon_stark.generate_trace(
-                            poseidon_inputs, min_rows,
-                            &mut TimingTree::new("poseidon", log::Level::Info),
-                        ),
-                );
-                rayon::join (
-                    ||  poseidon_sponge_trace =  all_stark.poseidon_sponge_stark.generate_trace(
-                            poseidon_sponge_ops,
-                            min_rows,
-                            &mut TimingTree::new("poseidon_sponge", log::Level::Info),
-                        ),
-                    ||  logic_trace =  all_stark.logic_stark.generate_trace(
-                            logic_ops,
-                            min_rows,
-                            &mut TimingTree::new("logic", log::Level::Info),
-                        ),
-                );
-            },
+        timed!(
+            timing,
+            "convert trace to table parallelly",
+            rayon::join(
+                ||
+                    rayon::join (
+                        ||  memory_trace = all_stark.memory_stark.generate_trace(
+                                memory_ops,
+                                &mut TimingTree::new("memory", log::Level::Info),
+                            ),
+                        ||  arithmetic_trace = all_stark.arithmetic_stark.generate_trace(arithmetic_ops),
+                    ),
+                ||  {
+                    rayon::join (
+                        ||  cpu_trace = trace_rows_to_poly_values(
+                                cpu.into_iter().map(|x| x.into()).collect(),
+                            ),
+                        ||  poseidon_trace =  all_stark.poseidon_stark.generate_trace(
+                                poseidon_inputs, min_rows,
+                                &mut TimingTree::new("poseidon", log::Level::Info),
+                            ),
+                    );
+                    rayon::join (
+                        ||  poseidon_sponge_trace =  all_stark.poseidon_sponge_stark.generate_trace(
+                                poseidon_sponge_ops,
+                                min_rows,
+                                &mut TimingTree::new("poseidon_sponge", log::Level::Info),
+                            ),
+                        ||  logic_trace =  all_stark.logic_stark.generate_trace(
+                                logic_ops,
+                                min_rows,
+                                &mut TimingTree::new("logic", log::Level::Info),
+                            ),
+                    );
+                },
+            )
         );
 
         [
