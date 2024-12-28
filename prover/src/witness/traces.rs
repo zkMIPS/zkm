@@ -3,7 +3,7 @@ use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
-use plonky2_maybe_rayon::rayon;
+use plonky2_maybe_rayon::rayon::prelude::*;
 use std::cmp::max;
 
 use crate::all_stark::{AllStark, MIN_TRACE_LEN, NUM_TABLES};
@@ -147,72 +147,45 @@ impl<T: Copy> Traces<T> {
             arithmetic_ops,
             cpu,
             logic_ops,
-            memory_ops,
+            mut memory_ops,
             poseidon_inputs,
             poseidon_sponge_ops,
         } = self;
 
-        let mut memory_trace = vec![];
-        let mut arithmetic_trace = vec![];
-        let mut cpu_trace = vec![];
-        let mut poseidon_trace = vec![];
-        let mut poseidon_sponge_trace = vec![];
-        let mut logic_trace = vec![];
+        let conversion_funcs: Vec<Box<dyn FnMut() -> Vec<PolynomialValues<T>> + Send + Sync>> = vec![
+            Box::new(|| all_stark.arithmetic_stark.generate_trace(&arithmetic_ops)),
+            Box::new(|| {
+                trace_rows_to_poly_values(cpu.clone().into_iter().map(|x| x.into()).collect())
+            }),
+            Box::new(|| {
+                all_stark
+                    .poseidon_stark
+                    .generate_trace(&poseidon_inputs, min_rows)
+            }),
+            Box::new(|| {
+                all_stark
+                    .poseidon_sponge_stark
+                    .generate_trace(&poseidon_sponge_ops, min_rows)
+            }),
+            Box::new(|| {
+                all_stark
+                    .logic_stark
+                    .generate_trace(logic_ops.clone(), min_rows)
+            }),
+            Box::new(|| all_stark.memory_stark.generate_trace(&mut memory_ops)),
+        ];
 
-        timed!(
+        let traces: Vec<Vec<PolynomialValues<T>>> = timed!(
             timing,
             "convert trace to table parallelly",
-            rayon::join(
-                || rayon::join(
-                    || memory_trace = all_stark.memory_stark.generate_trace(
-                        memory_ops,
-                        &mut TimingTree::new("memory", log::Level::Info),
-                    ),
-                    || arithmetic_trace = all_stark.arithmetic_stark.generate_trace(arithmetic_ops),
-                ),
-                || {
-                    rayon::join(
-                        || {
-                            cpu_trace = trace_rows_to_poly_values(
-                                cpu.into_iter().map(|x| x.into()).collect(),
-                            )
-                        },
-                        || {
-                            poseidon_trace = all_stark.poseidon_stark.generate_trace(
-                                poseidon_inputs,
-                                min_rows,
-                                &mut TimingTree::new("poseidon", log::Level::Info),
-                            )
-                        },
-                    );
-                    rayon::join(
-                        || {
-                            poseidon_sponge_trace = all_stark.poseidon_sponge_stark.generate_trace(
-                                poseidon_sponge_ops,
-                                min_rows,
-                                &mut TimingTree::new("poseidon_sponge", log::Level::Info),
-                            )
-                        },
-                        || {
-                            logic_trace = all_stark.logic_stark.generate_trace(
-                                logic_ops,
-                                min_rows,
-                                &mut TimingTree::new("logic", log::Level::Info),
-                            )
-                        },
-                    );
-                },
-            )
+            conversion_funcs
+                .into_par_iter()
+                .map(|mut convert| convert())
+                .collect()
         );
-
-        [
-            arithmetic_trace,
-            cpu_trace,
-            poseidon_trace,
-            poseidon_sponge_trace,
-            logic_trace,
-            memory_trace,
-        ]
+        let trace_table: [Vec<PolynomialValues<T>>; NUM_TABLES] =
+            traces.try_into().expect("invalid traces");
+        trace_table
     }
 }
 
