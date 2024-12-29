@@ -30,7 +30,7 @@ fn prove_sha_5_precompile(elf_path: &str, seg_path: &str) -> Receipt<F, C, D> {
     prove_segments(seg_path, "", "", "", 1, 0, vec![]).unwrap()
 }
 
-const ELF_PATH: &str = "../guest/elf/mips-unknown-linux-musl";
+const ELF_PATH: &str = "../guest/elf/mips-zkm-zkvm-elf";
 
 fn prove_sha2_precompile() {
     // 1. split ELF into segs

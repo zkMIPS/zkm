@@ -86,5 +86,5 @@ cargo check
 * Build and run the sha2-precompile (**new**)
 ```
 cd ../../sha2-precompile/host
-RUST_LOG=info PRECOMPILE_PATH=../../sha2-rust/guest/elf/mips-unknown-linux-musl SEG_OUTPUT=/tmp/output cargo run --release
+RUST_LOG=info PRECOMPILE_PATH=../../sha2-rust/guest/elf/mips-zkm-zkvm-elf SEG_OUTPUT=/tmp/output cargo run --release
 ```
