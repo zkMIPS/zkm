@@ -94,6 +94,11 @@ where
     Ok((proof, outputs))
 }
 
+fn fast_copy<F: RichField>(vec_polys: &Vec<PolynomialValues<F>>) -> Vec<PolynomialValues<F>> {
+    println!("fast_copy {:?} {:?}", vec_polys.len(),vec_polys[0].values.len());
+    vec_polys.par_iter().map(|poly| poly.clone()).collect()
+}
+
 /// Generate traces, then create all STARK proofs. Returns information about the post-state,
 /// intended for debugging, in addition to the proof.
 pub fn prove_with_output_and_assumptions<F, C, const D: usize>(
