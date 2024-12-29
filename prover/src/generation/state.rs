@@ -9,6 +9,7 @@ use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{cell::RefCell, rc::Rc};
 
@@ -19,18 +20,19 @@ pub(crate) struct GenerationStateCheckpoint {
     pub(crate) traces: TraceCheckpoint,
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, Hash, PartialEq)]
 pub struct Assumption {
     pub claim: [u8; 32],
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReceiptClaim {
     pub elf_id: Vec<u8>, // pre image id
     pub commit: Vec<u8>, // commit info
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(bound = "")]
 pub struct InnerReceipt<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub proof: ProofWithPublicInputs<F, C, D>,
     pub values: PublicValues,
@@ -52,7 +54,8 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(bound = "")]
 pub enum AssumptionReceipt<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     // A [Receipt] for a proven assumption.
@@ -102,7 +105,8 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(bound = "")]
 pub struct CompositeReceipt<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -127,7 +131,8 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(bound = "")]
 pub enum Receipt<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     Segments(InnerReceipt<F, C, D>),
     Composite(CompositeReceipt<F, C, D>),
