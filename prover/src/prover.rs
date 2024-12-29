@@ -27,13 +27,15 @@ use crate::cross_table_lookup::{
     GrandProductChallengeSet,
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::generation::generate_traces;
 use crate::generation::outputs::GenerationOutputs;
+use crate::generation::state::{AssumptionReceipts, AssumptionUsage};
+use crate::generation::{generate_traces, generate_traces_with_assumptions};
 use crate::get_challenges::observe_public_values;
 use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
+use std::{cell::RefCell, rc::Rc};
 
 #[cfg(any(feature = "test", test))]
 use crate::cross_table_lookup::testutils::check_ctls;
@@ -53,6 +55,22 @@ where
     Ok(proof)
 }
 
+pub fn prove_with_assumptions<F, C, const D: usize>(
+    all_stark: &AllStark<F, D>,
+    kernel: &Kernel,
+    config: &StarkConfig,
+    timing: &mut TimingTree,
+    assumptions: AssumptionReceipts<F, C, D>,
+) -> Result<(AllProof<F, C, D>, Rc<RefCell<AssumptionUsage<F, C, D>>>)>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    let (proof, _outputs, receipts) =
+        prove_with_output_and_assumptions(all_stark, kernel, config, timing, assumptions)?;
+    Ok((proof, receipts))
+}
+
 /// Generate traces, then create all STARK proofs. Returns information about the post-state,
 /// intended for debugging, in addition to the proof.
 pub fn prove_with_outputs<F, C, const D: usize>(
@@ -69,16 +87,46 @@ where
         timing,
         log::Level::Info,
         "generate all traces",
-        generate_traces(all_stark, kernel, config, timing)?
+        generate_traces::<F, C, D>(all_stark, kernel, config, timing)?
     );
 
     let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
     Ok((proof, outputs))
 }
-fn fast_copy<F: RichField>(vec_polys: &Vec<PolynomialValues<F>>) -> Vec<PolynomialValues<F>> {
-    println!("fast_copy {:?} {:?}", vec_polys.len(),vec_polys[0].values.len());
-    vec_polys.par_iter().map(|poly| poly.clone()).collect()
+
+/// Generate traces, then create all STARK proofs. Returns information about the post-state,
+/// intended for debugging, in addition to the proof.
+pub fn prove_with_output_and_assumptions<F, C, const D: usize>(
+    all_stark: &AllStark<F, D>,
+    kernel: &Kernel,
+    config: &StarkConfig,
+    timing: &mut TimingTree,
+    assumptions: AssumptionReceipts<F, C, D>,
+) -> Result<(
+    AllProof<F, C, D>,
+    GenerationOutputs,
+    Rc<RefCell<AssumptionUsage<F, C, D>>>,
+)>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    let (traces, public_values, outputs, receipts) = timed!(
+        timing,
+        "generate all traces",
+        generate_traces_with_assumptions::<F, C, D>(
+            all_stark,
+            kernel,
+            config,
+            timing,
+            assumptions
+        )?
+    );
+
+    let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
+    Ok((proof, outputs, receipts))
 }
+
 /// Compute all STARK proofs.
 pub(crate) fn prove_with_traces<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,

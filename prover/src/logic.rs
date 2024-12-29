@@ -7,8 +7,6 @@ use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
-use plonky2::timed;
-use plonky2::util::timing::TimingTree;
 use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -149,19 +147,9 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
         &self,
         operations: Vec<Operation>,
         min_rows: usize,
-        timing: &mut TimingTree,
     ) -> Vec<PolynomialValues<F>> {
-        let trace_rows = timed!(
-            timing,
-            "generate trace rows",
-            self.generate_trace_rows(operations, min_rows)
-        );
-        let trace_polys = timed!(
-            timing,
-            "convert to PolynomialValues",
-            trace_rows_to_poly_values(trace_rows)
-        );
-        trace_polys
+        let trace_rows = self.generate_trace_rows(operations, min_rows);
+        trace_rows_to_poly_values(trace_rows)
     }
 
     fn generate_trace_rows(
@@ -187,7 +175,8 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_COLUMNS>
+    type EvaluationFrame<FE, P, const D2: usize>
+        = StarkFrame<P, NUM_COLUMNS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;

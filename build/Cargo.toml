@@ -1,0 +1,13 @@
+[package]
+name = "zkm-build"
+description = "Build an ZKM program."
+readme = "README.md"
+version = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+cargo_metadata = "0.18.1"
+anyhow = { version = "1.0.83" }
+clap = { version = "4.5.9", features = ["derive", "env"] }
+dirs = "5.0.1"
+chrono = { version = "0.4.38", default-features = false, features = ["clock"] }

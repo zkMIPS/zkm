@@ -702,6 +702,10 @@ impl InstrumentedState {
                 log::trace!("set local user {:X} {:X} {:X}", a0, a1, a2);
                 self.state.local_user = a0;
             }
+            0xF2 => {
+                log::trace!("sys_verify {:X} {:X} {:X}", a0, a1, a2);
+                // DO Nothing Here
+            }
             _ => {}
         }
 
@@ -1045,7 +1049,7 @@ impl InstrumentedState {
                         return rt << shamt; // sll
                     } else if fun == 0x02 {
                         if (insn >> 21) & 0x1F == 1 {
-                            return rt >> shamt | rt << (32 - shamt); // ror
+                            return (rt >> shamt) | (rt << (32 - shamt)); // ror
                         } else if (insn >> 21) & 0x1F == 0 {
                             return rt >> shamt; // srl
                         }

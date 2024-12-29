@@ -9,7 +9,7 @@ edition = "2021"
 #path = "src/lib.rs"
 
 [dependencies]
-zkm-runtime = { path = "../../../runtime/entrypoint" }
+zkm-runtime = { path = "../../../../runtime/entrypoint" }
 revm = { git = "https://github.com/powdr-labs/revm", branch = "serde-no-std", default-features = false, features = [ "serde" ] }
 
 #models = { path = "../models" }
@@ -17,10 +17,6 @@ models = { git = "https://github.com/eigmax/powdr-revme", branch = "continuation
 serde = { version = "1.0", default-features = false, features = ["alloc", "derive", "rc"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 k256 = { version = "0.13.3", features = ["ecdsa"], default-features = false }
-
-# TODO can be removed once the powdr RISCV nightly is updated
-ahash = { version = "=0.8.6", default-features = false }
-
 libc = { version = "0.2" , features = ["extra_traits"] }
 
 [profile.dev]

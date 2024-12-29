@@ -9,8 +9,6 @@ use plonky2::field::types::PrimeField64;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::timed;
-use plonky2::util::timing::TimingTree;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, Filter};
@@ -106,7 +104,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
     /// in our lookup arguments, as those are computed after transposing to column-wise form.
     fn generate_trace_rows(
         &self,
-        inputs_and_timestamps: Vec<([F; SPONGE_WIDTH], usize)>,
+        inputs_and_timestamps: &[([F; SPONGE_WIDTH], usize)],
         min_rows: usize,
     ) -> Vec<[F; NUM_COLUMNS]> {
         let num_rows = inputs_and_timestamps
@@ -148,22 +146,12 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
 
     pub fn generate_trace(
         &self,
-        inputs: Vec<([F; SPONGE_WIDTH], usize)>,
+        inputs: &[([F; SPONGE_WIDTH], usize)],
         min_rows: usize,
-        timing: &mut TimingTree,
     ) -> Vec<PolynomialValues<F>> {
         // Generate the witness, except for permuted columns in the lookup argument.
-        let trace_rows = timed!(
-            timing,
-            "generate trace rows",
-            self.generate_trace_rows(inputs, min_rows)
-        );
-        let trace_polys = timed!(
-            timing,
-            "convert to PolynomialValues",
-            trace_rows_to_poly_values(trace_rows)
-        );
-        trace_polys
+        let trace_rows = self.generate_trace_rows(inputs, min_rows);
+        trace_rows_to_poly_values(trace_rows)
     }
 }
 
@@ -606,10 +594,11 @@ fn eval_packed_generic<P: PackedField>(lv: &[P], yield_constr: &mut ConstraintCo
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_COLUMNS>
-        where
-            FE: FieldExtension<D2, BaseField = F>,
-            P: PackedField<Scalar = FE>;
+    type EvaluationFrame<FE, P, const D2: usize>
+        = StarkFrame<P, NUM_COLUMNS>
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
 
     type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_COLUMNS>;
 
@@ -744,7 +733,7 @@ mod tests {
         init_logger();
 
         let input: ([F; SPONGE_WIDTH], usize) = (F::rand_array(), 0);
-        let rows = stark.generate_trace_rows(vec![input], 4);
+        let rows = stark.generate_trace_rows(&[input], 4);
 
         let mut constraint_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -774,11 +763,7 @@ mod tests {
             (0..NUM_PERMS).map(|_| (F::rand_array(), 0)).collect();
 
         let mut timing = TimingTree::new("prove", log::Level::Debug);
-        let trace_poly_values = timed!(
-            timing,
-            "generate trace",
-            stark.generate_trace(input, 8, &mut timing)
-        );
+        let trace_poly_values = stark.generate_trace(&input, 8);
 
         // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
         // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.

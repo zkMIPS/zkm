@@ -1,15 +1,18 @@
 //! Ported from Precompiles for SP1 zkVM.
 
 #![allow(unused_unsafe)]
+use crate::syscall_verify;
 use crate::syscall_write;
 use crate::{syscall_hint_len, syscall_hint_read};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use std::alloc::Layout;
 use std::io::Write;
 
 const FD_HINT: u32 = 4;
 pub const FD_PUBLIC_VALUES: u32 = 3;
+pub const ZERO: [u8; 32] = [0u8; 32];
 
 #[allow(dead_code)]
 pub struct SyscallWriter {
@@ -71,6 +74,18 @@ pub fn commit<T: Serialize>(value: &T) {
     let mut buf = Vec::new();
     bincode::serialize_into(&mut buf, value).expect("serialization failed");
     commit_slice(buf.as_slice());
+}
+
+pub fn verify<T: Serialize>(image_id: Vec<u8>, public_input: &T) {
+    let mut buf = Vec::new();
+    bincode::serialize_into(&mut buf, public_input).expect("serialization failed");
+
+    let mut hasher = Sha256::new();
+    hasher.update(image_id);
+    hasher.update(buf);
+    let digest: [u8; 32] = hasher.finalize().into();
+
+    unsafe { syscall_verify(&digest) }
 }
 
 pub fn hint_slice(buf: &[u8]) {

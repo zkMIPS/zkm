@@ -152,7 +152,7 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         }
     }
 
-    pub(crate) fn generate_trace(&self, operations: Vec<Operation>) -> Vec<PolynomialValues<F>> {
+    pub(crate) fn generate_trace(&self, operations: &Vec<Operation>) -> Vec<PolynomialValues<F>> {
         // The number of rows reserved is the smallest value that's
         // guaranteed to avoid a reallocation: The only ops that use
         // two rows are the modular operations and DIV, so the only
@@ -188,7 +188,8 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_ARITH_COLUMNS>
+    type EvaluationFrame<FE, P, const D2: usize>
+        = StarkFrame<P, NUM_ARITH_COLUMNS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
@@ -344,7 +345,7 @@ mod tests {
 
         let ops: Vec<Operation> = vec![add, mul, div0, div1, divu, mult0, mult1, multu];
 
-        let pols = stark.generate_trace(ops);
+        let pols = stark.generate_trace(&ops);
 
         // Trace should always have NUM_ARITH_COLUMNS columns and
         // min(RANGE_MAX, operations.len()) rows. In this case there
@@ -397,7 +398,7 @@ mod tests {
             .map(|_| Operation::binary(BinaryOperator::MULT, rng.gen::<u32>(), rng.gen::<u32>()))
             .collect::<Vec<_>>();
 
-        let pols = stark.generate_trace(ops);
+        let pols = stark.generate_trace(&ops);
 
         // Trace should always have NUM_ARITH_COLUMNS columns and
         // min(RANGE_MAX, operations.len()) rows. In this case there

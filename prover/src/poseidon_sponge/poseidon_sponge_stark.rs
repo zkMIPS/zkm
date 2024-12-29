@@ -10,8 +10,6 @@ use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
-use plonky2::timed;
-use plonky2::util::timing::TimingTree;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, Filter};
@@ -188,29 +186,17 @@ pub struct PoseidonSpongeStark<F, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> PoseidonSpongeStark<F, D> {
     pub(crate) fn generate_trace(
         &self,
-        operations: Vec<PoseidonSpongeOp>,
+        operations: &Vec<PoseidonSpongeOp>,
         min_rows: usize,
-        timing: &mut TimingTree,
     ) -> Vec<PolynomialValues<F>> {
         // Generate the witness row-wise.
-        let trace_rows = timed!(
-            timing,
-            "generate trace rows",
-            self.generate_trace_rows(operations, min_rows)
-        );
-
-        let trace_polys = timed!(
-            timing,
-            "convert to PolynomialValues",
-            trace_rows_to_poly_values(trace_rows)
-        );
-
-        trace_polys
+        let trace_rows = self.generate_trace_rows(operations, min_rows);
+        trace_rows_to_poly_values(trace_rows)
     }
 
     fn generate_trace_rows(
         &self,
-        operations: Vec<PoseidonSpongeOp>,
+        operations: &Vec<PoseidonSpongeOp>,
         min_rows: usize,
     ) -> Vec<[F; NUM_POSEIDON_SPONGE_COLUMNS]> {
         let base_len: usize = operations
@@ -228,7 +214,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonSpongeStark<F, D> {
         rows
     }
 
-    fn generate_rows_for_op(&self, op: PoseidonSpongeOp) -> Vec<[F; NUM_POSEIDON_SPONGE_COLUMNS]> {
+    fn generate_rows_for_op(&self, op: &PoseidonSpongeOp) -> Vec<[F; NUM_POSEIDON_SPONGE_COLUMNS]> {
         let mut rows = Vec::with_capacity(op.input.len() / POSEIDON_RATE_BYTES + 1);
 
         let mut sponge_state = [F::ZEROS; SPONGE_WIDTH];
@@ -237,7 +223,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonSpongeStark<F, D> {
         let mut already_absorbed_bytes = 0;
         for block in input_blocks.by_ref() {
             let row = self.generate_full_input_row(
-                &op,
+                op,
                 already_absorbed_bytes,
                 sponge_state,
                 block.try_into().unwrap(),
@@ -252,7 +238,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonSpongeStark<F, D> {
 
         rows.push(
             self.generate_final_row(
-                &op,
+                op,
                 already_absorbed_bytes,
                 sponge_state,
                 input_blocks.remainder(),
@@ -377,10 +363,11 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonSpongeStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonSpongeStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_POSEIDON_SPONGE_COLUMNS>
-        where
-            FE: FieldExtension<D2, BaseField = F>,
-            P: PackedField<Scalar = FE>;
+    type EvaluationFrame<FE, P, const D2: usize>
+        = StarkFrame<P, NUM_POSEIDON_SPONGE_COLUMNS>
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
 
     type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_POSEIDON_SPONGE_COLUMNS>;
 
@@ -689,7 +676,7 @@ mod tests {
             input,
         };
         let stark = S::default();
-        let rows = stark.generate_rows_for_op(op);
+        let rows = stark.generate_rows_for_op(&op);
         assert_eq!(rows.len(), 1);
         let last_row: &PoseidonSpongeColumnsView<F> = rows.last().unwrap().borrow();
         let output = last_row

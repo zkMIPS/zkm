@@ -7,8 +7,6 @@ use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
-use plonky2::timed;
-use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 use plonky2_maybe_rayon::*;
 
@@ -134,12 +132,12 @@ pub fn generate_first_change_flags_and_rc<F: RichField>(trace_rows: &mut [[F; NU
 impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     /// Generate most of the trace rows. Excludes a few columns like `COUNTER`, which are generated
     /// later, after transposing to column-major form.
-    fn generate_trace_row_major(&self, mut memory_ops: Vec<MemoryOp>) -> Vec<[F; NUM_COLUMNS]> {
+    fn generate_trace_row_major(&self, memory_ops: &mut Vec<MemoryOp>) -> Vec<[F; NUM_COLUMNS]> {
         // fill_gaps expects an ordered list of operations.
         memory_ops.sort_by_key(MemoryOp::sorting_key);
-        Self::fill_gaps(&mut memory_ops);
+        Self::fill_gaps(memory_ops);
 
-        Self::pad_memory_ops(&mut memory_ops);
+        Self::pad_memory_ops(memory_ops);
 
         // fill_gaps may have added operations at the end which break the order, so sort again.
         memory_ops.sort_by_key(MemoryOp::sorting_key);
@@ -227,15 +225,10 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
 
     pub(crate) fn generate_trace(
         &self,
-        memory_ops: Vec<MemoryOp>,
-        timing: &mut TimingTree,
+        memory_ops: &mut Vec<MemoryOp>,
     ) -> Vec<PolynomialValues<F>> {
         // Generate most of the trace in row-major form.
-        let trace_rows = timed!(
-            timing,
-            "generate trace rows",
-            self.generate_trace_row_major(memory_ops)
-        );
+        let trace_rows = self.generate_trace_row_major(memory_ops);
         let trace_row_vecs: Vec<_> = trace_rows.into_iter().map(|row| row.to_vec()).collect();
 
         // Transpose to column-major form.
@@ -252,7 +245,8 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_COLUMNS>
+    type EvaluationFrame<FE, P, const D2: usize>
+        = StarkFrame<P, NUM_COLUMNS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
