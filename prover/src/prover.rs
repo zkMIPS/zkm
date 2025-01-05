@@ -161,15 +161,47 @@ where
             .into_iter()
             .zip_eq(Table::all())
             .map(|(trace, table)| {
-                timed!(
-                    timing,
-                    &format!("compute trace commitment for {:?}", table),
-                    PolynomialBatch::<F, C, D>::from_values_cuda(
-                        // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
-                        // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
-                        trace, rate_bits, false, cap_height, timing, None,
+                let mut total_item: u64 = 0;
+                trace.iter().for_each(|item|{
+                    total_item += item.len() as u64;
+                });
+                log::info!(
+                    "prove_with_traces trace_len: {} total_item {}, item_size: {} rate_bits: {} cap_height: {} table: {:?}",
+                    trace.len(),
+                    total_item,
+                    std::mem::size_of::<F>(),
+                    rate_bits,
+                    cap_height,
+                    table
+                );
+                // 2**25 33554432
+                if trace[0].len() <= 33554432usize {
+                    timed!(
+                        timing,
+                        &format!("gpu compute trace commitment for {:?}", table),
+                        PolynomialBatch::<F, C, D>::from_values_cuda(
+                            // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
+                            // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
+                            trace, rate_bits, false, cap_height, timing, None,
+                        )
                     )
-                )
+                } else {
+                    timed!(
+                        timing,
+                        &format!("cpu compute trace commitment for {:?}", table),
+                        PolynomialBatch::<F, C, D>::from_values(
+                            // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
+                            // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
+                            trace.clone(),
+                            rate_bits,
+                            false,
+                            cap_height,
+                            timing,
+                            None,
+                        )
+                    )
+                }
+
             })
             .collect::<Vec<_>>()
     );
@@ -434,19 +466,49 @@ where
     };
     assert!(!auxiliary_polys.is_empty(), "No CTL?");
 
-    let auxiliary_polys_commitment = timed!(
-        timing,
-        log::Level::Info,
-        "compute auxiliary polynomials commitment",
-        PolynomialBatch::from_values_cuda(
-            auxiliary_polys,
-            rate_bits,
-            false,
-            config.fri_config.cap_height,
-            timing,
-            None,
-        )
+    let mut total_item: u64 = 0;
+    auxiliary_polys.iter().for_each(|item|{
+        total_item += item.len() as u64;
+    });
+
+    log::info!(
+        "prove_single_table {} total_item {}, item_size: {} rate_bits: {} cap_height: {}",
+        auxiliary_polys.len(),
+        total_item,
+        std::mem::size_of::<F>(),
+        rate_bits,
+        config.fri_config.cap_height,
     );
+
+    // 2**25 33554432
+    let auxiliary_polys_commitment = if auxiliary_polys[0].len() <= 33554432usize {
+         timed!(
+            timing,
+            log::Level::Info,
+            "compute auxiliary polynomials commitment",
+            PolynomialBatch::from_values_cuda(
+                auxiliary_polys,
+                rate_bits,
+                false,
+                config.fri_config.cap_height,
+                timing,
+                None,
+            )
+        )
+    } else {
+        timed!(
+            timing,
+            "compute auxiliary polynomials commitment",
+            PolynomialBatch::from_values(
+                auxiliary_polys,
+                rate_bits,
+                false,
+                config.fri_config.cap_height,
+                timing,
+                None,
+            )
+        )
+    };
 
     let auxiliary_polys_cap = auxiliary_polys_commitment.merkle_tree.cap.clone();
     challenger.observe_cap(&auxiliary_polys_cap);
