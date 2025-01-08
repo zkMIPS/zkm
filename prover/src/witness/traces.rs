@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
@@ -11,6 +12,10 @@ use crate::arithmetic::{BinaryOperator, Operation};
 use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
 
+use crate::keccak::keccak_stark;
+use crate::keccak_sponge;
+use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
+use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::poseidon::constants::SPONGE_WIDTH;
 use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeOp;
@@ -24,6 +29,8 @@ pub struct TraceCheckpoint {
     pub(self) cpu_len: usize,
     pub(self) poseidon_len: usize,
     pub(self) poseidon_sponge_len: usize,
+    pub(self) keccak_len: usize,
+    pub(self) keccak_sponge_len: usize,
     pub(self) logic_len: usize,
     pub(self) memory_len: usize,
 }
@@ -36,6 +43,8 @@ pub(crate) struct Traces<T: Copy> {
     pub(crate) memory_ops: Vec<MemoryOp>,
     pub(crate) poseidon_inputs: Vec<([T; SPONGE_WIDTH], usize)>,
     pub(crate) poseidon_sponge_ops: Vec<PoseidonSpongeOp>,
+    pub(crate) keccak_inputs: Vec<([u64; keccak_stark::NUM_INPUTS], usize)>,
+    pub(crate) keccak_sponge_ops: Vec<KeccakSpongeOp>,
 }
 
 impl<T: Copy> Traces<T> {
@@ -47,6 +56,8 @@ impl<T: Copy> Traces<T> {
             memory_ops: vec![],
             poseidon_inputs: vec![],
             poseidon_sponge_ops: vec![],
+            keccak_inputs: vec![],
+            keccak_sponge_ops: vec![],
         }
     }
 
@@ -71,6 +82,12 @@ impl<T: Copy> Traces<T> {
                 .iter()
                 .map(|op| op.input.len() / POSEIDON_RATE_BYTES + 1)
                 .sum(),
+            keccak_len: self.keccak_inputs.len() * keccak_stark::NUM_ROUNDS,
+            keccak_sponge_len: self
+                .keccak_sponge_ops
+                .iter()
+                .map(|op| op.input.len() / keccak_sponge::columns::KECCAK_RATE_BYTES + 1)
+                .sum(),
             logic_len: self.logic_ops.len(),
             // This is technically a lower-bound, as we may fill gaps,
             // but this gives a relatively good estimate.
@@ -85,6 +102,8 @@ impl<T: Copy> Traces<T> {
             cpu_len: self.cpu.len(),
             poseidon_len: self.poseidon_inputs.len(),
             poseidon_sponge_len: self.poseidon_sponge_ops.len(),
+            keccak_len: self.keccak_inputs.len(),
+            keccak_sponge_len: self.keccak_sponge_ops.len(),
             logic_len: self.logic_ops.len(),
             memory_len: self.memory_ops.len(),
         }
@@ -96,6 +115,9 @@ impl<T: Copy> Traces<T> {
         self.poseidon_inputs.truncate(checkpoint.poseidon_len);
         self.poseidon_sponge_ops
             .truncate(checkpoint.poseidon_sponge_len);
+        self.keccak_inputs.truncate(checkpoint.keccak_len);
+        self.keccak_sponge_ops
+            .truncate(checkpoint.keccak_sponge_len);
         self.logic_ops.truncate(checkpoint.logic_len);
         self.memory_ops.truncate(checkpoint.memory_len);
     }
@@ -128,6 +150,24 @@ impl<T: Copy> Traces<T> {
         self.poseidon_sponge_ops.push(op);
     }
 
+    pub fn push_keccak(&mut self, input: [u64; keccak_stark::NUM_INPUTS], clock: usize) {
+        self.keccak_inputs.push((input, clock));
+    }
+
+    pub fn push_keccak_bytes(&mut self, input: [u8; KECCAK_WIDTH_BYTES], clock: usize) {
+        let chunks = input
+            .chunks(size_of::<u64>())
+            .map(|chunk| u64::from_le_bytes(chunk.try_into().unwrap()))
+            .collect_vec()
+            .try_into()
+            .unwrap();
+        self.push_keccak(chunks, clock);
+    }
+
+    pub fn push_keccak_sponge(&mut self, op: KeccakSpongeOp) {
+        self.keccak_sponge_ops.push(op);
+    }
+
     pub fn clock(&self) -> usize {
         self.cpu.len()
     }
@@ -150,6 +190,8 @@ impl<T: Copy> Traces<T> {
             mut memory_ops,
             poseidon_inputs,
             poseidon_sponge_ops,
+            keccak_inputs,
+            keccak_sponge_ops,
         } = self;
 
         let mut memory_trace = vec![];
@@ -157,6 +199,8 @@ impl<T: Copy> Traces<T> {
         let mut cpu_trace = vec![];
         let mut poseidon_trace = vec![];
         let mut poseidon_sponge_trace = vec![];
+        let mut keccak_trace = vec![];
+        let mut keccak_sponge_trace = vec![];
         let mut logic_trace = vec![];
 
         timed!(
@@ -187,6 +231,18 @@ impl<T: Copy> Traces<T> {
                                 .poseidon_sponge_stark
                                 .generate_trace(&poseidon_sponge_ops, min_rows)
                         },
+                        || {
+                            keccak_trace = all_stark
+                                .keccak_stark
+                                .generate_trace(keccak_inputs, min_rows)
+                        },
+                    );
+                    rayon::join(
+                        || {
+                            keccak_sponge_trace = all_stark
+                                .keccak_sponge_stark
+                                .generate_trace(keccak_sponge_ops, min_rows)
+                        },
                         || logic_trace = all_stark.logic_stark.generate_trace(logic_ops, min_rows),
                     );
                 },
@@ -198,6 +254,8 @@ impl<T: Copy> Traces<T> {
             cpu_trace,
             poseidon_trace,
             poseidon_sponge_trace,
+            keccak_trace,
+            keccak_sponge_trace,
             logic_trace,
             memory_trace,
         ]

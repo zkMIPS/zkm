@@ -8,8 +8,6 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::plonk_common::reduce_with_powers_ext_circuit;
-use plonky2::timed;
-use plonky2::util::timing::TimingTree;
 
 use super::columns::reg_input_limb;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -231,19 +229,10 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         &self,
         inputs: Vec<([u64; NUM_INPUTS], usize)>,
         min_rows: usize,
-        timing: &mut TimingTree,
     ) -> Vec<PolynomialValues<F>> {
         // Generate the witness, except for permuted columns in the lookup argument.
-        let trace_rows = timed!(
-            timing,
-            "generate trace rows",
-            self.generate_trace_rows(inputs, min_rows)
-        );
-        let trace_polys = timed!(
-            timing,
-            "convert to PolynomialValues",
-            trace_rows_to_poly_values(trace_rows)
-        );
+        let trace_rows = self.generate_trace_rows(inputs, min_rows);
+        let trace_polys = trace_rows_to_poly_values(trace_rows);
         trace_polys
     }
 }
@@ -713,11 +702,7 @@ mod tests {
             (0..NUM_PERMS).map(|_| (rand::random(), 0)).collect();
 
         let mut timing = TimingTree::new("prove", log::Level::Debug);
-        let trace_poly_values = timed!(
-            timing,
-            "generate trace",
-            stark.generate_trace(input, 8, &mut timing)
-        );
+        let trace_poly_values = stark.generate_trace(input, 8);
 
         // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
         // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.

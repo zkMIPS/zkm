@@ -1,6 +1,7 @@
 //! Ported from Precompiles for SP1 zkVM.
 
 #![allow(unused_unsafe)]
+use crate::syscall_keccak;
 use crate::syscall_verify;
 use crate::syscall_write;
 use crate::{syscall_hint_len, syscall_hint_read};
@@ -109,4 +110,35 @@ pub fn print(buf: Vec<u8>) {
     SyscallWriter { fd: 2u32 }
         .write_all(buf.as_slice())
         .unwrap();
+}
+
+pub fn keccak(data: &[u8]) -> [u8; 32] {
+    let len = data.len();
+    let mut u32_array = Vec::new();
+
+    // 每 4 个字节转换为一个 u32
+    for i in (0..len).step_by(4) {
+        if i + 4 <= len {
+            let u32_value = u32::from_be_bytes([data[0], data[1], data[2], data[3]]);
+            u32_array.push(u32_value);
+        } else {
+            let mut padded_chunk = [0u8; 4];
+            padded_chunk[..len - i].copy_from_slice(&data[i..]);
+            padded_chunk[len - i] = 1;
+            let end = len % 136;
+            if end + 4 > 136 {
+                padded_chunk[3] |= 0x80;
+            }
+            let u32_value = u32::from_be_bytes(padded_chunk);
+            u32_array.push(u32_value);
+        }
+    }
+
+    let mut result = [0u8; 32];
+    // Read the vec into uninitialized memory. The syscall assumes the memory is uninitialized,
+    // which should be true because the allocator does not dealloc, so a new alloc should be fresh.
+    unsafe {
+        syscall_keccak(u32_array.as_ptr(), len, result.as_mut_ptr());
+    }
+    result
 }
