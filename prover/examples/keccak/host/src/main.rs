@@ -16,14 +16,18 @@ fn prove_keccak_rust() {
     let args = env::var("ARGS").unwrap_or("data-to-hash".to_string());
     // assume the first arg is the hash output(which is a public input), and the second is the input.
     let args: Vec<&str> = args.split_whitespace().collect();
-    assert_eq!(args.len(), 2);
+    assert!(args.len() >= 1);
 
     let public_input: Vec<u8> = hex::decode(args[0]).unwrap();
     state.add_input_stream(&public_input);
     log::info!("expected public value in hex: {:X?}", args[0]);
     log::info!("expected public value: {:X?}", public_input);
 
-    let private_input = hex::decode(args[1]).unwrap();
+    let private_input: Vec<u8> = if args.len() > 1 {
+        hex::decode(args[1]).unwrap()
+    } else {
+        vec![]
+    };
     log::info!("private input value: {:X?}", private_input);
     state.add_input_stream(&private_input);
 
