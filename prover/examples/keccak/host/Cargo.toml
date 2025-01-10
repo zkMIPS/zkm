@@ -20,3 +20,5 @@ anyhow = "1.0.75"
 
 [build-dependencies]
 zkm-build = { workspace = true }
+[features]
+test = ["zkm-prover/test"]
