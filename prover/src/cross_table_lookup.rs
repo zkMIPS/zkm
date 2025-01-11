@@ -1415,7 +1415,6 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
 pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize>(
     cross_table_lookups: &[CrossTableLookup<F>],
     ctl_zs_first: [Vec<F>; NUM_TABLES],
-    ctl_extra_looking_sums: Vec<Vec<F>>,
     config: &StarkConfig,
 ) -> Result<()> {
     let mut ctl_zs_openings = ctl_zs_first.iter().map(|v| v.iter()).collect::<Vec<_>>();
@@ -1427,19 +1426,17 @@ pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: 
         },
     ) in cross_table_lookups.iter().enumerate()
     {
-        let extra_sum_vec = &ctl_extra_looking_sums[looked_table.table as usize];
         let mut filtered_looking_tables = vec![];
         for table in looking_tables {
             if !filtered_looking_tables.contains(&(table.table as usize)) {
                 filtered_looking_tables.push(table.table as usize);
             }
         }
-        for c in 0..config.num_challenges {
+        for _c in 0..config.num_challenges {
             let looking_zs_sum = filtered_looking_tables
                 .iter()
                 .map(|&table| *ctl_zs_openings[table].next().unwrap())
-                .sum::<F>()
-                + extra_sum_vec[c];
+                .sum::<F>();
 
             let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
             ensure!(
@@ -1458,7 +1455,6 @@ pub(crate) fn verify_cross_table_lookups_circuit<F: RichField + Extendable<D>, c
     builder: &mut CircuitBuilder<F, D>,
     cross_table_lookups: Vec<CrossTableLookup<F>>,
     ctl_zs_first: [Vec<Target>; NUM_TABLES],
-    ctl_extra_looking_sums: Vec<Vec<Target>>,
     inner_config: &StarkConfig,
 ) {
     let mut ctl_zs_openings = ctl_zs_first.iter().map(|v| v.iter()).collect::<Vec<_>>();
@@ -1467,21 +1463,18 @@ pub(crate) fn verify_cross_table_lookups_circuit<F: RichField + Extendable<D>, c
         looked_table,
     } in cross_table_lookups.into_iter()
     {
-        let extra_sum_vec = &ctl_extra_looking_sums[looked_table.table as usize];
         let mut filtered_looking_tables = vec![];
         for table in looking_tables {
             if !filtered_looking_tables.contains(&(table.table as usize)) {
                 filtered_looking_tables.push(table.table as usize);
             }
         }
-        for c in 0..inner_config.num_challenges {
-            let mut looking_zs_sum = builder.add_many(
+        for _c in 0..inner_config.num_challenges {
+            let looking_zs_sum = builder.add_many(
                 filtered_looking_tables
                     .iter()
                     .map(|&table| *ctl_zs_openings[table].next().unwrap()),
             );
-
-            looking_zs_sum = builder.add(looking_zs_sum, extra_sum_vec[c]);
 
             let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
             builder.connect(looked_z, looking_zs_sum);

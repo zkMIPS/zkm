@@ -9,7 +9,6 @@ pub enum MemoryChannel {
 
 use MemoryChannel::{Code, GeneralPurpose};
 
-//use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::memory::segments::Segment;
 
 impl MemoryChannel {
@@ -172,27 +171,8 @@ impl MemoryState {
         }
 
         let _segment = Segment::all()[address.segment];
-        /*
-        assert!(
-            u32::BITS as usize <= segment.bit_range(),
-            "Value {} exceeds {:?} range of {} bits",
-            val,
-            segment,
-            segment.bit_range()
-        );
-        */
         self.contexts[address.context].segments[address.segment].set(address.virt, val);
     }
-
-    /*
-    pub(crate) fn read_global_metadata(&self, field: GlobalMetadata) -> U256 {
-        self.get(MemoryAddress::new(
-            0,
-            Segment::GlobalMetadata,
-            field as usize,
-        ))
-    }
-    */
 }
 
 impl Default for MemoryState {
