@@ -1160,7 +1160,6 @@ pub(crate) fn generate_keccak<
 
     cpu_row = CpuColumnsView::default();
     cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-    cpu_row.is_keccak_sponge = F::ONE;
     map_addr = ptr;
     assert!(hash_data_be.len() == 8);
     for i in 0..hash_data_be.len() {
