@@ -543,10 +543,8 @@ impl InstrumentedState {
                     u32::from_be_bytes(core::array::from_fn(|j| result[i * 4 + j]))
                 });
                 assert!(result.len() == 8);
-                for i in 0..result.len() {
-                    self.state
-                        .memory
-                        .set_memory(a2 + ((i << 2) as u32), result[i]);
+                for (i, data) in result.iter().enumerate() {
+                    self.state.memory.set_memory(a2 + ((i << 2) as u32), *data);
                 }
             }
             0xF0 => {
