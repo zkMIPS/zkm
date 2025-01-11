@@ -505,17 +505,11 @@ where
             }
         }
 
-        // Extra sums to add to the looked last value.
-        // Only necessary for the Memory values.
-        let extra_looking_sums =
-            vec![vec![builder.zero(); stark_config.num_challenges]; NUM_TABLES];
-
         // Verify the CTL checks.
         verify_cross_table_lookups_circuit::<F, D>(
             &mut builder,
             all_cross_table_lookups(),
             pis.map(|p| p.ctl_zs_first),
-            extra_looking_sums,
             stark_config,
         );
 
