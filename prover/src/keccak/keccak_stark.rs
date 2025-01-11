@@ -232,8 +232,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
     ) -> Vec<PolynomialValues<F>> {
         // Generate the witness, except for permuted columns in the lookup argument.
         let trace_rows = self.generate_trace_rows(inputs, min_rows);
-        let trace_polys = trace_rows_to_poly_values(trace_rows);
-        trace_polys
+        trace_rows_to_poly_values(trace_rows)
     }
 }
 

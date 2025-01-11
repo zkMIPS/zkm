@@ -227,9 +227,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         // Generate the witness row-wise.
         let trace_rows = self.generate_trace_rows(operations, min_rows);
 
-        let trace_polys = trace_rows_to_poly_values(trace_rows);
-
-        trace_polys
+        trace_rows_to_poly_values(trace_rows)
     }
 
     fn generate_trace_rows(
