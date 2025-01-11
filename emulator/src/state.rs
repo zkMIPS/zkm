@@ -25,6 +25,7 @@ pub const PAGE_CYCLES: u64 = PAGE_LOAD_CYCLES + PAGE_HASH_CYCLES;
 pub const IMAGE_ID_CYCLES: u64 = 3;
 pub const MAX_INSTRUCTION_CYCLES: u64 = PAGE_CYCLES * 6; //TOFIX
 pub const RESERVE_CYCLES: u64 = IMAGE_ID_CYCLES + MAX_INSTRUCTION_CYCLES;
+use keccak_hash::keccak;
 
 // image_id = keccak(page_hash_root || end_pc)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
@@ -529,6 +530,23 @@ impl InstrumentedState {
         log::debug!("syscall {} {} {} {}", syscall_num, a0, a1, a2);
 
         match syscall_num {
+            0x010109 => {
+                assert!((a0 & 3) == 0);
+                assert!((a2 & 3) == 0);
+                let bytes = (0..a1)
+                    .map(|i| self.state.memory.byte(a0 + i))
+                    .collect::<Vec<u8>>();
+                log::debug!("keccak {:X?}", bytes);
+                let result = keccak(&bytes).0;
+                log::debug!("result {:X?}", result);
+                let result: [u32; 8] = core::array::from_fn(|i| {
+                    u32::from_be_bytes(core::array::from_fn(|j| result[i * 4 + j]))
+                });
+                assert!(result.len() == 8);
+                for (i, data) in result.iter().enumerate() {
+                    self.state.memory.set_memory(a2 + ((i << 2) as u32), *data);
+                }
+            }
             0xF0 => {
                 if self.state.input_stream_ptr >= self.state.input_stream.len() {
                     panic!("not enough vecs in hint input stream");
@@ -654,7 +672,9 @@ impl InstrumentedState {
                         v0 = a2;
                     }
                     FD_PUBLIC_VALUES => {
+                        log::debug!("commit {:X?}", slice);
                         self.state.public_values_stream.extend_from_slice(slice);
+
                         v0 = a2;
                     }
                     FD_HINT => {

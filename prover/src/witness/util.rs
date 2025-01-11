@@ -6,11 +6,13 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
 use crate::cpu::columns::CpuColumnsView;
+use crate::cpu::kernel::keccak_util::keccakf_u8s;
 use crate::cpu::membus::NUM_CHANNELS;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
 use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
 use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
+use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::logic;
 use crate::memory::segments::Segment;
 use crate::poseidon::constants::{SPONGE_RATE, SPONGE_WIDTH};
@@ -457,6 +459,94 @@ pub(crate) fn poseidon_sponge_log<
 
     //FIXME: how to setup the base address
     state.traces.push_poseidon_sponge(PoseidonSpongeOp {
+        base_address,
+        timestamp: clock * NUM_CHANNELS,
+        input,
+    });
+}
+
+pub(crate) fn keccak_sponge_log<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
+    base_address: Vec<MemoryAddress>,
+    input: Vec<u8>, // BE
+) {
+    let clock = state.traces.clock();
+
+    let mut absorbed_bytes = 0;
+    let mut input_blocks = input.chunks_exact(KECCAK_RATE_BYTES);
+    let mut sponge_state = [0u8; KECCAK_WIDTH_BYTES];
+    // Since the keccak read byte by byte, and the memory unit is of 4-byte, we just need to read
+    // the same memory for 4 keccak-op
+    let mut n_gp = 0;
+    for block in input_blocks.by_ref() {
+        for i in 0..block.len() {
+            //for &byte in block {
+            let align = (i / 4) * 4;
+            let val = u32::from_le_bytes(block[align..(align + 4)].try_into().unwrap());
+
+            let addr_idx = absorbed_bytes / 4;
+            state.traces.push_memory(MemoryOp::new(
+                MemoryChannel::GeneralPurpose(n_gp),
+                clock,
+                base_address[addr_idx],
+                MemoryOpKind::Read,
+                val.to_be(),
+            ));
+            n_gp += 1;
+            n_gp %= NUM_GP_CHANNELS - 1;
+            absorbed_bytes += 1;
+        }
+        xor_into_sponge(state, &mut sponge_state, block.try_into().unwrap());
+        state
+            .traces
+            .push_keccak_bytes(sponge_state, clock * NUM_CHANNELS);
+        keccakf_u8s(&mut sponge_state);
+    }
+
+    let rem = input_blocks.remainder();
+
+    // patch data to match sponge logic
+    let mut rem_data = [0u8; KECCAK_RATE_BYTES];
+    rem_data[0..rem.len()].copy_from_slice(&rem[0..rem.len()]);
+    rem_data[rem.len()] = 1;
+    rem_data[KECCAK_RATE_BYTES - 1] |= 0b10000000;
+    for i in 0..rem.len() {
+        let align = (i / 4) * 4;
+        let val = u32::from_le_bytes(rem_data[align..align + 4].try_into().unwrap());
+        let addr_idx = absorbed_bytes / 4;
+
+        state.traces.push_memory(MemoryOp::new(
+            MemoryChannel::GeneralPurpose(n_gp),
+            clock,
+            base_address[addr_idx],
+            MemoryOpKind::Read,
+            val.to_be(),
+        ));
+        n_gp += 1;
+        n_gp %= NUM_GP_CHANNELS - 1;
+        absorbed_bytes += 1;
+    }
+    let mut final_block = [0u8; KECCAK_RATE_BYTES];
+    final_block[..input_blocks.remainder().len()].copy_from_slice(input_blocks.remainder());
+    // pad10*1 rule
+    if input_blocks.remainder().len() == KECCAK_RATE_BYTES - 1 {
+        // Both 1s are placed in the same byte.
+        final_block[input_blocks.remainder().len()] = 0b10000001;
+    } else {
+        final_block[input_blocks.remainder().len()] = 1;
+        final_block[KECCAK_RATE_BYTES - 1] = 0b10000000;
+    }
+    xor_into_sponge(state, &mut sponge_state, &final_block);
+    state
+        .traces
+        .push_keccak_bytes(sponge_state, clock * NUM_CHANNELS);
+
+    //FIXME: how to setup the base address
+    state.traces.push_keccak_sponge(KeccakSpongeOp {
         base_address,
         timestamp: clock * NUM_CHANNELS,
         input,

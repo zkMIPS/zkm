@@ -17,4 +17,6 @@ extern "C" {
     pub fn syscall_hint_read(ptr: *mut u8, len: usize);
     pub fn sys_alloc_aligned(bytes: usize, align: usize) -> *mut u8;
     pub fn syscall_verify(claim_digest: &[u8; 32]);
+    /// Executes the Keccak-256 permutation on the given state.
+    pub fn syscall_keccak(state: *const u32, len: usize, result: *mut u8);
 }
