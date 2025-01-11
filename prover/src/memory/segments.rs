@@ -13,12 +13,10 @@ pub enum Segment {
     ShiftTable = 3,
     // Register file
     RegisterFile = 4,
-    // Global Meta
-    GlobalMetadata = 5,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 6;
+    pub(crate) const COUNT: usize = 5;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -27,7 +25,6 @@ impl Segment {
             Self::KernelGeneral2,
             Self::ShiftTable,
             Self::RegisterFile,
-            Self::GlobalMetadata,
         ]
     }
 
@@ -39,7 +36,6 @@ impl Segment {
             Segment::KernelGeneral2 => "SEGMENT_KERNEL_GENERAL_2",
             Segment::ShiftTable => "SEGMENT_SHIFT_TABLE",
             Segment::RegisterFile => "SEGMENT_REGISTERFILE_TABLE",
-            Segment::GlobalMetadata => "SEGMENT_GLOBAL_METADATA",
         }
     }
 
@@ -51,7 +47,6 @@ impl Segment {
             Segment::KernelGeneral2 => 256,
             Segment::ShiftTable => 32,
             Segment::RegisterFile => 32,
-            Segment::GlobalMetadata => 32,
         }
     }
 }
