@@ -124,7 +124,7 @@ pub fn keccak(data: &[u8]) -> [u8; 32] {
         ];
     }
 
-    // 每 4 个字节转换为一个 u32
+    // covert to u32 to align the memory
     for i in (0..len).step_by(4) {
         if i + 4 <= len {
             let u32_value = u32::from_be_bytes([data[0], data[1], data[2], data[3]]);
