@@ -10,10 +10,8 @@ edition = "2021"
 
 [dependencies]
 zkm-runtime = { path = "../../../../runtime/entrypoint" }
-revm = { git = "https://github.com/powdr-labs/revm", branch = "serde-no-std", default-features = false, features = [ "serde" ] }
-
-#models = { path = "../models" }
-models = { git = "https://github.com/eigmax/powdr-revme", branch = "continuations", package = "models" }
+revm = { git = "https://github.com/zkMIPS/revm", branch = "serde-no-std", default-features = false, features = [ "serde" ] }
+models = { git = "https://github.com/zkMIPS/powdr-revme", branch = "continuations", package = "models" }
 serde = { version = "1.0", default-features = false, features = ["alloc", "derive", "rc"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 k256 = { version = "0.13.3", features = ["ecdsa"], default-features = false }
