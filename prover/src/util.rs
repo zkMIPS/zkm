@@ -68,3 +68,69 @@ pub fn u32_array_to_u8_vec(u32_array: &[u32; 8]) -> Vec<u8> {
     }
     u8_vec
 }
+
+#[doc(hidden)]
+pub use plonky2_maybe_rayon::rayon as __rayon_reexport;
+
+// might improve error message on type error
+#[doc(hidden)]
+pub fn __requires_sendable_closure<R, F: FnOnce() -> R + Send>(x: F) -> F {
+    x
+}
+
+macro_rules! __join_implementation {
+    ($len:expr; $($f:ident $r:ident $a:expr),*; $b:expr, $($c:expr,)*) => {
+        crate::util::__join_implementation!{$len + 1; $($f $r $a,)* f r $b; $($c,)* }
+    };
+    ($len:expr; $($f:ident $r:ident $a:expr),* ;) => {
+        match ($(Some(crate::util::__requires_sendable_closure($a)),)*) {
+            ($(mut $f,)*) => {
+                $(let mut $r = None;)*
+                let array: [&mut (dyn FnMut() + Send); $len] = [
+                    $(&mut || $r = Some((&mut $f).take().unwrap()())),*
+                ];
+                crate::util::__rayon_reexport::iter::ParallelIterator::for_each(
+                    crate::util::__rayon_reexport::iter::IntoParallelIterator::into_par_iter(array),
+                    |f| f(),
+                );
+                ($($r.unwrap(),)*)
+            }
+        }
+    };
+}
+
+pub(crate) use __join_implementation;
+
+macro_rules! join {
+    ($($($a:expr),+$(,)?)?) => {
+        crate::util::__join_implementation!{0;;$($($a,)+)?}
+    };
+}
+
+pub(crate) use join;
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn join_macro_with_more_complex_patterns() {
+        let tup @ (a, b, c, d, e, f, g, h) = join!(|| 1, || 2, || 3, || 4, || 5, || 6, || 7, || 8);
+        dbg!(tup);
+        assert_eq!(9 * 4, a + b + c + d + e + f + g + h);
+
+        fn foo() {
+            dbg!(std::thread::current().id());
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+        foo();
+        println!("---");
+        let _ = join!(foo, foo, foo, foo, foo,); // double-check that slow tasks _can_ all run on different threads each
+        println!("---");
+        let _ = join!(foo, foo,); // double-check few slow tasks _can_ all run on different threads each
+        println!("---");
+        let _ = plonky2_maybe_rayon::rayon::join(foo, foo); // for comparison :-)
+        println!("---");
+        // test corner cases:
+        join!(foo);
+        join!();
+    }
+}

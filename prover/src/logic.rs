@@ -119,7 +119,7 @@ impl Operation {
         }
     }
 
-    fn into_row<F: Field>(self) -> [F; NUM_COLUMNS] {
+    fn into_row<F: Field>(&self) -> [F; NUM_COLUMNS] {
         let Operation {
             operator,
             input0,
@@ -137,7 +137,7 @@ impl Operation {
             row[columns::INPUT0.start + i] = F::from_canonical_u32((input0 >> i) & 1);
             row[columns::INPUT1.start + i] = F::from_canonical_u32((input1 >> i) & 1);
         }
-        row[columns::RESULT.start] = F::from_canonical_u32(result);
+        row[columns::RESULT.start] = F::from_canonical_u32(*result);
         row
     }
 }
@@ -145,7 +145,7 @@ impl Operation {
 impl<F: RichField, const D: usize> LogicStark<F, D> {
     pub(crate) fn generate_trace(
         &self,
-        operations: Vec<Operation>,
+        operations: &Vec<Operation>,
         min_rows: usize,
     ) -> Vec<PolynomialValues<F>> {
         let trace_rows = self.generate_trace_rows(operations, min_rows);
@@ -154,14 +154,14 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
 
     fn generate_trace_rows(
         &self,
-        operations: Vec<Operation>,
+        operations: &Vec<Operation>,
         min_rows: usize,
     ) -> Vec<[F; NUM_COLUMNS]> {
         let len = operations.len();
         let padded_len = len.max(min_rows).next_power_of_two();
 
         let mut rows = Vec::with_capacity(padded_len);
-        for op in operations {
+        for op in operations.iter() {
             rows.push(op.into_row());
         }
 
@@ -397,7 +397,7 @@ mod tests {
             Operation::new(Op::Xor, 0, 0),
         ];
         let num_rows = 1 << 10;
-        let vals = stark.generate_trace_rows(ops, num_rows);
+        let vals = stark.generate_trace_rows(&ops, num_rows);
 
         for i in 0..(vals.len() - 1) {
             test_stark_check_constraints::<F, C, S, D>(stark, &vals[i], &vals[i + 1]);

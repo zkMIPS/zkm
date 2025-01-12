@@ -4,7 +4,6 @@ use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
-use plonky2_maybe_rayon::rayon;
 use std::cmp::max;
 
 use crate::all_stark::{AllStark, MIN_TRACE_LEN, NUM_TABLES};
@@ -19,6 +18,7 @@ use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::poseidon::constants::SPONGE_WIDTH;
 use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeOp;
+use crate::util::join;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryOp;
 use crate::{arithmetic, logic};
@@ -206,46 +206,24 @@ impl<T: Copy> Traces<T> {
         timed!(
             timing,
             "convert trace to table parallelly",
-            rayon::join(
-                || rayon::join(
-                    || memory_trace = all_stark.memory_stark.generate_trace(&mut memory_ops,),
-                    || arithmetic_trace =
-                        all_stark.arithmetic_stark.generate_trace(&arithmetic_ops),
-                ),
-                || {
-                    rayon::join(
-                        || {
-                            cpu_trace = trace_rows_to_poly_values(
-                                cpu.into_iter().map(|x| x.into()).collect(),
-                            )
-                        },
-                        || {
-                            poseidon_trace = all_stark
-                                .poseidon_stark
-                                .generate_trace(&poseidon_inputs, min_rows)
-                        },
-                    );
-                    rayon::join(
-                        || {
-                            poseidon_sponge_trace = all_stark
-                                .poseidon_sponge_stark
-                                .generate_trace(&poseidon_sponge_ops, min_rows)
-                        },
-                        || {
-                            keccak_trace = all_stark
-                                .keccak_stark
-                                .generate_trace(keccak_inputs, min_rows)
-                        },
-                    );
-                    rayon::join(
-                        || {
-                            keccak_sponge_trace = all_stark
-                                .keccak_sponge_stark
-                                .generate_trace(keccak_sponge_ops, min_rows)
-                        },
-                        || logic_trace = all_stark.logic_stark.generate_trace(logic_ops, min_rows),
-                    );
-                },
+            join!(
+                || memory_trace = all_stark.memory_stark.generate_trace(&mut memory_ops),
+                || arithmetic_trace = all_stark.arithmetic_stark.generate_trace(&arithmetic_ops),
+                || cpu_trace =
+                    trace_rows_to_poly_values(cpu.into_iter().map(|x| x.into()).collect()),
+                || poseidon_trace = all_stark
+                    .poseidon_stark
+                    .generate_trace(&poseidon_inputs, min_rows),
+                || poseidon_sponge_trace = all_stark
+                    .poseidon_sponge_stark
+                    .generate_trace(&poseidon_sponge_ops, min_rows),
+                || keccak_trace = all_stark
+                    .keccak_stark
+                    .generate_trace(&keccak_inputs, min_rows),
+                || keccak_sponge_trace = all_stark
+                    .keccak_sponge_stark
+                    .generate_trace(&keccak_sponge_ops, min_rows),
+                || logic_trace = all_stark.logic_stark.generate_trace(&logic_ops, min_rows),
             )
         );
 

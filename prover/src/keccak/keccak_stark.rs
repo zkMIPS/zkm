@@ -61,7 +61,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
     /// in our lookup arguments, as those are computed after transposing to column-wise form.
     fn generate_trace_rows(
         &self,
-        inputs_and_timestamps: Vec<([u64; NUM_INPUTS], usize)>,
+        inputs_and_timestamps: &Vec<([u64; NUM_INPUTS], usize)>,
         min_rows: usize,
     ) -> Vec<[F; NUM_COLUMNS]> {
         let num_rows = (inputs_and_timestamps.len() * NUM_ROUNDS)
@@ -227,7 +227,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
 
     pub fn generate_trace(
         &self,
-        inputs: Vec<([u64; NUM_INPUTS], usize)>,
+        inputs: &Vec<([u64; NUM_INPUTS], usize)>,
         min_rows: usize,
     ) -> Vec<PolynomialValues<F>> {
         // Generate the witness, except for permuted columns in the lookup argument.
@@ -664,7 +664,7 @@ mod tests {
             f: Default::default(),
         };
 
-        let rows = stark.generate_trace_rows(vec![(input, 0)], 8);
+        let rows = stark.generate_trace_rows(&vec![(input, 0)], 8);
         let last_row = rows[NUM_ROUNDS - 1];
         let output = (0..NUM_INPUTS)
             .map(|i| {
@@ -701,7 +701,7 @@ mod tests {
             (0..NUM_PERMS).map(|_| (rand::random(), 0)).collect();
 
         let mut timing = TimingTree::new("prove", log::Level::Debug);
-        let trace_poly_values = stark.generate_trace(input, 8);
+        let trace_poly_values = stark.generate_trace(&input, 8);
 
         // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
         // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
