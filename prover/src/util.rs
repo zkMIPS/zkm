@@ -8,6 +8,8 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::util::transpose;
+#[allow(unused_imports)]
+use plonky2_maybe_rayon::rayon;
 
 /// Construct an integer from its constituent bits (in little-endian order)
 pub fn limb_from_bits_le<P: PackedField>(iter: impl IntoIterator<Item = P>) -> P {
@@ -69,28 +71,25 @@ pub fn u32_array_to_u8_vec(u32_array: &[u32; 8]) -> Vec<u8> {
     u8_vec
 }
 
-#[doc(hidden)]
-pub use plonky2_maybe_rayon::rayon as __rayon_reexport;
-
-// might improve error message on type error
-#[doc(hidden)]
-pub fn __requires_sendable_closure<R, F: FnOnce() -> R + Send>(x: F) -> F {
-    x
+macro_rules! join {
+    ($($($a:expr),+$(,)?)?) => {
+        crate::util::__join!{0;;$($($a,)+)?}
+    };
 }
 
-macro_rules! __join_implementation {
+macro_rules! __join {
     ($len:expr; $($f:ident $r:ident $a:expr),*; $b:expr, $($c:expr,)*) => {
-        crate::util::__join_implementation!{$len + 1; $($f $r $a,)* f r $b; $($c,)* }
+        crate::util::__join!{$len + 1; $($f $r $a,)* f r $b; $($c,)* }
     };
     ($len:expr; $($f:ident $r:ident $a:expr),* ;) => {
-        match ($(Some(crate::util::__requires_sendable_closure($a)),)*) {
+        match ($(Some(crate::util::__sendable_closure($a)),)*) {
             ($(mut $f,)*) => {
                 $(let mut $r = None;)*
                 let array: [&mut (dyn FnMut() + Send); $len] = [
                     $(&mut || $r = Some((&mut $f).take().unwrap()())),*
                 ];
-                crate::util::__rayon_reexport::iter::ParallelIterator::for_each(
-                    crate::util::__rayon_reexport::iter::IntoParallelIterator::into_par_iter(array),
+                rayon::iter::ParallelIterator::for_each(
+                    rayon::iter::IntoParallelIterator::into_par_iter(array),
                     |f| f(),
                 );
                 ($($r.unwrap(),)*)
@@ -99,12 +98,10 @@ macro_rules! __join_implementation {
     };
 }
 
-pub(crate) use __join_implementation;
-
-macro_rules! join {
-    ($($($a:expr),+$(,)?)?) => {
-        crate::util::__join_implementation!{0;;$($($a,)+)?}
-    };
+#[doc(hidden)]
+pub(crate) fn __sendable_closure<R, F: FnOnce() -> R + Send>(x: F) -> F {
+    x
 }
 
+pub(crate) use __join;
 pub(crate) use join;
