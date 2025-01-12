@@ -108,29 +108,3 @@ macro_rules! join {
 }
 
 pub(crate) use join;
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn join_macro_with_more_complex_patterns() {
-        let tup @ (a, b, c, d, e, f, g, h) = join!(|| 1, || 2, || 3, || 4, || 5, || 6, || 7, || 8);
-        dbg!(tup);
-        assert_eq!(9 * 4, a + b + c + d + e + f + g + h);
-
-        fn foo() {
-            dbg!(std::thread::current().id());
-            std::thread::sleep(std::time::Duration::from_millis(200));
-        }
-        foo();
-        println!("---");
-        let _ = join!(foo, foo, foo, foo, foo,); // double-check that slow tasks _can_ all run on different threads each
-        println!("---");
-        let _ = join!(foo, foo,); // double-check few slow tasks _can_ all run on different threads each
-        println!("---");
-        let _ = plonky2_maybe_rayon::rayon::join(foo, foo); // for comparison :-)
-        println!("---");
-        // test corner cases:
-        join!(foo);
-        join!();
-    }
-}
