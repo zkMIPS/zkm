@@ -1225,7 +1225,7 @@ pub(crate) fn generate_sha_extend<
 
         // Write w[i].
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + i * 4);
-        let mem_op = mem_write_gp_log_and_fill(i, addr, state, &mut cpu_row, w_i);
+        let mem_op = mem_write_gp_log_and_fill(4, addr, state, &mut cpu_row, w_i);
         state.traces.push_memory(mem_op);
         state.traces.push_cpu(cpu_row);
     }
