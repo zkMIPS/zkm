@@ -4,6 +4,7 @@ members = [
   "sha2-rust/host",
   "sha2-precompile/host",
   "sha2-go/host",
+  "sha2-syscall/host",
   "keccak/host",
   "split-seg",
   "prove-seg"

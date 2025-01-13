@@ -1,0 +1,17 @@
+[workspace]
+[package]
+version = "0.1.0"
+name = "sha2-syscall"
+edition = "2021"
+
+[dependencies]
+#zkm-runtime = { git = "https://github.com/zkMIPS/zkm", package = "zkm-runtime" }
+zkm-runtime = { path = "../../../../runtime/entrypoint" }
+digest = "0.10.4"
+cfg-if = "1.0"
+hex-literal = "0.2.2"
+
+[features]
+default = ["std"]
+std = ["digest/std"]
+oid = ["digest/oid"] # Enable OID support. WARNING: Bumps MSRV to 1.57
