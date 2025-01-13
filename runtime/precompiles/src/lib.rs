@@ -19,4 +19,8 @@ extern "C" {
     pub fn syscall_verify(claim_digest: &[u8; 32]);
     /// Executes the Keccak-256 permutation on the given state.
     pub fn syscall_keccak(state: *const u32, len: usize, result: *mut u8);
+    pub fn syscall_sha256(state: *const u32, len: usize, result: *mut u8);
+    pub fn syscall_sha256_compress(w: *mut u32, state: *mut u32);
+    pub fn syscall_sha256_extend(w: *mut u32);
+
 }
