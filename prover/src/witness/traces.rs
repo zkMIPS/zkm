@@ -220,11 +220,11 @@ impl<T: Copy> Traces<T> {
                     .generate_trace(&poseidon_sponge_ops, min_rows),
                 || keccak_trace = all_stark
                     .keccak_stark
-                    .generate_trace(&keccak_inputs, min_rows),
+                    .generate_trace(keccak_inputs, min_rows),
                 || keccak_sponge_trace = all_stark
                     .keccak_sponge_stark
                     .generate_trace(keccak_sponge_ops, min_rows),
-                || logic_trace = all_stark.logic_stark.generate_trace(&logic_ops, min_rows),
+                || logic_trace = all_stark.logic_stark.generate_trace(logic_ops, min_rows),
             )
         );
 

@@ -61,7 +61,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
     /// in our lookup arguments, as those are computed after transposing to column-wise form.
     fn generate_trace_rows(
         &self,
-        inputs_and_timestamps: &Vec<([u64; NUM_INPUTS], usize)>,
+        inputs_and_timestamps: Vec<([u64; NUM_INPUTS], usize)>,
         min_rows: usize,
     ) -> Vec<[F; NUM_COLUMNS]> {
         let num_rows = (inputs_and_timestamps.len() * NUM_ROUNDS)
@@ -227,7 +227,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
 
     pub fn generate_trace(
         &self,
-        inputs: &Vec<([u64; NUM_INPUTS], usize)>,
+        inputs: Vec<([u64; NUM_INPUTS], usize)>,
         min_rows: usize,
     ) -> Vec<PolynomialValues<F>> {
         // Generate the witness, except for permuted columns in the lookup argument.
