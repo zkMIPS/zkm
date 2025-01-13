@@ -221,7 +221,7 @@ pub struct KeccakSpongeStark<F, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
     pub(crate) fn generate_trace(
         &self,
-        operations: &Vec<KeccakSpongeOp>,
+        operations: Vec<KeccakSpongeOp>,
         min_rows: usize,
     ) -> Vec<PolynomialValues<F>> {
         // Generate the witness row-wise.
@@ -232,7 +232,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
 
     fn generate_trace_rows(
         &self,
-        operations: &Vec<KeccakSpongeOp>,
+        operations: Vec<KeccakSpongeOp>,
         min_rows: usize,
     ) -> Vec<[F; NUM_KECCAK_SPONGE_COLUMNS]> {
         let base_len: usize = operations
@@ -240,7 +240,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
             .map(|op| op.input.len() / KECCAK_RATE_BYTES + 1)
             .sum();
         let mut rows = Vec::with_capacity(base_len.max(min_rows).next_power_of_two());
-        for op in operations.iter() {
+        for op in operations {
             rows.extend(self.generate_rows_for_op(op));
         }
         let padded_rows = rows.len().max(min_rows).next_power_of_two();
@@ -250,7 +250,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         rows
     }
 
-    fn generate_rows_for_op(&self, op: &KeccakSpongeOp) -> Vec<[F; NUM_KECCAK_SPONGE_COLUMNS]> {
+    fn generate_rows_for_op(&self, op: KeccakSpongeOp) -> Vec<[F; NUM_KECCAK_SPONGE_COLUMNS]> {
         let mut rows = Vec::with_capacity(op.input.len() / KECCAK_RATE_BYTES + 1);
 
         let mut sponge_state = [0u32; KECCAK_WIDTH_U32S];
