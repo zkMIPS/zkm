@@ -664,7 +664,7 @@ mod tests {
             f: Default::default(),
         };
 
-        let rows = stark.generate_trace_rows(&vec![(input, 0)], 8);
+        let rows = stark.generate_trace_rows(vec![(input, 0)], 8);
         let last_row = rows[NUM_ROUNDS - 1];
         let output = (0..NUM_INPUTS)
             .map(|i| {
@@ -701,7 +701,7 @@ mod tests {
             (0..NUM_PERMS).map(|_| (rand::random(), 0)).collect();
 
         let mut timing = TimingTree::new("prove", log::Level::Debug);
-        let trace_poly_values = stark.generate_trace(&input, 8);
+        let trace_poly_values = stark.generate_trace(input, 8);
 
         // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
         // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.

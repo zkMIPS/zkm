@@ -397,7 +397,7 @@ mod tests {
             Operation::new(Op::Xor, 0, 0),
         ];
         let num_rows = 1 << 10;
-        let vals = stark.generate_trace_rows(&ops, num_rows);
+        let vals = stark.generate_trace_rows(ops, num_rows);
 
         for i in 0..(vals.len() - 1) {
             test_stark_check_constraints::<F, C, S, D>(stark, &vals[i], &vals[i + 1]);

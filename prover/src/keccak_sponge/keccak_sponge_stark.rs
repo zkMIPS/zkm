@@ -776,7 +776,7 @@ mod tests {
             input,
         };
         let stark = S::default();
-        let rows = stark.generate_rows_for_op(&op);
+        let rows = stark.generate_rows_for_op(op);
         assert_eq!(rows.len(), 1);
         let last_row: &KeccakSpongeColumnsView<F> = rows.last().unwrap().borrow();
         let output = last_row
