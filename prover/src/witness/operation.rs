@@ -1274,6 +1274,8 @@ pub(crate) fn generate_sha_compress<
     let mut g = hx[6];
     let mut h = hx[7];
     let mut j = 0;
+    cpu_row = CpuColumnsView::default();
+    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
     for i in 0..64 {
         let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
         let ch = (e & f) ^ (!e & g);
