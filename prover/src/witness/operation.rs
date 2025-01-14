@@ -1123,7 +1123,7 @@ pub(crate) fn generate_keccak<
         let addr = MemoryAddress::new(0, Segment::Code, map_addr);
         let (word, mem_op) = mem_read_gp_with_log_and_fill(j, addr, state, &mut cpu_row);
         let bytes = word.to_be_bytes();
-        let final_len = if i + 4 > len { len } else { 4 };
+        let final_len = if i + 4 > len { len - i } else { 4 };
         keccak_value_byte_be[i..i + final_len].copy_from_slice(&bytes[0..final_len]);
         keccak_data_addr.push(addr);
         state.traces.push_memory(mem_op);

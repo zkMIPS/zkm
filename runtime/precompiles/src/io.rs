@@ -127,7 +127,7 @@ pub fn keccak(data: &[u8]) -> [u8; 32] {
     // covert to u32 to align the memory
     for i in (0..len).step_by(4) {
         if i + 4 <= len {
-            let u32_value = u32::from_be_bytes([data[0], data[1], data[2], data[3]]);
+            let u32_value = u32::from_be_bytes([data[i], data[i + 1], data[i + 2], data[i + 3]]);
             u32_array.push(u32_value);
         } else {
             let mut padded_chunk = [0u8; 4];
