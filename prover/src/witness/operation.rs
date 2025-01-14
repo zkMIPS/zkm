@@ -1224,11 +1224,13 @@ pub(crate) fn generate_sha_extend<
             .wrapping_add(w_i_minus_7);
 
         // Write w[i].
+        log::debug!("{:X}, {:X}, {:X} {:X} {:X} {:X}", s1, s0, w_i_minus_16, w_i_minus_7, w_i_minus_15, w_i_minus_2);
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + i * 4);
-        log::info!("write {:X} {:X}",  w_ptr + i * 4, w_i);
+        log::debug!("extend write {:X} {:X}",  w_ptr + i * 4, w_i);
         let mem_op = mem_write_gp_log_and_fill(4, addr, state, &mut cpu_row, w_i);
         state.traces.push_memory(mem_op);
         state.traces.push_cpu(cpu_row);
+        state.memory.apply_ops(&state.traces.memory_ops);
     }
 
     Ok(())
@@ -1319,7 +1321,7 @@ pub(crate) fn generate_sha_compress<
         let mem_op =
             mem_write_gp_log_and_fill(i, addr, state, &mut cpu_row, hx[i].wrapping_add(v[i]));
         state.traces.push_memory(mem_op);
-        log::info!("write {:X} {:X}",  h_ptr + i * 4, hx[i].wrapping_add(v[i]));
+        log::debug!("write {:X} {:X}",  h_ptr + i * 4, hx[i].wrapping_add(v[i]));
     }
     state.traces.push_cpu(cpu_row);
     Ok(())

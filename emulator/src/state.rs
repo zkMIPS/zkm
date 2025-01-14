@@ -568,8 +568,9 @@ impl InstrumentedState {
                     let w_i = s1.wrapping_add(w_i_minus_16).wrapping_add(s0).wrapping_add(w_i_minus_7);
 
                     // Write w[i].
+                    log::debug!("{:X}, {:X}, {:X} {:X} {:X} {:X}", s1, s0, w_i_minus_16, w_i_minus_7, w_i_minus_15, w_i_minus_2);
                     self.state.memory.set_memory(w_ptr + i * 4, w_i);
-                    log::info!("write {:X} {:X}", w_ptr + i * 4, w_i);
+                    log::debug!("extend write {:X} {:X}", w_ptr + i * 4, w_i);
                 }
             },
             0x010106 => {      // SHA_COMPRESS
@@ -617,7 +618,7 @@ impl InstrumentedState {
                 let v = [a, b, c, d, e, f, g, h];
                 for i in 0..8 {
                     self.state.memory.set_memory(h_ptr + i as u32 * 4, hx[i].wrapping_add(v[i]));
-                    log::info!("write {:X} {:X}", h_ptr + i as u32 * 4, hx[i].wrapping_add(v[i]));
+                    log::debug!("write {:X} {:X}", h_ptr + i as u32 * 4, hx[i].wrapping_add(v[i]));
                 }
             },
             0x010109 => {  //keccak
