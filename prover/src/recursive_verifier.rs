@@ -33,7 +33,6 @@ use crate::cross_table_lookup::{
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVarsTarget;
 
-use crate::memory::VALUE_LIMBS;
 use crate::proof::{
     MemRoots, MemRootsTarget, PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
     StarkProofChallengesTarget, StarkProofTarget, StarkProofWithMetadata,
@@ -432,47 +431,6 @@ fn verify_stark_proof_with_challenges_circuit<
         &proof.opening_proof,
         &inner_config.fri_params(degree_bits),
     );
-}
-
-fn add_data_write<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    challenge: GrandProductChallenge<Target>,
-    running_sum: Target,
-    segment: Target,
-    idx: usize,
-    val: &[Target],
-) -> Target {
-    debug_assert!(val.len() <= VALUE_LIMBS);
-    let len = core::cmp::min(val.len(), VALUE_LIMBS);
-
-    let zero = builder.zero();
-    let one = builder.one();
-
-    let row = builder.add_virtual_targets(13);
-    // is_read
-    builder.connect(row[0], zero);
-    // context
-    builder.connect(row[1], zero);
-    // segment
-    builder.connect(row[2], segment);
-    // virtual
-    let field_target = builder.constant(F::from_canonical_usize(idx));
-    builder.connect(row[3], field_target);
-
-    // values
-    for j in 0..len {
-        builder.connect(row[4 + j], val[j]);
-    }
-    for j in len..VALUE_LIMBS {
-        builder.connect(row[4 + j], zero);
-    }
-
-    // timestamp
-    builder.connect(row[12], one);
-
-    let combined = challenge.combine_base_circuit(builder, &row);
-    let inverse = builder.inverse(combined);
-    builder.add(running_sum, inverse)
 }
 
 fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(

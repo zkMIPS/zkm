@@ -11,8 +11,11 @@ use anyhow::{Context, Result};
 
 use plonky2::field::types::Field;
 
+use super::util::keccak_sponge_log;
+use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_RATE_U32S};
 use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use itertools::Itertools;
+use keccak_hash::keccak;
 use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::GenericConfig;
@@ -67,6 +70,7 @@ pub fn generate_pinv_diff<F: Field>(val0: u32, val1: u32, lv: &mut CpuColumnsVie
     logic.diff_pinv = (val0_f - val1_f).try_inverse().unwrap_or(F::ZERO) * num_unequal_limbs_inv;
 }
 
+pub(crate) const SYSKECCAK: usize = 0x010109;
 pub(crate) const SYSGETPID: usize = 4020;
 pub(crate) const SYSGETGID: usize = 4047;
 pub(crate) const SYSMMAP2: usize = 4210;
@@ -1092,6 +1096,83 @@ pub(crate) fn commit<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     Ok(())
 }
 
+pub(crate) fn generate_keccak<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
+    addr: usize,
+    len: usize,
+    ptr: usize,
+) -> Result<()> {
+    let mut map_addr = addr;
+    let mut cpu_row = CpuColumnsView::default();
+    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+    let mut j = 0;
+    let mut keccak_data_addr = Vec::new();
+    let mut keccak_value_byte_be = vec![0u8; len];
+
+    for i in (0..len).step_by(WORD_SIZE) {
+        if j == 8 {
+            state.traces.push_cpu(cpu_row);
+            cpu_row = CpuColumnsView::default();
+            cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+            j = 0;
+        }
+        let addr = MemoryAddress::new(0, Segment::Code, map_addr);
+        let (word, mem_op) = mem_read_gp_with_log_and_fill(j, addr, state, &mut cpu_row);
+        let bytes = word.to_be_bytes();
+        let final_len = if i + 4 > len { len - i } else { 4 };
+        keccak_value_byte_be[i..i + final_len].copy_from_slice(&bytes[0..final_len]);
+        keccak_data_addr.push(addr);
+        state.traces.push_memory(mem_op);
+        map_addr += 4;
+        j += 1;
+    }
+
+    state.traces.push_cpu(cpu_row);
+    state.memory.apply_ops(&state.traces.memory_ops);
+
+    let mut cpu_row = CpuColumnsView::default();
+    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+    cpu_row.is_keccak_sponge = F::ONE;
+
+    // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
+    cpu_row.mem_channels[0].value = F::ZERO; // context
+    cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
+    let final_idx = len / KECCAK_RATE_BYTES * KECCAK_RATE_U32S;
+    cpu_row.mem_channels[2].value = F::from_canonical_usize(keccak_data_addr[final_idx].virt);
+    cpu_row.mem_channels[3].value = F::from_canonical_usize(len);
+
+    let hash_data_bytes = keccak(&keccak_value_byte_be).0;
+    let hash_data_be = core::array::from_fn(|i| {
+        u32::from_le_bytes(core::array::from_fn(|j| hash_data_bytes[i * 4 + j]))
+    });
+
+    let hash_data = hash_data_be.map(u32::from_be);
+
+    cpu_row.general.khash_mut().value = hash_data.map(F::from_canonical_u32);
+    cpu_row.general.khash_mut().value.reverse();
+
+    keccak_sponge_log(state, keccak_data_addr, keccak_value_byte_be);
+    state.traces.push_cpu(cpu_row);
+
+    cpu_row = CpuColumnsView::default();
+    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+    map_addr = ptr;
+    assert!(hash_data_be.len() == 8);
+    for i in 0..hash_data_be.len() {
+        let addr = MemoryAddress::new(0, Segment::Code, map_addr);
+        let mem_op =
+            mem_write_gp_log_and_fill(i, addr, state, &mut cpu_row, hash_data_be[i].to_be());
+        state.traces.push_memory(mem_op);
+        map_addr += 4;
+    }
+    state.traces.push_cpu(cpu_row);
+    Ok(())
+}
+
 pub(crate) fn generate_syscall<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -1110,6 +1191,7 @@ pub(crate) fn generate_syscall<
     let mut is_load_preimage = false;
     let mut is_load_input = false;
     let mut is_verify = false;
+    let mut is_keccak = false;
     let mut is_commit = false;
     let result = match sys_num {
         SYSGETPID => {
@@ -1263,6 +1345,10 @@ pub(crate) fn generate_syscall<
             is_verify = true;
             Ok(())
         }
+        SYSKECCAK => {
+            is_keccak = true;
+            Ok(())
+        }
         _ => {
             row.general.syscall_mut().sysnum[11] = F::ONE;
             Ok(())
@@ -1290,6 +1376,9 @@ pub(crate) fn generate_syscall<
     }
     if is_commit {
         let _ = commit(state, a1, a2);
+    }
+    if is_keccak {
+        let _ = generate_keccak(state, a0, a1, a2);
     }
     result
 }

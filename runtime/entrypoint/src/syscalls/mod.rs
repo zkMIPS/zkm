@@ -2,11 +2,13 @@
 
 mod halt;
 mod io;
+mod keccak;
 mod memory;
 mod sys;
 
 pub use halt::*;
 pub use io::*;
+pub use keccak::*;
 pub use memory::*;
 pub use sys::*;
 
@@ -27,3 +29,6 @@ pub const HINT_READ: u32 = 0x00_00_00_F1;
 
 /// Executes `HINT_READ`.
 pub const VERIFY: u32 = 0x00_00_00_F2;
+
+/// Executes `KECCAK_PERMUTE`.
+pub const KECCAK_PERMUTE: u32 = 0x00_01_01_09;

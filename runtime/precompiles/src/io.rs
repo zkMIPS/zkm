@@ -1,6 +1,7 @@
 //! Ported from Precompiles for SP1 zkVM.
 
 #![allow(unused_unsafe)]
+use crate::syscall_keccak;
 use crate::syscall_verify;
 use crate::syscall_write;
 use crate::{syscall_hint_len, syscall_hint_read};
@@ -109,4 +110,43 @@ pub fn print(buf: Vec<u8>) {
     SyscallWriter { fd: 2u32 }
         .write_all(buf.as_slice())
         .unwrap();
+}
+
+pub fn keccak(data: &[u8]) -> [u8; 32] {
+    let len = data.len();
+    let mut u32_array = Vec::new();
+
+    if len == 0 {
+        return [
+            0xC5, 0xD2, 0x46, 0x01, 0x86, 0xF7, 0x23, 0x3C, 0x92, 0x7E, 0x7D, 0xB2, 0xDC, 0xC7,
+            0x03, 0xC0, 0xE5, 0, 0xB6, 0x53, 0xCA, 0x82, 0x27, 0x3B, 0x7B, 0xFA, 0xD8, 0x04, 0x5D,
+            0x85, 0xA4, 0x70,
+        ];
+    }
+
+    // covert to u32 to align the memory
+    for i in (0..len).step_by(4) {
+        if i + 4 <= len {
+            let u32_value = u32::from_be_bytes([data[i], data[i + 1], data[i + 2], data[i + 3]]);
+            u32_array.push(u32_value);
+        } else {
+            let mut padded_chunk = [0u8; 4];
+            padded_chunk[..len - i].copy_from_slice(&data[i..]);
+            padded_chunk[len - i] = 1;
+            let end = len % 136;
+            if end + 4 > 136 {
+                padded_chunk[3] |= 0x80;
+            }
+            let u32_value = u32::from_be_bytes(padded_chunk);
+            u32_array.push(u32_value);
+        }
+    }
+
+    let mut result = [0u8; 32];
+    // Read the vec into uninitialized memory. The syscall assumes the memory is uninitialized,
+    // which should be true because the allocator does not dealloc, so a new alloc should be fresh.
+    unsafe {
+        syscall_keccak(u32_array.as_ptr(), len, result.as_mut_ptr());
+    }
+    result
 }

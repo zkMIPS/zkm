@@ -211,11 +211,7 @@ where
     #[cfg(any(feature = "test", test))]
     {
         log::debug!("check_ctls...");
-        check_ctls(
-            &trace_poly_values,
-            &all_stark.cross_table_lookups,
-            // &get_memory_extra_looking_values(&public_values),
-        );
+        check_ctls(&trace_poly_values, &all_stark.cross_table_lookups);
         log::debug!("check_ctls done.");
     }
 
@@ -266,7 +262,6 @@ where
         check_ctls(
             &trace_poly_values,
             &all_stark.cross_table_lookups,
-            &get_memory_extra_looking_values(&public_values),
         );
     }
     */
@@ -353,6 +348,36 @@ where
             timing,
         )?
     );
+
+    let keccak_proof = timed!(
+        timing,
+        "prove Keccak STARK",
+        prove_single_table(
+            &all_stark.keccak_stark,
+            config,
+            &trace_poly_values[Table::Keccak as usize],
+            &trace_commitments[Table::Keccak as usize],
+            &ctl_data_per_table[Table::Keccak as usize],
+            ctl_challenges,
+            challenger,
+            timing,
+        )?
+    );
+    let keccak_sponge_proof = timed!(
+        timing,
+        "prove Keccak sponge STARK",
+        prove_single_table(
+            &all_stark.keccak_sponge_stark,
+            config,
+            &trace_poly_values[Table::KeccakSponge as usize],
+            &trace_commitments[Table::KeccakSponge as usize],
+            &ctl_data_per_table[Table::KeccakSponge as usize],
+            ctl_challenges,
+            challenger,
+            timing,
+        )?
+    );
+
     let logic_proof = timed!(
         timing,
         log::Level::Info,
@@ -389,6 +414,8 @@ where
         cpu_proof,
         poseidon_proof,
         poseidon_sponge_proof,
+        keccak_proof,
+        keccak_sponge_proof,
         logic_proof,
         memory_proof,
     ])

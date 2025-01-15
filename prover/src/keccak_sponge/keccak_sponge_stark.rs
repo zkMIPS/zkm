@@ -11,8 +11,6 @@ use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
-use plonky2::timed;
-use plonky2::util::timing::TimingTree;
 use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -225,22 +223,11 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         &self,
         operations: Vec<KeccakSpongeOp>,
         min_rows: usize,
-        timing: &mut TimingTree,
     ) -> Vec<PolynomialValues<F>> {
         // Generate the witness row-wise.
-        let trace_rows = timed!(
-            timing,
-            "generate trace rows",
-            self.generate_trace_rows(operations, min_rows)
-        );
+        let trace_rows = self.generate_trace_rows(operations, min_rows);
 
-        let trace_polys = timed!(
-            timing,
-            "convert to PolynomialValues",
-            trace_rows_to_poly_values(trace_rows)
-        );
-
-        trace_polys
+        trace_rows_to_poly_values(trace_rows)
     }
 
     fn generate_trace_rows(
