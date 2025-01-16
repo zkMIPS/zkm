@@ -17,6 +17,9 @@ byteorder = "1.5.0"
 hex = "0.4"
 env_logger = "0.11.5"
 anyhow = "1.0.75"
+alloy-primitives = { version = "0.6", default-features = false, features = [
+    "rlp",
+] }
 
 [build-dependencies]
 zkm-build = { workspace = true }
