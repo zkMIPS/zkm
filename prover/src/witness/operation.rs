@@ -1142,7 +1142,12 @@ pub(crate) fn generate_keccak<
     cpu_row.mem_channels[0].value = F::ZERO; // context
     cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
     let final_idx = len / KECCAK_RATE_BYTES * KECCAK_RATE_U32S;
-    cpu_row.mem_channels[2].value = F::from_canonical_usize(keccak_data_addr[final_idx].virt);
+    let virt = if final_idx >= keccak_data_addr.len() {
+        0
+    } else {
+        keccak_data_addr[final_idx].virt
+    };
+    cpu_row.mem_channels[2].value = F::from_canonical_usize(virt);
     cpu_row.mem_channels[3].value = F::from_canonical_usize(len);
 
     let hash_data_bytes = keccak(&keccak_value_byte_be).0;
