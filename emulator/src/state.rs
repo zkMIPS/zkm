@@ -1,8 +1,8 @@
-use crate::memory::{Memory, INIT_SP, POSEIDON_RATE_BYTES};
+use crate::memory::{Memory, INIT_SP, HASH_DATA_END, POSEIDON_RATE_BYTES};
 use crate::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use elf::abi::{PT_LOAD, PT_TLS};
 use elf::endian::AnyEndian;
-use log::{trace, warn};
+use log::warn;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -18,7 +18,7 @@ pub const FD_PUBLIC_VALUES: u32 = 3;
 pub const FD_HINT: u32 = 4;
 pub const MIPS_EBADF: u32 = 9;
 
-pub const REGISTERS_START: u32 = 0x81020400u32;
+pub const REGISTERS_START: u32 = HASH_DATA_END;
 pub const PAGE_LOAD_CYCLES: u64 = 128;
 pub const PAGE_HASH_CYCLES: u64 = 1;
 pub const PAGE_CYCLES: u64 = PAGE_LOAD_CYCLES + PAGE_HASH_CYCLES;
@@ -591,57 +591,10 @@ impl InstrumentedState {
                 }
                 v0 = a2
             }
-            4020 => {
-                // read preimage (getpid)
-                self.state.load_preimage(self.block_path.clone())
-            }
-            4210 | 4090 => {
-                // mmap
-                // args: a0 = heap/hint, indicates mmap heap or hint. a1 = size
-                let mut size = a1;
-                if size & (PAGE_ADDR_MASK as u32) != 0 {
-                    // adjust size to align with page size
-                    size += PAGE_SIZE as u32 - (size & (PAGE_ADDR_MASK as u32));
-                }
-                if a0 == 0 {
-                    v0 = self.state.heap;
-                    self.state.heap += size;
-                    trace!("mmap heap {:x?} size {:x?}", v0, size);
-                } else {
-                    v0 = a0;
-                    trace!("mmap hint {:x?} size {:x?}", v0, size);
-                }
-            }
-            4045 => {
-                // brk
-                if a0 > self.state.brk {
-                    v0 = a0;
-                } else {
-                    v0 = self.state.brk;
-                }
-            }
-            4120 => {
-                // clone
-                v0 = 1;
-            }
             4246 => {
                 // exit group
                 self.state.exited = true;
                 self.state.exit_code = a0 as u8;
-            }
-            4003 => {
-                // read
-                // args: a0 = fd, a1 = addr, a2 = count
-                // returns: v0 = read, v1 = err code
-                match a0 {
-                    FD_STDIN => {
-                        // leave v0 and v1 zero: read nothing, no error
-                    }
-                    _ => {
-                        v0 = 0xffffffff;
-                        v1 = MIPS_EBADF;
-                    }
-                }
             }
             4004 => {
                 // write
@@ -687,46 +640,13 @@ impl InstrumentedState {
                     }
                 }
             }
-            4055 => {
-                // fcntl
-                // args: a0 = fd, a1 = cmd
-                if a1 == 3 {
-                    // F_GETFL: get file descriptor flags
-                    match a0 {
-                        FD_STDIN => {
-                            v0 = 0 // O_RDONLY
-                        }
-                        FD_STDOUT | FD_STDERR => {
-                            v0 = 1 // O_WRONLY
-                        }
-                        _ => {
-                            v0 = 0xffffffff;
-                            v1 = MIPS_EBADF;
-                        }
-                    }
-                } else if a1 == 1 {
-                    // GET_FD
-                    match a0 {
-                        FD_STDIN | FD_STDOUT | FD_STDERR => v0 = a0,
-                        _ => {
-                            v0 = 0xffffffff;
-                            v1 = MIPS_EBADF;
-                        }
-                    }
-                } else {
-                    v0 = 0xffffffff;
-                    v1 = MIPS_EBADF;
-                }
-            }
-            4283 => {
-                log::trace!("set local user {:X} {:X} {:X}", a0, a1, a2);
-                self.state.local_user = a0;
-            }
             0xF2 => {
                 log::trace!("sys_verify {:X} {:X} {:X}", a0, a1, a2);
                 // DO Nothing Here
             }
-            _ => {}
+            _ => {
+                log::error!("unimplemented syscall {}", syscall_num);
+            }
         }
 
         self.state.registers[2] = v0;
@@ -1304,10 +1224,6 @@ impl InstrumentedState {
         self.state.total_step += self.state.step;
         self.state.memory.update_page_hash();
         let regiters = self.state.get_registers_bytes();
-
-        // load public input, assume the max size of public input is 6KB.
-        let _ = self.state.memory.get_memory(INIT_SP);
-        let _ = self.state.memory.get_memory(INIT_SP + PAGE_SIZE as u32);
 
         let (image_id, page_hash_root) =
             self.state.memory.compute_image_id(self.state.pc, &regiters);
