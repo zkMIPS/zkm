@@ -1,7 +1,7 @@
 use std::env;
-
 use zkm_emulator::utils::{load_elf_with_patch, split_prog_into_segs};
 use zkm_utils::utils::prove_segments;
+use alloy_primitives::keccak256;
 
 const ELF_PATH: &str = "../guest/elf/mips-zkm-zkvm-elf";
 
@@ -12,30 +12,14 @@ fn prove_keccak_rust() {
     let seg_size = seg_size.parse::<_>().unwrap_or(0);
 
     let mut state = load_elf_with_patch(ELF_PATH, vec![]);
-    // load input
-    let args = env::var("ARGS").unwrap_or("data-to-hash".to_string());
-    // assume the first arg is the hash output(which is a public input), and the second is the input.
-    let args: Vec<&str> = args.split_whitespace().collect();
-    assert!(args.len() >= 1);
-
-    let public_input: Vec<u8> = hex::decode(args[0]).unwrap();
+    let private_input: Vec<u8> = vec![0].repeat(6800);
+    let public_input = keccak256(&private_input).to_vec();
     state.add_input_stream(&public_input);
-    log::info!("expected public value in hex: {:X?}", args[0]);
-    log::info!("expected public value: {:X?}", public_input);
-
-    let private_input: Vec<u8> = if args.len() > 1 {
-        hex::decode(args[1]).unwrap()
-    } else {
-        vec![]
-    };
-    log::info!("private input value: {:X?}", private_input);
     state.add_input_stream(&private_input);
 
     let (_total_steps, seg_num, mut state) = split_prog_into_segs(state, &seg_path, "", seg_size);
 
     let value = state.read_public_values::<[u8; 32]>();
-    log::info!("public value: {:X?}", value);
-    log::info!("public value: {} in hex", hex::encode(value));
 
     let _ = prove_segments(&seg_path, "", "", "", seg_num, 0, vec![]).unwrap();
 }
