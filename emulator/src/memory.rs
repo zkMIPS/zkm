@@ -1,7 +1,6 @@
 #![allow(clippy::extra_unused_lifetimes)]
 use std::cell::RefCell;
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
-pub const INIT_SP: u32 = 0x7fffd000;
 use super::page::MAX_MEMORY;
 use crate::page::{CachedPage, PAGE_ADDR_MASK, PAGE_ADDR_SIZE, PAGE_SIZE};
 use itertools::Itertools;
@@ -14,9 +13,15 @@ use std::collections::BTreeMap;
 use std::io::Read;
 use std::rc::Rc;
 
-pub const HASH_ADDRESS_BASE: u32 = 0x80000000;
-pub const HASH_ADDRESS_END: u32 = 0x81020000;
-pub const ROOT_HASH_ADDRESS_BASE: u32 = 0x81021000;
+pub const INIT_SP: u32 = MAX_MEMORY as u32 - 0x4000;
+pub const HASH_ADDRESS_BASE: u32 = 0x10000000;
+pub const L0_HASH_ADDRESS_BASE: u32 = HASH_ADDRESS_BASE;
+pub const L1_HASH_ADDRESS_BASE: u32 = HASH_ADDRESS_BASE + (L0_HASH_ADDRESS_BASE >> 7);
+pub const L2_HASH_ADDRESS_BASE: u32 = HASH_ADDRESS_BASE + (L1_HASH_ADDRESS_BASE >> 7);
+pub const HASH_ADDRESS_END: u32 = L2_HASH_ADDRESS_BASE;
+pub const HASH_LEVEL: usize = 2;
+pub const HASH_END_PAGE_INDEX: u32 = HASH_ADDRESS_END >> PAGE_ADDR_SIZE;
+pub const ROOT_HASH_ADDRESS_BASE: u32 = HASH_ADDRESS_END + PAGE_SIZE as u32;
 pub const END_PC_ADDRESS: u32 = ROOT_HASH_ADDRESS_BASE + 4 * 8;
 pub const REGISTERS_OFFSET: usize = 0x400;
 
@@ -385,7 +390,7 @@ impl Memory {
 
         page.borrow_mut().data[hash_offset..hash_offset + 32].copy_from_slice(&page_hash);
 
-        if level < 2 {
+        if level < HASH_LEVEL {
             self.wtrace[level + 1].insert(page_index, page.clone());
         }
 
@@ -394,21 +399,21 @@ impl Memory {
 
     // return image id and page hash root
     pub fn update_page_hash(&mut self) {
-        // MAIN MEMORY   0 .. 0x80000000
+        // MAIN MEMORY   0 .. L0_HASH_ADDRESS_BASE
         for (page_index, cached_page) in self.wtrace[0].clone().iter() {
             let _ = self.set_hash_range(*page_index, hash_page(&cached_page.borrow().data), 0);
         }
 
         self.wtrace[0].clear();
 
-        // L1 HASH PAGES  0x80000000.. 0x81000000
+        // L1 HASH PAGES  L0_HASH_ADDRESS_BASE.. L1_HASH_ADDRESS_BASE
         for (page_index, cached_page) in self.wtrace[1].clone().iter() {
             let _ = self.set_hash_range(*page_index, hash_page(&cached_page.borrow().data), 1);
         }
 
         self.wtrace[1].clear();
 
-        // L2 HASH PAGES  0x81000000.. 0x81020000
+        // L2 HASH PAGES  L1_HASH_ADDRESS_BASE.. L2_HASH_ADDRESS_BASE
         for (page_index, cached_page) in self.wtrace[2].clone().iter() {
             let _ = self.set_hash_range(*page_index, hash_page(&cached_page.borrow().data), 2);
         }
@@ -417,8 +422,8 @@ impl Memory {
     }
 
     pub fn compute_image_id(&mut self, pc: u32, regiters: &[u8; 39 * 4]) -> ([u8; 32], [u8; 32]) {
-        // ROOT PAGES  0x81020000.. 0x81020400
-        let root_page = 0x81020u32;
+        // ROOT PAGES  L2_HASH_ADDRESS_BASE.. L2_HASH_ADDRESS_BASE + PAGE_SIZE
+        let root_page = HASH_END_PAGE_INDEX;
         let hash = match self.pages.get(&root_page) {
             None => {
                 panic!("compute image ID fail")
@@ -452,10 +457,10 @@ impl Memory {
     }
 
     pub fn check_image_id(&mut self, pc: u32, image_id: [u8; 32]) {
-        // MAIN MEMORY   0 .. 0x80000000
+        // MAIN MEMORY   0 .. MAX_MEMORY
         for (page_index, cached_page) in self.pages.clone().iter() {
-            if *page_index == 0x81020u32 {
-                let root_page = 0x81020u32;
+            if *page_index == HASH_END_PAGE_INDEX {
+                let root_page = HASH_END_PAGE_INDEX;
                 let hash = match self.pages.get(&root_page) {
                     None => {
                         panic!("compute image ID fail")
