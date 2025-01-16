@@ -1,4 +1,4 @@
-use crate::memory::{Memory, INIT_SP, POSEIDON_RATE_BYTES};
+use crate::memory::{Memory, INIT_SP, HASH_DATA_END, POSEIDON_RATE_BYTES};
 use crate::page::{PAGE_ADDR_MASK, PAGE_SIZE};
 use elf::abi::{PT_LOAD, PT_TLS};
 use elf::endian::AnyEndian;
@@ -18,7 +18,7 @@ pub const FD_PUBLIC_VALUES: u32 = 3;
 pub const FD_HINT: u32 = 4;
 pub const MIPS_EBADF: u32 = 9;
 
-pub const REGISTERS_START: u32 = 0x81020400u32;
+pub const REGISTERS_START: u32 = HASH_DATA_END;
 pub const PAGE_LOAD_CYCLES: u64 = 128;
 pub const PAGE_HASH_CYCLES: u64 = 1;
 pub const PAGE_CYCLES: u64 = PAGE_LOAD_CYCLES + PAGE_HASH_CYCLES;
