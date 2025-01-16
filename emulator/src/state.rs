@@ -1406,10 +1406,6 @@ impl InstrumentedState {
         self.state.memory.update_page_hash();
         let regiters = self.state.get_registers_bytes();
 
-        // load public input, assume the max size of public input is 6KB.
-        let _ = self.state.memory.get_memory(INIT_SP);
-        let _ = self.state.memory.get_memory(INIT_SP + PAGE_SIZE as u32);
-
         let (image_id, page_hash_root) =
             self.state.memory.compute_image_id(self.state.pc, &regiters);
         let image = self.state.memory.get_input_image();
