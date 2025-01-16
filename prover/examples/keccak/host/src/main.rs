@@ -24,7 +24,7 @@ fn prove_keccak_rust() {
     let (_total_steps, seg_num, mut state) = split_prog_into_segs(state, &seg_path, "", seg_size);
 
     let value = state.read_public_values::<[u8; 32]>();
-    assert!(value == public_input);
+    assert!(value == *public_input);
 
     let _ = prove_segments(&seg_path, "", "", "", seg_num, 0, vec![]).unwrap();
 }
