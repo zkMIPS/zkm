@@ -22,9 +22,8 @@ pub fn eval_packed<P: PackedField>(
     let result_v1 = lv.mem_channels[5].value;
 
     //syswrite
-    let is_syswrite = syscall.sysnum[1];
-    let a0_is_fd_stdout_or_fd_stderr = syscall.a0[0];
-    let a0_is_not_fd_stdout_and_fd_stderr = syscall.a0[1];
+    let a0_is_fd_stdout_or_fd_stderr = syscall.cond[0];
+    let a0_is_not_fd_stdout_and_fd_stderr = syscall.cond[1];
 
     let v0_in_a0_is_not_fd_stdout_and_fd_stderr = P::Scalar::from_canonical_usize(0xFFFFFFFF);
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr = P::Scalar::from_canonical_usize(MIPSEBADF);
@@ -33,9 +32,7 @@ pub fn eval_packed<P: PackedField>(
     //2 sysnum==syswrite
     //3 v0&v1 are right
     //4 a0 =! fd_stderr and a0 != fd_stderr
-    yield_constr.constraint(
-        filter * (a0_is_not_fd_stdout_and_fd_stderr - is_syswrite * a0_is_not_fd_stdout_and_fd_stderr),
-    );
+
     yield_constr.constraint(
         filter
             * a0_is_not_fd_stdout_and_fd_stderr
@@ -51,9 +48,6 @@ pub fn eval_packed<P: PackedField>(
     //2 sysnum==syswrite
     //3 v0&v1 are right
     //4 a0 ==fd_stderr or a0 == fd_stderr
-    yield_constr.constraint(
-        filter * (a0_is_fd_stdout_or_fd_stderr - is_syswrite * a0_is_fd_stdout_or_fd_stderr),
-    );
     yield_constr.constraint(filter * a0_is_fd_stdout_or_fd_stderr * (a2 - result_v0));
     yield_constr.constraint(filter * a0_is_fd_stdout_or_fd_stderr * (v1 - result_v1));
 
@@ -73,18 +67,12 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let result_v1 = lv.mem_channels[5].value;
 
     //syswrite
-    let is_syswrite = syscall.sysnum[1];
-    let a0_is_fd_stdout_or_fd_stderr = syscall.a0[0];
-    let a0_is_not_fd_stdout_and_fd_stderr = syscall.a0[1];
+    let a0_is_fd_stdout_or_fd_stderr = syscall.cond[0];
+    let a0_is_not_fd_stdout_and_fd_stderr = syscall.cond[1];
     let v0_in_a0_is_not_fd_stdout_and_fd_stderr =
         builder.constant_extension(F::Extension::from_canonical_usize(0xFFFFFFFF));
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr =
         builder.constant_extension(F::Extension::from_canonical_usize(MIPSEBADF));
-
-    let filter_1 = builder.mul_extension(is_syswrite, a0_is_not_fd_stdout_and_fd_stderr);
-    let constr = builder.sub_extension(a0_is_not_fd_stdout_and_fd_stderr, filter_1);
-    let constr = builder.mul_extension(filter, constr);
-    yield_constr.constraint(builder, constr);
 
     let constr_1 = builder.mul_extension(filter, a0_is_not_fd_stdout_and_fd_stderr);
     let constr_2 = builder.sub_extension(v0_in_a0_is_not_fd_stdout_and_fd_stderr, result_v0);
@@ -93,11 +81,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let constr_2 = builder.sub_extension(v1_in_a0_is_not_fd_stdin_and_fd_stderr, result_v1);
     let constr = builder.mul_extension(constr_1, constr_2);
-    yield_constr.constraint(builder, constr);
-
-    let filter_1 = builder.mul_extension(is_syswrite, a0_is_fd_stdout_or_fd_stderr);
-    let constr = builder.sub_extension(a0_is_fd_stdout_or_fd_stderr, filter_1);
-    let constr = builder.mul_extension(filter, constr);
     yield_constr.constraint(builder, constr);
 
     let constr_1 = builder.mul_extension(filter, a0_is_fd_stdout_or_fd_stderr);

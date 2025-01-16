@@ -1395,26 +1395,24 @@ pub(crate) fn generate_syscall<
     let mut is_sha_compress = false;
     let result = match sys_num {
         SYSEXITGROUP => {
-            row.general.syscall_mut().sysnum[0] = F::ONE;
             state.registers.exited = true;
             state.registers.exit_code = a0 as u8;
             Ok(())
         }
         SYSWRITE => {
-            row.general.syscall_mut().sysnum[1] = F::ONE;
             match a0 {
                 // fdStdout
                 FD_STDOUT | FD_STDERR | FD_HINT => {
-                    row.general.syscall_mut().a0[0] = F::ONE;
+                    row.general.syscall_mut().cond[0] = F::ONE;
                     v0 = a2;
                 } // fdStdout
                 FD_PUBLIC_VALUES => {
-                    row.general.syscall_mut().a0[0] = F::ONE;
+                    row.general.syscall_mut().cond[0] = F::ONE;
                     is_commit = true;
                     v0 = a2;
                 }
                 _ => {
-                    row.general.syscall_mut().a0[1] = F::ONE;
+                    row.general.syscall_mut().cond[1] = F::ONE;
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
@@ -1422,7 +1420,6 @@ pub(crate) fn generate_syscall<
             Ok(())
         }
         SYSHINTLEN => {
-            row.general.syscall_mut().sysnum[2] = F::ONE;
             if state.input_stream_ptr >= state.input_stream.len() {
                 log::warn!("not enough vecs in hint input stream");
             }
@@ -1430,7 +1427,6 @@ pub(crate) fn generate_syscall<
             Ok(())
         }
         SYSHINTREAD => {
-            row.general.syscall_mut().sysnum[2] = F::ONE;
             if state.input_stream_ptr >= state.input_stream.len() {
                 log::warn!("not enough vecs in hint input stream");
             }
@@ -1438,12 +1434,10 @@ pub(crate) fn generate_syscall<
             Ok(())
         }
         SYSVERIFY => {
-            row.general.syscall_mut().sysnum[2] = F::ONE;
             is_verify = true;
             Ok(())
         }
         SYSKECCAK => {
-            row.general.syscall_mut().sysnum[2] = F::ONE;
             is_keccak = true;
             Ok(())
         }
@@ -1456,7 +1450,6 @@ pub(crate) fn generate_syscall<
             Ok(())
         }
         _ => {
-            row.general.syscall_mut().sysnum[2] = F::ONE;
             Ok(())
         }
     };
