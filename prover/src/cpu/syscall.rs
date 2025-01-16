@@ -23,8 +23,8 @@ pub fn eval_packed<P: PackedField>(
 
     //syswrite
     let is_syswrite = syscall.sysnum[1];
-    let a0_is_fd_stdout_or_fd_stderr = syscall.a0;
-    let a0_is_not_fd_stdout_and_fd_stderr = P::ONES - syscall.a0;
+    let a0_is_fd_stdout_or_fd_stderr = syscall.a0[0];
+    let a0_is_not_fd_stdout_and_fd_stderr = syscall.a0[1];
 
     let v0_in_a0_is_not_fd_stdout_and_fd_stderr = P::Scalar::from_canonical_usize(0xFFFFFFFF);
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr = P::Scalar::from_canonical_usize(MIPSEBADF);
@@ -71,12 +71,11 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let syscall = lv.general.syscall();
     let result_v0 = lv.mem_channels[4].value;
     let result_v1 = lv.mem_channels[5].value;
-    let ones = builder.one_extension();
 
     //syswrite
     let is_syswrite = syscall.sysnum[1];
-    let a0_is_fd_stdout_or_fd_stderr = syscall.a0;
-    let a0_is_not_fd_stdout_and_fd_stderr = builder.sub_extension(ones, syscall.a0);
+    let a0_is_fd_stdout_or_fd_stderr = syscall.a0[0];
+    let a0_is_not_fd_stdout_and_fd_stderr = syscall.a0[1];
     let v0_in_a0_is_not_fd_stdout_and_fd_stderr =
         builder.constant_extension(F::Extension::from_canonical_usize(0xFFFFFFFF));
     let v1_in_a0_is_not_fd_stdin_and_fd_stderr =

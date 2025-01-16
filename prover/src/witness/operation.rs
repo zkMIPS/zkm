@@ -1405,15 +1405,16 @@ pub(crate) fn generate_syscall<
             match a0 {
                 // fdStdout
                 FD_STDOUT | FD_STDERR | FD_HINT => {
-                    row.general.syscall_mut().a0 = F::ONE;
+                    row.general.syscall_mut().a0[0] = F::ONE;
                     v0 = a2;
                 } // fdStdout
                 FD_PUBLIC_VALUES => {
-                    row.general.syscall_mut().a0 = F::ONE;
+                    row.general.syscall_mut().a0[0] = F::ONE;
                     is_commit = true;
                     v0 = a2;
                 }
                 _ => {
+                    row.general.syscall_mut().a0[1] = F::ONE;
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
