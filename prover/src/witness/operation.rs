@@ -7,19 +7,17 @@ use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
 use crate::{arithmetic, logic};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use plonky2::field::types::Field;
 
 use super::util::keccak_sponge_log;
 use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_RATE_U32S};
-use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use itertools::Itertools;
 use keccak_hash::keccak;
 use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::GenericConfig;
-use std::fs;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
 
@@ -905,89 +903,6 @@ pub(crate) fn generate_ror<
     Ok(())
 }
 
-pub(crate) fn load_preimage<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
-    state: &mut GenerationState<F, C, D>,
-    kernel: &Kernel,
-) -> Result<()> {
-    let mut hash_bytes = [0u8; 32];
-    {
-        let mut cpu_row = CpuColumnsView::default();
-        cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-        for i in 0..8 {
-            let address = MemoryAddress::new(0, Segment::Code, 0x30001000 + i * 4);
-            let (mem, op) = mem_read_gp_with_log_and_fill(i, address, state, &mut cpu_row);
-            hash_bytes[i * 4..i * 4 + 4].copy_from_slice(mem.to_be_bytes().as_ref());
-            state.traces.push_memory(op);
-        }
-        state.traces.push_cpu(cpu_row);
-    }
-
-    let hex_string = hex::encode(hash_bytes);
-    let mut preiamge_path = kernel.blockpath.clone();
-    preiamge_path.push_str("0x");
-    preiamge_path.push_str(hex_string.as_str());
-    log::trace!("load file {}", preiamge_path);
-
-    let content = fs::read(preiamge_path).expect("Read file failed");
-
-    let mut cpu_row = CpuColumnsView::default();
-    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-
-    let mem_op = mem_write_gp_log_and_fill(
-        0,
-        MemoryAddress::new(0, Segment::Code, 0x31000000),
-        state,
-        &mut cpu_row,
-        content.len() as u32,
-    );
-    log::trace!("{:X}: {:X}", 0x31000000, content.len() as u32);
-    state.traces.push_memory(mem_op);
-
-    let mut map_addr = 0x31000004;
-
-    let mut j = 1;
-    for i in (0..content.len()).step_by(WORD_SIZE) {
-        if j == 8 {
-            state.traces.push_cpu(cpu_row);
-            cpu_row = CpuColumnsView::default();
-            cpu_row.clock = F::from_canonical_usize(state.traces.clock());
-            j = 0;
-        }
-        let mut word = 0;
-        // Don't read past the end of the file.
-        let len = core::cmp::min(content.len() - i, WORD_SIZE);
-        for k in 0..len {
-            let offset = i + k;
-            let byte = content.get(offset).context("Invalid block offset")?;
-            word |= (*byte as u32) << (k * 8);
-        }
-        let addr = MemoryAddress::new(0, Segment::Code, map_addr);
-        // todo: check rate bytes
-        if len < WORD_SIZE {
-            let end = content.len() % POSEIDON_RATE_BYTES;
-            word |= 0b1 << (len * 8);
-
-            if end + 4 > POSEIDON_RATE_BYTES {
-                word |= 0b10000000 << 24;
-            }
-        }
-
-        log::trace!("{:X}: {:X}", map_addr, word);
-        let mem_op = mem_write_gp_log_and_fill(j, addr, state, &mut cpu_row, word.to_be());
-        state.traces.push_memory(mem_op);
-        map_addr += 4;
-        j += 1;
-    }
-
-    state.traces.push_cpu(cpu_row);
-
-    Ok(())
-}
-
 pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     state: &mut GenerationState<F, C, D>,
     addr: usize,
@@ -1464,7 +1379,7 @@ pub(crate) fn generate_syscall<
 >(
     state: &mut GenerationState<F, C, D>,
     mut row: CpuColumnsView<F>,
-    kernel: &Kernel,
+    _kernel: &Kernel,
 ) -> Result<(), ProgramError> {
     let (sys_num, log_in1) = reg_read_with_log(2, 0, state, &mut row)?;
     let (a0, log_in2) = reg_read_with_log(4, 1, state, &mut row)?;
@@ -1472,7 +1387,6 @@ pub(crate) fn generate_syscall<
     let (a2, log_in4) = reg_read_with_log(6, 3, state, &mut row)?;
     let mut v0 = 0usize;
     let mut v1 = 0usize;
-    let mut is_load_preimage = false;
     let mut is_load_input = false;
     let mut is_verify = false;
     let mut is_keccak = false;
@@ -1480,140 +1394,34 @@ pub(crate) fn generate_syscall<
     let mut is_sha_extend = false;
     let mut is_sha_compress = false;
     let result = match sys_num {
-        SYSGETPID => {
-            row.general.syscall_mut().sysnum[0] = F::ONE;
-            is_load_preimage = true;
-            Ok(())
-        }
-        SYSMMAP | SYSMMAP2 => {
-            row.general.syscall_mut().sysnum[1] = F::ONE;
-            let mut sz = a1;
-            let mut sz_not_page_align = false;
-            if sz & 0xFFF != 0 {
-                row.general.syscall_mut().a1 = F::ONE;
-                sz += 0x1000 - (sz & 0xFFF);
-                row.general.syscall_mut().sysnum[9] = F::from_canonical_usize(sz);
-                //use sysnum[9] to mark sz value
-                sz_not_page_align = true;
-            } else {
-                row.general.syscall_mut().sysnum[10] = F::ONE;
-                //use sysnum[10] to mark sz&0xfff == 0
-                // row.general.syscall_mut().sysnum[10] = F::from_canonical_usize(sz.clone());//use sysnum[9] to mark sz
-            }
-            if a0 == 0 {
-                row.general.syscall_mut().cond[0] = F::ONE;
-                row.general.syscall_mut().a0[0] = F::ONE;
-                if sz_not_page_align {
-                    row.general.syscall_mut().cond[1] = F::ONE;
-                } else {
-                    row.general.syscall_mut().cond[2] = F::ONE;
-                }
-                let (heap, log_in5) = reg_read_with_log(34, 6, state, &mut row)?;
-                v0 = heap;
-                let heap = heap + sz;
-                let outlog = reg_write_with_log(34, 7, heap, state, &mut row)?;
-                state.traces.push_memory(log_in5);
-                state.traces.push_memory(outlog);
-            } else {
-                row.general.syscall_mut().cond[3] = F::ONE;
-                row.general.syscall_mut().a0[2] = F::ONE;
-                v0 = a0;
-            };
-            Ok(())
-        }
-        SYSBRK => {
-            row.general.syscall_mut().sysnum[2] = F::ONE;
-            let (brk, log_in5) = reg_read_with_log(37, 6, state, &mut row)?;
-            if a0 > brk {
-                v0 = a0;
-                row.general.syscall_mut().cond[10] = F::ONE;
-            } else {
-                v0 = brk;
-                row.general.syscall_mut().cond[11] = F::ONE;
-            }
-            state.traces.push_memory(log_in5);
-            Ok(())
-        }
-        SYSCLONE => {
-            // clone (not supported)
-            row.general.syscall_mut().sysnum[3] = F::ONE;
-            v0 = 1;
-            Ok(())
-        }
         SYSEXITGROUP => {
-            row.general.syscall_mut().sysnum[4] = F::ONE;
+            row.general.syscall_mut().sysnum[0] = F::ONE;
             state.registers.exited = true;
             state.registers.exit_code = a0 as u8;
             Ok(())
         }
-        SYSREAD => {
-            row.general.syscall_mut().sysnum[5] = F::ONE;
-            match a0 {
-                FD_STDIN => {
-                    row.general.syscall_mut().a0[0] = F::ONE;
-                    row.general.syscall_mut().cond[5] = F::ONE;
-                } // fdStdin
-                _ => {
-                    row.general.syscall_mut().a0[2] = F::ONE;
-                    row.general.syscall_mut().cond[4] = F::ONE;
-                    v0 = 0xFFFFFFFF;
-                    v1 = MIPSEBADF;
-                }
-            };
-            Ok(())
-        }
         SYSWRITE => {
-            row.general.syscall_mut().sysnum[6] = F::ONE;
+            row.general.syscall_mut().sysnum[1] = F::ONE;
             match a0 {
                 // fdStdout
                 FD_STDOUT | FD_STDERR | FD_HINT => {
-                    row.general.syscall_mut().a0[1] = F::ONE;
-                    row.general.syscall_mut().cond[7] = F::ONE;
+                    row.general.syscall_mut().a0 = F::ONE;
                     v0 = a2;
                 } // fdStdout
                 FD_PUBLIC_VALUES => {
-                    row.general.syscall_mut().a0[1] = F::ONE;
-                    row.general.syscall_mut().cond[7] = F::ONE;
+                    row.general.syscall_mut().a0 = F::ONE;
                     is_commit = true;
                     v0 = a2;
                 }
                 _ => {
-                    row.general.syscall_mut().a0[2] = F::ONE;
-                    row.general.syscall_mut().cond[6] = F::ONE;
                     v0 = 0xFFFFFFFF;
                     v1 = MIPSEBADF;
                 }
             };
-            Ok(())
-        }
-        SYSFCNTL => {
-            row.general.syscall_mut().sysnum[7] = F::ONE;
-            match a0 {
-                FD_STDIN => {
-                    row.general.syscall_mut().a0[0] = F::ONE;
-                    row.general.syscall_mut().cond[8] = F::ONE;
-                    v0 = 0;
-                } // fdStdin
-                FD_STDOUT | FD_STDERR => {
-                    row.general.syscall_mut().a0[1] = F::ONE;
-                    row.general.syscall_mut().cond[9] = F::ONE;
-                    v0 = 1;
-                } // fdStdout / fdStderr
-                _ => {
-                    row.general.syscall_mut().a0[2] = F::ONE;
-                    v0 = 0xFFFFFFFF;
-                    v1 = MIPSEBADF;
-                }
-            };
-            Ok(())
-        }
-        SYSSETTHREADAREA => {
-            row.general.syscall_mut().sysnum[8] = F::ONE;
-            let localop = reg_write_with_log(38, 6, a0, state, &mut row)?;
-            state.traces.push_memory(localop);
             Ok(())
         }
         SYSHINTLEN => {
+            row.general.syscall_mut().sysnum[2] = F::ONE;
             if state.input_stream_ptr >= state.input_stream.len() {
                 log::warn!("not enough vecs in hint input stream");
             }
@@ -1621,6 +1429,7 @@ pub(crate) fn generate_syscall<
             Ok(())
         }
         SYSHINTREAD => {
+            row.general.syscall_mut().sysnum[2] = F::ONE;
             if state.input_stream_ptr >= state.input_stream.len() {
                 log::warn!("not enough vecs in hint input stream");
             }
@@ -1628,10 +1437,12 @@ pub(crate) fn generate_syscall<
             Ok(())
         }
         SYSVERIFY => {
+            row.general.syscall_mut().sysnum[2] = F::ONE;
             is_verify = true;
             Ok(())
         }
         SYSKECCAK => {
+            row.general.syscall_mut().sysnum[2] = F::ONE;
             is_keccak = true;
             Ok(())
         }
@@ -1644,7 +1455,7 @@ pub(crate) fn generate_syscall<
             Ok(())
         }
         _ => {
-            row.general.syscall_mut().sysnum[11] = F::ONE;
+            row.general.syscall_mut().sysnum[2] = F::ONE;
             Ok(())
         }
     };
@@ -1657,9 +1468,6 @@ pub(crate) fn generate_syscall<
     state.traces.push_memory(outlog1);
     state.traces.push_memory(outlog2);
     state.traces.push_cpu(row);
-    if is_load_preimage {
-        let _ = load_preimage(state, kernel);
-    }
 
     if is_load_input {
         let _ = load_input(state, a0, a1);

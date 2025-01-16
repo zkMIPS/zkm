@@ -2,6 +2,7 @@ use crate::state::{InstrumentedState, State};
 use elf::{endian::AnyEndian, ElfBytes};
 use std::fs;
 use std::fs::File;
+use crate::memory::INIT_SP;
 
 pub const SEGMENT_STEPS: usize = 65536;
 
@@ -10,13 +11,14 @@ pub fn get_block_path(basedir: &str, block: &str, file: &str) -> String {
     format!("{basedir}/0_{block}/{file}")
 }
 
-pub fn load_elf_with_patch(elf_path: &str, args: Vec<&str>) -> Box<State> {
+pub fn load_elf_with_patch(elf_path: &str, _args: Vec<&str>) -> Box<State> {
     let data = fs::read(elf_path).expect("could not read file");
     let file =
         ElfBytes::<AnyEndian>::minimal_parse(data.as_slice()).expect("opening elf file failed");
     let mut state = State::load_elf(&file);
-    state.patch_elf(&file);
-    state.patch_stack(args);
+    //state.patch_elf(&file);
+    //state.patch_stack(args);
+    state.registers[29] = INIT_SP;
     state
 }
 
