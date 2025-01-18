@@ -725,14 +725,6 @@ impl InstrumentedState {
     fn handle_hilo(&mut self, fun: u32, rs: u32, rt: u32, store_reg: u32) {
         let mut val = 0u32;
         match fun {
-            0x01 => {
-                // maddu
-                let mut acc = (rs as u64).wrapping_mul(rt as u64);
-                let hilo = ((self.state.hi as u64) << 32).wrapping_add(self.state.lo as u64);
-                acc = acc.wrapping_add(hilo);
-                self.state.hi = (acc >> 32) as u32;
-                self.state.lo = acc as u32;
-            }
             0x10 => {
                 // mfhi
                 val = self.state.hi;
@@ -761,16 +753,17 @@ impl InstrumentedState {
                 self.state.hi = (acc >> 32) as u32;
                 self.state.lo = acc as u32;
             }
-            0x1a => {
-                // div
-                self.state.hi = ((rs as i32) % (rt as i32)) as u32;
-                self.state.lo = ((rs as i32) / (rt as i32)) as u32;
-            }
             0x1b => {
                 // divu
                 self.state.hi = rs % rt;
                 self.state.lo = rs / rt;
             }
+            0x1a => {
+                // div
+                self.state.hi = ((rs as i32) % (rt as i32)) as u32;
+                self.state.lo = ((rs as i32) / (rt as i32)) as u32;
+            }
+                
             n => {
                 panic!("invalid fun when process hi lo, fun: {}", n);
             }
@@ -888,15 +881,6 @@ impl InstrumentedState {
                 return;
             }
 
-            if fun == 0xa {
-                self.handle_rd(rd_reg, rs, rt == 0);
-                return;
-            }
-            if fun == 0xb {
-                self.handle_rd(rd_reg, rs, rt != 0);
-                return;
-            }
-
             // syscall (can read/write)
             if fun == 0xc {
                 self.handle_syscall();
@@ -944,7 +928,7 @@ impl InstrumentedState {
         self.handle_rd(rd_reg, val, true);
     }
 
-    fn execute(&mut self, insn: u32, mut rs: u32, rt: u32, mem: u32) -> u32 {
+    fn execute(&mut self, insn: u32, rs: u32, rt: u32, mem: u32) -> u32 {
         // implement alu
         let mut opcode = insn >> 26;
         let mut fun = insn & 0x3F;
@@ -988,9 +972,7 @@ impl InstrumentedState {
                     } else if fun == 0x00 {
                         return rt << shamt; // sll
                     } else if fun == 0x02 {
-                        if (insn >> 21) & 0x1F == 1 {
-                            return (rt >> shamt) | (rt << (32 - shamt)); // ror
-                        } else if (insn >> 21) & 0x1F == 0 {
+                        if (insn >> 21) & 0x1F == 0 {
                             return rt >> shamt; // srl
                         }
                     } else if fun == 0x03 {
@@ -1059,62 +1041,6 @@ impl InstrumentedState {
                 if fun == 2 {
                     // mul
                     return rs.wrapping_mul(rt);
-                }
-                if fun == 0x20 || fun == 0x21 {
-                    // clo
-                    if fun == 0x20 {
-                        rs = !rs;
-                    }
-                    let mut i = 0;
-                    while rs & 0x80000000 != 0 {
-                        rs <<= 1;
-                        i += 1;
-                    }
-                    return i;
-                }
-            } else if opcode == 0x1F {
-                // SPECIAL3
-                if fun == 0 {
-                    // ext
-                    let msbd = (insn >> 11) & 0x1F;
-                    let lsb = (insn >> 6) & 0x1F;
-                    let mask = (1 << (msbd + 1)) - 1;
-                    let i = (rs >> lsb) & mask;
-                    return i;
-                } else if fun == 4 {
-                    // ins
-                    let msb = (insn >> 11) & 0x1F;
-                    let lsb = (insn >> 6) & 0x1F;
-                    let size = msb - lsb + 1;
-                    let mask = (1u32 << size) - 1;
-                    return (rt & !(mask << lsb)) | ((rs & mask) << lsb);
-                } else if fun == 0b111011 {
-                    //rdhwr
-                    let rd = (insn >> 11) & 0x1F;
-                    if rd == 0 {
-                        return 1; // cpu number
-                    } else if rd == 29 {
-                        log::trace!("pc: {:X} rdhwr {:X}", self.state.pc, self.state.local_user);
-                        //return 0x946490;  // a pointer to a thread-specific storage block
-                        return self.state.local_user;
-                    } else {
-                        return 0;
-                    }
-                } else if fun == 0b100000 {
-                    let shamt = (insn >> 6) & 0x1F;
-                    if shamt == 0x18 {
-                        // seh
-                        return sign_extension(rt, 16);
-                    } else if shamt == 0x10 {
-                        // seb
-                        return sign_extension(rt, 8);
-                    } else if shamt == 0x02 {
-                        // wsbh
-                        return (((rt >> 16) & 0xFF) << 24)
-                            | (((rt >> 24) & 0xFF) << 16)
-                            | ((rt & 0xFF) << 8)
-                            | ((rt >> 8) & 0xFF);
-                    }
                 }
             }
         } else if opcode < 0x28 {
