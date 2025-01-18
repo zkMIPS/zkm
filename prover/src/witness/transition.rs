@@ -64,8 +64,8 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
     );
 
     match (opcode, func, registers.is_kernel) {
-        (0b000000, 0b001010, _) => Ok(Operation::CondMov(MovCond::EQ, rs, rt, rd)), // MOVZ: rd = rs if rt == 0
-        (0b000000, 0b001011, _) => Ok(Operation::CondMov(MovCond::NE, rs, rt, rd)), // MOVN: rd = rs if rt != 0
+        // (0b000000, 0b001010, _) => Ok(Operation::CondMov(MovCond::EQ, rs, rt, rd)), // MOVZ: rd = rs if rt == 0
+        // (0b000000, 0b001011, _) => Ok(Operation::CondMov(MovCond::NE, rs, rt, rd)), // MOVN: rd = rs if rt != 0
         (0b000000, 0b100000, _) => Ok(Operation::BinaryArithmetic(
             arithmetic::BinaryOperator::ADD,
             rs,
@@ -98,7 +98,8 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         )), // SLL: rd = rt << sa
         (0b000000, 0b000010, _) => {
             if rs == 1 {
-                Ok(Operation::Ror(rd, rt, sa))
+                Err(ProgramError::InvalidOpcode)
+                // Ok(Operation::Ror(rd, rt, sa))
             } else {
                 Ok(Operation::BinaryArithmetic(
                     arithmetic::BinaryOperator::SRL,
@@ -187,8 +188,8 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
             32,
         )), // MTLO: lo = rs
         (0b000000, 0b001111, _) => Ok(Operation::Nop),                              // SYNC
-        (0b011100, 0b100000, _) => Ok(Operation::Count(false, rs, rd)), // CLZ: rd = count_leading_zeros(rs)
-        (0b011100, 0b100001, _) => Ok(Operation::Count(true, rs, rd)), // CLO: rd = count_leading_ones(rs)
+        // (0b011100, 0b100000, _) => Ok(Operation::Count(false, rs, rd)), // CLZ: rd = count_leading_zeros(rs)
+        // (0b011100, 0b100001, _) => Ok(Operation::Count(true, rs, rd)), // CLO: rd = count_leading_ones(rs)
         (0x00, 0x08, _) => Ok(Operation::Jump(0u8, rs)),               // JR
         (0x00, 0x09, _) => Ok(Operation::Jump(rd, rs)),                // JALR
         (0x01, _, _) => {
@@ -282,11 +283,11 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
         (0b001110, _, _) => Ok(Operation::BinaryLogicImm(logic::Op::Xor, rs, rt, offset)), // XORI: rt = rs + zext(imm)
         (0b000000, 0b001100, _) => Ok(Operation::Syscall), // Syscall
         (0b110011, _, _) => Ok(Operation::Nop),            // Pref
-        (0b011100, 0b000001, _) => Ok(Operation::Maddu(rt, rs)), // rdhwr
-        (0b011111, 0b000000, _) => Ok(Operation::Ext(rt, rs, rd, sa)), // ext
-        (0b011111, 0b000100, _) => Ok(Operation::Ins(rt, rs, rd, sa)), // ins
-        (0b011111, 0b111011, _) => Ok(Operation::Rdhwr(rt, rd)), // rdhwr
-        (0b011111, 0b100000, _) => {
+        // (0b011100, 0b000001, _) => Ok(Operation::Maddu(rt, rs)), // rdhwr
+        // (0b011111, 0b000000, _) => Ok(Operation::Ext(rt, rs, rd, sa)), // ext
+        // (0b011111, 0b000100, _) => Ok(Operation::Ins(rt, rs, rd, sa)), // ins
+        // (0b011111, 0b111011, _) => Ok(Operation::Rdhwr(rt, rd)), // rdhwr
+        /* (0b011111, 0b100000, _) => {
             if sa == 0b011000 {
                 Ok(Operation::Signext(rd, rt, 16)) // seh
             } else if sa == 0b010000 {
@@ -303,6 +304,7 @@ fn decode(registers: RegistersState, insn: u32) -> Result<Operation, ProgramErro
                 Err(ProgramError::InvalidOpcode)
             }
         }
+        */
         (0b000000, 0b110100, _) => Ok(Operation::Teq(rs, rt)), // teq
         _ => {
             log::warn!("decode: invalid opcode {:#08b} {:#08b}", opcode, func);
@@ -315,10 +317,10 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
     let flags = &mut row.op;
     *match op {
         Operation::Syscall => &mut flags.syscall,
-        Operation::CondMov(MovCond::EQ, _, _, _) => &mut flags.movz_op,
-        Operation::CondMov(MovCond::NE, _, _, _) => &mut flags.movn_op,
-        Operation::Count(false, _, _) => &mut flags.clz_op,
-        Operation::Count(true, _, _) => &mut flags.clo_op,
+        // Operation::CondMov(MovCond::EQ, _, _, _) => &mut flags.movz_op,
+        // Operation::CondMov(MovCond::NE, _, _, _) => &mut flags.movn_op,
+        // Operation::Count(false, _, _) => &mut flags.clz_op,
+        // Operation::Count(true, _, _) => &mut flags.clo_op,
         Operation::BinaryLogic(_, _, _, _) => &mut flags.logic_op,
         Operation::BinaryLogicImm(_, _, _, _) => &mut flags.logic_imm_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SLL, ..)
@@ -340,14 +342,14 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::MloadGeneral(..) => &mut flags.m_op_load,
         Operation::MstoreGeneral(..) => &mut flags.m_op_store,
         Operation::Nop => &mut flags.nop,
-        Operation::Ext(_, _, _, _) => &mut flags.ext,
-        Operation::Ins(_, _, _, _) => &mut flags.ins,
-        Operation::Maddu(_, _) => &mut flags.maddu,
-        Operation::Ror(_, _, _) => &mut flags.ror,
-        Operation::Rdhwr(_, _) => &mut flags.rdhwr,
-        Operation::Signext(_, _, 8u8) => &mut flags.signext8,
-        Operation::Signext(_, _, _) => &mut flags.signext16,
-        Operation::SwapHalf(_, _) => &mut flags.swaphalf,
+        // Operation::Ext(_, _, _, _) => &mut flags.ext,
+        // Operation::Ins(_, _, _, _) => &mut flags.ins,
+        // Operation::Maddu(_, _) => &mut flags.maddu,
+        // Operation::Ror(_, _, _) => &mut flags.ror,
+        // Operation::Rdhwr(_, _) => &mut flags.rdhwr,
+        // Operation::Signext(_, _, 8u8) => &mut flags.signext8,
+        // Operation::Signext(_, _, _) => &mut flags.signext16,
+        // Operation::SwapHalf(_, _) => &mut flags.swaphalf,
         Operation::Teq(_, _) => &mut flags.teq,
     } = F::ONE;
 }
@@ -361,8 +363,8 @@ fn perform_op<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D:
     log::trace!("perform_op {:?}", op);
     match op {
         Operation::Syscall => generate_syscall(state, row, kernel)?,
-        Operation::CondMov(cond, rs, rt, rd) => generate_cond_mov_op(cond, rs, rt, rd, state, row)?,
-        Operation::Count(is_clo, rs, rd) => generate_count_op(is_clo, rs, rd, state, row)?,
+        // Operation::CondMov(cond, rs, rt, rd) => generate_cond_mov_op(cond, rs, rt, rd, state, row)?,
+        // Operation::Count(is_clo, rs, rd) => generate_count_op(is_clo, rs, rd, state, row)?,
         Operation::BinaryLogic(binary_logic_op, rs, rt, rd) => {
             generate_binary_logic_op(binary_logic_op, rs, rt, rd, state, row)?
         }
@@ -455,13 +457,13 @@ fn perform_op<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D:
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
         Operation::Nop => generate_nop(state, row)?,
-        Operation::Ext(rt, rs, msbd, lsb) => generate_extract(rt, rs, msbd, lsb, state, row)?,
-        Operation::Ins(rt, rs, msb, lsb) => generate_insert(rt, rs, msb, lsb, state, row)?,
-        Operation::Maddu(rt, rs) => generate_maddu(rt, rs, state, row)?,
-        Operation::Ror(rd, rt, sa) => generate_ror(rd, rt, sa, state, row)?,
-        Operation::Rdhwr(rt, rd) => generate_rdhwr(rt, rd, state, row)?,
-        Operation::Signext(rd, rt, bits) => generate_signext(rd, rt, bits, state, row)?,
-        Operation::SwapHalf(rd, rt) => generate_swaphalf(rd, rt, state, row)?,
+        // Operation::Ext(rt, rs, msbd, lsb) => generate_extract(rt, rs, msbd, lsb, state, row)?,
+        // Operation::Ins(rt, rs, msb, lsb) => generate_insert(rt, rs, msb, lsb, state, row)?,
+        // Operation::Maddu(rt, rs) => generate_maddu(rt, rs, state, row)?,
+        // Operation::Ror(rd, rt, sa) => generate_ror(rd, rt, sa, state, row)?,
+        // Operation::Rdhwr(rt, rd) => generate_rdhwr(rt, rd, state, row)?,
+        // Operation::Signext(rd, rt, bits) => generate_signext(rd, rt, bits, state, row)?,
+        // Operation::SwapHalf(rd, rt) => generate_swaphalf(rd, rt, state, row)?,
         Operation::Teq(rs, rt) => generate_teq(rs, rt, state, row)?,
     };
 

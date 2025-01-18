@@ -3,10 +3,11 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
-use plonky2::field::types::Field;
+// use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
+/*
 pub fn eval_packed_rdhwr<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -193,7 +194,7 @@ pub fn eval_ext_circuit_condmov<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 }
-
+*/
 pub fn eval_packed_teq<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -262,7 +263,7 @@ pub fn eval_ext_circuit_teq<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 }
-
+/*
 pub fn eval_packed_extract<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -817,18 +818,18 @@ pub fn eval_ext_circuit_maddu<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 }
-
+*/
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    eval_packed_rdhwr(lv, yield_constr);
-    eval_packed_condmov(lv, yield_constr);
+    // eval_packed_rdhwr(lv, yield_constr);
+    // eval_packed_condmov(lv, yield_constr);
     eval_packed_teq(lv, yield_constr);
-    eval_packed_extract(lv, yield_constr);
-    eval_packed_ror(lv, yield_constr);
-    eval_packed_insert(lv, yield_constr);
-    eval_packed_maddu(lv, yield_constr);
+    // eval_packed_extract(lv, yield_constr);
+    // eval_packed_ror(lv, yield_constr);
+    // eval_packed_insert(lv, yield_constr);
+    // eval_packed_maddu(lv, yield_constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -836,11 +837,11 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    eval_ext_circuit_rdhwr(builder, lv, yield_constr);
-    eval_ext_circuit_condmov(builder, lv, yield_constr);
+    // eval_ext_circuit_rdhwr(builder, lv, yield_constr);
+    // eval_ext_circuit_condmov(builder, lv, yield_constr);
     eval_ext_circuit_teq(builder, lv, yield_constr);
-    eval_ext_circuit_extract(builder, lv, yield_constr);
-    eval_ext_circuit_ror(builder, lv, yield_constr);
-    eval_ext_circuit_insert(builder, lv, yield_constr);
-    eval_ext_circuit_maddu(builder, lv, yield_constr);
+    // eval_ext_circuit_extract(builder, lv, yield_constr);
+    // eval_ext_circuit_ror(builder, lv, yield_constr);
+    // eval_ext_circuit_insert(builder, lv, yield_constr);
+    // eval_ext_circuit_maddu(builder, lv, yield_constr);
 }
