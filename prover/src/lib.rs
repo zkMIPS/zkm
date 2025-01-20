@@ -34,3 +34,7 @@ pub mod util;
 pub mod vanishing_poly;
 pub mod verifier;
 pub mod witness;
+pub mod sha_extend;
+pub mod sha_extend_sponge;
+pub mod sha_compress;
+pub mod sha_compress_sponge;
