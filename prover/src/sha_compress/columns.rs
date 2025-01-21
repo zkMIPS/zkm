@@ -1,7 +1,7 @@
 use std::borrow::{Borrow, BorrowMut};
 use std::intrinsics::transmute;
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
-
+#[derive(Clone)]
 pub(crate) struct ShaCompressColumnsView<T: Copy> {
     /// The timestamp at which inputs should be read from memory.
     pub timestamp: T,
@@ -65,7 +65,7 @@ pub(crate) struct ShaCompressColumnsView<T: Copy> {
 
 }
 
-pub const NUM_SHA_COMPRESS_COLUMNS: usize = size_of::<ShaCompressColumnsView<u8>>();
+pub const NUM_SHA_COMPRESS_COLUMNS: usize = size_of::<ShaCompressColumnsView<u8>>(); // 170
 
 impl<T: Copy> From<[T; NUM_SHA_COMPRESS_COLUMNS]> for ShaCompressColumnsView<T> {
     fn from(value: [T; NUM_SHA_COMPRESS_COLUMNS]) -> Self {

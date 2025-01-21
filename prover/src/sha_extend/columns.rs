@@ -7,9 +7,6 @@ pub(crate) struct ShaExtendColumnsView<T: Copy> {
     /// The timestamp at which inputs should be read from memory.
     pub timestamp: T,
 
-    /// round
-    pub i: T,
-
     /// Input
     pub w_i_minus_15: T,
     pub w_i_minus_2: T,
@@ -25,7 +22,7 @@ pub(crate) struct ShaExtendColumnsView<T: Copy> {
     pub w_i_minus_2_rr_17: T,
     pub w_i_minus_2_rr_19: T,
     pub w_i_minus_2_rs_10: T,
-    pub s_i_inter: T,
+    pub s_1_inter: T,
     pub s_1: T,
 
     /// Output
