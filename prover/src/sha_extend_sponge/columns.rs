@@ -4,35 +4,33 @@ use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
 pub(crate) const NUM_EXTEND_INPUT: usize = 4;
 pub(crate) struct ShaExtendSpongeColumnsView<T: Copy> {
-    /// The timestamp at which inputs should be read from memory.
-    pub timestamp: T,
-
-    /// Round number
-    pub i: T,
 
     /// Input
-    pub w_i_minus_15: T,
-    pub w_i_minus_2: T,
-    pub w_i_minus_16: T,
-    pub w_i_minus_7: T,
+    pub w_i_minus_15: [T; 32],
+    pub w_i_minus_2: [T; 32],
+    pub w_i_minus_16: [T; 32],
+    pub w_i_minus_7: [T; 32],
 
     /// Output
-    pub w_i: T,
+    pub w_i: [T; 32],
 
-    /// The base address at which we will read the input block.
-    pub context: T,
-    pub segment: T,
+    /// round
+    pub round: [T; 48],
+
     /// Input address
     pub input_virt: [T; NUM_EXTEND_INPUT],
 
     /// Output address
     pub output_virt: T,
 
-    /// 1 if this is the final round of the extending phase, 0 otherwise
-    pub is_final: T,
+    pub context: T,
+    pub segment: T,
+
+    /// The timestamp at which inputs should be read from memory.
+    pub timestamp: T,
 }
 
-pub const NUM_SHA_EXTEND_SPONGE_COLUMNS: usize = size_of::<ShaExtendSpongeColumnsView<u8>>();
+pub const NUM_SHA_EXTEND_SPONGE_COLUMNS: usize = size_of::<ShaExtendSpongeColumnsView<u8>>(); //170
 
 impl<T: Copy> From<[T; NUM_SHA_EXTEND_SPONGE_COLUMNS]> for ShaExtendSpongeColumnsView<T> {
     fn from(value: [T; NUM_SHA_EXTEND_SPONGE_COLUMNS]) -> Self {

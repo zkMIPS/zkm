@@ -1,18 +1,24 @@
 use std::marker::PhantomData;
+use std::borrow::Borrow;
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::StarkFrame;
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
+use crate::sha_extend::columns::get_input_range;
+use crate::sha_extend::logic::{from_be_bits_to_u32, from_u32_to_be_bits};
 use crate::sha_extend_sponge::columns::{ShaExtendSpongeColumnsView, NUM_SHA_EXTEND_SPONGE_COLUMNS};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
+
+pub const NUM_ROUNDS: usize = 48;
 
 pub(crate) struct  ShaExtendSpongeOp {
     /// The base address at which inputs are read
@@ -22,11 +28,11 @@ pub(crate) struct  ShaExtendSpongeOp {
     pub(crate) timestamp: usize,
 
     /// The input that was read.
-    /// Values: w_i_minus_15, w_i_minus_2, w_i_minus_16, w_i_minus_7
+    /// Values: w_i_minus_15, w_i_minus_2, w_i_minus_16, w_i_minus_7 in big-endian order.
     pub(crate) input: Vec<u32>,
 
     /// The index of round
-    pub(crate) i: usize,
+    pub(crate) i: u32,
 
     /// The base address at which the output is written.
     pub(crate) output_address: MemoryAddress,
@@ -71,39 +77,45 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendSpongeStark<F, D> {
     fn generate_rows_for_op(&self, op: ShaExtendSpongeOp) -> ShaExtendSpongeColumnsView<F>{
         let mut row = ShaExtendSpongeColumnsView::default();
         row.timestamp = F::from_canonical_usize(op.timestamp);
-        row.i = F::from_canonical_usize(op.i);
-        if op.i == 63 {
-            row.is_final = F::ONE;
-        } else {
-            row.is_final = F::ZERO;
-        }
+        row.round = [F::ZEROS; 48];
+        row.round[op.i as usize] = F::ONE;
 
         row.context = F::from_canonical_usize(op.base_address[0].context);
         row.segment = F::from_canonical_usize(op.base_address[Segment::Code as usize].segment);
-        let mut virt = (0..op.input.len())
+        let virt = (0..op.input.len() / 32)
             .map(|i| op.base_address[i].virt)
             .collect_vec();
         let virt: [usize; 4] = virt.try_into().unwrap();
         row.input_virt = virt.map(F::from_canonical_usize);
         row.output_virt = F::from_canonical_usize(op.output_address.virt);
 
-        row.w_i_minus_15 = F::from_canonical_u32(op.input[0]);
-        row.w_i_minus_2 = F::from_canonical_u32(op.input[1]);
-        row.w_i_minus_16 = F::from_canonical_u32(op.input[2]);
-        row.w_i_minus_7 = F::from_canonical_u32(op.input[3]);
+        row.w_i_minus_15 = op.input[get_input_range(0)]
+            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+        row.w_i_minus_2 = op.input[get_input_range(1)]
+            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+        row.w_i_minus_16 = op.input[get_input_range(2)]
+            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+        row.w_i_minus_7 = op.input[get_input_range(3)]
+            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
 
-        row.w_i = self.compute_w_i(&op.input.try_into().unwrap());
+        row.w_i = self.compute_w_i(&mut row);
         row
     }
 
-    fn compute_w_i(&self, input: &[u32; 4]) -> F {
-        let s0 = input[0].rotate_right(7) ^ input[0].rotate_right(18) ^ (input[0] >> 3);
-        let s1 = input[1].rotate_right(17) ^ input[1].rotate_right(19) ^ (input[1] >> 10);
+    fn compute_w_i(&self, row: &mut ShaExtendSpongeColumnsView<F>) -> [F; 32] {
+        let w_i_minus_15 = from_be_bits_to_u32(row.w_i_minus_15);
+        let w_i_minus_2 = from_be_bits_to_u32(row.w_i_minus_2);
+        let w_i_minus_16 = from_be_bits_to_u32(row.w_i_minus_16);
+        let w_i_minus_7 = from_be_bits_to_u32(row.w_i_minus_7);
+        let s0 = w_i_minus_15.rotate_right(7) ^ w_i_minus_15.rotate_right(18) ^ (w_i_minus_15 >> 3);
+        let s1 = w_i_minus_2.rotate_right(17) ^ w_i_minus_2.rotate_right(19) ^ (w_i_minus_2 >> 10);
         let w_i_u32 = s1
-            .wrapping_add(input[2])
+            .wrapping_add(w_i_minus_16)
             .wrapping_add(s0)
-            .wrapping_add(input[3]);
-        F::from_canonical_u32(w_i_u32)
+            .wrapping_add(w_i_minus_7);
+
+        let w_i_bin = from_u32_to_be_bits(w_i_u32);
+        w_i_bin.iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap()
     }
 }
 
@@ -149,12 +161,25 @@ mod test {
     use crate::sha_extend_sponge::sha_extend_sponge_stark::{ShaExtendSpongeOp, ShaExtendSpongeStark};
     use crate::witness::memory::MemoryAddress;
 
+
+    fn to_be_bits(value: u32) -> [u32; 32] {
+        let mut result = [0; 32];
+        for i in 0..32 {
+            result[i] = ((value >> i) & 1) as u32;
+        }
+        result
+    }
+
     #[test]
-    fn test_generation() -> Result<(), String> {
+    fn test_correction() -> Result<(), String> {
         const D: usize = 2;
         type F = GoldilocksField;
 
         type S = ShaExtendSpongeStark<F, D>;
+
+        let mut input_values = vec![];
+        input_values.extend((0..4).map(|i| to_be_bits(i as u32)));
+        let input_values = input_values.into_iter().flatten().collect::<Vec<_>>();
 
         let op = ShaExtendSpongeOp {
             base_address: vec![MemoryAddress {
@@ -175,7 +200,7 @@ mod test {
                 virt: 36,
             }],
             timestamp: 0,
-            input: vec![1, 2, 3, 4],
+            input: input_values,
             i: 0,
             output_address: MemoryAddress {
                 context: 0,
@@ -186,8 +211,10 @@ mod test {
 
         let stark = S::default();
         let row = stark.generate_rows_for_op(op);
-        assert_eq!(row.is_final, F::ZERO);
-        assert_eq!(row.w_i, F::from_canonical_u32(33652743));
+
+        let w_i_bin = to_be_bits(40965);
+        assert_eq!(row.w_i, w_i_bin.map(F::from_canonical_u32));
+
         Ok(())
     }
 }

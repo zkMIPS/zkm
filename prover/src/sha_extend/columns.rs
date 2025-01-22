@@ -4,29 +4,30 @@ use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
 pub(crate) struct ShaExtendColumnsView<T: Copy> {
 
-    /// The timestamp at which inputs should be read from memory.
-    pub timestamp: T,
-
-    /// Input
-    pub w_i_minus_15: T,
-    pub w_i_minus_2: T,
-    pub w_i_minus_16: T,
-    pub w_i_minus_7: T,
+    /// Input in big-endian order
+    pub w_i_minus_15: [T; 32],
+    pub w_i_minus_2: [T; 32],
+    pub w_i_minus_16: [T; 32],
+    pub w_i_minus_7: [T; 32],
 
     /// Intermediate values
-    pub w_i_minus_15_rr_7: T,
-    pub w_i_minus_15_rr_18: T,
-    pub w_i_minus_15_rs_3: T,
-    pub s_0_inter: T,
-    pub s_0: T,
-    pub w_i_minus_2_rr_17: T,
-    pub w_i_minus_2_rr_19: T,
-    pub w_i_minus_2_rs_10: T,
-    pub s_1_inter: T,
-    pub s_1: T,
-
+    pub w_i_minus_15_rr_7: [T; 32],
+    pub w_i_minus_15_rr_18: [T; 32],
+    pub w_i_minus_15_rs_3: [T; 32],
+    pub s_0: [T; 32],
+    pub w_i_minus_2_rr_17: [T; 32],
+    pub w_i_minus_2_rr_19: [T; 32],
+    pub w_i_minus_2_rs_10: [T; 32],
+    pub s_1: [T; 32],
+    pub w_i_inter_0: [T; 32], // s_1 + w_i_minus_7]
+    pub carry_0: [T; 32],
+    pub w_i_inter_1: [T; 32], // w_i_inter_0 + s_0
+    pub carry_1: [T; 32],
+    pub carry_2: [T; 32],
     /// Output
-    pub w_i: T,
+    pub w_i: [T; 32], // w_i_inter_1 + w_i_minus_16
+    /// The timestamp at which inputs should be read from memory.
+    pub timestamp: T,
 }
 
 pub const NUM_SHA_EXTEND_COLUMNS: usize = size_of::<ShaExtendColumnsView<u8>>();
@@ -81,3 +82,8 @@ const fn make_col_map() -> ShaExtendColumnsView<usize> {
 }
 
 pub(crate) const SHA_EXTEND_COL_MAP: ShaExtendColumnsView<usize> = make_col_map();
+
+pub fn get_input_range(i: usize) -> std::ops::Range<usize> {
+    (0 + i * 32)..(32 + i * 32)
+}
+

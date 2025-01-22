@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::marker::PhantomData;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
@@ -6,13 +7,13 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::StarkFrame;
-use crate::sha_extend::columns::{ShaExtendColumnsView, NUM_SHA_EXTEND_COLUMNS};
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::sha_extend::columns::{get_input_range, ShaExtendColumnsView, NUM_SHA_EXTEND_COLUMNS};
+use crate::sha_extend::logic::{rotate_right, shift_right, wrapping_add, xor3};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 
-const NUM_ROUND_CONSTANTS: usize = 48;
-const NUM_INPUTS: usize = 4; // w_i_minus_15, w_i_minus_2, w_i_minus_16, w_i_minus_7
+const NUM_INPUTS: usize = 4 * 32; // w_i_minus_15, w_i_minus_2, w_i_minus_16, w_i_minus_7
 
 #[derive(Copy, Clone, Default)]
 pub struct ShaExtendStark<F, const D: usize> {
@@ -23,11 +24,11 @@ pub struct ShaExtendStark<F, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
     pub(crate) fn generate_trace(
         &self,
-        inputs: Vec<([u32; NUM_INPUTS], usize)>,
+        inputs_and_timestamps: Vec<([u32; NUM_INPUTS], usize)>,
         min_rows: usize,
     ) -> Vec<PolynomialValues<F>> {
         // Generate the witness row-wise
-        let trace_rows = self.generate_trace_rows(inputs, min_rows);
+        let trace_rows = self.generate_trace_rows(inputs_and_timestamps, min_rows);
         trace_rows_to_poly_values(trace_rows)
     }
 
@@ -60,40 +61,39 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
         let mut row = ShaExtendColumnsView::default();
 
         row.timestamp = F::from_canonical_usize(input_and_timestamp.1);
-        [row.w_i_minus_15, row.w_i_minus_2, row.w_i_minus_16, row.w_i_minus_7]
-            = input_and_timestamp.0.map(F::from_canonical_u32);
+        row.w_i_minus_15 = input_and_timestamp.0[get_input_range(0)]
+            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+        row.w_i_minus_2 = input_and_timestamp.0[get_input_range(1)]
+            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+        row.w_i_minus_16 = input_and_timestamp.0[get_input_range(2)]
+            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+        row.w_i_minus_7 = input_and_timestamp.0[get_input_range(3)]
+            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
 
         self.generate_trace_row_for_round(&mut row);
         row
     }
 
     fn generate_trace_row_for_round(&self, row: &mut ShaExtendColumnsView<F>) {
-        let w_i_minus_15_u32 = row.w_i_minus_15.to_canonical_u64() as u32;
-        row.w_i_minus_15_rr_7 = F::from_canonical_u32(w_i_minus_15_u32.rotate_right(7));
-        row.w_i_minus_15_rr_18 = F::from_canonical_u32(w_i_minus_15_u32.rotate_right(18));
-        row.w_i_minus_15_rs_3 = F::from_canonical_u32(w_i_minus_15_u32 >> 3);
+        row.w_i_minus_15_rr_7 = rotate_right(row.w_i_minus_15, 7);
+        row.w_i_minus_15_rr_18 = rotate_right(row.w_i_minus_15, 18);
+        row.w_i_minus_15_rs_3 = shift_right(row.w_i_minus_15, 3);
 
-        // (w[i-15] rightrotate 7) xor (w[i-15] rightrotate 18)
-
-        row.s_0_inter = F::from_canonical_u32(w_i_minus_15_u32.rotate_right(7) ^ w_i_minus_15_u32.rotate_right(18));
         // s0 := (w[i-15] rightrotate 7) xor (w[i-15] rightrotate 18) xor (w[i-15] rightshift 3)
-        row.s_0 = F::from_canonical_u32((row.s_0_inter.to_canonical_u64() as u32) ^ (w_i_minus_15_u32 >> 3));
+        row.s_0 = xor3(row.w_i_minus_15_rr_7, row.w_i_minus_15_rr_18, row.w_i_minus_15_rs_3);
 
-        let w_i_minus_2_u32 = row.w_i_minus_2.to_canonical_u64() as u32;
-        row.w_i_minus_2_rr_17 = F::from_canonical_u32(w_i_minus_2_u32.rotate_right(17));
-        row.w_i_minus_2_rr_19 = F::from_canonical_u32(w_i_minus_2_u32.rotate_right(19));
-        row.w_i_minus_2_rs_10 = F::from_canonical_u32(w_i_minus_2_u32 >> 10);
+        row.w_i_minus_2_rr_17 = rotate_right(row.w_i_minus_2, 17);
+        row.w_i_minus_2_rr_19 = rotate_right(row.w_i_minus_2, 19);
+        row.w_i_minus_2_rs_10 = shift_right(row.w_i_minus_2, 10);
 
-        // (w[i-2] rightrotate 17) xor (w[i-2] rightrotate 19)
-        row.s_1_inter = F::from_canonical_u32(w_i_minus_2_u32.rotate_right(17) ^  w_i_minus_2_u32.rotate_right(19));
         // s1 := (w[i-2] rightrotate 17) xor (w[i-2] rightrotate 19) xor (w[i-2] rightshift 10)
-        row.s_1 = F::from_canonical_u32((row.s_1_inter.to_canonical_u64() as u32) ^ (w_i_minus_2_u32 >> 10));
+        row.s_1 = xor3(row.w_i_minus_2_rr_17, row.w_i_minus_2_rr_19, row.w_i_minus_2_rs_10);
 
-        // w_i = w[i-16] + s0 + w[i-7] + s1.
-        row.w_i = F::from_canonical_u32((row.w_i_minus_16.to_canonical_u64() as u32)
-            .wrapping_add(row.s_0.to_canonical_u64() as u32)
-            .wrapping_add(row.w_i_minus_7.to_canonical_u64() as u32)
-            .wrapping_add(row.s_1.to_canonical_u64() as u32));
+        // (w_i_inter_0, carry) = w[i-7] + s1.
+        (row.w_i_inter_0, row.carry_0) = wrapping_add(row.w_i_minus_7, row.s_1);
+        (row.w_i_inter_1, row.carry_1) = wrapping_add(row.w_i_inter_0, row.s_0);
+
+        (row.w_i, row.carry_2) = wrapping_add(row.w_i_inter_1, row.w_i_minus_16);
     }
 }
 
@@ -122,7 +122,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendStar
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: &Self::EvaluationFrameTarget,
-        yield_constr: &mut RecursiveConstraintConsumer<F, D>) {
+        yield_constr: &mut RecursiveConstraintConsumer<F, D>)
+    {
+
         todo!()
     }
 
@@ -137,35 +139,47 @@ mod test {
     use plonky2::field::types::{Field};
     use crate::sha_extend::sha_extend_stark::ShaExtendStark;
 
+    fn to_be_bits(value: u32) -> [u32; 32] {
+        let mut result = [0; 32];
+        for i in 0..32 {
+            result[i] = ((value >> i) & 1) as u32;
+        }
+        result
+    }
+
     #[test]
-    fn test_generation() -> Result<(), String> {
+    fn test_correction() -> Result<(), String> {
         const D: usize = 2;
         type F = GoldilocksField;
 
         type S = ShaExtendStark<F, D>;
-
-        let input = ([1, 2, 3, 4 as u32], 0);
+        let mut input_values = vec![];
+        input_values.extend((0..4).map(|i| to_be_bits(i as u32)));
+        let input_values = input_values.into_iter().flatten().collect::<Vec<_>>();
+        let input_values: [u32; 128] = input_values.try_into().unwrap();
+        let input_and_timestamp = (input_values, 0);
 
         let stark = S::default();
-        let row = stark.generate_trace_rows_for_extend(input);
+        let row = stark.generate_trace_rows_for_extend(input_and_timestamp.try_into().unwrap());
 
 
         // extend phase
-        let w_i_minus_15 = input.0[0];
+        let w_i_minus_15 = 0 as u32;
         let s0 = w_i_minus_15.rotate_right(7) ^ w_i_minus_15.rotate_right(18) ^ (w_i_minus_15 >> 3);
 
-        let w_i_minus_2 = input.0[1];
+        let w_i_minus_2 = 1 as u32;
         // Compute `s1`.
         let s1 = w_i_minus_2.rotate_right(17) ^ w_i_minus_2.rotate_right(19) ^ (w_i_minus_2 >> 10);
-        let w_i_minus_16 = input.0[2];
-        let w_i_minus_7 = input.0[3];
+        let w_i_minus_16 = 2 as u32;
+        let w_i_minus_7 = 3 as u32;
         // Compute `w_i`.
         let w_i = s1
             .wrapping_add(w_i_minus_16)
             .wrapping_add(s0)
             .wrapping_add(w_i_minus_7);
-        // println!("w_i: {}", w_i);
-        assert_eq!(row.w_i, F::from_canonical_u32(w_i));
+
+        let w_i_bin = to_be_bits(w_i);
+        assert_eq!(row.w_i, w_i_bin.map(F::from_canonical_u32));
 
         Ok(())
     }
