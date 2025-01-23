@@ -29,10 +29,10 @@ pub(crate) struct  ShaExtendSpongeOp {
 
     /// The input that was read.
     /// Values: w_i_minus_15, w_i_minus_2, w_i_minus_16, w_i_minus_7 in big-endian order.
-    pub(crate) input: Vec<u32>,
+    pub(crate) input: Vec<u8>,
 
     /// The index of round
-    pub(crate) i: u32,
+    pub(crate) i: usize,
 
     /// The base address at which the output is written.
     pub(crate) output_address: MemoryAddress,
@@ -90,13 +90,13 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendSpongeStark<F, D> {
         row.output_virt = F::from_canonical_usize(op.output_address.virt);
 
         row.w_i_minus_15 = op.input[get_input_range(0)]
-            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+            .iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap();
         row.w_i_minus_2 = op.input[get_input_range(1)]
-            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+            .iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap();
         row.w_i_minus_16 = op.input[get_input_range(2)]
-            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+            .iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap();
         row.w_i_minus_7 = op.input[get_input_range(3)]
-            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+            .iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap();
 
         row.w_i = self.compute_w_i(&mut row);
         row
@@ -115,7 +115,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendSpongeStark<F, D> {
             .wrapping_add(w_i_minus_7);
 
         let w_i_bin = from_u32_to_be_bits(w_i_u32);
-        w_i_bin.iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap()
+        w_i_bin.iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap()
     }
 }
 
@@ -383,10 +383,10 @@ mod test {
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
     use crate::witness::memory::MemoryAddress;
 
-    fn to_be_bits(value: u32) -> [u32; 32] {
+    fn to_be_bits(value: u32) -> [u8; 32] {
         let mut result = [0; 32];
         for i in 0..32 {
-            result[i] = ((value >> i) & 1) as u32;
+            result[i] = ((value >> i) & 1) as u8;
         }
         result
     }
@@ -434,7 +434,7 @@ mod test {
         let row = stark.generate_rows_for_op(op);
 
         let w_i_bin = to_be_bits(40965);
-        assert_eq!(row.w_i, w_i_bin.map(F::from_canonical_u32));
+        assert_eq!(row.w_i, w_i_bin.map(F::from_canonical_u8));
 
         Ok(())
     }
@@ -511,7 +511,7 @@ mod test {
                 base_address: vec![addresses[i - 15], addresses[i - 2], addresses[i - 16], addresses[i - 7]],
                 timestamp: 0,
                 input: input_values,
-                i: i as u32 - 16,
+                i: i - 16,
                 output_address: addresses[i],
             };
 

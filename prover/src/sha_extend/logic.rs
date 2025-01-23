@@ -124,10 +124,10 @@ pub(crate) fn from_be_bits_to_u32<F: RichField + Extendable<D>, const D: usize>(
     result
 }
 
-pub(crate) fn from_u32_to_be_bits(value: u32) -> [u32; 32] {
-    let mut result = [0; 32];
+pub(crate) fn from_u32_to_be_bits(value: u32) -> [u8; 32] {
+    let mut result = [0_u8; 32];
     for i in 0..32 {
-        result[i] = ((value >> i) & 1) as u32;
+        result[i] = ((value >> i) & 1) as u8;
     }
     result
 }

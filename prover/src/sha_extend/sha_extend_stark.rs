@@ -25,7 +25,7 @@ pub struct ShaExtendStark<F, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
     pub(crate) fn generate_trace(
         &self,
-        inputs_and_timestamps: Vec<([u32; NUM_INPUTS], usize)>,
+        inputs_and_timestamps: Vec<([u8; NUM_INPUTS], usize)>,
         min_rows: usize,
     ) -> Vec<PolynomialValues<F>> {
         // Generate the witness row-wise
@@ -35,7 +35,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
 
     fn generate_trace_rows(
         &self,
-        inputs_and_timestamps: Vec<([u32; NUM_INPUTS], usize)>,
+        inputs_and_timestamps: Vec<([u8; NUM_INPUTS], usize)>,
         min_rows: usize,
     ) -> Vec<[F; NUM_SHA_EXTEND_COLUMNS]> {
         let num_rows = inputs_and_timestamps.len()
@@ -57,19 +57,19 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
 
     fn generate_trace_rows_for_extend(
         &self,
-        input_and_timestamp: ([u32; NUM_INPUTS], usize),
+        input_and_timestamp: ([u8; NUM_INPUTS], usize),
     ) -> ShaExtendColumnsView<F> {
         let mut row = ShaExtendColumnsView::default();
 
         row.timestamp = F::from_canonical_usize(input_and_timestamp.1);
         row.w_i_minus_15 = input_and_timestamp.0[get_input_range(0)]
-            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+            .iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap();
         row.w_i_minus_2 = input_and_timestamp.0[get_input_range(1)]
-            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+            .iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap();
         row.w_i_minus_16 = input_and_timestamp.0[get_input_range(2)]
-            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+            .iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap();
         row.w_i_minus_7 = input_and_timestamp.0[get_input_range(3)]
-            .iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+            .iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap();
 
         self.generate_trace_row_for_round(&mut row);
         row
@@ -394,15 +394,15 @@ mod test {
     use crate::sha_extend_sponge::columns::NUM_EXTEND_INPUT;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
-    fn to_be_bits(value: u32) -> [u32; 32] {
+    fn to_be_bits(value: u32) -> [u8; 32] {
         let mut result = [0; 32];
         for i in 0..32 {
-            result[i] = ((value >> i) & 1) as u32;
+            result[i] = ((value >> i) & 1) as u8;
         }
         result
     }
 
-    fn get_random_input() -> [u32; NUM_EXTEND_INPUT * 32] {
+    fn get_random_input() -> [u8; NUM_EXTEND_INPUT * 32] {
         let mut input_values = vec![];
         let rand = rand::random::<u32>();
         input_values.extend((rand..rand + 4).map(|i| to_be_bits(i as u32)));
@@ -419,7 +419,7 @@ mod test {
         let mut input_values = vec![];
         input_values.extend((0..4).map(|i| to_be_bits(i as u32)));
         let input_values = input_values.into_iter().flatten().collect::<Vec<_>>();
-        let input_values: [u32; 128] = input_values.try_into().unwrap();
+        let input_values: [u8; 128] = input_values.try_into().unwrap();
         let input_and_timestamp = (input_values, 0);
 
         let stark = S::default();
@@ -442,7 +442,7 @@ mod test {
             .wrapping_add(w_i_minus_7);
 
         let w_i_bin = to_be_bits(w_i);
-        assert_eq!(row.w_i, w_i_bin.map(F::from_canonical_u32));
+        assert_eq!(row.w_i, w_i_bin.map(F::from_canonical_u8));
 
         Ok(())
     }
@@ -485,7 +485,7 @@ mod test {
 
         init_logger();
 
-        let input: Vec<([u32; NUM_EXTEND_INPUT * 32], usize)> =
+        let input: Vec<([u8; NUM_EXTEND_INPUT * 32], usize)> =
             (0..NUM_EXTEND).map(|_| (get_random_input(), 0)).collect();
 
         let mut timing = TimingTree::new("prove", log::Level::Debug);
