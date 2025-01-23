@@ -9,8 +9,8 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak::logic::{xor3_gen, xor3_gen_circuit};
-use crate::sha_extend::columns::{get_input_range, ShaExtendColumnsView, NUM_SHA_EXTEND_COLUMNS};
-use crate::sha_extend::logic::{rotate_right, rotate_right_ext_circuit_constraint, rotate_right_packed_constraints, shift_right, shift_right_ext_circuit_constraints, shift_right_packed_constraints, wrapping_add, wrapping_add_ext_circuit_constraints, wrapping_add_packed_constraints, xor3};
+use crate::sha_extend::columns::{ShaExtendColumnsView, NUM_SHA_EXTEND_COLUMNS};
+use crate::sha_extend::logic::{get_input_range, rotate_right, rotate_right_ext_circuit_constraint, rotate_right_packed_constraints, shift_right, shift_right_ext_circuit_constraints, shift_right_packed_constraints, wrapping_add, wrapping_add_ext_circuit_constraints, wrapping_add_packed_constraints, xor3};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 

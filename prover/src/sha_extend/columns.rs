@@ -83,7 +83,3 @@ const fn make_col_map() -> ShaExtendColumnsView<usize> {
 
 pub(crate) const SHA_EXTEND_COL_MAP: ShaExtendColumnsView<usize> = make_col_map();
 
-pub fn get_input_range(i: usize) -> std::ops::Range<usize> {
-    (0 + i * 32)..(32 + i * 32)
-}
-

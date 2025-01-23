@@ -5,8 +5,14 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
+
+pub(crate) fn get_input_range(i: usize) -> std::ops::Range<usize> {
+    (0 + i * 32)..(32 + i * 32)
+}
+
+
 // these operators are applied in big-endian form
-pub fn rotate_right<F: RichField + Extendable<D>, const D: usize>(value: [F; 32], amount: usize) -> [F; 32] {
+pub(crate) fn rotate_right<F: RichField + Extendable<D>, const D: usize>(value: [F; 32], amount: usize) -> [F; 32] {
     let mut result = [F::ZERO; 32];
     for i in 0..32 {
         result[i] = value[(i + amount) % 32];
@@ -39,7 +45,7 @@ pub(crate) fn rotate_right_ext_circuit_constraint<F: RichField + Extendable<D>, 
     result
 }
 
-pub fn shift_right<F: RichField + Extendable<D>, const D: usize>(value: [F; 32], amount: usize) -> [F; 32] {
+pub(crate) fn shift_right<F: RichField + Extendable<D>, const D: usize>(value: [F; 32], amount: usize) -> [F; 32] {
     let mut result = [F::ZERO; 32];
     if amount < 32 {
         for i in 0..32 - amount {
@@ -80,7 +86,7 @@ pub(crate) fn shift_right_ext_circuit_constraints<F: RichField + Extendable<D>, 
     result
 }
 
-pub fn xor3 <F: RichField + Extendable<D>, const D: usize, const N: usize>(a: [F; N], b: [F; N], c: [F; N]) -> [F; N] {
+pub(crate) fn xor3 <F: RichField + Extendable<D>, const D: usize, const N: usize>(a: [F; N], b: [F; N], c: [F; N]) -> [F; N] {
     let mut result = [F::ZERO; N];
     for i in 0..N {
         result[i] = crate::keccak::logic::xor([a[i], b[i], c[i]]);
@@ -88,7 +94,7 @@ pub fn xor3 <F: RichField + Extendable<D>, const D: usize, const N: usize>(a: [F
     result
 }
 
-pub fn wrapping_add<F: RichField + Extendable<D>, const D: usize, const N: usize>(
+pub(crate) fn wrapping_add<F: RichField + Extendable<D>, const D: usize, const N: usize>(
     a: [F; N],
     b: [F; N]
 ) -> ([F; N], [F; N]) {
@@ -109,7 +115,7 @@ pub fn wrapping_add<F: RichField + Extendable<D>, const D: usize, const N: usize
     (result, carries)
 }
 
-pub fn from_be_bits_to_u32<F: RichField + Extendable<D>, const D: usize>(value: [F; 32]) -> u32 {
+pub(crate) fn from_be_bits_to_u32<F: RichField + Extendable<D>, const D: usize>(value: [F; 32]) -> u32 {
     let mut result = 0;
     for i in 0..32 {
         debug_assert!(value[i].is_zero() || value[i].is_one());
@@ -118,7 +124,7 @@ pub fn from_be_bits_to_u32<F: RichField + Extendable<D>, const D: usize>(value: 
     result
 }
 
-pub fn from_u32_to_be_bits(value: u32) -> [u32; 32] {
+pub(crate) fn from_u32_to_be_bits(value: u32) -> [u32; 32] {
     let mut result = [0; 32];
     for i in 0..32 {
         result[i] = ((value >> i) & 1) as u32;
