@@ -80,20 +80,23 @@ pub(crate) fn shift_right_ext_circuit_constraints<F: RichField + Extendable<D>, 
     result
 }
 
-pub fn xor3 <F: RichField + Extendable<D>, const D: usize>(a: [F; 32], b: [F; 32], c: [F; 32]) -> [F; 32] {
-    let mut result = [F::ZERO; 32];
-    for i in 0..32 {
+pub fn xor3 <F: RichField + Extendable<D>, const D: usize, const N: usize>(a: [F; N], b: [F; N], c: [F; N]) -> [F; N] {
+    let mut result = [F::ZERO; N];
+    for i in 0..N {
         result[i] = crate::keccak::logic::xor([a[i], b[i], c[i]]);
     }
     result
 }
 
-pub fn wrapping_add<F: RichField + Extendable<D>, const D: usize>(a: [F; 32], b: [F; 32]) -> ([F; 32], [F; 32]) {
-    let mut result = [F::ZERO; 32];
-    let mut carries = [F::ZERO; 32];
+pub fn wrapping_add<F: RichField + Extendable<D>, const D: usize, const N: usize>(
+    a: [F; N],
+    b: [F; N]
+) -> ([F; N], [F; N]) {
+    let mut result = [F::ZERO; N];
+    let mut carries = [F::ZERO; N];
     let mut sum = F::ZERO;
     let mut carry = F::ZERO;
-    for i in 0..32 {
+    for i in 0..N {
         debug_assert!(a[i].is_zero() || a[i].is_one());
         debug_assert!(b[i].is_zero() || b[i].is_one());
 
@@ -124,16 +127,16 @@ pub fn from_u32_to_be_bits(value: u32) -> [u32; 32] {
 }
 
 /// Computes the constraints of wrapping add
-pub(crate) fn wrapping_add_packed_constraints<P: PackedField>(
-    x: [P; 32],
-    y: [P; 32],
-    carry: [P; 32],
-    out: [P; 32]
+pub(crate) fn wrapping_add_packed_constraints<P: PackedField, const N: usize>(
+    x: [P; N],
+    y: [P; N],
+    carry: [P; N],
+    out: [P; N]
 ) -> Vec<P> {
 
     let mut result = vec![];
     let mut pre_carry = P::ZEROS;
-    for i in 0..32 {
+    for i in 0..N {
         let sum = x[i] + y[i] + pre_carry;
 
         let out_constraint = (sum - P::ONES) * (sum - P::ONES - P::ONES - P::ONES) * out[i]
@@ -147,12 +150,12 @@ pub(crate) fn wrapping_add_packed_constraints<P: PackedField>(
     result
 }
 
-pub(crate) fn wrapping_add_ext_circuit_constraints<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn wrapping_add_ext_circuit_constraints<F: RichField + Extendable<D>, const D: usize, const N: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    x: [ExtensionTarget<D>; 32],
-    y: [ExtensionTarget<D>; 32],
-    carry: [ExtensionTarget<D>; 32],
-    out: [ExtensionTarget<D>; 32]
+    x: [ExtensionTarget<D>; N],
+    y: [ExtensionTarget<D>; N],
+    carry: [ExtensionTarget<D>; N],
+    out: [ExtensionTarget<D>; N]
 ) -> Vec<ExtensionTarget<D>> {
 
     let mut result = vec![];
@@ -160,7 +163,7 @@ pub(crate) fn wrapping_add_ext_circuit_constraints<F: RichField + Extendable<D>,
     let one_ext = builder.one_extension();
     let two_ext = builder.two_extension();
     let three_ext = builder.constant_extension(F::Extension::from_canonical_u8(3));
-    for i in 0..32 {
+    for i in 0..N {
         let sum = builder.add_many_extension([x[i], y[i], pre_carry]);
 
         let inner_1 = builder.sub_extension(sum, one_ext);
