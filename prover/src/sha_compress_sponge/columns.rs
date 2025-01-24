@@ -3,40 +3,28 @@ use std::intrinsics::transmute;
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
 pub(crate) struct ShaCompressSpongeColumnsView<T: Copy> {
+
+    pub hx: [T;256],
+    pub input_state: [T; 256],
+    pub output_state: [T; 256],
+    pub output_hx: [T; 256],
+    pub carry: [T; 256],
+    pub round: [T; 64],
+    pub w_i: [T; 32],
+    pub k_i: [T; 32],
+    pub hx_virt: [T; 8],
+    pub w_virt: T,
+
     /// The timestamp at which inputs should be read from memory.
     pub timestamp: T,
-
-    /// hx_i
-    pub hx: [T;8],
-
-    /// w[i]
-    pub w: [T; 64],
-
-    /// a,b...,h values after compressed
-    pub new_a: T,
-    pub new_b: T,
-    pub new_c: T,
-    pub new_d: T,
-    pub new_e: T,
-    pub new_f: T,
-    pub new_g: T,
-    pub new_h: T,
-
-    /// output
-    pub final_hx: [T;8],
 
     /// The base address at which we will read the input block.
     pub context: T,
     pub segment: T,
-    /// Hx addresses
-    pub hx_virt: [T; 8],
-
-    /// W_i addresses
-    pub w_virt: [T;64],
 }
 
 
-pub const NUM_SHA_COMPRESS_SPONGE_COLUMNS: usize = size_of::<ShaCompressSpongeColumnsView<u8>>();
+pub const NUM_SHA_COMPRESS_SPONGE_COLUMNS: usize = size_of::<ShaCompressSpongeColumnsView<u8>>(); //1420
 
 impl<T: Copy> From<[T; NUM_SHA_COMPRESS_SPONGE_COLUMNS]> for ShaCompressSpongeColumnsView<T> {
     fn from(value: [T; NUM_SHA_COMPRESS_SPONGE_COLUMNS]) -> Self {

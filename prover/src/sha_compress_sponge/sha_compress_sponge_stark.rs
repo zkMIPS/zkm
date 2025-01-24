@@ -9,7 +9,10 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::evaluation_frame::StarkFrame;
 use crate::memory::segments::Segment;
+use crate::sha_compress::logic::from_be_bits_to_u32;
 use crate::sha_compress_sponge::columns::{ShaCompressSpongeColumnsView, NUM_SHA_COMPRESS_SPONGE_COLUMNS};
+use crate::sha_compress_sponge::constants::SHA_COMPRESS_K_BINARY;
+use crate::sha_extend::logic::{from_u32_to_be_bits, get_input_range, wrapping_add};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
@@ -18,13 +21,18 @@ use crate::witness::operation::SHA_COMPRESS_K;
 #[derive(Clone, Debug)]
 pub(crate) struct ShaCompressSpongeOp {
     /// The base address at which inputs are read.
+    /// h[0],...,h[7], w[i].
     pub(crate) base_address: Vec<MemoryAddress>,
 
     /// The timestamp at which inputs are read.
     pub(crate) timestamp: usize,
 
+    /// The index of round
+    pub(crate) i: usize,
+
     /// The input that was read.
-    pub(crate) input: Vec<u32>,
+    /// Values: h[0],..., h[7], w[i]  in big-endian order.
+    pub(crate) input: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Default)]
@@ -70,38 +78,8 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressSpongeStark<F, D> 
         let mut row = ShaCompressSpongeColumnsView::default();
 
         row.timestamp = F::from_canonical_usize(op.timestamp);
-
-        let new_buffer = self.compress(&op.input);
-
-        row.hx = op.input[0..8]
-            .iter()
-            .map(|&x| F::from_canonical_u32(x))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        row.w = op.input[8..op.input.len()]
-            .iter()
-            .map(|&x| F::from_canonical_u32(x))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
         row.context = F::from_canonical_usize(op.base_address[0].context);
         row.segment = F::from_canonical_usize(op.base_address[Segment::Code as usize].segment);
-
-        [row.new_a, row.new_b, row.new_c, row.new_d, row.new_e, row.new_f, row.new_g, row.new_h]
-            = new_buffer.iter()
-            .map(|&x| F::from_canonical_u32(x))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        row.final_hx = new_buffer.iter().zip(row.hx.iter())
-            .map(|(&x, &hx)| F::from_canonical_u32(x.wrapping_add(hx.to_canonical_u64() as u32)))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
 
         let hx_virt = (0..8)
             .map(|i| op.base_address[i].virt)
@@ -109,36 +87,76 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressSpongeStark<F, D> 
         let hx_virt: [usize; 8] = hx_virt.try_into().unwrap();
         row.hx_virt = hx_virt.map(F::from_canonical_usize);
 
-        let w_virt = (8..op.input.len())
-            .map(|i| op.base_address[i].virt)
-            .collect_vec();
-        let w_virt: [usize; 64] = w_virt.try_into().unwrap();
-        row.w_virt = w_virt.map(F::from_canonical_usize);
+        let w_virt =  op.base_address[8].virt;
+        row.w_virt = F::from_canonical_usize(w_virt);
+
+        row.round = [F::ZEROS; 64];
+        row.round[op.i] = F::ONE;
+        row.k_i = SHA_COMPRESS_K_BINARY[op.i].map(|k| F::from_canonical_u8(k));
+        row.w_i = op.input[256..288].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
+        if op.i == 0 {
+            row.hx = op.input[..256].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
+            row.input_state = row.hx;
+        } else if op.i != 63 {
+            row.input_state = op.input[..256].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
+        } else {
+            row.input_state = op.input[..256].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
+            row.hx = op.input[288..].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
+        }
+
+        let output = self.compress(&op.input[..288], op.i);
+        row.output_state = output.map(F::from_canonical_u8);
+
+        if op.i == 63 {
+            for i in 0..8 {
+
+                let (output_hx, carry) = wrapping_add::<F, D, 32>(
+                    row.hx[get_input_range(i)].try_into().unwrap(),
+                    row.output_state[get_input_range(i)].try_into().unwrap()
+                );
+
+                row.output_hx[get_input_range(i)].copy_from_slice(&output_hx[0..]);
+                row.carry[get_input_range(i)].copy_from_slice(&carry[0..]);
+            }
+
+        } else {
+            row.output_hx = row.hx;
+            row.carry = [F::ZEROS; 256];
+        }
 
         row
     }
 
-    fn compress(&self, input: &[u32]) -> [u32; 8] {
-        let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut h]: [u32; 8] = input[0..8].try_into().unwrap();
-        let mut t1: u32;
-        let mut t2: u32;
+    fn compress(&self, input: &[u8], round: usize) -> [u8; 256] {
+        let values: Vec<[u8; 32]> = input.chunks(32).map(|chunk| chunk.try_into().unwrap()).collect();
+        let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut h, w_i] = values.into_iter().map(
+            |x| from_be_bits_to_u32(x)
+        ).collect::<Vec<_>>().try_into().unwrap();
 
-        for i in 0..64 {
-            t1 = h.wrapping_add(e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25))
-                .wrapping_add((e & f) ^ ((!e) & g)).wrapping_add(SHA_COMPRESS_K[i]).wrapping_add(input[8 + i]);
-            t2 = (a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22))
-                .wrapping_add((a & b) ^ (a & c) ^ (b & c));
-            h = g;
-            g = f;
-            f = e;
-            e = d.wrapping_add(t1);
-            d = c;
-            c = b;
-            b = a;
-            a = t1.wrapping_add(t2);
-        }
+        let t1 = h.wrapping_add(e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25))
+            .wrapping_add((e & f) ^ ((!e) & g)).wrapping_add(SHA_COMPRESS_K[round]).wrapping_add(w_i);
+        let t2 = (a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22))
+            .wrapping_add((a & b) ^ (a & c) ^ (b & c));
+        h = g;
+        g = f;
+        f = e;
+        e = d.wrapping_add(t1);
+        d = c;
+        c = b;
+        b = a;
+        a = t1.wrapping_add(t2);
 
-        [a, b, c, d, e, f, g, h]
+        let mut result = vec![];
+        result.extend(from_u32_to_be_bits(a));
+        result.extend(from_u32_to_be_bits(b));
+        result.extend(from_u32_to_be_bits(c));
+        result.extend(from_u32_to_be_bits(d));
+        result.extend(from_u32_to_be_bits(e));
+        result.extend(from_u32_to_be_bits(f));
+        result.extend(from_u32_to_be_bits(g));
+        result.extend(from_u32_to_be_bits(h));
+
+        result.try_into().unwrap()
     }
 }
 
@@ -180,8 +198,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
 #[cfg(test)]
 mod test {
     use plonky2::field::goldilocks_field::GoldilocksField;
-    use plonky2::field::types::Field;
+    use plonky2::field::types::{Field};
+    use std::borrow::Borrow;
+    use crate::sha_compress_sponge::columns::ShaCompressSpongeColumnsView;
     use crate::sha_compress_sponge::sha_compress_sponge_stark::{ShaCompressSpongeOp, ShaCompressSpongeStark};
+    use crate::sha_extend::logic::{from_u32_to_be_bits, get_input_range};
     use crate::witness::memory::MemoryAddress;
 
 
@@ -221,30 +242,97 @@ mod test {
                 virt: i,
             }
         }).collect();
-
+        let mut input = H256_256.iter().map(|x| from_u32_to_be_bits(*x)).flatten().collect::<Vec<_>>();
+        input.extend(from_u32_to_be_bits(W[0]));
         let op = ShaCompressSpongeOp {
-            base_address: hx_addresses.iter().chain(w_addresses.iter()).cloned().collect(),
+            base_address: hx_addresses.iter().chain([w_addresses[0]].iter()).cloned().collect(),
+            i: 0,
             timestamp: 0,
-            input: H256_256.iter().chain(W.iter()).cloned().collect(),
+            input: input,
         };
         let row = stark.generate_rows_for_op(op);
+        let local_values: &ShaCompressSpongeColumnsView<F> = row.borrow();
 
-        assert_eq!(row.new_a, F::from_canonical_u32(1813631354));
-        assert_eq!(row.new_b, F::from_canonical_u32(3315363907));
-        assert_eq!(row.new_c, F::from_canonical_u32(209435322));
-        assert_eq!(row.new_d, F::from_canonical_u32(267716009));
-        assert_eq!(row.new_e, F::from_canonical_u32(646830348));
-        assert_eq!(row.new_f, F::from_canonical_u32(362222596));
-        assert_eq!(row.new_g, F::from_canonical_u32(3323089566));
-        assert_eq!(row.new_h, F::from_canonical_u32(1912443780));
+        assert_eq!(
+            local_values.output_state[get_input_range(0)],
+            from_u32_to_be_bits(4228417613).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
+        assert_eq!(
+            local_values.output_state[get_input_range(1)],
+            from_u32_to_be_bits(1779033703).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
+        assert_eq!(
+            local_values.output_state[get_input_range(2)],
+            from_u32_to_be_bits(3144134277).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
+        assert_eq!(
+            local_values.output_state[get_input_range(3)],
+            from_u32_to_be_bits(1013904242).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
+        assert_eq!(
+            local_values.output_state[get_input_range(4)],
+            from_u32_to_be_bits(2563236514).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
+        assert_eq!(
+            local_values.output_state[get_input_range(5)],
+            from_u32_to_be_bits(1359893119).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
+        assert_eq!(
+            local_values.output_state[get_input_range(6)],
+            from_u32_to_be_bits(2600822924).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
+        assert_eq!(
+            local_values.output_state[get_input_range(7)],
+            from_u32_to_be_bits(528734635).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
 
-        let expected_values: [F; 8] = [3592665057_u32, 2164530888, 1223339564, 3041196771, 2006723467,
-            2963045520, 3851824201, 3453903005].into_iter().map(F::from_canonical_u32)
-            .collect::<Vec<_>>().try_into().unwrap();
+        let mut input = H256_256.iter().map(|x| from_u32_to_be_bits(*x)).flatten().collect::<Vec<_>>();
+        input.extend(from_u32_to_be_bits(W[63]));
+        input.extend(H256_256.iter().map(|x| from_u32_to_be_bits(*x)).flatten().collect::<Vec<_>>());
+
+        let op = ShaCompressSpongeOp {
+            base_address: hx_addresses.iter().chain([w_addresses[0]].iter()).cloned().collect(),
+            i: 63,
+            timestamp: 0,
+            input: input,
+        };
+        let row = stark.generate_rows_for_op(op);
+        let local_values: &ShaCompressSpongeColumnsView<F> = row.borrow();
 
 
-        assert_eq!(row.final_hx, expected_values);
+        assert_eq!(
+            local_values.output_hx[get_input_range(0)],
+            from_u32_to_be_bits(H256_256[0].wrapping_add(2781379838 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
+        assert_eq!(
+            local_values.output_hx[get_input_range(1)],
+            from_u32_to_be_bits(H256_256[1].wrapping_add(1779033703 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
+        assert_eq!(
+            local_values.output_hx[get_input_range(2)],
+            from_u32_to_be_bits(H256_256[2].wrapping_add(3144134277 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
+        assert_eq!(
+            local_values.output_hx[get_input_range(3)],
+            from_u32_to_be_bits(H256_256[3].wrapping_add(1013904242 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
+        assert_eq!(
+            local_values.output_hx[get_input_range(4)],
+            from_u32_to_be_bits(H256_256[4].wrapping_add(1116198739 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
+        assert_eq!(
+            local_values.output_hx[get_input_range(5)],
+            from_u32_to_be_bits(H256_256[5].wrapping_add(1359893119 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
+        assert_eq!(
+            local_values.output_hx[get_input_range(6)],
+            from_u32_to_be_bits(H256_256[6].wrapping_add(2600822924 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
+        assert_eq!(
+            local_values.output_hx[get_input_range(7)],
+            from_u32_to_be_bits(H256_256[7].wrapping_add(528734635 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+        );
         Ok(())
-
     }
+
 }
