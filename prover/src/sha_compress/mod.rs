@@ -1,3 +1,3 @@
-mod columns;
-mod sha_compress_stark;
-mod constants;
+pub mod columns;
+pub mod sha_compress_stark;
+pub mod logic;

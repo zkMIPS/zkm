@@ -3,69 +3,57 @@ use std::intrinsics::transmute;
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 #[derive(Clone)]
 pub(crate) struct ShaCompressColumnsView<T: Copy> {
+
+
+    /// input state: a,b,c,d,e,f,g,h in binary form
+    pub input_state: [T; 256],
+    /// Out
+    pub output_state: [T; 256],
+    /// w[i] and key[i]
+    pub w_i: [T; 32],
+    pub k_i: [T; 32],
+
+    /// Intermediate values
+    pub e_rr_6: [T; 32],
+    pub e_rr_11: [T; 32],
+    pub e_rr_25: [T; 32],
+    pub s_1: [T; 32],
+    pub e_and_f: [T; 32],
+    pub not_e_and_g: [T; 32],
+    pub ch: [T;32],
+    // h.wrapping_add(s1)
+    pub inter_1: [T;32],
+    pub carry_1: [T;32],
+    // inter_1.wrapping_add(ch)
+    pub inter_2: [T;32],
+    pub carry_2: [T;32],
+    // inter_2.wrapping_add(SHA_COMPRESS_K[i])
+    pub inter_3: [T;32],
+    pub carry_3: [T;32],
+    // inter_3.wrapping_add(w_i)
+    pub temp1: [T;32],
+    pub carry_4: [T;32],
+
+    pub a_rr_2: [T;32],
+    pub a_rr_13: [T;32],
+    pub a_rr_22: [T;32],
+    pub s_0: [T;32],
+    pub a_and_b: [T;32],
+    pub a_and_c: [T;32],
+    pub b_and_c: [T;32],
+    pub maj: [T;32],
+    pub temp2: [T;32],
+    pub carry_5: [T;32],
+    pub carry_a: [T; 32],
+    pub carry_e: [T; 32],
+
+
     /// The timestamp at which inputs should be read from memory.
     pub timestamp: T,
 
-    /// Round number
-    pub i: T,
-
-    /// 8 temp buffer values as input
-    pub a: T,
-    pub b: T,
-    pub c: T,
-    pub d: T,
-    pub e: T,
-    pub f: T,
-    pub g: T,
-    pub h: T,
-
-    /// w[i]
-    pub w: [T; 64],
-
-    /// Selector
-    pub round_i_filter: [T; 64],
-
-    /// Intermediate values
-    pub k_i: T,
-    pub w_i: T,
-    pub e_rr_6: T,
-    pub e_rr_11: T,
-    pub e_rr_25: T,
-    pub s_1_inter: T,
-    pub s_1: T,
-    pub e_and_f: T,
-    pub e_not: T,
-    pub e_not_and_g: T,
-    pub ch: T,
-    pub temp1: T,
-    pub a_rr_2: T,
-    pub a_rr_13: T,
-    pub a_rr_22: T,
-    pub s_0_inter: T,
-    pub s_0: T,
-    pub a_and_b: T,
-    pub a_and_c: T,
-    pub b_and_c: T,
-    pub maj_inter: T,
-    pub maj: T,
-    pub temp2: T,
-
-    /// Out
-    pub new_a: T,
-    pub new_b: T,
-    pub new_c: T,
-    pub new_d: T,
-    pub new_e: T,
-    pub new_f: T,
-    pub new_g: T,
-    pub new_h: T,
-
-    /// 1 if this is the final round of the compress phase, 0 otherwise
-    pub is_final: T,
-
 }
 
-pub const NUM_SHA_COMPRESS_COLUMNS: usize = size_of::<ShaCompressColumnsView<u8>>(); // 170
+pub const NUM_SHA_COMPRESS_COLUMNS: usize = size_of::<ShaCompressColumnsView<u8>>();
 
 impl<T: Copy> From<[T; NUM_SHA_COMPRESS_COLUMNS]> for ShaCompressColumnsView<T> {
     fn from(value: [T; NUM_SHA_COMPRESS_COLUMNS]) -> Self {
