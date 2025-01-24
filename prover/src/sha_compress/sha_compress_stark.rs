@@ -178,7 +178,205 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSt
         FE: FieldExtension<D2, BaseField=F>,
         P: PackedField<Scalar=FE>
     {
-        todo!()
+        let local_values: &[P; NUM_SHA_COMPRESS_COLUMNS] =
+            vars.get_local_values().try_into().unwrap();
+        let local_values: &ShaCompressColumnsView<P> = local_values.borrow();
+
+        // check the input binary form
+        for i in 0..256 {
+            yield_constr.constraint(local_values.input_state[i] * (local_values.input_state[i] - P::ONES));
+        }
+        for i in 0..32 {
+            yield_constr.constraint(local_values.w_i[i] * (local_values.w_i[i] - P::ONES));
+            yield_constr.constraint(local_values.k_i[i] * (local_values.k_i[i] - P::ONES));
+        }
+
+        // check the bit values are zero or one in output
+        for i in 0..256 {
+            yield_constr.constraint(local_values.output_state[i] * (local_values.output_state[i] - P::ONES));
+        }
+
+        // check the rotation
+        rotate_right_packed_constraints(
+            local_values.input_state[get_input_range(4)].try_into().unwrap(),
+            local_values.e_rr_6,
+            6
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+        rotate_right_packed_constraints(
+            local_values.input_state[get_input_range(4)].try_into().unwrap(),
+            local_values.e_rr_11,
+            11
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+        rotate_right_packed_constraints(
+            local_values.input_state[get_input_range(4)].try_into().unwrap(),
+            local_values.e_rr_25,
+            25
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        rotate_right_packed_constraints(
+            local_values.input_state[get_input_range(0)].try_into().unwrap(),
+            local_values.a_rr_2,
+            2
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+        rotate_right_packed_constraints(
+            local_values.input_state[get_input_range(0)].try_into().unwrap(),
+            local_values.a_rr_13,
+            13
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+        rotate_right_packed_constraints(
+            local_values.input_state[get_input_range(0)].try_into().unwrap(),
+            local_values.a_rr_22,
+            22
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        // check the xor
+        for i in 0..32 {
+            let s1 = xor3_gen(
+                local_values.e_rr_6[i],
+                local_values.e_rr_11[i],
+                local_values.e_rr_25[i]
+            );
+            yield_constr.constraint(local_values.s_1[i] - s1);
+
+            let s0 = xor3_gen(
+                local_values.a_rr_2[i],
+                local_values.a_rr_13[i],
+                local_values.a_rr_22[i]
+            );
+            yield_constr.constraint(local_values.s_0[i] - s0);
+
+            let ch = xor_gen(
+                local_values.e_and_f[i],
+                local_values.not_e_and_g[i]
+            );
+            yield_constr.constraint(local_values.ch[i] - ch);
+
+            let maj = xor3_gen(
+                local_values.a_and_b[i],
+                local_values.a_and_c[i],
+                local_values.b_and_c[i]
+            );
+            yield_constr.constraint(local_values.maj[i] - maj);
+        }
+
+        // wrapping add constraints
+
+        wrapping_add_packed_constraints(
+            local_values.input_state[get_input_range(7)].try_into().unwrap(),
+            local_values.s_1,
+            local_values.carry_1,
+            local_values.inter_1
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        wrapping_add_packed_constraints(
+            local_values.inter_1,
+            local_values.ch,
+            local_values.carry_2,
+            local_values.inter_2
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        wrapping_add_packed_constraints(
+            local_values.inter_2,
+            local_values.k_i,
+            local_values.carry_3,
+            local_values.inter_3
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        wrapping_add_packed_constraints(
+            local_values.inter_3,
+            local_values.w_i,
+            local_values.carry_4,
+            local_values.temp1
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        wrapping_add_packed_constraints(
+            local_values.s_0,
+            local_values.maj,
+            local_values.carry_5,
+            local_values.temp2
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        wrapping_add_packed_constraints(
+            local_values.input_state[get_input_range(3)].try_into().unwrap(),
+            local_values.temp1,
+            local_values.carry_e,
+            local_values.output_state[get_input_range(4)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        wrapping_add_packed_constraints(
+            local_values.temp1,
+            local_values.temp2,
+            local_values.carry_a,
+            local_values.output_state[get_input_range(0)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        // The op constraints
+        and_op_packed_constraints(
+            local_values.input_state[get_input_range(4)].try_into().unwrap(),
+            local_values.input_state[get_input_range(5)].try_into().unwrap(),
+            local_values.e_and_f
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        and_op_packed_constraints(
+            local_values.input_state[get_input_range(0)].try_into().unwrap(),
+            local_values.input_state[get_input_range(1)].try_into().unwrap(),
+            local_values.a_and_b
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        and_op_packed_constraints(
+            local_values.input_state[get_input_range(0)].try_into().unwrap(),
+            local_values.input_state[get_input_range(2)].try_into().unwrap(),
+            local_values.a_and_c
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        and_op_packed_constraints(
+            local_values.input_state[get_input_range(1)].try_into().unwrap(),
+            local_values.input_state[get_input_range(2)].try_into().unwrap(),
+            local_values.b_and_c
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        andn_op_packed_constraints(
+            local_values.input_state[get_input_range(4)].try_into().unwrap(),
+            local_values.input_state[get_input_range(6)].try_into().unwrap(),
+            local_values.not_e_and_g
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+
+        // output constraint
+        equal_packed_constraint::<P, 32>(
+            local_values.output_state[get_input_range(1)].try_into().unwrap(),
+            local_values.input_state[get_input_range(0)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        equal_packed_constraint::<P, 32>(
+            local_values.output_state[get_input_range(2)].try_into().unwrap(),
+            local_values.input_state[get_input_range(1)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        equal_packed_constraint::<P, 32>(
+            local_values.output_state[get_input_range(3)].try_into().unwrap(),
+            local_values.input_state[get_input_range(2)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        // equal_packed_constraint(
+        //     local_values.output_state[get_input_range(4)].try_into().unwrap(),
+        //     local_values.input_state[get_input_range(3)].try_into().unwrap(),
+        // ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        equal_packed_constraint::<P, 32>(
+            local_values.output_state[get_input_range(5)].try_into().unwrap(),
+            local_values.input_state[get_input_range(4)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        equal_packed_constraint::<P, 32>(
+            local_values.output_state[get_input_range(6)].try_into().unwrap(),
+            local_values.input_state[get_input_range(5)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        equal_packed_constraint::<P, 32>(
+            local_values.output_state[get_input_range(7)].try_into().unwrap(),
+            local_values.input_state[get_input_range(6)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(c));
     }
 
     fn eval_ext_circuit(
@@ -187,11 +385,251 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSt
         vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>
     ) {
-        todo!()
+        let local_values: &[ExtensionTarget<D>; NUM_SHA_COMPRESS_COLUMNS] =
+            vars.get_local_values().try_into().unwrap();
+        let local_values: &ShaCompressColumnsView<ExtensionTarget<D>> = local_values.borrow();
+
+        // check the input binary form
+        for i in 0..256 {
+            let constraint = builder.mul_sub_extension(
+                local_values.input_state[i], local_values.input_state[i], local_values.input_state[i]);
+            yield_constr.constraint(builder, constraint);
+
+        }
+        for i in 0..32 {
+            let constraint = builder.mul_sub_extension(
+                local_values.w_i[i], local_values.w_i[i], local_values.w_i[i]);
+            yield_constr.constraint(builder, constraint);
+
+            let constraint = builder.mul_sub_extension(
+                local_values.k_i[i], local_values.k_i[i], local_values.k_i[i]);
+            yield_constr.constraint(builder, constraint);
+        }
+
+        // check the bit values are zero or one in output
+        for i in 0..256 {
+            let constraint = builder.mul_sub_extension(
+                local_values.output_state[i], local_values.output_state[i], local_values.output_state[i]);
+            yield_constr.constraint(builder, constraint);
+        }
+
+        // check the rotation
+        rotate_right_ext_circuit_constraint(
+            builder,
+            local_values.input_state[get_input_range(4)].try_into().unwrap(),
+            local_values.e_rr_6,
+            6
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+        rotate_right_ext_circuit_constraint(
+            builder,
+            local_values.input_state[get_input_range(4)].try_into().unwrap(),
+            local_values.e_rr_11,
+            11
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+        rotate_right_ext_circuit_constraint(
+            builder,
+            local_values.input_state[get_input_range(4)].try_into().unwrap(),
+            local_values.e_rr_25,
+            25
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        rotate_right_ext_circuit_constraint(
+            builder,
+            local_values.input_state[get_input_range(0)].try_into().unwrap(),
+            local_values.a_rr_2,
+            2
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+        rotate_right_ext_circuit_constraint(
+            builder,
+            local_values.input_state[get_input_range(0)].try_into().unwrap(),
+            local_values.a_rr_13,
+            13
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+        rotate_right_ext_circuit_constraint(
+            builder,
+            local_values.input_state[get_input_range(0)].try_into().unwrap(),
+            local_values.a_rr_22,
+            22
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        // check the xor
+        for i in 0..32 {
+            let s1 = xor3_gen_circuit(
+                builder,
+                local_values.e_rr_6[i],
+                local_values.e_rr_11[i],
+                local_values.e_rr_25[i]
+            );
+            let constraint = builder.sub_extension(local_values.s_1[i], s1);
+            yield_constr.constraint(builder, constraint);
+
+            let s0 = xor3_gen_circuit(
+                builder,
+                local_values.a_rr_2[i],
+                local_values.a_rr_13[i],
+                local_values.a_rr_22[i]
+            );
+            let constraint = builder.sub_extension(local_values.s_0[i], s0);
+            yield_constr.constraint(builder, constraint);
+
+            let ch = xor_gen_circuit(
+                builder,
+                local_values.e_and_f[i],
+                local_values.not_e_and_g[i]
+            );
+            let constraint = builder.sub_extension(local_values.ch[i], ch);
+            yield_constr.constraint(builder, constraint);
+
+            let maj = xor3_gen_circuit(
+                builder,
+                local_values.a_and_b[i],
+                local_values.a_and_c[i],
+                local_values.b_and_c[i]
+            );
+            let constraint = builder.sub_extension(local_values.maj[i], maj);
+            yield_constr.constraint(builder, constraint);
+        }
+
+        // wrapping add constraints
+
+        wrapping_add_ext_circuit_constraints(
+            builder,
+            local_values.input_state[get_input_range(7)].try_into().unwrap(),
+            local_values.s_1,
+            local_values.carry_1,
+            local_values.inter_1
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        wrapping_add_ext_circuit_constraints(
+            builder,
+            local_values.inter_1,
+            local_values.ch,
+            local_values.carry_2,
+            local_values.inter_2
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        wrapping_add_ext_circuit_constraints(
+            builder,
+            local_values.inter_2,
+            local_values.k_i,
+            local_values.carry_3,
+            local_values.inter_3
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        wrapping_add_ext_circuit_constraints(
+            builder,
+            local_values.inter_3,
+            local_values.w_i,
+            local_values.carry_4,
+            local_values.temp1
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        wrapping_add_ext_circuit_constraints(
+            builder,
+            local_values.s_0,
+            local_values.maj,
+            local_values.carry_5,
+            local_values.temp2
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        wrapping_add_ext_circuit_constraints(
+            builder,
+            local_values.input_state[get_input_range(3)].try_into().unwrap(),
+            local_values.temp1,
+            local_values.carry_e,
+            local_values.output_state[get_input_range(4)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        wrapping_add_ext_circuit_constraints(
+            builder,
+            local_values.temp1,
+            local_values.temp2,
+            local_values.carry_a,
+            local_values.output_state[get_input_range(0)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        // The op constraints
+        and_op_ext_circuit_constraints(
+            builder,
+            local_values.input_state[get_input_range(4)].try_into().unwrap(),
+            local_values.input_state[get_input_range(5)].try_into().unwrap(),
+            local_values.e_and_f
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        and_op_ext_circuit_constraints(
+            builder,
+            local_values.input_state[get_input_range(0)].try_into().unwrap(),
+            local_values.input_state[get_input_range(1)].try_into().unwrap(),
+            local_values.a_and_b
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        and_op_ext_circuit_constraints(
+            builder,
+            local_values.input_state[get_input_range(0)].try_into().unwrap(),
+            local_values.input_state[get_input_range(2)].try_into().unwrap(),
+            local_values.a_and_c
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        and_op_ext_circuit_constraints(
+            builder,
+            local_values.input_state[get_input_range(1)].try_into().unwrap(),
+            local_values.input_state[get_input_range(2)].try_into().unwrap(),
+            local_values.b_and_c
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        andn_op_ext_circuit_constraints(
+            builder,
+            local_values.input_state[get_input_range(4)].try_into().unwrap(),
+            local_values.input_state[get_input_range(6)].try_into().unwrap(),
+            local_values.not_e_and_g
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+
+        // output constraint
+        equal_ext_circuit_constraints::<F, D, 32>(
+            builder,
+            local_values.output_state[get_input_range(1)].try_into().unwrap(),
+            local_values.input_state[get_input_range(0)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        equal_ext_circuit_constraints::<F, D, 32>(
+            builder,
+            local_values.output_state[get_input_range(2)].try_into().unwrap(),
+            local_values.input_state[get_input_range(1)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        equal_ext_circuit_constraints::<F, D, 32>(
+            builder,
+            local_values.output_state[get_input_range(3)].try_into().unwrap(),
+            local_values.input_state[get_input_range(2)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        // equal_packed_constraint(
+        //     local_values.output_state[get_input_range(4)].try_into().unwrap(),
+        //     local_values.input_state[get_input_range(3)].try_into().unwrap(),
+        // ).into_iter().for_each(|c| yield_constr.constraint(c));
+
+        equal_ext_circuit_constraints::<F, D, 32>(
+            builder,
+            local_values.output_state[get_input_range(5)].try_into().unwrap(),
+            local_values.input_state[get_input_range(4)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        equal_ext_circuit_constraints::<F, D, 32>(
+            builder,
+            local_values.output_state[get_input_range(6)].try_into().unwrap(),
+            local_values.input_state[get_input_range(5)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
+
+        equal_ext_circuit_constraints::<F, D, 32>(
+            builder,
+            local_values.output_state[get_input_range(7)].try_into().unwrap(),
+            local_values.input_state[get_input_range(6)].try_into().unwrap(),
+        ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
     }
 
     fn constraint_degree(&self) -> usize {
-        todo!()
+        3
     }
 }
 
@@ -296,5 +734,103 @@ mod test {
             from_u32_to_be_bits(528734635).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
         );
         Ok(())
+    }
+
+    #[test]
+    fn test_stark_degree() -> anyhow::Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = ShaCompressStark<F, D>;
+
+        let stark = S {
+            f: Default::default(),
+        };
+        test_stark_low_degree(stark)
+    }
+
+    #[test]
+    fn test_stark_circuit() -> anyhow::Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = ShaCompressStark<F, D>;
+
+        let stark = S {
+            f: Default::default(),
+        };
+        test_stark_circuit_constraints::<F, C, S, D>(stark)
+    }
+
+    #[test]
+    fn sha_extend_benchmark() -> anyhow::Result<()> {
+        const NUM_EXTEND: usize = 64;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = ShaCompressStark<F, D>;
+        let stark = S::default();
+        let config = StarkConfig::standard_fast_config();
+
+        init_logger();
+
+        let input: Vec<([u8; NUM_INPUTS * 32], usize)> =
+            (0..NUM_EXTEND).map(|_| (get_random_input(), 0)).collect();
+
+        let mut timing = TimingTree::new("prove", log::Level::Debug);
+        let trace_poly_values = stark.generate_trace(input, 8);
+
+        // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
+        // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
+        let cloned_trace_poly_values = timed!(timing, "clone", trace_poly_values.clone());
+
+        let trace_commitments = timed!(
+            timing,
+            "compute trace commitment",
+            PolynomialBatch::<F, C, D>::from_values(
+                cloned_trace_poly_values,
+                config.fri_config.rate_bits,
+                false,
+                config.fri_config.cap_height,
+                &mut timing,
+                None,
+            )
+        );
+        let degree = 1 << trace_commitments.degree_log;
+
+        // Fake CTL data.
+        let ctl_z_data = CtlZData {
+            helper_columns: vec![PolynomialValues::zero(degree)],
+            z: PolynomialValues::zero(degree),
+            challenge: GrandProductChallenge {
+                beta: F::ZERO,
+                gamma: F::ZERO,
+            },
+            columns: vec![],
+            filter: vec![Some(Filter::new_simple(Column::constant(F::ZERO)))],
+        };
+        let ctl_data = CtlData {
+            zs_columns: vec![ctl_z_data.clone(); config.num_challenges],
+        };
+
+        prove_single_table(
+            &stark,
+            &config,
+            &trace_poly_values,
+            &trace_commitments,
+            &ctl_data,
+            &GrandProductChallengeSet {
+                challenges: vec![ctl_z_data.challenge; config.num_challenges],
+            },
+            &mut Challenger::new(),
+            &mut timing,
+        )?;
+
+        timing.print();
+        Ok(())
+    }
+
+    fn init_logger() {
+        let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
     }
 }
