@@ -27,6 +27,9 @@ pub(crate) struct ShaCompressSpongeOp {
     /// The timestamp at which inputs are read.
     pub(crate) timestamp: usize,
 
+    /// The input state
+    pub(crate) input_state: Vec<u8>,
+
     /// The index of round
     pub(crate) i: usize,
 
@@ -94,35 +97,26 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressSpongeStark<F, D> 
         row.round[op.i] = F::ONE;
         row.k_i = SHA_COMPRESS_K_BINARY[op.i].map(|k| F::from_canonical_u8(k));
         row.w_i = op.input[256..288].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
-        if op.i == 0 {
-            row.hx = op.input[..256].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
-            row.input_state = row.hx;
-        } else if op.i != 63 {
-            row.input_state = op.input[..256].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
-        } else {
-            row.input_state = op.input[..256].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
-            row.hx = op.input[288..].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
-        }
+        row.hx = op.input[..256].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
+        row.input_state = op.input_state.iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
 
         let output = self.compress(&op.input[..288], op.i);
         row.output_state = output.map(F::from_canonical_u8);
 
-        if op.i == 63 {
-            for i in 0..8 {
+        // We use the result if only we are at the final round.
+        // The computation in other rounds are ensure the constraint degree
+        // not to be exceeded 3.
+        for i in 0..8 {
 
-                let (output_hx, carry) = wrapping_add::<F, D, 32>(
-                    row.hx[get_input_range(i)].try_into().unwrap(),
-                    row.output_state[get_input_range(i)].try_into().unwrap()
-                );
+            let (output_hx, carry) = wrapping_add::<F, D, 32>(
+                row.hx[get_input_range(i)].try_into().unwrap(),
+                row.output_state[get_input_range(i)].try_into().unwrap()
+            );
 
-                row.output_hx[get_input_range(i)].copy_from_slice(&output_hx[0..]);
-                row.carry[get_input_range(i)].copy_from_slice(&carry[0..]);
-            }
-
-        } else {
-            row.output_hx = row.hx;
-            row.carry = [F::ZEROS; 256];
+            row.output_hx[get_input_range(i)].copy_from_slice(&output_hx[0..]);
+            row.carry[get_input_range(i)].copy_from_slice(&carry[0..]);
         }
+
 
         row
     }
@@ -177,7 +171,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
         FE: FieldExtension<D2, BaseField=F>,
         P: PackedField<Scalar=FE>
     {
-        todo!()
+        //
     }
 
     fn eval_ext_circuit(
@@ -244,11 +238,13 @@ mod test {
         }).collect();
         let mut input = H256_256.iter().map(|x| from_u32_to_be_bits(*x)).flatten().collect::<Vec<_>>();
         input.extend(from_u32_to_be_bits(W[0]));
+        let input_state = H256_256.iter().map(|x| from_u32_to_be_bits(*x)).flatten().collect::<Vec<_>>();
         let op = ShaCompressSpongeOp {
             base_address: hx_addresses.iter().chain([w_addresses[0]].iter()).cloned().collect(),
             i: 0,
             timestamp: 0,
-            input: input,
+            input_state,
+            input,
         };
         let row = stark.generate_rows_for_op(op);
         let local_values: &ShaCompressSpongeColumnsView<F> = row.borrow();
@@ -288,13 +284,13 @@ mod test {
 
         let mut input = H256_256.iter().map(|x| from_u32_to_be_bits(*x)).flatten().collect::<Vec<_>>();
         input.extend(from_u32_to_be_bits(W[63]));
-        input.extend(H256_256.iter().map(|x| from_u32_to_be_bits(*x)).flatten().collect::<Vec<_>>());
-
+        let input_state = H256_256.iter().map(|x| from_u32_to_be_bits(*x)).flatten().collect::<Vec<_>>();
         let op = ShaCompressSpongeOp {
             base_address: hx_addresses.iter().chain([w_addresses[0]].iter()).cloned().collect(),
             i: 63,
             timestamp: 0,
-            input: input,
+            input_state,
+            input,
         };
         let row = stark.generate_rows_for_op(op);
         let local_values: &ShaCompressSpongeColumnsView<F> = row.borrow();
