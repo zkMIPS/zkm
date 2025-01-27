@@ -28,9 +28,10 @@ pub(crate) struct ShaExtendColumnsView<T: Copy> {
     pub w_i: [T; 32], // w_i_inter_1 + w_i_minus_16
     /// The timestamp at which inputs should be read from memory.
     pub timestamp: T,
+    pub is_normal_round: T,
 }
 
-pub const NUM_SHA_EXTEND_COLUMNS: usize = size_of::<ShaExtendColumnsView<u8>>();
+pub const NUM_SHA_EXTEND_COLUMNS: usize = size_of::<ShaExtendColumnsView<u8>>(); //577
 
 impl<T: Copy> From<[T; NUM_SHA_EXTEND_COLUMNS]> for ShaExtendColumnsView<T> {
     fn from(value: [T; NUM_SHA_EXTEND_COLUMNS]) -> Self {

@@ -3,6 +3,7 @@ use std::intrinsics::transmute;
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
 pub(crate) const NUM_EXTEND_INPUT: usize = 4;
+pub(crate) const SHA_EXTEND_SPONGE_READ_BITS: usize = NUM_EXTEND_INPUT  * 32;
 pub(crate) struct ShaExtendSpongeColumnsView<T: Copy> {
 
     /// Input
@@ -30,7 +31,7 @@ pub(crate) struct ShaExtendSpongeColumnsView<T: Copy> {
     pub timestamp: T,
 }
 
-pub const NUM_SHA_EXTEND_SPONGE_COLUMNS: usize = size_of::<ShaExtendSpongeColumnsView<u8>>(); //170
+pub const NUM_SHA_EXTEND_SPONGE_COLUMNS: usize = size_of::<ShaExtendSpongeColumnsView<u8>>(); //216
 
 impl<T: Copy> From<[T; NUM_SHA_EXTEND_SPONGE_COLUMNS]> for ShaExtendSpongeColumnsView<T> {
     fn from(value: [T; NUM_SHA_EXTEND_SPONGE_COLUMNS]) -> Self {

@@ -9,10 +9,12 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cpu::membus::NUM_CHANNELS;
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
-use crate::sha_extend::logic::{get_input_range, from_be_bits_to_u32, from_u32_to_be_bits};
-use crate::sha_extend_sponge::columns::{ShaExtendSpongeColumnsView, NUM_EXTEND_INPUT, NUM_SHA_EXTEND_SPONGE_COLUMNS};
+use crate::sha_extend::logic::{get_input_range, from_u32_to_be_bits, from_be_bits_to_u32};
+use crate::sha_extend_sponge::columns::{ShaExtendSpongeColumnsView, NUM_EXTEND_INPUT, NUM_SHA_EXTEND_SPONGE_COLUMNS, SHA_EXTEND_SPONGE_COL_MAP};
 use crate::sha_extend_sponge::logic::{diff_address_ext_circuit_constraint, round_increment_ext_circuit_constraint};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
@@ -20,11 +22,12 @@ use crate::witness::memory::MemoryAddress;
 
 pub const NUM_ROUNDS: usize = 48;
 
+#[derive(Clone, Debug)]
 pub(crate) struct  ShaExtendSpongeOp {
     /// The base address at which inputs are read
     pub(crate) base_address: Vec<MemoryAddress>,
 
-    /// The timestamp at which inputs are read and output are written (same for both).
+    /// The timestamp at which inputs are read
     pub(crate) timestamp: usize,
 
     /// The input that was read.
@@ -168,9 +171,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
             .sum::<P>();
 
         // If this is not the final step or a padding row,
-        // the local and next timestamps must match.
+        // the timestamp must be increased by 2 * NUM_CHANNELS.
         yield_constr.constraint(
-            sum_round_flags * not_final * (next_values.timestamp - local_values.timestamp),
+            sum_round_flags * not_final *
+                (next_values.timestamp - local_values.timestamp - FE::from_canonical_usize(2 * NUM_CHANNELS)),
         );
 
         // If this is not the final step or a padding row,
@@ -234,7 +238,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
 
         let one_ext = builder.one_extension();
         let four_ext = builder.constant_extension(F::Extension::from_canonical_u32(4));
-
+        let num_channel = builder.constant_extension(F::Extension::from_canonical_usize(2 * NUM_CHANNELS));
         // check the binary form
         for i in 0..32 {
             let constraint = builder.mul_sub_extension(
@@ -276,8 +280,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
             builder.add_many_extension((0..NUM_ROUNDS).map(|i| local_values.round[i]));
 
         // If this is not the final step or a padding row,
-        // the local and next timestamps must match.
+        // the timestamp must be increased by 2 * NUM_CHANNELS.
         let diff = builder.sub_extension(next_values.timestamp, local_values.timestamp);
+        let diff = builder.sub_extension(diff, num_channel);
         let constraint = builder.mul_many_extension([sum_round_flags, not_final, diff]);
         yield_constr.constraint(builder, constraint);
 
@@ -377,6 +382,7 @@ mod test {
     use plonky2::util::timing::TimingTree;
     use crate::config::StarkConfig;
     use crate::cross_table_lookup::{Column, CtlData, CtlZData, Filter, GrandProductChallenge, GrandProductChallengeSet};
+    use crate::memory::NUM_CHANNELS;
     use crate::memory::segments::Segment;
     use crate::prover::prove_single_table;
     use crate::sha_extend_sponge::sha_extend_sponge_stark::{ShaExtendSpongeOp, ShaExtendSpongeStark};
@@ -500,6 +506,7 @@ mod test {
 
         let mut res = vec![];
 
+        let mut time = 0;
         for i in 16..64 {
             let mut input_values = vec![];
             input_values.extend(to_be_bits(w[i - 15]));
@@ -509,13 +516,14 @@ mod test {
 
             let op = ShaExtendSpongeOp {
                 base_address: vec![addresses[i - 15], addresses[i - 2], addresses[i - 16], addresses[i - 7]],
-                timestamp: 0,
+                timestamp: time,
                 input: input_values,
                 i: i - 16,
                 output_address: addresses[i],
             };
 
             res.push(op);
+            time += 2 * NUM_CHANNELS;
         }
 
         res

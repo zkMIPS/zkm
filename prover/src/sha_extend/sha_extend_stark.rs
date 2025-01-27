@@ -3,24 +3,25 @@ use std::marker::PhantomData;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak::logic::{xor3_gen, xor3_gen_circuit};
-use crate::sha_extend::columns::{ShaExtendColumnsView, NUM_SHA_EXTEND_COLUMNS};
+use crate::sha_extend::columns::{ShaExtendColumnsView, NUM_SHA_EXTEND_COLUMNS, SHA_EXTEND_COL_MAP};
 use crate::sha_extend::logic::{get_input_range, rotate_right, rotate_right_ext_circuit_constraint, rotate_right_packed_constraints, shift_right, shift_right_ext_circuit_constraints, shift_right_packed_constraints, wrapping_add, wrapping_add_ext_circuit_constraints, wrapping_add_packed_constraints, xor3};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 
-const NUM_INPUTS: usize = 4 * 32; // w_i_minus_15, w_i_minus_2, w_i_minus_16, w_i_minus_7
+pub const NUM_INPUTS: usize = 4 * 32; // w_i_minus_15, w_i_minus_2, w_i_minus_16, w_i_minus_7
 
 #[derive(Copy, Clone, Default)]
 pub struct ShaExtendStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }
-
 
 impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
     pub(crate) fn generate_trace(
@@ -70,7 +71,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
             .iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap();
         row.w_i_minus_7 = input_and_timestamp.0[get_input_range(3)]
             .iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap();
-
+        row.is_normal_round = F::ONE;
         self.generate_trace_row_for_round(&mut row);
         row
     }
