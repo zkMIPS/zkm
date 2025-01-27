@@ -16,7 +16,7 @@ use zkm_prover::cpu::kernel::assembler::segment_kernel;
 use zkm_prover::fixed_recursive_verifier::AllRecursiveCircuits;
 use zkm_prover::generation::state::{AssumptionReceipts, Receipt};
 
-const DEGREE_BITS_RANGE: [Range<usize>; 8] = [10..21, 12..22, 11..21, 8..21, 6..21, 6..21, 6..21, 13..23];
+const DEGREE_BITS_RANGE: [Range<usize>; 10] = [10..21, 12..22, 11..21, 8..21, 6..21, 6..21, 6..21, 6..21, 6..21, 13..23];
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;

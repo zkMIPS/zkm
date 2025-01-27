@@ -22,6 +22,88 @@ use crate::witness::memory::MemoryAddress;
 
 pub const NUM_ROUNDS: usize = 48;
 
+pub(crate) fn ctl_looking_sha_extend_inputs<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_EXTEND_SPONGE_COL_MAP;
+    let mut res: Vec<_> = Column::singles(
+        [
+            cols.w_i_minus_15.as_slice(),
+            cols.w_i_minus_2.as_slice(),
+            cols.w_i_minus_16.as_slice(),
+            cols.w_i_minus_7.as_slice(),
+        ]
+            .concat(),
+    )
+        .collect();
+    res.push(Column::single(cols.timestamp));
+    res
+}
+
+pub(crate) fn ctl_looking_sha_extend_outputs<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_EXTEND_SPONGE_COL_MAP;
+
+    let mut res = vec![];
+    res.extend(Column::singles(&cols.w_i));
+    res.push(Column::single(cols.timestamp));
+    res
+}
+
+pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_EXTEND_SPONGE_COL_MAP;
+    let w_i_usize = Column::linear_combination(
+        cols.w_i.iter()
+            .enumerate()
+            .map(|(i, &b)| (b, F::from_canonical_usize(1 << i))),
+    );
+
+    Column::singles([
+        cols.context,
+        cols.segment,
+        cols.output_virt,
+        cols.timestamp,
+    ]).chain([w_i_usize]).collect()
+}
+
+pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
+    let cols = SHA_EXTEND_SPONGE_COL_MAP;
+
+    let mut res = vec![Column::constant(F::ONE)]; // is_read
+
+    res.extend(Column::singles([cols.context, cols.segment]));
+    res.push(Column::single(cols.input_virt[i / 32]));
+
+    // The u32 of i'th input bit being read.
+    let start = i / 32;
+    let mut le_bit;
+    if start == 0 {
+        le_bit = cols.w_i_minus_15;
+    } else if start == 1 {
+        le_bit = cols.w_i_minus_2;
+    } else if start == 2 {
+        le_bit = cols.w_i_minus_16;
+    } else {
+        le_bit = cols.w_i_minus_7;
+    }
+    // le_bit.reverse();
+    let u32_value: Column<F> = Column::le_bits(&le_bit);
+    res.push(u32_value);
+
+    res.push(Column::single(cols.timestamp));
+
+    assert_eq!(
+        res.len(),
+        crate::memory::memory_stark::ctl_data::<F>().len()
+    );
+    res
+}
+
+pub(crate) fn ctl_looking_sha_extend_filter<F: Field>() -> Filter<F> {
+    let cols = SHA_EXTEND_SPONGE_COL_MAP;
+    // not the padding rows.
+    Filter::new_simple(Column::sum(
+        &cols.round,
+    ))
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct  ShaExtendSpongeOp {
     /// The base address at which inputs are read

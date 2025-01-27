@@ -18,6 +18,41 @@ use crate::util::trace_rows_to_poly_values;
 
 pub const NUM_INPUTS: usize = 4 * 32; // w_i_minus_15, w_i_minus_2, w_i_minus_16, w_i_minus_7
 
+pub fn ctl_data_inputs<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_EXTEND_COL_MAP;
+    let mut res: Vec<_> = Column::singles(
+        [
+            cols.w_i_minus_15.as_slice(),
+            cols.w_i_minus_2.as_slice(),
+            cols.w_i_minus_16.as_slice(),
+            cols.w_i_minus_7.as_slice(),
+        ]
+            .concat(),
+    )
+        .collect();
+    res.push(Column::single(cols.timestamp));
+    res
+}
+
+pub fn ctl_data_outputs<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_EXTEND_COL_MAP;
+    let mut res: Vec<_> = Column::singles(&cols.w_i).collect();
+    res.push(Column::single(cols.timestamp));
+    res
+}
+
+pub fn ctl_filter_inputs<F: Field>() -> Filter<F> {
+    let cols = SHA_EXTEND_COL_MAP;
+    // not the padding rows.
+    Filter::new_simple(Column::single(cols.is_normal_round))
+}
+pub fn ctl_filter_outputs<F: Field>() -> Filter<F> {
+    let cols = SHA_EXTEND_COL_MAP;
+    // not the padding rows.
+    Filter::new_simple(Column::single(cols.is_normal_round))
+}
+
+
 #[derive(Copy, Clone, Default)]
 pub struct ShaExtendStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,

@@ -23,6 +23,11 @@ use crate::poseidon::poseidon_stark::PoseidonStark;
 use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use crate::poseidon_sponge::poseidon_sponge_stark;
 use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeStark;
+use crate::sha_extend::sha_extend_stark;
+use crate::sha_extend::sha_extend_stark::ShaExtendStark;
+use crate::sha_extend_sponge::columns::SHA_EXTEND_SPONGE_READ_BITS;
+use crate::sha_extend_sponge::sha_extend_sponge_stark;
+use crate::sha_extend_sponge::sha_extend_sponge_stark::ShaExtendSpongeStark;
 use crate::stark::Stark;
 
 #[derive(Clone)]
@@ -33,6 +38,8 @@ pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
     pub poseidon_sponge_stark: PoseidonSpongeStark<F, D>,
     pub keccak_stark: KeccakStark<F, D>,
     pub keccak_sponge_stark: KeccakSpongeStark<F, D>,
+    pub sha_extend_stark: ShaExtendStark<F, D>,
+    pub sha_extend_sponge_stark: ShaExtendSpongeStark<F, D>,
     pub logic_stark: LogicStark<F, D>,
     pub memory_stark: MemoryStark<F, D>,
     pub cross_table_lookups: Vec<CrossTableLookup<F>>,
@@ -47,6 +54,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
             poseidon_sponge_stark: PoseidonSpongeStark::default(),
             keccak_stark: KeccakStark::default(),
             keccak_sponge_stark: KeccakSpongeStark::default(),
+            sha_extend_stark: ShaExtendStark::default(),
+            sha_extend_sponge_stark: ShaExtendSpongeStark::default(),
             logic_stark: LogicStark::default(),
             memory_stark: MemoryStark::default(),
             cross_table_lookups: all_cross_table_lookups(),
@@ -63,6 +72,8 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
             self.poseidon_sponge_stark.num_lookup_helper_columns(config),
             self.keccak_stark.num_lookup_helper_columns(config),
             self.keccak_sponge_stark.num_lookup_helper_columns(config),
+            self.sha_extend_stark.num_lookup_helper_columns(config),
+            self.sha_extend_sponge_stark.num_lookup_helper_columns(config),
             self.logic_stark.num_lookup_helper_columns(config),
             self.memory_stark.num_lookup_helper_columns(config),
         ]
@@ -77,8 +88,10 @@ pub enum Table {
     PoseidonSponge = 3,
     Keccak = 4,
     KeccakSponge = 5,
-    Logic = 6,
-    Memory = 7,
+    ShaExtend = 6,
+    ShaExtendSponge = 7,
+    Logic = 8,
+    Memory = 9,
 }
 
 pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
@@ -95,6 +108,8 @@ impl Table {
             Self::PoseidonSponge,
             Self::Keccak,
             Self::KeccakSponge,
+            Self::ShaExtend,
+            Self::ShaExtendSponge,
             Self::Logic,
             Self::Memory,
         ]
@@ -110,6 +125,9 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
         ctl_keccak_sponge(),
         ctl_keccak_inputs(),
         ctl_keccak_outputs(),
+        ctl_sha_extend_sponge(),
+        ctl_sha_extend_inputs(),
+        ctl_sha_extend_outputs(),
         ctl_logic(),
         ctl_memory(),
     ]
@@ -215,6 +233,48 @@ fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(vec![cpu_looking], keccak_sponge_looked)
 }
 
+fn ctl_sha_extend_inputs<F: Field>() -> CrossTableLookup<F> {
+    let sha_extend_sponge_looking = TableWithColumns::new(
+        Table::ShaExtendSponge,
+        sha_extend_sponge_stark::ctl_looking_sha_extend_inputs(),
+        Some(sha_extend_sponge_stark::ctl_looking_sha_extend_filter()),
+    );
+    let sha_extend_looked = TableWithColumns::new(
+        Table::ShaExtend,
+        sha_extend_stark::ctl_data_inputs(),
+        Some(sha_extend_stark::ctl_filter_inputs()),
+    );
+    CrossTableLookup::new(vec![sha_extend_sponge_looking], sha_extend_looked)
+}
+
+fn ctl_sha_extend_outputs<F: Field>() -> CrossTableLookup<F> {
+    let sha_extend_sponge_looking = TableWithColumns::new(
+        Table::ShaExtendSponge,
+        sha_extend_sponge_stark::ctl_looking_sha_extend_outputs(),
+        Some(sha_extend_sponge_stark::ctl_looking_sha_extend_filter()),
+    );
+    let sha_extend_looked = TableWithColumns::new(
+        Table::ShaExtend,
+        sha_extend_stark::ctl_data_outputs(),
+        Some(sha_extend_stark::ctl_filter_outputs()),
+    );
+    CrossTableLookup::new(vec![sha_extend_sponge_looking], sha_extend_looked)
+}
+
+fn ctl_sha_extend_sponge<F: Field>() -> CrossTableLookup<F> {
+    let cpu_looking = TableWithColumns::new(
+        Table::Cpu,
+        cpu_stark::ctl_data_sha_extend_sponge(),
+        Some(cpu_stark::ctl_filter_sha_extend_sponge()),
+    );
+    let sha_extend_sponge_looked = TableWithColumns::new(
+        Table::ShaExtendSponge,
+        sha_extend_sponge_stark::ctl_looked_data(),
+        Some(sha_extend_sponge_stark::ctl_looking_sha_extend_filter()),
+    );
+    CrossTableLookup::new(vec![cpu_looking], sha_extend_sponge_looked)
+}
+
 pub(crate) fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
     let cpu_looking = TableWithColumns::new(
         Table::Cpu,
@@ -261,11 +321,22 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
             Some(keccak_sponge_stark::ctl_looking_memory_filter(i)),
         )
     });
+
+    let sha_extend_sponge_reads = (0..SHA_EXTEND_SPONGE_READ_BITS).map(|i| {
+        TableWithColumns::new(
+            Table::ShaExtendSponge,
+            sha_extend_sponge_stark::ctl_looking_memory(i),
+            Some(sha_extend_sponge_stark::ctl_looking_sha_extend_filter()),
+        )
+    });
+
     let all_lookers = []
         .into_iter()
         .chain(cpu_memory_gp_ops)
-        .chain(poseidon_sponge_reads)
         .chain(keccak_sponge_reads)
+        .chain(poseidon_sponge_reads)
+        .chain(sha_extend_sponge_reads)
+
         .collect();
     let memory_looked = TableWithColumns::new(
         Table::Memory,

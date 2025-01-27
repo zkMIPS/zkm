@@ -23,6 +23,8 @@ use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
 use plonky2::field::extension::Extendable;
 use plonky2::plonk::config::GenericConfig;
+use crate::sha_compress::logic::from_be_bits_to_u32;
+use crate::sha_extend_sponge::sha_extend_sponge_stark::ShaExtendSpongeOp;
 
 fn to_byte_checked(n: u32) -> u8 {
     let res: u8 = n.to_le_bytes()[0];
@@ -550,6 +552,51 @@ pub(crate) fn keccak_sponge_log<
         base_address,
         timestamp: clock * NUM_CHANNELS,
         input,
+    });
+}
+
+pub(crate) fn sha_extend_sponge_log<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+> (
+    state: &mut GenerationState<F, C, D>,
+    base_address: Vec<MemoryAddress>,
+    inputs: Vec<[u8; 32]>, // BE bits
+    output_address: MemoryAddress,
+    round: usize,
+) {
+    // Since the Sha extend reads bit by bit, and the memory unit is of 4-byte, we just need to read
+    // the same memory for 32 sha-extend ops
+
+    let clock = state.traces.clock();
+    let mut n_gp = 0;
+    let mut addr_idx = 0;
+    let extend_input: Vec<u8> = inputs.iter().flatten().cloned().collect();
+
+    for input in inputs {
+        let val = from_be_bits_to_u32(input);
+        for _ in 0..32 {
+            state.traces.push_memory(MemoryOp::new(
+                MemoryChannel::GeneralPurpose(n_gp),
+                clock,
+                base_address[addr_idx],
+                MemoryOpKind::Read,
+                val,
+            ));
+            n_gp += 1;
+            n_gp %= NUM_GP_CHANNELS - 1;
+        }
+        addr_idx += 1;
+    }
+    state.traces.push_sha_extend(extend_input.clone().try_into().unwrap(), clock * NUM_CHANNELS);
+
+    state.traces.push_sha_extend_sponge(ShaExtendSpongeOp {
+        base_address,
+        timestamp: clock * NUM_CHANNELS,
+        input: extend_input,
+        i: round,
+        output_address
     });
 }
 

@@ -20,6 +20,7 @@ use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::GenericConfig;
 use std::fs;
+use crate::sha_extend::logic::from_u32_to_be_bits;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
 
@@ -1194,16 +1195,23 @@ pub(crate) fn generate_sha_extend<
     for i in 16..64 {
         let mut cpu_row = CpuColumnsView::default();
         cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+        let mut input_addresses = vec![];
+        let mut input_value_bit_be = vec![];
 
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + (i - 15) * 4);
         let (w_i_minus_15, mem_op) = mem_read_gp_with_log_and_fill(0, addr, state, &mut cpu_row);
         state.traces.push_memory(mem_op);
         let s0 = w_i_minus_15.rotate_right(7) ^ w_i_minus_15.rotate_right(18) ^ (w_i_minus_15 >> 3);
+        input_addresses.push(addr);
+        input_value_bit_be.push(from_u32_to_be_bits(w_i_minus_15));
 
         // Read w[i-2].
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + (i - 2) * 4);
         let (w_i_minus_2, mem_op) = mem_read_gp_with_log_and_fill(1, addr, state, &mut cpu_row);
         state.traces.push_memory(mem_op);
+
+        input_addresses.push(addr);
+        input_value_bit_be.push(from_u32_to_be_bits(w_i_minus_2));
         // Compute `s1`.
         let s1 = w_i_minus_2.rotate_right(17) ^ w_i_minus_2.rotate_right(19) ^ (w_i_minus_2 >> 10);
 
@@ -1211,11 +1219,16 @@ pub(crate) fn generate_sha_extend<
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + (i - 16) * 4);
         let (w_i_minus_16, mem_op) = mem_read_gp_with_log_and_fill(2, addr, state, &mut cpu_row);
         state.traces.push_memory(mem_op);
+        input_addresses.push(addr);
+        input_value_bit_be.push(from_u32_to_be_bits(w_i_minus_16));
+
 
         // Read w[i-7].
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + (i - 7) * 4);
         let (w_i_minus_7, mem_op) = mem_read_gp_with_log_and_fill(3, addr, state, &mut cpu_row);
         state.traces.push_memory(mem_op);
+        input_addresses.push(addr);
+        input_value_bit_be.push(from_u32_to_be_bits(w_i_minus_7));
 
         // Compute `w_i`.
         let w_i = s1
@@ -1228,10 +1241,27 @@ pub(crate) fn generate_sha_extend<
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + i * 4);
         log::debug!("extend write {:X} {:X}",  w_ptr + i * 4, w_i);
         let mem_op = mem_write_gp_log_and_fill(4, addr, state, &mut cpu_row, w_i);
+
         state.traces.push_memory(mem_op);
         state.traces.push_cpu(cpu_row);
         state.memory.apply_ops(&state.traces.memory_ops);
+
+        cpu_row = CpuColumnsView::default();
+        cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+        cpu_row.is_sha_extend_sponge = F::ONE;
+
+        // The SHA extend sponge CTL uses memory value columns for its inputs and outputs.
+        cpu_row.mem_channels[0].value = F::ZERO; // context
+        cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
+        cpu_row.mem_channels[2].value = F::from_canonical_usize(addr.virt);
+        cpu_row.general.element_mut().value = F::from_canonical_u32(w_i);
+        sha_extend_sponge_log(state, input_addresses, input_value_bit_be, addr, i - 16);
+        state.traces.push_cpu(cpu_row);
+
+
     }
+
+
 
     Ok(())
 }

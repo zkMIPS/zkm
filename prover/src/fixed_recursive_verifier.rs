@@ -406,6 +406,23 @@ where
             &all_stark.cross_table_lookups,
             stark_config,
         );
+
+        let sha_extend = RecursiveCircuitsForTable::new(
+            Table::ShaExtend,
+            &all_stark.sha_extend_stark,
+            degree_bits_ranges[Table::ShaExtend as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+
+        let sha_extend_sponge = RecursiveCircuitsForTable::new(
+            Table::ShaExtendSponge,
+            &all_stark.sha_extend_sponge_stark,
+            degree_bits_ranges[Table::ShaExtendSponge as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+
         let logic = RecursiveCircuitsForTable::new(
             Table::Logic,
             &all_stark.logic_stark,
@@ -428,6 +445,8 @@ where
             poseidon_sponge,
             keccak,
             keccak_sponge,
+            sha_extend,
+            sha_extend_sponge,
             logic,
             memory,
         ];

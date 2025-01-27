@@ -332,6 +332,36 @@ where
         )?
     );
 
+    let sha_extend_proof = timed!(
+        timing,
+        "prove SHA Extend STARK",
+        prove_single_table(
+            &all_stark.sha_extend_stark,
+            config,
+            &trace_poly_values[Table::ShaExtend as usize],
+            &trace_commitments[Table::ShaExtend as usize],
+            &ctl_data_per_table[Table::ShaExtend as usize],
+            ctl_challenges,
+            challenger,
+            timing,
+        )?
+    );
+
+    let sha_extend_sponge_proof = timed!(
+        timing,
+        "prove SHA Extend sponge STARK",
+        prove_single_table(
+            &all_stark.sha_extend_sponge_stark,
+            config,
+            &trace_poly_values[Table::ShaExtendSponge as usize],
+            &trace_commitments[Table::ShaExtendSponge as usize],
+            &ctl_data_per_table[Table::ShaExtendSponge as usize],
+            ctl_challenges,
+            challenger,
+            timing,
+        )?
+    );
+
     let logic_proof = timed!(
         timing,
         "prove Logic STARK",
@@ -368,6 +398,8 @@ where
         poseidon_sponge_proof,
         keccak_proof,
         keccak_sponge_proof,
+        sha_extend_proof,
+        sha_extend_sponge_proof,
         logic_proof,
         memory_proof,
     ])

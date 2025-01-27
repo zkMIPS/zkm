@@ -103,6 +103,7 @@ pub struct CpuColumnsView<T: Copy> {
     /// Filter. 1 iff a Poseidon sponge lookup is performed on this row.
     pub is_poseidon_sponge: T,
     pub is_keccak_sponge: T,
+    pub is_sha_extend_sponge: T,
 
     pub(crate) general: CpuGeneralColumnsView<T>,
 
