@@ -104,6 +104,7 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_poseidon_sponge: T,
     pub is_keccak_sponge: T,
     pub is_sha_extend_sponge: T,
+    pub is_sha_compress_sponge: T,
 
     pub(crate) general: CpuGeneralColumnsView<T>,
 

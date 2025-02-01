@@ -362,6 +362,36 @@ where
         )?
     );
 
+    let sha_compress_proof = timed!(
+        timing,
+        "prove SHA Compress STARK",
+        prove_single_table(
+            &all_stark.sha_compress_stark,
+            config,
+            &trace_poly_values[Table::ShaCompress as usize],
+            &trace_commitments[Table::ShaCompress as usize],
+            &ctl_data_per_table[Table::ShaCompress as usize],
+            ctl_challenges,
+            challenger,
+            timing,
+        )?
+    );
+
+    let sha_compress_sponge_proof = timed!(
+        timing,
+        "prove SHA Compress sponge STARK",
+        prove_single_table(
+            &all_stark.sha_compress_sponge_stark,
+            config,
+            &trace_poly_values[Table::ShaCompressSponge as usize],
+            &trace_commitments[Table::ShaCompressSponge as usize],
+            &ctl_data_per_table[Table::ShaCompressSponge as usize],
+            ctl_challenges,
+            challenger,
+            timing,
+        )?
+    );
+
     let logic_proof = timed!(
         timing,
         "prove Logic STARK",
@@ -400,6 +430,8 @@ where
         keccak_sponge_proof,
         sha_extend_proof,
         sha_extend_sponge_proof,
+        sha_compress_proof,
+        sha_compress_sponge_proof,
         logic_proof,
         memory_proof,
     ])

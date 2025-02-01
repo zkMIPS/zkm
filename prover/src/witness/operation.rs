@@ -1257,11 +1257,7 @@ pub(crate) fn generate_sha_extend<
         cpu_row.general.element_mut().value = F::from_canonical_u32(w_i);
         sha_extend_sponge_log(state, input_addresses, input_value_bit_be, addr, i - 16);
         state.traces.push_cpu(cpu_row);
-
-
     }
-
-
 
     Ok(())
 }
@@ -1289,14 +1285,22 @@ pub(crate) fn generate_sha_compress<
     let mut hx = [0u32; 8];
     let mut cpu_row = CpuColumnsView::default();
     cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+
+    let mut hx_addresses = vec![];
+    let mut hx_value_bit_be = vec![];
+    let mut w_i_value_bit_be = vec![];
+    let mut w_i_addresses = vec![];
+    let mut state_values = vec![];
+
     for i in 0..8 {
         let addr = MemoryAddress::new(0, Segment::Code, h_ptr + i * 4);
         let (value, mem_op) = mem_read_gp_with_log_and_fill(i, addr, state, &mut cpu_row);
         state.traces.push_memory(mem_op);
         hx[i] = value;
+        hx_addresses.push(addr);
+        hx_value_bit_be.push(from_u32_to_be_bits(value));
     }
     state.traces.push_cpu(cpu_row);
-    let mut original_w = Vec::new();
     // Execute the "compress" phase.
     let mut a = hx[0];
     let mut b = hx[1];
@@ -1310,6 +1314,9 @@ pub(crate) fn generate_sha_compress<
     cpu_row = CpuColumnsView::default();
     cpu_row.clock = F::from_canonical_usize(state.traces.clock());
     for i in 0..64 {
+        let input_state = [a, b, c, d, e, f, g, h].iter().map(|x| from_u32_to_be_bits(*x)).collect_vec();
+        state_values.push(input_state);
+
         let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
         let ch = (e & f) ^ (!e & g);
         if j == 8 {
@@ -1322,7 +1329,9 @@ pub(crate) fn generate_sha_compress<
         let (w_i, mem_op) = mem_read_gp_with_log_and_fill(j, addr, state, &mut cpu_row);
         state.traces.push_memory(mem_op);
         j += 1;
-        original_w.push(w_i);
+        w_i_value_bit_be.push(from_u32_to_be_bits(w_i));
+        w_i_addresses.push(addr);
+
         let temp1 = h
             .wrapping_add(s1)
             .wrapping_add(ch)
@@ -1343,6 +1352,29 @@ pub(crate) fn generate_sha_compress<
     }
     state.traces.push_cpu(cpu_row);
     // Execute the "finalize" phase.
+
+    let mut cpu_row = CpuColumnsView::default();
+    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+    cpu_row.is_sha_compress_sponge = F::ONE;
+
+    cpu_row.mem_channels[0].value = F::ZERO; // context
+    cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
+    cpu_row.mem_channels[2].value = F::from_canonical_usize(hx_addresses[0].virt); // start address of hx
+
+    let u32_result: Vec<u32> = [a, b, c, d, e, f, g, h].iter().enumerate().map(|(i, x)| hx[i].wrapping_add(*x)).collect_vec();
+
+    cpu_row.general.shash_mut().value = u32_result.into_iter().map(F::from_canonical_u32).collect_vec().try_into().unwrap();
+    // cpu_row.general.shash_mut().value.reverse();
+    sha_compress_sponge_log(
+        state,
+        hx_value_bit_be,
+        hx_addresses,
+        w_i_value_bit_be,
+        w_i_addresses,
+        state_values
+    );
+    state.traces.push_cpu(cpu_row);
+
     let v = [a, b, c, d, e, f, g, h];
     let mut cpu_row = CpuColumnsView::default();
     cpu_row.clock = F::from_canonical_usize(state.traces.clock());

@@ -21,6 +21,41 @@ pub const NUM_ROUND_CONSTANTS: usize = 64;
 
 pub const NUM_INPUTS: usize = 10 * 32; // 8 states (a, b, ..., h) + w_i + key_i
 
+
+pub fn ctl_data_inputs<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_COMPRESS_COL_MAP;
+    let mut res: Vec<_> = Column::singles(
+        [
+            cols.input_state.as_slice(),
+            cols.w_i.as_slice(),
+            cols.k_i.as_slice(),
+        ]
+            .concat(),
+    )
+        .collect();
+    res.push(Column::single(cols.timestamp));
+    res
+}
+
+pub fn ctl_data_outputs<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_COMPRESS_COL_MAP;
+    let mut res: Vec<_> = Column::singles(&cols.output_state).collect();
+    res.push(Column::single(cols.timestamp));
+    res
+}
+
+pub fn ctl_filter_inputs<F: Field>() -> Filter<F> {
+    let cols = SHA_COMPRESS_COL_MAP;
+    // not the padding rows.
+    Filter::new_simple(Column::single(cols.is_normal_round))
+}
+
+pub fn ctl_filter_outputs<F: Field>() -> Filter<F> {
+    let cols = SHA_COMPRESS_COL_MAP;
+    // not the padding rows.
+    Filter::new_simple(Column::single(cols.is_normal_round))
+}
+
 #[derive(Copy, Clone, Default)]
 pub struct ShaCompressStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,

@@ -49,6 +49,8 @@ where
         keccak_sponge_stark,
         sha_extend_stark,
         sha_extend_sponge_stark,
+        sha_compress_stark,
+        sha_compress_sponge_stark,
         logic_stark,
         memory_stark,
         cross_table_lookups,
@@ -126,7 +128,6 @@ where
         &ctl_challenges,
         config,
     )?;
-    log::info!("ShaExtend Stark proof verified");
 
     verify_stark_proof_with_challenges(
         sha_extend_sponge_stark,
@@ -136,8 +137,24 @@ where
         &ctl_challenges,
         config,
     )?;
-    log::info!("ShaExtendSponge Stark proof verified");
 
+    verify_stark_proof_with_challenges(
+        sha_compress_stark,
+        &all_proof.stark_proofs[Table::ShaCompress as usize].proof,
+        &stark_challenges[Table::ShaCompress as usize],
+        &ctl_vars_per_table[Table::ShaCompress as usize],
+        &ctl_challenges,
+        config,
+    )?;
+
+    verify_stark_proof_with_challenges(
+        sha_compress_sponge_stark,
+        &all_proof.stark_proofs[Table::ShaCompressSponge as usize].proof,
+        &stark_challenges[Table::ShaCompressSponge as usize],
+        &ctl_vars_per_table[Table::ShaCompressSponge as usize],
+        &ctl_challenges,
+        config,
+    )?;
 
     verify_stark_proof_with_challenges(
         logic_stark,
@@ -147,7 +164,7 @@ where
         &ctl_challenges,
         config,
     )?;
-    log::info!("Logic Stark proof verified");
+
     verify_stark_proof_with_challenges(
         memory_stark,
         &all_proof.stark_proofs[Table::Memory as usize].proof,
@@ -156,7 +173,6 @@ where
         &ctl_challenges,
         config,
     )?;
-    log::info!("Memory Stark proof verified");
 
     verify_cross_table_lookups::<F, D>(
         cross_table_lookups,

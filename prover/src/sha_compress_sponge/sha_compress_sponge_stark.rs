@@ -23,6 +23,107 @@ use crate::witness::operation::SHA_COMPRESS_K;
 
 pub(crate) const NUM_ROUNDS: usize = 64;
 
+pub(crate) const SHA_COMPRESS_SPONGE_READ_BITS: usize = 9 * 32;  // h[0],...,h[7], w[i].
+pub(crate) fn ctl_looking_sha_compress_inputs<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_COMPRESS_SPONGE_COL_MAP;
+    let mut res: Vec<_> = Column::singles(
+        [
+            cols.input_state.as_slice(),
+            cols.w_i.as_slice(),
+            cols.k_i.as_slice(),
+        ]
+            .concat(),
+    )
+        .collect();
+    res.push(Column::single(cols.timestamp));
+    res
+}
+
+pub(crate) fn ctl_looking_sha_compress_outputs<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_COMPRESS_SPONGE_COL_MAP;
+
+    let mut res = vec![];
+    res.extend(Column::singles(&cols.output_state));
+    res.push(Column::single(cols.timestamp));
+    res
+}
+
+pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_COMPRESS_SPONGE_COL_MAP;
+    let mut outputs = Vec::with_capacity(8);
+
+    for i in 0..8 {
+        let cur_col = Column::linear_combination(
+            cols.output_hx[get_input_range(i)]
+                .iter()
+                .enumerate()
+                .map(|(j, &c)| (c, F::from_canonical_u64(1 << (j)))),
+        );
+        outputs.push(cur_col);
+    }
+
+    Column::singles([
+        cols.context,
+        cols.segment,
+        cols.hx_virt[0],
+        cols.timestamp,
+    ])
+        .chain(outputs)
+        .collect()
+}
+
+pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
+    let cols = SHA_COMPRESS_SPONGE_COL_MAP;
+
+    let mut res = vec![Column::constant(F::ONE)]; // is_read
+
+    res.extend(Column::singles([cols.context, cols.segment]));
+    if i >= 256 {
+        res.push(Column::single(cols.w_virt));
+    } else {
+        res.push(Column::single(cols.hx_virt[i / 32]));
+    }
+
+    // The u32 of i'th input bit being read.
+    let start = i / 32;
+    let le_bit;
+    if start < 8 {
+        le_bit = cols.hx[get_input_range(start)].try_into().unwrap();
+    } else {
+        le_bit = cols.w_i;
+    }
+    // le_bit.reverse();
+    let u32_value: Column<F> = Column::le_bits(&le_bit);
+    res.push(u32_value);
+
+    res.push(Column::single(cols.timestamp));
+
+    assert_eq!(
+        res.len(),
+        crate::memory::memory_stark::ctl_data::<F>().len()
+    );
+    res
+}
+
+
+pub(crate) fn ctl_looking_sha_compress_filter<F: Field>() -> Filter<F> {
+    let cols = SHA_COMPRESS_SPONGE_COL_MAP;
+    // not the padding rows.
+    Filter::new_simple(Column::sum(
+        &cols.round,
+    ))
+}
+
+pub(crate) fn ctl_looked_filter<F: Field>() -> Filter<F> {
+    // The CPU table is only interested in our final rows, since those contain the final
+    // compress sponge output.
+    let cols = SHA_COMPRESS_SPONGE_COL_MAP;
+    // the final row only.
+    Filter::new_simple(Column::single(
+        cols.round[63],
+    ))
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct ShaCompressSpongeOp {
     /// The base address at which inputs are read.
