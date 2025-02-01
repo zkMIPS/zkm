@@ -3,13 +3,15 @@ use std::borrow::Borrow;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak::logic::{xor3_gen, xor3_gen_circuit, xor_gen, xor_gen_circuit};
-use crate::sha_compress::columns::{ShaCompressColumnsView, NUM_SHA_COMPRESS_COLUMNS};
+use crate::sha_compress::columns::{ShaCompressColumnsView, NUM_SHA_COMPRESS_COLUMNS, SHA_COMPRESS_COL_MAP};
 use crate::sha_compress::logic::{and_op, and_op_ext_circuit_constraints, and_op_packed_constraints, andn_op, andn_op_ext_circuit_constraints, andn_op_packed_constraints, equal_ext_circuit_constraints, equal_packed_constraint, xor_op};
 use crate::sha_extend::logic::{rotate_right, get_input_range, xor3, wrapping_add, rotate_right_packed_constraints, wrapping_add_packed_constraints, rotate_right_ext_circuit_constraint, wrapping_add_ext_circuit_constraints};
 use crate::stark::Stark;
@@ -17,7 +19,7 @@ use crate::util::trace_rows_to_poly_values;
 
 pub const NUM_ROUND_CONSTANTS: usize = 64;
 
-pub const NUM_INPUTS: usize = 10; // 8 states + w_i + key_i
+pub const NUM_INPUTS: usize = 10 * 32; // 8 states (a, b, ..., h) + w_i + key_i
 
 #[derive(Copy, Clone, Default)]
 pub struct ShaCompressStark<F, const D: usize> {
@@ -27,7 +29,7 @@ pub struct ShaCompressStark<F, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> ShaCompressStark<F, D> {
     pub(crate) fn generate_trace(
         &self,
-        inputs: Vec<([u8; NUM_INPUTS * 32], usize)>,
+        inputs: Vec<([u8; NUM_INPUTS], usize)>,
         min_rows: usize,
     ) -> Vec<PolynomialValues<F>> {
         // Generate the witness row-wise
@@ -37,7 +39,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressStark<F, D> {
 
     fn generate_trace_rows(
         &self,
-        inputs_and_timestamps: Vec<([u8; NUM_INPUTS * 32], usize)>,
+        inputs_and_timestamps: Vec<([u8; NUM_INPUTS], usize)>,
         min_rows: usize,
     ) -> Vec<[F; NUM_SHA_COMPRESS_COLUMNS]> {
         let num_rows = inputs_and_timestamps.len()
@@ -58,7 +60,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressStark<F, D> {
 
     fn generate_trace_rows_for_compress(
         &self,
-        input_and_timestamp: ([u8; NUM_INPUTS * 32], usize),
+        input_and_timestamp: ([u8; NUM_INPUTS], usize),
     ) -> [F; NUM_SHA_COMPRESS_COLUMNS] {
 
         let timestamp = input_and_timestamp.1;
@@ -66,6 +68,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressStark<F, D> {
 
         let mut row = ShaCompressColumnsView::<F>::default();
         row.timestamp = F::from_canonical_usize(timestamp);
+        row.is_normal_round = F::ONE;
         // read inputs
         row.input_state = inputs[0..256].iter().map(|x| F::from_canonical_u8(*x)).collect::<Vec<F>>().try_into().unwrap();
         row.w_i = inputs[256..288].iter().map(|x| F::from_canonical_u8(*x)).collect::<Vec<F>>().try_into().unwrap();
@@ -140,8 +143,8 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressStark<F, D> {
             row.output_state[i] = row.input_state[i - 32];
         }
 
-        let mut new_e;
-        let mut new_a;
+        let new_e;
+        let new_a;
 
         (new_e, row.carry_e) = wrapping_add(
             row.input_state[get_input_range(3)].try_into().unwrap(),
@@ -652,8 +655,6 @@ mod test {
     use crate::cross_table_lookup::{Column, CtlData, CtlZData, Filter, GrandProductChallenge, GrandProductChallengeSet};
     use crate::prover::prove_single_table;
     use crate::sha_compress_sponge::constants::SHA_COMPRESS_K;
-    use crate::sha_extend::sha_extend_stark::ShaExtendStark;
-    use crate::sha_extend_sponge::columns::NUM_EXTEND_INPUT;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     const W: [u32; 64] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 34013193,
@@ -670,9 +671,9 @@ mod test {
         0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
     ];
 
-    fn get_random_input() -> [u8; NUM_INPUTS * 32] {
-        let mut input = [0u8; NUM_INPUTS * 32];
-        for i in 0..NUM_INPUTS * 32 {
+    fn get_random_input() -> [u8; NUM_INPUTS] {
+        let mut input = [0u8; NUM_INPUTS];
+        for i in 0..NUM_INPUTS {
             input[i] = rand::random::<u8>() % 2;
             debug_assert!(input[i] == 0 || input[i] == 1);
         }
@@ -774,7 +775,7 @@ mod test {
 
         init_logger();
 
-        let input: Vec<([u8; NUM_INPUTS * 32], usize)> =
+        let input: Vec<([u8; NUM_INPUTS], usize)> =
             (0..NUM_EXTEND).map(|_| (get_random_input(), 0)).collect();
 
         let mut timing = TimingTree::new("prove", log::Level::Debug);

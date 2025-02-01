@@ -9,17 +9,19 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
 use crate::sha_compress::logic::from_be_bits_to_u32;
-use crate::sha_compress_sponge::columns::{ShaCompressSpongeColumnsView, NUM_SHA_COMPRESS_SPONGE_COLUMNS};
+use crate::sha_compress_sponge::columns::{ShaCompressSpongeColumnsView, NUM_SHA_COMPRESS_SPONGE_COLUMNS, SHA_COMPRESS_SPONGE_COL_MAP};
 use crate::sha_compress_sponge::constants::{NUM_COMPRESS_ROWS, SHA_COMPRESS_K_BINARY};
 use crate::sha_extend::logic::{from_u32_to_be_bits, get_input_range, wrapping_add, wrapping_add_ext_circuit_constraints, wrapping_add_packed_constraints};
-use crate::sha_extend_sponge::sha_extend_sponge_stark::NUM_ROUNDS;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::operation::SHA_COMPRESS_K;
+
+pub(crate) const NUM_ROUNDS: usize = 64;
 
 #[derive(Clone, Debug)]
 pub(crate) struct ShaCompressSpongeOp {
@@ -30,8 +32,8 @@ pub(crate) struct ShaCompressSpongeOp {
     /// The timestamp at which inputs are read.
     pub(crate) timestamp: usize,
 
-    /// The input state
-    pub(crate) input_state: Vec<u8>,
+    /// The input state: a, b, c, d, e, f, g, h.
+    pub(crate) input_states: Vec<u8>,
 
     /// The index of round
     pub(crate) i: usize,
@@ -101,9 +103,9 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressSpongeStark<F, D> 
         row.k_i = SHA_COMPRESS_K_BINARY[op.i].map(|k| F::from_canonical_u8(k));
         row.w_i = op.input[256..288].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
         row.hx = op.input[..256].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
-        row.input_state = op.input_state.iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
+        row.input_state = op.input_states.iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
 
-        let output = self.compress(&op.input_state, &op.input[256..288], op.i);
+        let output = self.compress(&op.input_states, &op.input[256..288], op.i);
         row.output_state = output.map(F::from_canonical_u8);
 
         // We use the result if only we are at the final round.
@@ -492,7 +494,7 @@ mod test {
             base_address: hx_addresses.iter().chain([w_addresses[0]].iter()).cloned().collect(),
             i: 0,
             timestamp: 0,
-            input_state,
+            input_states: input_state,
             input,
         };
         let row = stark.generate_rows_for_op(op);
@@ -538,7 +540,7 @@ mod test {
             base_address: hx_addresses.iter().chain([w_addresses[0]].iter()).cloned().collect(),
             i: 63,
             timestamp: 0,
-            input_state,
+            input_states: input_state,
             input,
         };
         let row = stark.generate_rows_for_op(op);
@@ -643,7 +645,7 @@ mod test {
                 base_address: hx_addresses.iter().chain([w_addresses[i]].iter()).cloned().collect(),
                 i: i,
                 timestamp: 0,
-                input_state,
+                input_states: input_state,
                 input,
             };
 

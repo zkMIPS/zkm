@@ -47,9 +47,9 @@ pub(crate) struct ShaCompressColumnsView<T: Copy> {
     pub carry_a: [T; 32],
     pub carry_e: [T; 32],
 
-
     /// The timestamp at which inputs should be read from memory.
     pub timestamp: T,
+    pub is_normal_round: T,
 
 }
 
