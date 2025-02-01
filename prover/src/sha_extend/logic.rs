@@ -100,7 +100,7 @@ pub(crate) fn wrapping_add<F: RichField + Extendable<D>, const D: usize, const N
 ) -> ([F; N], [F; N]) {
     let mut result = [F::ZERO; N];
     let mut carries = [F::ZERO; N];
-    let mut sum = F::ZERO;
+    let mut sum;
     let mut carry = F::ZERO;
     for i in 0..N {
         debug_assert!(a[i].is_zero() || a[i].is_one());
@@ -115,7 +115,7 @@ pub(crate) fn wrapping_add<F: RichField + Extendable<D>, const D: usize, const N
     (result, carries)
 }
 
-pub(crate) fn from_be_bits_to_u32<F: RichField + Extendable<D>, const D: usize>(value: [F; 32]) -> u32 {
+pub(crate) fn from_be_fbits_to_u32<F: RichField + Extendable<D>, const D: usize>(value: [F; 32]) -> u32 {
     let mut result = 0;
     for i in 0..32 {
         debug_assert!(value[i].is_zero() || value[i].is_one());

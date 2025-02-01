@@ -13,7 +13,7 @@ use crate::cpu::membus::NUM_CHANNELS;
 use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
-use crate::sha_extend::logic::{get_input_range, from_u32_to_be_bits, from_be_bits_to_u32};
+use crate::sha_extend::logic::{get_input_range, from_u32_to_be_bits, from_be_fbits_to_u32};
 use crate::sha_extend_sponge::columns::{ShaExtendSpongeColumnsView, NUM_EXTEND_INPUT, NUM_SHA_EXTEND_SPONGE_COLUMNS, SHA_EXTEND_SPONGE_COL_MAP};
 use crate::sha_extend_sponge::logic::{diff_address_ext_circuit_constraint, round_increment_ext_circuit_constraint};
 use crate::stark::Stark;
@@ -73,7 +73,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
 
     // The u32 of i'th input bit being read.
     let start = i / 32;
-    let mut le_bit;
+    let le_bit;
     if start == 0 {
         le_bit = cols.w_i_minus_15;
     } else if start == 1 {
@@ -188,10 +188,10 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendSpongeStark<F, D> {
     }
 
     fn compute_w_i(&self, row: &mut ShaExtendSpongeColumnsView<F>) -> [F; 32] {
-        let w_i_minus_15 = from_be_bits_to_u32(row.w_i_minus_15);
-        let w_i_minus_2 = from_be_bits_to_u32(row.w_i_minus_2);
-        let w_i_minus_16 = from_be_bits_to_u32(row.w_i_minus_16);
-        let w_i_minus_7 = from_be_bits_to_u32(row.w_i_minus_7);
+        let w_i_minus_15 = from_be_fbits_to_u32(row.w_i_minus_15);
+        let w_i_minus_2 = from_be_fbits_to_u32(row.w_i_minus_2);
+        let w_i_minus_16 = from_be_fbits_to_u32(row.w_i_minus_16);
+        let w_i_minus_7 = from_be_fbits_to_u32(row.w_i_minus_7);
         let s0 = w_i_minus_15.rotate_right(7) ^ w_i_minus_15.rotate_right(18) ^ (w_i_minus_15 >> 3);
         let s1 = w_i_minus_2.rotate_right(17) ^ w_i_minus_2.rotate_right(19) ^ (w_i_minus_2 >> 10);
         let w_i_u32 = s1
