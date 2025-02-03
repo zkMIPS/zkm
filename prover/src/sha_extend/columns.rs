@@ -1,9 +1,8 @@
-use std::borrow::{Borrow, BorrowMut};
-use std::intrinsics::transmute;
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
+use std::borrow::{Borrow, BorrowMut};
+use std::mem::transmute;
 
 pub(crate) struct ShaExtendColumnsView<T: Copy> {
-
     /// Input in big-endian order
     pub w_i_minus_15: [T; 32],
     pub w_i_minus_2: [T; 32],
@@ -83,4 +82,3 @@ const fn make_col_map() -> ShaExtendColumnsView<usize> {
 }
 
 pub(crate) const SHA_EXTEND_COL_MAP: ShaExtendColumnsView<usize> = make_col_map();
-

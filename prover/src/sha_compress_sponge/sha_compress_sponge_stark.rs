@@ -1,5 +1,20 @@
-use std::marker::PhantomData;
-use std::borrow::Borrow;
+use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::{Column, Filter};
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::memory::segments::Segment;
+use crate::sha_compress::logic::from_be_bits_to_u32;
+use crate::sha_compress_sponge::columns::{
+    ShaCompressSpongeColumnsView, NUM_SHA_COMPRESS_SPONGE_COLUMNS, SHA_COMPRESS_SPONGE_COL_MAP,
+};
+use crate::sha_compress_sponge::constants::{NUM_COMPRESS_ROWS, SHA_COMPRESS_K_BINARY};
+use crate::sha_extend::logic::{
+    from_u32_to_be_bits, get_input_range, wrapping_add, wrapping_add_ext_circuit_constraints,
+    wrapping_add_packed_constraints,
+};
+use crate::stark::Stark;
+use crate::util::trace_rows_to_poly_values;
+use crate::witness::memory::MemoryAddress;
+use crate::witness::operation::SHA_COMPRESS_K;
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
@@ -8,22 +23,12 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::{Column, Filter};
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
-use crate::memory::segments::Segment;
-use crate::sha_compress::logic::from_be_bits_to_u32;
-use crate::sha_compress_sponge::columns::{ShaCompressSpongeColumnsView, NUM_SHA_COMPRESS_SPONGE_COLUMNS, SHA_COMPRESS_SPONGE_COL_MAP};
-use crate::sha_compress_sponge::constants::{NUM_COMPRESS_ROWS, SHA_COMPRESS_K_BINARY};
-use crate::sha_extend::logic::{from_u32_to_be_bits, get_input_range, wrapping_add, wrapping_add_ext_circuit_constraints, wrapping_add_packed_constraints};
-use crate::stark::Stark;
-use crate::util::trace_rows_to_poly_values;
-use crate::witness::memory::MemoryAddress;
-use crate::witness::operation::SHA_COMPRESS_K;
+use std::borrow::Borrow;
+use std::marker::PhantomData;
 
 pub(crate) const NUM_ROUNDS: usize = 64;
 
-pub(crate) const SHA_COMPRESS_SPONGE_READ_BITS: usize = 9 * 32;  // h[0],...,h[7], w[i].
+pub(crate) const SHA_COMPRESS_SPONGE_READ_BITS: usize = 9 * 32; // h[0],...,h[7], w[i].
 pub(crate) fn ctl_looking_sha_compress_inputs<F: Field>() -> Vec<Column<F>> {
     let cols = SHA_COMPRESS_SPONGE_COL_MAP;
     let mut res: Vec<_> = Column::singles(
@@ -32,9 +37,9 @@ pub(crate) fn ctl_looking_sha_compress_inputs<F: Field>() -> Vec<Column<F>> {
             cols.w_i.as_slice(),
             cols.k_i.as_slice(),
         ]
-            .concat(),
+        .concat(),
     )
-        .collect();
+    .collect();
     res.push(Column::single(cols.timestamp));
     res
 }
@@ -62,12 +67,7 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
         outputs.push(cur_col);
     }
 
-    Column::singles([
-        cols.context,
-        cols.segment,
-        cols.hx_virt[0],
-        cols.timestamp,
-    ])
+    Column::singles([cols.context, cols.segment, cols.hx_virt[0], cols.timestamp])
         .chain(outputs)
         .collect()
 }
@@ -86,14 +86,13 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
 
     // The u32 of i'th input bit being read.
     let start = i / 32;
-    let le_bit;
-    if start < 8 {
-        le_bit = cols.hx[get_input_range(start)].try_into().unwrap();
+    let le_bit: [usize; 32] = if start < 8 {
+        cols.hx[get_input_range(start)].try_into().unwrap()
     } else {
-        le_bit = cols.w_i;
-    }
+        cols.w_i
+    };
     // le_bit.reverse();
-    let u32_value: Column<F> = Column::le_bits(&le_bit);
+    let u32_value: Column<F> = Column::le_bits(le_bit);
     res.push(u32_value);
 
     res.push(Column::single(cols.timestamp));
@@ -105,13 +104,10 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     res
 }
 
-
 pub(crate) fn ctl_looking_sha_compress_filter<F: Field>() -> Filter<F> {
     let cols = SHA_COMPRESS_SPONGE_COL_MAP;
     // not the padding rows.
-    Filter::new_simple(Column::sum(
-        &cols.round,
-    ))
+    Filter::new_simple(Column::sum(cols.round))
 }
 
 pub(crate) fn ctl_looked_filter<F: Field>() -> Filter<F> {
@@ -119,9 +115,7 @@ pub(crate) fn ctl_looked_filter<F: Field>() -> Filter<F> {
     // compress sponge output.
     let cols = SHA_COMPRESS_SPONGE_COL_MAP;
     // the final row only.
-    Filter::new_simple(Column::single(
-        cols.round[63],
-    ))
+    Filter::new_simple(Column::single(cols.round[63]))
 }
 
 #[derive(Clone, Debug)]
@@ -180,31 +174,42 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressSpongeStark<F, D> 
         rows
     }
 
-    fn generate_rows_for_op(
-        &self,
-        op: ShaCompressSpongeOp,
-    ) -> ShaCompressSpongeColumnsView<F> {
+    fn generate_rows_for_op(&self, op: ShaCompressSpongeOp) -> ShaCompressSpongeColumnsView<F> {
         let mut row = ShaCompressSpongeColumnsView::default();
 
         row.timestamp = F::from_canonical_usize(op.timestamp);
         row.context = F::from_canonical_usize(op.base_address[0].context);
         row.segment = F::from_canonical_usize(op.base_address[Segment::Code as usize].segment);
 
-        let hx_virt = (0..8)
-            .map(|i| op.base_address[i].virt)
-            .collect_vec();
+        let hx_virt = (0..8).map(|i| op.base_address[i].virt).collect_vec();
         let hx_virt: [usize; 8] = hx_virt.try_into().unwrap();
         row.hx_virt = hx_virt.map(F::from_canonical_usize);
 
-        let w_virt =  op.base_address[8].virt;
+        let w_virt = op.base_address[8].virt;
         row.w_virt = F::from_canonical_usize(w_virt);
 
         row.round = [F::ZEROS; 64];
         row.round[op.i] = F::ONE;
         row.k_i = SHA_COMPRESS_K_BINARY[op.i].map(|k| F::from_canonical_u8(k));
-        row.w_i = op.input[256..288].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
-        row.hx = op.input[..256].iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
-        row.input_state = op.input_states.iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>().try_into().unwrap();
+        row.w_i = op.input[256..288]
+            .iter()
+            .map(|&x| F::from_canonical_u8(x))
+            .collect::<Vec<F>>()
+            .try_into()
+            .unwrap();
+        row.hx = op.input[..256]
+            .iter()
+            .map(|&x| F::from_canonical_u8(x))
+            .collect::<Vec<F>>()
+            .try_into()
+            .unwrap();
+        row.input_state = op
+            .input_states
+            .iter()
+            .map(|&x| F::from_canonical_u8(x))
+            .collect::<Vec<F>>()
+            .try_into()
+            .unwrap();
 
         let output = self.compress(&op.input_states, &op.input[256..288], op.i);
         row.output_state = output.map(F::from_canonical_u8);
@@ -213,10 +218,9 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressSpongeStark<F, D> 
         // The computation in other rounds are ensure the constraint degree
         // not to be exceeded 3.
         for i in 0..8 {
-
             let (output_hx, carry) = wrapping_add::<F, D, 32>(
                 row.hx[get_input_range(i)].try_into().unwrap(),
-                row.output_state[get_input_range(i)].try_into().unwrap()
+                row.output_state[get_input_range(i)].try_into().unwrap(),
             );
 
             row.output_hx[get_input_range(i)].copy_from_slice(&output_hx[0..]);
@@ -227,14 +231,23 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressSpongeStark<F, D> 
     }
 
     fn compress(&self, input_state: &[u8], w_i: &[u8], round: usize) -> [u8; 256] {
-        let values: Vec<[u8; 32]> = input_state.chunks(32).map(|chunk| chunk.try_into().unwrap()).collect();
-        let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut h] = values.into_iter().map(
-            |x| from_be_bits_to_u32(x)
-        ).collect::<Vec<_>>().try_into().unwrap();
+        let values: Vec<[u8; 32]> = input_state
+            .chunks(32)
+            .map(|chunk| chunk.try_into().unwrap())
+            .collect();
+        let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut h] = values
+            .into_iter()
+            .map(from_be_bits_to_u32)
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
         let w_i = from_be_bits_to_u32(w_i.try_into().unwrap());
 
-        let t1 = h.wrapping_add(e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25))
-            .wrapping_add((e & f) ^ ((!e) & g)).wrapping_add(SHA_COMPRESS_K[round]).wrapping_add(w_i);
+        let t1 = h
+            .wrapping_add(e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25))
+            .wrapping_add((e & f) ^ ((!e) & g))
+            .wrapping_add(SHA_COMPRESS_K[round])
+            .wrapping_add(w_i);
         let t2 = (a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22))
             .wrapping_add((a & b) ^ (a & c) ^ (b & c));
         h = g;
@@ -262,22 +275,21 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressSpongeStark<F, D> 
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSpongeStark<F, D> {
     type EvaluationFrame<FE, P, const D2: usize>
-    = StarkFrame<P, NUM_SHA_COMPRESS_SPONGE_COLUMNS>
+        = StarkFrame<P, NUM_SHA_COMPRESS_SPONGE_COLUMNS>
     where
-        FE: FieldExtension<D2, BaseField=F>,
-        P: PackedField<Scalar=FE>;
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
 
     type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_SHA_COMPRESS_SPONGE_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
         vars: &Self::EvaluationFrame<FE, P, D2>,
-        yield_constr: &mut ConstraintConsumer<P>
+        yield_constr: &mut ConstraintConsumer<P>,
     ) where
-        FE: FieldExtension<D2, BaseField=F>,
-        P: PackedField<Scalar=FE>
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
     {
-
         let local_values: &[P; NUM_SHA_COMPRESS_SPONGE_COLUMNS] =
             vars.get_local_values().try_into().unwrap();
         let local_values: &ShaCompressSpongeColumnsView<P> = local_values.borrow();
@@ -289,7 +301,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
         // check the bit values are zero or one in input
         for i in 0..256 {
             yield_constr.constraint(local_values.hx[i] * (local_values.hx[i] - P::ONES));
-            yield_constr.constraint(local_values.input_state[i] * (local_values.input_state[i] - P::ONES));
+            yield_constr
+                .constraint(local_values.input_state[i] * (local_values.input_state[i] - P::ONES));
         }
         for i in 0..32 {
             yield_constr.constraint(local_values.w_i[i] * (local_values.w_i[i] - P::ONES));
@@ -298,8 +311,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
 
         // check the bit values are zero or one in output
         for i in 0..256 {
-            yield_constr.constraint(local_values.output_state[i] * (local_values.output_state[i] - P::ONES));
-            yield_constr.constraint(local_values.output_hx[i] * (local_values.output_hx[i] - P::ONES));
+            yield_constr.constraint(
+                local_values.output_state[i] * (local_values.output_state[i] - P::ONES),
+            );
+            yield_constr
+                .constraint(local_values.output_hx[i] * (local_values.output_hx[i] - P::ONES));
             yield_constr.constraint(local_values.carry[i] * (local_values.carry[i] - P::ONES));
         }
 
@@ -318,7 +334,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
             .sum::<P>();
         yield_constr.constraint(sum_round_flags * (sum_round_flags - P::ONES));
 
-
         // If this is not the final step or a padding row:
 
         // the local and next timestamps must match.
@@ -336,21 +351,27 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
         // the output state of local row must be the input state of next row
         for i in 0..256 {
             yield_constr.constraint(
-                sum_round_flags * not_final * (next_values.input_state[i] - local_values.output_state[i])
+                sum_round_flags
+                    * not_final
+                    * (next_values.input_state[i] - local_values.output_state[i]),
             );
         }
 
         // the address of w_i must be increased by 4
         yield_constr.constraint(
-            sum_round_flags * not_final * (next_values.w_virt - local_values.w_virt - FE::from_canonical_u8(4)),
+            sum_round_flags
+                * not_final
+                * (next_values.w_virt - local_values.w_virt - FE::from_canonical_u8(4)),
         );
-
 
         // if not the padding row, the hx address must be a sequence of numbers spaced 4 units apart
 
         for i in 0..7 {
             yield_constr.constraint(
-                sum_round_flags * (local_values.hx_virt[i + 1] - local_values.hx_virt[i] - FE::from_canonical_u8(4)),
+                sum_round_flags
+                    * (local_values.hx_virt[i + 1]
+                        - local_values.hx_virt[i]
+                        - FE::from_canonical_u8(4)),
             );
         }
 
@@ -359,7 +380,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
         for i in 0..32 {
             let mut bit_i = P::ZEROS;
             for j in 0..64 {
-                bit_i = bit_i + local_values.round[j] * FE::from_canonical_u8(SHA_COMPRESS_K_BINARY[j][i]);
+                bit_i += local_values.round[j] * FE::from_canonical_u8(SHA_COMPRESS_K_BINARY[j][i])
             }
             yield_constr.constraint(local_values.k_i[i] - bit_i);
         }
@@ -367,23 +388,26 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
         // wrapping add constraints
 
         for i in 0..8 {
-
             wrapping_add_packed_constraints::<P, 32>(
                 local_values.hx[get_input_range(i)].try_into().unwrap(),
-                local_values.output_state[get_input_range(i)].try_into().unwrap(),
+                local_values.output_state[get_input_range(i)]
+                    .try_into()
+                    .unwrap(),
                 local_values.carry[get_input_range(i)].try_into().unwrap(),
-                local_values.output_hx[get_input_range(i)].try_into().unwrap(),
-            ).into_iter().for_each(|c| yield_constr.constraint(c));
-
+                local_values.output_hx[get_input_range(i)]
+                    .try_into()
+                    .unwrap(),
+            )
+            .into_iter()
+            .for_each(|c| yield_constr.constraint(c));
         }
-
     }
 
     fn eval_ext_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: &Self::EvaluationFrameTarget,
-        yield_constr: &mut RecursiveConstraintConsumer<F, D>
+        yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         let local_values: &[ExtensionTarget<D>; NUM_SHA_COMPRESS_SPONGE_COLUMNS] =
             vars.get_local_values().try_into().unwrap();
@@ -399,44 +423,66 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
         // check the bit values are zero or one in input
         for i in 0..256 {
             let constraint = builder.mul_sub_extension(
-                local_values.hx[i], local_values.hx[i], local_values.hx[i]);
+                local_values.hx[i],
+                local_values.hx[i],
+                local_values.hx[i],
+            );
             yield_constr.constraint(builder, constraint);
 
             let constraint = builder.mul_sub_extension(
-                local_values.input_state[i], local_values.input_state[i], local_values.input_state[i]);
+                local_values.input_state[i],
+                local_values.input_state[i],
+                local_values.input_state[i],
+            );
             yield_constr.constraint(builder, constraint);
         }
         for i in 0..32 {
             let constraint = builder.mul_sub_extension(
-                local_values.w_i[i], local_values.w_i[i], local_values.w_i[i]);
+                local_values.w_i[i],
+                local_values.w_i[i],
+                local_values.w_i[i],
+            );
             yield_constr.constraint(builder, constraint);
 
             let constraint = builder.mul_sub_extension(
-                local_values.k_i[i], local_values.k_i[i], local_values.k_i[i]);
+                local_values.k_i[i],
+                local_values.k_i[i],
+                local_values.k_i[i],
+            );
             yield_constr.constraint(builder, constraint);
-
         }
 
         // check the bit values are zero or one in output
         for i in 0..256 {
-
             let constraint = builder.mul_sub_extension(
-                local_values.output_state[i], local_values.output_state[i], local_values.output_state[i]);
+                local_values.output_state[i],
+                local_values.output_state[i],
+                local_values.output_state[i],
+            );
             yield_constr.constraint(builder, constraint);
 
             let constraint = builder.mul_sub_extension(
-                local_values.output_hx[i], local_values.output_hx[i], local_values.output_hx[i]);
+                local_values.output_hx[i],
+                local_values.output_hx[i],
+                local_values.output_hx[i],
+            );
             yield_constr.constraint(builder, constraint);
 
             let constraint = builder.mul_sub_extension(
-                local_values.carry[i], local_values.carry[i], local_values.carry[i]);
+                local_values.carry[i],
+                local_values.carry[i],
+                local_values.carry[i],
+            );
             yield_constr.constraint(builder, constraint);
         }
 
         // check the round
         for i in 0..NUM_ROUNDS {
             let constraint = builder.mul_sub_extension(
-                local_values.round[i], local_values.round[i], local_values.round[i]);
+                local_values.round[i],
+                local_values.round[i],
+                local_values.round[i],
+            );
             yield_constr.constraint(builder, constraint);
         }
 
@@ -449,11 +495,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
         let sum_round_flags =
             builder.add_many_extension((0..NUM_COMPRESS_ROWS).map(|i| local_values.round[i]));
 
-        let constraint = builder.mul_sub_extension(
-            sum_round_flags, sum_round_flags, sum_round_flags
-        );
+        let constraint =
+            builder.mul_sub_extension(sum_round_flags, sum_round_flags, sum_round_flags);
         yield_constr.constraint(builder, constraint);
-
 
         // If this is not the final step or a padding row:
 
@@ -472,7 +516,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
 
         // the output state of local row must be the input state of next row
         for i in 0..256 {
-            let diff = builder.sub_extension(next_values.input_state[i], local_values.output_state[i]);
+            let diff =
+                builder.sub_extension(next_values.input_state[i], local_values.output_state[i]);
             let constraint = builder.mul_many_extension([sum_round_flags, not_final, diff]);
             yield_constr.constraint(builder, constraint);
         }
@@ -480,31 +525,31 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
         // the address of w_i must be increased by 4
         let increment = builder.sub_extension(next_values.w_virt, local_values.w_virt);
         let address_increment = builder.sub_extension(increment, four_ext);
-        let constraint = builder.mul_many_extension(
-            [sum_round_flags, not_final, address_increment]
-        );
+        let constraint =
+            builder.mul_many_extension([sum_round_flags, not_final, address_increment]);
         yield_constr.constraint(builder, constraint);
-
 
         // if not the padding row, the hx address must be a sequence of numbers spaced 4 units apart
 
         for i in 0..7 {
-            let increment = builder.sub_extension(local_values.hx_virt[i + 1], local_values.hx_virt[i]);
+            let increment =
+                builder.sub_extension(local_values.hx_virt[i + 1], local_values.hx_virt[i]);
             let address_increment = builder.sub_extension(increment, four_ext);
-            let constraint = builder.mul_extension(
-                sum_round_flags, address_increment
-            );
+            let constraint = builder.mul_extension(sum_round_flags, address_increment);
             yield_constr.constraint(builder, constraint);
         }
 
         // check the validation of key[i]
 
         for i in 0..32 {
-
-            let bit_i_comp: Vec<_> =  (0..64).map(|j| {
-                let k_j_i = builder.constant_extension(F::Extension::from_canonical_u8(SHA_COMPRESS_K_BINARY[j][i]));
-                builder.mul_extension(local_values.round[j], k_j_i)
-            }).collect();
+            let bit_i_comp: Vec<_> = (0..64)
+                .map(|j| {
+                    let k_j_i = builder.constant_extension(F::Extension::from_canonical_u8(
+                        SHA_COMPRESS_K_BINARY[j][i],
+                    ));
+                    builder.mul_extension(local_values.round[j], k_j_i)
+                })
+                .collect();
             let bit_i = builder.add_many_extension(bit_i_comp);
             let constraint = builder.sub_extension(local_values.k_i[i], bit_i);
             yield_constr.constraint(builder, constraint);
@@ -516,11 +561,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
             wrapping_add_ext_circuit_constraints::<F, D, 32>(
                 builder,
                 local_values.hx[get_input_range(i)].try_into().unwrap(),
-                local_values.output_state[get_input_range(i)].try_into().unwrap(),
+                local_values.output_state[get_input_range(i)]
+                    .try_into()
+                    .unwrap(),
                 local_values.carry[get_input_range(i)].try_into().unwrap(),
-                local_values.output_hx[get_input_range(i)].try_into().unwrap(),
-            ).into_iter().for_each(|c| yield_constr.constraint(builder, c));
-
+                local_values.output_hx[get_input_range(i)]
+                    .try_into()
+                    .unwrap(),
+            )
+            .into_iter()
+            .for_each(|c| yield_constr.constraint(builder, c));
         }
     }
 
@@ -529,41 +579,45 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
     }
 }
 
-
 #[cfg(test)]
 mod test {
-    use plonky2::field::goldilocks_field::GoldilocksField;
-    use plonky2::field::types::{Field};
-    use std::borrow::Borrow;
+    use crate::config::StarkConfig;
+    use crate::cross_table_lookup::{
+        Column, CtlData, CtlZData, Filter, GrandProductChallenge, GrandProductChallengeSet,
+    };
+    use crate::prover::prove_single_table;
+    use crate::sha_compress_sponge::columns::ShaCompressSpongeColumnsView;
+    use crate::sha_compress_sponge::sha_compress_sponge_stark::{
+        ShaCompressSpongeOp, ShaCompressSpongeStark,
+    };
+    use crate::sha_extend::logic::{from_u32_to_be_bits, get_input_range};
+    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+    use crate::witness::memory::MemoryAddress;
     use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+    use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::polynomial::PolynomialValues;
+    use plonky2::field::types::Field;
     use plonky2::fri::oracle::PolynomialBatch;
     use plonky2::iop::challenger::Challenger;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::timed;
     use plonky2::util::timing::TimingTree;
-    use crate::config::StarkConfig;
-    use crate::cross_table_lookup::{Column, CtlData, CtlZData, Filter, GrandProductChallenge, GrandProductChallengeSet};
-    use crate::prover::prove_single_table;
-    use crate::sha_compress_sponge::columns::ShaCompressSpongeColumnsView;
-    use crate::sha_compress_sponge::sha_compress_sponge_stark::{ShaCompressSpongeOp, ShaCompressSpongeStark};
-    use crate::sha_extend::logic::{from_u32_to_be_bits, get_input_range};
-    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
-    use crate::witness::memory::MemoryAddress;
+    use std::borrow::Borrow;
 
+    const W: [u32; 64] = [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 34013193, 67559435, 1711661200,
+        3020350282, 1447362251, 3118632270, 4004188394, 690615167, 6070360, 1105370215, 2385558114,
+        2348232513, 507799627, 2098764358, 5845374, 823657968, 2969863067, 3903496557, 4274682881,
+        2059629362, 1849247231, 2656047431, 835162919, 2096647516, 2259195856, 1779072524,
+        3152121987, 4210324067, 1557957044, 376930560, 982142628, 3926566666, 4164334963,
+        789545383, 1028256580, 2867933222, 3843938318, 1135234440, 390334875, 2025924737,
+        3318322046, 3436065867, 652746999, 4261492214, 2543173532, 3334668051, 3166416553,
+        634956631,
+    ];
 
-    const W: [u32; 64] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 34013193,
-        67559435, 1711661200, 3020350282, 1447362251, 3118632270, 4004188394, 690615167,
-        6070360, 1105370215, 2385558114, 2348232513, 507799627, 2098764358, 5845374, 823657968,
-        2969863067, 3903496557, 4274682881, 2059629362, 1849247231, 2656047431, 835162919,
-        2096647516, 2259195856, 1779072524, 3152121987, 4210324067, 1557957044, 376930560,
-        982142628, 3926566666, 4164334963, 789545383, 1028256580, 2867933222, 3843938318, 1135234440,
-        390334875, 2025924737, 3318322046, 3436065867, 652746999, 4261492214, 2543173532, 3334668051,
-        3166416553, 634956631];
-
-    pub const H256_256: [u32;8] = [
-        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+    pub const H256_256: [u32; 8] = [
+        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
+        0x5be0cd19,
     ];
     #[test]
     fn test_generation() -> Result<(), String> {
@@ -573,26 +627,38 @@ mod test {
         type S = ShaCompressSpongeStark<F, D>;
 
         let stark = S::default();
-        let hx_addresses: Vec<MemoryAddress> = (0..32).step_by(4).map(|i| {
-            MemoryAddress {
+        let hx_addresses: Vec<MemoryAddress> = (0..32)
+            .step_by(4)
+            .map(|i| MemoryAddress {
                 context: 0,
                 segment: 0,
                 virt: i,
-            }
-        }).collect();
+            })
+            .collect();
 
-        let w_addresses: Vec<MemoryAddress> = (32..288).step_by(4).map(|i| {
-            MemoryAddress {
+        let w_addresses: Vec<MemoryAddress> = (32..288)
+            .step_by(4)
+            .map(|i| MemoryAddress {
                 context: 0,
                 segment: 0,
                 virt: i,
-            }
-        }).collect();
-        let mut input = H256_256.iter().map(|x| from_u32_to_be_bits(*x)).flatten().collect::<Vec<_>>();
+            })
+            .collect();
+        let mut input = H256_256
+            .iter()
+            .flat_map(|x| from_u32_to_be_bits(*x))
+            .collect::<Vec<_>>();
         input.extend(from_u32_to_be_bits(W[0]));
-        let input_state = H256_256.iter().map(|x| from_u32_to_be_bits(*x)).flatten().collect::<Vec<_>>();
+        let input_state = H256_256
+            .iter()
+            .flat_map(|x| from_u32_to_be_bits(*x))
+            .collect::<Vec<_>>();
         let op = ShaCompressSpongeOp {
-            base_address: hx_addresses.iter().chain([w_addresses[0]].iter()).cloned().collect(),
+            base_address: hx_addresses
+                .iter()
+                .chain([w_addresses[0]].iter())
+                .cloned()
+                .collect(),
             i: 0,
             timestamp: 0,
             input_states: input_state,
@@ -603,42 +669,76 @@ mod test {
 
         assert_eq!(
             local_values.output_state[get_input_range(0)],
-            from_u32_to_be_bits(4228417613).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(4228417613)
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         assert_eq!(
             local_values.output_state[get_input_range(1)],
-            from_u32_to_be_bits(1779033703).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(1779033703)
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         assert_eq!(
             local_values.output_state[get_input_range(2)],
-            from_u32_to_be_bits(3144134277).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(3144134277)
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         assert_eq!(
             local_values.output_state[get_input_range(3)],
-            from_u32_to_be_bits(1013904242).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(1013904242)
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         assert_eq!(
             local_values.output_state[get_input_range(4)],
-            from_u32_to_be_bits(2563236514).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(2563236514)
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         assert_eq!(
             local_values.output_state[get_input_range(5)],
-            from_u32_to_be_bits(1359893119).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(1359893119)
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         assert_eq!(
             local_values.output_state[get_input_range(6)],
-            from_u32_to_be_bits(2600822924).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(2600822924)
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         assert_eq!(
             local_values.output_state[get_input_range(7)],
-            from_u32_to_be_bits(528734635).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(528734635)
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
 
-        let mut input = H256_256.iter().map(|x| from_u32_to_be_bits(*x)).flatten().collect::<Vec<_>>();
+        let mut input = H256_256
+            .iter()
+            .flat_map(|x| from_u32_to_be_bits(*x))
+            .collect::<Vec<_>>();
         input.extend(from_u32_to_be_bits(W[63]));
-        let input_state = H256_256.iter().map(|x| from_u32_to_be_bits(*x)).flatten().collect::<Vec<_>>();
+        let input_state = H256_256
+            .iter()
+            .flat_map(|x| from_u32_to_be_bits(*x))
+            .collect::<Vec<_>>();
         let op = ShaCompressSpongeOp {
-            base_address: hx_addresses.iter().chain([w_addresses[0]].iter()).cloned().collect(),
+            base_address: hx_addresses
+                .iter()
+                .chain([w_addresses[0]].iter())
+                .cloned()
+                .collect(),
             i: 63,
             timestamp: 0,
             input_states: input_state,
@@ -647,42 +747,64 @@ mod test {
         let row = stark.generate_rows_for_op(op);
         let local_values: &ShaCompressSpongeColumnsView<F> = row.borrow();
 
-
         assert_eq!(
             local_values.output_hx[get_input_range(0)],
-            from_u32_to_be_bits(H256_256[0].wrapping_add(2781379838 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(H256_256[0].wrapping_add(2781379838_u32))
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         assert_eq!(
             local_values.output_hx[get_input_range(1)],
-            from_u32_to_be_bits(H256_256[1].wrapping_add(1779033703 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(H256_256[1].wrapping_add(1779033703_u32))
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         assert_eq!(
             local_values.output_hx[get_input_range(2)],
-            from_u32_to_be_bits(H256_256[2].wrapping_add(3144134277 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(H256_256[2].wrapping_add(3144134277_u32))
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         assert_eq!(
             local_values.output_hx[get_input_range(3)],
-            from_u32_to_be_bits(H256_256[3].wrapping_add(1013904242 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(H256_256[3].wrapping_add(1013904242_u32))
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         assert_eq!(
             local_values.output_hx[get_input_range(4)],
-            from_u32_to_be_bits(H256_256[4].wrapping_add(1116198739 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(H256_256[4].wrapping_add(1116198739_u32))
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         assert_eq!(
             local_values.output_hx[get_input_range(5)],
-            from_u32_to_be_bits(H256_256[5].wrapping_add(1359893119 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(H256_256[5].wrapping_add(1359893119_u32))
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         assert_eq!(
             local_values.output_hx[get_input_range(6)],
-            from_u32_to_be_bits(H256_256[6].wrapping_add(2600822924 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(H256_256[6].wrapping_add(2600822924_u32))
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         assert_eq!(
             local_values.output_hx[get_input_range(7)],
-            from_u32_to_be_bits(H256_256[7].wrapping_add(528734635 as u32)).iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<F>>()
+            from_u32_to_be_bits(H256_256[7].wrapping_add(528734635_u32))
+                .iter()
+                .map(|&x| F::from_canonical_u8(x))
+                .collect::<Vec<F>>()
         );
         Ok(())
     }
-
 
     #[test]
     fn test_stark_circuit() -> anyhow::Result<()> {
@@ -708,43 +830,54 @@ mod test {
         test_stark_low_degree(stark)
     }
 
-
     fn get_random_input() -> Vec<ShaCompressSpongeOp> {
-
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         type S = ShaCompressSpongeStark<F, D>;
         let stark = S::default();
 
-        let hx_addresses: Vec<MemoryAddress> = (0..32).step_by(4).map(|i| {
-            MemoryAddress {
+        let hx_addresses: Vec<MemoryAddress> = (0..32)
+            .step_by(4)
+            .map(|i| MemoryAddress {
                 context: 0,
                 segment: 0,
                 virt: i,
-            }
-        }).collect();
+            })
+            .collect();
 
-        let w_addresses: Vec<MemoryAddress> = (32..288).step_by(4).map(|i| {
-            MemoryAddress {
+        let w_addresses: Vec<MemoryAddress> = (32..288)
+            .step_by(4)
+            .map(|i| MemoryAddress {
                 context: 0,
                 segment: 0,
                 virt: i,
-            }
-        }).collect();
+            })
+            .collect();
 
         let mut res = vec![];
-        let mut output_state = H256_256.iter().map(|x| from_u32_to_be_bits(*x)).flatten().collect::<Vec<_>>();
+        let mut output_state = H256_256
+            .iter()
+            .flat_map(|x| from_u32_to_be_bits(*x))
+            .collect::<Vec<_>>();
         for i in 0..64 {
-
-            let mut input = H256_256.iter().map(|x| from_u32_to_be_bits(*x)).flatten().collect::<Vec<_>>();
+            let mut input = H256_256
+                .iter()
+                .flat_map(|x| from_u32_to_be_bits(*x))
+                .collect::<Vec<_>>();
             input.extend(from_u32_to_be_bits(W[i]));
             let input_state = output_state.clone();
 
-            output_state = stark.compress(&input_state, &from_u32_to_be_bits(W[i]), i).to_vec();
+            output_state = stark
+                .compress(&input_state, &from_u32_to_be_bits(W[i]), i)
+                .to_vec();
             let op = ShaCompressSpongeOp {
-                base_address: hx_addresses.iter().chain([w_addresses[i]].iter()).cloned().collect(),
-                i: i,
+                base_address: hx_addresses
+                    .iter()
+                    .chain([w_addresses[i]].iter())
+                    .cloned()
+                    .collect(),
+                i,
                 timestamp: 0,
                 input_states: input_state,
                 input,
@@ -754,7 +887,6 @@ mod test {
         }
 
         res
-
     }
     #[test]
     fn sha_extend_sponge_benchmark() -> anyhow::Result<()> {
@@ -824,5 +956,4 @@ mod test {
     fn init_logger() {
         let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
     }
-
 }

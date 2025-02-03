@@ -14,13 +14,13 @@ use plonky2::field::types::Field;
 use super::util::keccak_sponge_log;
 use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_RATE_U32S};
 use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
+use crate::sha_extend::logic::from_u32_to_be_bits;
 use itertools::Itertools;
 use keccak_hash::keccak;
 use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::GenericConfig;
 use std::fs;
-use crate::sha_extend::logic::from_u32_to_be_bits;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
 
@@ -1222,7 +1222,6 @@ pub(crate) fn generate_sha_extend<
         input_addresses.push(addr);
         input_value_bit_be.push(from_u32_to_be_bits(w_i_minus_16));
 
-
         // Read w[i-7].
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + (i - 7) * 4);
         let (w_i_minus_7, mem_op) = mem_read_gp_with_log_and_fill(3, addr, state, &mut cpu_row);
@@ -1237,9 +1236,17 @@ pub(crate) fn generate_sha_extend<
             .wrapping_add(w_i_minus_7);
 
         // Write w[i].
-        log::debug!("{:X}, {:X}, {:X} {:X} {:X} {:X}", s1, s0, w_i_minus_16, w_i_minus_7, w_i_minus_15, w_i_minus_2);
+        log::debug!(
+            "{:X}, {:X}, {:X} {:X} {:X} {:X}",
+            s1,
+            s0,
+            w_i_minus_16,
+            w_i_minus_7,
+            w_i_minus_15,
+            w_i_minus_2
+        );
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + i * 4);
-        log::debug!("extend write {:X} {:X}",  w_ptr + i * 4, w_i);
+        log::debug!("extend write {:X} {:X}", w_ptr + i * 4, w_i);
         let mem_op = mem_write_gp_log_and_fill(4, addr, state, &mut cpu_row, w_i);
 
         state.traces.push_memory(mem_op);
@@ -1314,7 +1321,10 @@ pub(crate) fn generate_sha_compress<
     cpu_row = CpuColumnsView::default();
     cpu_row.clock = F::from_canonical_usize(state.traces.clock());
     for i in 0..64 {
-        let input_state = [a, b, c, d, e, f, g, h].iter().map(|x| from_u32_to_be_bits(*x)).collect_vec();
+        let input_state = [a, b, c, d, e, f, g, h]
+            .iter()
+            .map(|x| from_u32_to_be_bits(*x))
+            .collect_vec();
         state_values.push(input_state);
 
         let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
@@ -1335,7 +1345,7 @@ pub(crate) fn generate_sha_compress<
         let temp1 = h
             .wrapping_add(s1)
             .wrapping_add(ch)
-            .wrapping_add(SHA_COMPRESS_K[i as usize])
+            .wrapping_add(SHA_COMPRESS_K[i])
             .wrapping_add(w_i);
         let s0 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
         let maj = (a & b) ^ (a & c) ^ (b & c);
@@ -1361,9 +1371,18 @@ pub(crate) fn generate_sha_compress<
     cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
     cpu_row.mem_channels[2].value = F::from_canonical_usize(hx_addresses[0].virt); // start address of hx
 
-    let u32_result: Vec<u32> = [a, b, c, d, e, f, g, h].iter().enumerate().map(|(i, x)| hx[i].wrapping_add(*x)).collect_vec();
+    let u32_result: Vec<u32> = [a, b, c, d, e, f, g, h]
+        .iter()
+        .enumerate()
+        .map(|(i, x)| hx[i].wrapping_add(*x))
+        .collect_vec();
 
-    cpu_row.general.shash_mut().value = u32_result.into_iter().map(F::from_canonical_u32).collect_vec().try_into().unwrap();
+    cpu_row.general.shash_mut().value = u32_result
+        .into_iter()
+        .map(F::from_canonical_u32)
+        .collect_vec()
+        .try_into()
+        .unwrap();
     // cpu_row.general.shash_mut().value.reverse();
     sha_compress_sponge_log(
         state,
@@ -1371,7 +1390,7 @@ pub(crate) fn generate_sha_compress<
         hx_addresses,
         w_i_value_bit_be,
         w_i_addresses,
-        state_values
+        state_values,
     );
     state.traces.push_cpu(cpu_row);
 
@@ -1383,7 +1402,7 @@ pub(crate) fn generate_sha_compress<
         let mem_op =
             mem_write_gp_log_and_fill(i, addr, state, &mut cpu_row, hx[i].wrapping_add(v[i]));
         state.traces.push_memory(mem_op);
-        log::debug!("write {:X} {:X}",  h_ptr + i * 4, hx[i].wrapping_add(v[i]));
+        log::debug!("write {:X} {:X}", h_ptr + i * 4, hx[i].wrapping_add(v[i]));
     }
     state.traces.push_cpu(cpu_row);
     Ok(())

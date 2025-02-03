@@ -5,14 +5,15 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
-
 pub(crate) fn get_input_range(i: usize) -> std::ops::Range<usize> {
-    (0 + i * 32)..(32 + i * 32)
+    (i * 32)..(32 + i * 32)
 }
 
-
 // these operators are applied in big-endian form
-pub(crate) fn rotate_right<F: RichField + Extendable<D>, const D: usize>(value: [F; 32], amount: usize) -> [F; 32] {
+pub(crate) fn rotate_right<F: RichField + Extendable<D>, const D: usize>(
+    value: [F; 32],
+    amount: usize,
+) -> [F; 32] {
     let mut result = [F::ZERO; 32];
     for i in 0..32 {
         result[i] = value[(i + amount) % 32];
@@ -22,7 +23,7 @@ pub(crate) fn rotate_right<F: RichField + Extendable<D>, const D: usize>(value: 
 
 pub(crate) fn rotate_right_packed_constraints<P: PackedField>(
     value: [P; 32],
-    rotated_value: [P;32],
+    rotated_value: [P; 32],
     amount: usize,
 ) -> Vec<P> {
     let mut result = Vec::new();
@@ -34,9 +35,9 @@ pub(crate) fn rotate_right_packed_constraints<P: PackedField>(
 
 pub(crate) fn rotate_right_ext_circuit_constraint<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    value: [ExtensionTarget<D>;32],
+    value: [ExtensionTarget<D>; 32],
     rotated_value: [ExtensionTarget<D>; 32],
-    amount: usize
+    amount: usize,
 ) -> Vec<ExtensionTarget<D>> {
     let mut result = Vec::new();
     for i in 0..32 {
@@ -45,19 +46,20 @@ pub(crate) fn rotate_right_ext_circuit_constraint<F: RichField + Extendable<D>, 
     result
 }
 
-pub(crate) fn shift_right<F: RichField + Extendable<D>, const D: usize>(value: [F; 32], amount: usize) -> [F; 32] {
+pub(crate) fn shift_right<F: RichField + Extendable<D>, const D: usize>(
+    value: [F; 32],
+    amount: usize,
+) -> [F; 32] {
     let mut result = [F::ZERO; 32];
     if amount < 32 {
-        for i in 0..32 - amount {
-            result[i] = value[i + amount];
-        }
+        result[..(32 - amount)].copy_from_slice(&value[amount..((32 - amount) + amount)]);
     }
     result
 }
 
 pub(crate) fn shift_right_packed_constraints<P: PackedField>(
     value: [P; 32],
-    shifted_value: [P;32],
+    shifted_value: [P; 32],
     amount: usize,
 ) -> Vec<P> {
     let mut result = Vec::new();
@@ -72,9 +74,9 @@ pub(crate) fn shift_right_packed_constraints<P: PackedField>(
 
 pub(crate) fn shift_right_ext_circuit_constraints<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    value: [ExtensionTarget<D>;32],
+    value: [ExtensionTarget<D>; 32],
     shifted_value: [ExtensionTarget<D>; 32],
-    amount: usize
+    amount: usize,
 ) -> Vec<ExtensionTarget<D>> {
     let mut result = Vec::new();
     for i in 0..32 - amount {
@@ -86,7 +88,11 @@ pub(crate) fn shift_right_ext_circuit_constraints<F: RichField + Extendable<D>, 
     result
 }
 
-pub(crate) fn xor3 <F: RichField + Extendable<D>, const D: usize, const N: usize>(a: [F; N], b: [F; N], c: [F; N]) -> [F; N] {
+pub(crate) fn xor3<F: RichField + Extendable<D>, const D: usize, const N: usize>(
+    a: [F; N],
+    b: [F; N],
+    c: [F; N],
+) -> [F; N] {
     let mut result = [F::ZERO; N];
     for i in 0..N {
         result[i] = crate::keccak::logic::xor([a[i], b[i], c[i]]);
@@ -96,7 +102,7 @@ pub(crate) fn xor3 <F: RichField + Extendable<D>, const D: usize, const N: usize
 
 pub(crate) fn wrapping_add<F: RichField + Extendable<D>, const D: usize, const N: usize>(
     a: [F; N],
-    b: [F; N]
+    b: [F; N],
 ) -> ([F; N], [F; N]) {
     let mut result = [F::ZERO; N];
     let mut carries = [F::ZERO; N];
@@ -115,7 +121,9 @@ pub(crate) fn wrapping_add<F: RichField + Extendable<D>, const D: usize, const N
     (result, carries)
 }
 
-pub(crate) fn from_be_fbits_to_u32<F: RichField + Extendable<D>, const D: usize>(value: [F; 32]) -> u32 {
+pub(crate) fn from_be_fbits_to_u32<F: RichField + Extendable<D>, const D: usize>(
+    value: [F; 32],
+) -> u32 {
     let mut result = 0;
     for i in 0..32 {
         debug_assert!(value[i].is_zero() || value[i].is_one());
@@ -137,9 +145,8 @@ pub(crate) fn wrapping_add_packed_constraints<P: PackedField, const N: usize>(
     x: [P; N],
     y: [P; N],
     carry: [P; N],
-    out: [P; N]
+    out: [P; N],
 ) -> Vec<P> {
-
     let mut result = vec![];
     let mut pre_carry = P::ZEROS;
     for i in 0..N {
@@ -156,16 +163,19 @@ pub(crate) fn wrapping_add_packed_constraints<P: PackedField, const N: usize>(
     result
 }
 
-pub(crate) fn wrapping_add_ext_circuit_constraints<F: RichField + Extendable<D>, const D: usize, const N: usize>(
+pub(crate) fn wrapping_add_ext_circuit_constraints<
+    F: RichField + Extendable<D>,
+    const D: usize,
+    const N: usize,
+>(
     builder: &mut CircuitBuilder<F, D>,
     x: [ExtensionTarget<D>; N],
     y: [ExtensionTarget<D>; N],
     carry: [ExtensionTarget<D>; N],
-    out: [ExtensionTarget<D>; N]
+    out: [ExtensionTarget<D>; N],
 ) -> Vec<ExtensionTarget<D>> {
-
     let mut result = vec![];
-    let mut pre_carry= builder.zero_extension();
+    let mut pre_carry = builder.zero_extension();
     let one_ext = builder.one_extension();
     let two_ext = builder.two_extension();
     let three_ext = builder.constant_extension(F::Extension::from_canonical_u8(3));
@@ -174,20 +184,14 @@ pub(crate) fn wrapping_add_ext_circuit_constraints<F: RichField + Extendable<D>,
 
         let inner_1 = builder.sub_extension(sum, one_ext);
         let inner_2 = builder.sub_extension(sum, three_ext);
-        let tmp1 = builder.mul_many_extension(
-            [inner_1, inner_2, out[i]]
-        );
+        let tmp1 = builder.mul_many_extension([inner_1, inner_2, out[i]]);
 
         let inner_1 = builder.sub_extension(sum, two_ext);
         let inner_2 = builder.sub_extension(out[i], one_ext);
-        let tmp2 = builder.mul_many_extension(
-            [sum, inner_1, inner_2]
-        );
+        let tmp2 = builder.mul_many_extension([sum, inner_1, inner_2]);
         result.push(builder.add_extension(tmp1, tmp2));
 
-        let tmp3 = builder.add_many_extension(
-            [carry[i], carry[i], out[i]]
-        );
+        let tmp3 = builder.add_many_extension([carry[i], carry[i], out[i]]);
         result.push(builder.sub_extension(tmp3, sum));
 
         pre_carry = carry[i];

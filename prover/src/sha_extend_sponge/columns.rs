@@ -1,11 +1,10 @@
-use std::borrow::{Borrow, BorrowMut};
-use std::intrinsics::transmute;
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
+use std::borrow::{Borrow, BorrowMut};
+use std::mem::transmute;
 
 pub(crate) const NUM_EXTEND_INPUT: usize = 4;
-pub(crate) const SHA_EXTEND_SPONGE_READ_BITS: usize = NUM_EXTEND_INPUT  * 32;
+pub(crate) const SHA_EXTEND_SPONGE_READ_BITS: usize = NUM_EXTEND_INPUT * 32;
 pub(crate) struct ShaExtendSpongeColumnsView<T: Copy> {
-
     /// Input
     pub w_i_minus_15: [T; 32],
     pub w_i_minus_2: [T; 32],
@@ -78,9 +77,10 @@ impl<T: Copy + Default> Default for ShaExtendSpongeColumnsView<T> {
 const fn make_col_map() -> ShaExtendSpongeColumnsView<usize> {
     let indices_arr = indices_arr::<NUM_SHA_EXTEND_SPONGE_COLUMNS>();
     unsafe {
-        transmute::<[usize; NUM_SHA_EXTEND_SPONGE_COLUMNS], ShaExtendSpongeColumnsView<usize>>(indices_arr)
+        transmute::<[usize; NUM_SHA_EXTEND_SPONGE_COLUMNS], ShaExtendSpongeColumnsView<usize>>(
+            indices_arr,
+        )
     }
 }
 
 pub(crate) const SHA_EXTEND_SPONGE_COL_MAP: ShaExtendSpongeColumnsView<usize> = make_col_map();
-

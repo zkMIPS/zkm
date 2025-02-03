@@ -1,13 +1,13 @@
+use crate::keccak::logic::andn_gen_circuit;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use crate::keccak::logic::andn_gen_circuit;
 
 pub(crate) fn and_op<F: RichField + Extendable<D>, const D: usize, const N: usize>(
     x: [F; N],
-    y: [F; N]
+    y: [F; N],
 ) -> [F; N] {
     let mut result = [F::ZERO; N];
     for i in 0..N {
@@ -21,7 +21,7 @@ pub(crate) fn and_op<F: RichField + Extendable<D>, const D: usize, const N: usiz
 pub(crate) fn and_op_packed_constraints<P: PackedField, const N: usize>(
     x: [P; N],
     y: [P; N],
-    out: [P; N]
+    out: [P; N],
 ) -> Vec<P> {
     let mut result = vec![];
     for i in 0..N {
@@ -31,15 +31,18 @@ pub(crate) fn and_op_packed_constraints<P: PackedField, const N: usize>(
     result
 }
 
-pub(crate) fn and_op_ext_circuit_constraints<F: RichField + Extendable<D>, const D: usize, const N: usize>(
+pub(crate) fn and_op_ext_circuit_constraints<
+    F: RichField + Extendable<D>,
+    const D: usize,
+    const N: usize,
+>(
     builder: &mut CircuitBuilder<F, D>,
     x: [ExtensionTarget<D>; N],
     y: [ExtensionTarget<D>; N],
-    out: [ExtensionTarget<D>; N]
+    out: [ExtensionTarget<D>; N],
 ) -> Vec<ExtensionTarget<D>> {
     let mut result = vec![];
     for i in 0..N {
-
         let expected_out = builder.mul_extension(x[i], y[i]);
         let out_constraint = builder.sub_extension(expected_out, out[i]);
         result.push(out_constraint);
@@ -49,7 +52,7 @@ pub(crate) fn and_op_ext_circuit_constraints<F: RichField + Extendable<D>, const
 
 pub(crate) fn andn_op<F: RichField + Extendable<D>, const D: usize, const N: usize>(
     x: [F; N],
-    y: [F; N]
+    y: [F; N],
 ) -> [F; N] {
     let mut result = [F::ZERO; N];
     for i in 0..N {
@@ -63,7 +66,7 @@ pub(crate) fn andn_op<F: RichField + Extendable<D>, const D: usize, const N: usi
 pub(crate) fn andn_op_packed_constraints<P: PackedField, const N: usize>(
     x: [P; N],
     y: [P; N],
-    out: [P; N]
+    out: [P; N],
 ) -> Vec<P> {
     let mut result = vec![];
     for i in 0..N {
@@ -73,15 +76,18 @@ pub(crate) fn andn_op_packed_constraints<P: PackedField, const N: usize>(
     result
 }
 
-pub(crate) fn andn_op_ext_circuit_constraints<F: RichField + Extendable<D>, const D: usize, const N: usize>(
+pub(crate) fn andn_op_ext_circuit_constraints<
+    F: RichField + Extendable<D>,
+    const D: usize,
+    const N: usize,
+>(
     builder: &mut CircuitBuilder<F, D>,
     x: [ExtensionTarget<D>; N],
     y: [ExtensionTarget<D>; N],
-    out: [ExtensionTarget<D>; N]
+    out: [ExtensionTarget<D>; N],
 ) -> Vec<ExtensionTarget<D>> {
     let mut result = vec![];
     for i in 0..N {
-
         let expected_out = andn_gen_circuit(builder, x[i], y[i]);
         let out_constraint = builder.sub_extension(expected_out, out[i]);
         result.push(out_constraint);
@@ -91,7 +97,7 @@ pub(crate) fn andn_op_ext_circuit_constraints<F: RichField + Extendable<D>, cons
 
 pub(crate) fn xor_op<F: RichField + Extendable<D>, const D: usize, const N: usize>(
     x: [F; N],
-    y: [F; N]
+    y: [F; N],
 ) -> [F; N] {
     let mut result = [F::ZERO; N];
     for i in 0..N {
@@ -113,7 +119,11 @@ pub(crate) fn equal_packed_constraint<P: PackedField, const N: usize>(
     result
 }
 
-pub(crate) fn equal_ext_circuit_constraints<F: RichField + Extendable<D>, const D: usize, const N: usize>(
+pub(crate) fn equal_ext_circuit_constraints<
+    F: RichField + Extendable<D>,
+    const D: usize,
+    const N: usize,
+>(
     builder: &mut CircuitBuilder<F, D>,
     x: [ExtensionTarget<D>; N],
     y: [ExtensionTarget<D>; N],
@@ -126,7 +136,7 @@ pub(crate) fn equal_ext_circuit_constraints<F: RichField + Extendable<D>, const 
     result
 }
 
-pub(crate) fn from_be_bits_to_u32( bits: [u8; 32]) -> u32 {
+pub(crate) fn from_be_bits_to_u32(bits: [u8; 32]) -> u32 {
     let mut result = 0;
     for i in 0..32 {
         result |= (bits[i] as u32) << i;

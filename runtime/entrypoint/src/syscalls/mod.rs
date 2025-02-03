@@ -3,15 +3,15 @@
 mod halt;
 mod io;
 mod keccak;
-mod sha256;
 mod memory;
+mod sha256;
 mod sys;
 
 pub use halt::*;
 pub use io::*;
 pub use keccak::*;
-pub use sha256::*;
 pub use memory::*;
+pub use sha256::*;
 pub use sys::*;
 
 /// These codes MUST match the codes in `core/src/runtime/syscall.rs`. There is a derived test

@@ -19,14 +19,14 @@ use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::poseidon::constants::SPONGE_WIDTH;
 use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeOp;
-use crate::util::join;
-use crate::util::trace_rows_to_poly_values;
-use crate::witness::memory::MemoryOp;
-use crate::{arithmetic, logic};
 use crate::sha_compress::sha_compress_stark;
 use crate::sha_compress_sponge::sha_compress_sponge_stark::ShaCompressSpongeOp;
 use crate::sha_extend::sha_extend_stark;
 use crate::sha_extend_sponge::sha_extend_sponge_stark::ShaExtendSpongeOp;
+use crate::util::join;
+use crate::util::trace_rows_to_poly_values;
+use crate::witness::memory::MemoryOp;
+use crate::{arithmetic, logic};
 
 #[derive(Clone, Copy, Debug)]
 pub struct TraceCheckpoint {
@@ -106,11 +106,9 @@ impl<T: Copy> Traces<T> {
                 .map(|op| op.input.len() / keccak_sponge::columns::KECCAK_RATE_BYTES + 1)
                 .sum(),
             sha_extend_len: self.sha_extend_inputs.len(),
-            sha_extend_sponge_len: self
-                .sha_extend_sponge_ops.len(),
+            sha_extend_sponge_len: self.sha_extend_sponge_ops.len(),
             sha_compress_len: self.sha_compress_inputs.len(),
-            sha_compress_sponge_len: self
-                .sha_compress_sponge_ops.len(),
+            sha_compress_sponge_len: self.sha_compress_sponge_ops.len(),
             logic_len: self.logic_ops.len(),
             // This is technically a lower-bound, as we may fill gaps,
             // but this gives a relatively good estimate.
@@ -148,7 +146,8 @@ impl<T: Copy> Traces<T> {
         self.sha_extend_inputs.truncate(checkpoint.sha_extend_len);
         self.sha_extend_sponge_ops
             .truncate(checkpoint.sha_extend_sponge_len);
-        self.sha_compress_inputs.truncate(checkpoint.sha_compress_len);
+        self.sha_compress_inputs
+            .truncate(checkpoint.sha_compress_len);
         self.sha_compress_sponge_ops
             .truncate(checkpoint.sha_compress_sponge_len);
         self.logic_ops.truncate(checkpoint.logic_len);

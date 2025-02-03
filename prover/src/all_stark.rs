@@ -26,7 +26,9 @@ use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeStark;
 use crate::sha_compress::sha_compress_stark;
 use crate::sha_compress::sha_compress_stark::ShaCompressStark;
 use crate::sha_compress_sponge::sha_compress_sponge_stark;
-use crate::sha_compress_sponge::sha_compress_sponge_stark::{ShaCompressSpongeStark, SHA_COMPRESS_SPONGE_READ_BITS};
+use crate::sha_compress_sponge::sha_compress_sponge_stark::{
+    ShaCompressSpongeStark, SHA_COMPRESS_SPONGE_READ_BITS,
+};
 use crate::sha_extend::sha_extend_stark;
 use crate::sha_extend::sha_extend_stark::ShaExtendStark;
 use crate::sha_extend_sponge::columns::SHA_EXTEND_SPONGE_READ_BITS;
@@ -81,9 +83,11 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
             self.keccak_stark.num_lookup_helper_columns(config),
             self.keccak_sponge_stark.num_lookup_helper_columns(config),
             self.sha_extend_stark.num_lookup_helper_columns(config),
-            self.sha_extend_sponge_stark.num_lookup_helper_columns(config),
+            self.sha_extend_sponge_stark
+                .num_lookup_helper_columns(config),
             self.sha_compress_stark.num_lookup_helper_columns(config),
-            self.sha_compress_sponge_stark.num_lookup_helper_columns(config),
+            self.sha_compress_sponge_stark
+                .num_lookup_helper_columns(config),
             self.logic_stark.num_lookup_helper_columns(config),
             self.memory_stark.num_lookup_helper_columns(config),
         ]
@@ -291,7 +295,6 @@ fn ctl_sha_extend_sponge<F: Field>() -> CrossTableLookup<F> {
     );
     CrossTableLookup::new(vec![cpu_looking], sha_extend_sponge_looked)
 }
-
 
 fn ctl_sha_compress_inputs<F: Field>() -> CrossTableLookup<F> {
     let sha_compress_sponge_looking = TableWithColumns::new(

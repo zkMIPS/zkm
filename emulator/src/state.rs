@@ -541,44 +541,59 @@ impl InstrumentedState {
         log::debug!("syscall {} {} {} {}", syscall_num, a0, a1, a2);
 
         match syscall_num {
-            0x300105 => {      // SHA_EXTEND
+            0x300105 => {
+                // SHA_EXTEND
                 let w_ptr = a0;
                 assert!(a1 == 0, "arg2 must be 0");
 
                 for i in 16..64 {
                     // Read w[i-15].
-                    let w_i_minus_15 =  self.state.memory.get_memory(w_ptr + (i - 15) * 4);
+                    let w_i_minus_15 = self.state.memory.get_memory(w_ptr + (i - 15) * 4);
                     // Compute `s0`.
-                    let s0 =
-                        w_i_minus_15.rotate_right(7) ^ w_i_minus_15.rotate_right(18) ^ (w_i_minus_15 >> 3);
+                    let s0 = w_i_minus_15.rotate_right(7)
+                        ^ w_i_minus_15.rotate_right(18)
+                        ^ (w_i_minus_15 >> 3);
 
                     // Read w[i-2].
-                    let w_i_minus_2 =  self.state.memory.get_memory(w_ptr + (i - 2) * 4);
+                    let w_i_minus_2 = self.state.memory.get_memory(w_ptr + (i - 2) * 4);
                     // Compute `s1`.
-                    let s1 =
-                        w_i_minus_2.rotate_right(17) ^ w_i_minus_2.rotate_right(19) ^ (w_i_minus_2 >> 10);
+                    let s1 = w_i_minus_2.rotate_right(17)
+                        ^ w_i_minus_2.rotate_right(19)
+                        ^ (w_i_minus_2 >> 10);
 
                     // Read w[i-16].
-                    let w_i_minus_16 =  self.state.memory.get_memory(w_ptr + (i - 16) * 4);
+                    let w_i_minus_16 = self.state.memory.get_memory(w_ptr + (i - 16) * 4);
 
                     // Read w[i-7].
-                    let w_i_minus_7 =  self.state.memory.get_memory(w_ptr + (i - 7) * 4);
+                    let w_i_minus_7 = self.state.memory.get_memory(w_ptr + (i - 7) * 4);
 
                     // Compute `w_i`.
-                    let w_i = s1.wrapping_add(w_i_minus_16).wrapping_add(s0).wrapping_add(w_i_minus_7);
+                    let w_i = s1
+                        .wrapping_add(w_i_minus_16)
+                        .wrapping_add(s0)
+                        .wrapping_add(w_i_minus_7);
 
                     // Write w[i].
-                    log::debug!("{:X}, {:X}, {:X} {:X} {:X} {:X}", s1, s0, w_i_minus_16, w_i_minus_7, w_i_minus_15, w_i_minus_2);
+                    log::debug!(
+                        "{:X}, {:X}, {:X} {:X} {:X} {:X}",
+                        s1,
+                        s0,
+                        w_i_minus_16,
+                        w_i_minus_7,
+                        w_i_minus_15,
+                        w_i_minus_2
+                    );
                     self.state.memory.set_memory(w_ptr + i * 4, w_i);
                     log::debug!("extend write {:X} {:X}", w_ptr + i * 4, w_i);
                 }
-            },
-            0x010106 => {      // SHA_COMPRESS
+            }
+            0x010106 => {
+                // SHA_COMPRESS
                 let w_ptr = a0;
                 let h_ptr = a1;
                 let mut hx = [0u32; 8];
-                for i in 0..8 {
-                    hx[i] = self.state.memory.get_memory(h_ptr + i as u32 * 4);
+                for (i, hx_item) in hx.iter_mut().enumerate() {
+                    *hx_item = self.state.memory.get_memory(h_ptr + i as u32 * 4);
                 }
 
                 let mut original_w = Vec::new();
@@ -617,11 +632,18 @@ impl InstrumentedState {
                 // Execute the "finalize" phase.
                 let v = [a, b, c, d, e, f, g, h];
                 for i in 0..8 {
-                    self.state.memory.set_memory(h_ptr + i as u32 * 4, hx[i].wrapping_add(v[i]));
-                    log::debug!("write {:X} {:X}", h_ptr + i as u32 * 4, hx[i].wrapping_add(v[i]));
+                    self.state
+                        .memory
+                        .set_memory(h_ptr + i as u32 * 4, hx[i].wrapping_add(v[i]));
+                    log::debug!(
+                        "write {:X} {:X}",
+                        h_ptr + i as u32 * 4,
+                        hx[i].wrapping_add(v[i])
+                    );
                 }
-            },
-            0x010109 => {  //keccak
+            }
+            0x010109 => {
+                //keccak
                 assert!((a0 & 3) == 0);
                 assert!((a2 & 3) == 0);
                 let bytes = (0..a1)
@@ -664,7 +686,7 @@ impl InstrumentedState {
                 log::debug!("input: {:?}", vec);
                 assert_eq!(a0 % 4, 0, "hint read address not aligned to 4 bytes");
                 if a1 >= 1 {
-                    self.state.cycle += (a1 as u64 + 31) / 32;
+                    self.state.cycle += (a1 as u64).div_ceil(32);
                 }
                 for i in (0..a1).step_by(4) {
                     // Get each byte in the chunk

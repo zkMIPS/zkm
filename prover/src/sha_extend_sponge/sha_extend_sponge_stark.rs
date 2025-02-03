@@ -1,5 +1,19 @@
-use std::marker::PhantomData;
-use std::borrow::Borrow;
+use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cpu::membus::NUM_CHANNELS;
+use crate::cross_table_lookup::{Column, Filter};
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::memory::segments::Segment;
+use crate::sha_extend::logic::{from_be_fbits_to_u32, from_u32_to_be_bits, get_input_range};
+use crate::sha_extend_sponge::columns::{
+    ShaExtendSpongeColumnsView, NUM_EXTEND_INPUT, NUM_SHA_EXTEND_SPONGE_COLUMNS,
+    SHA_EXTEND_SPONGE_COL_MAP,
+};
+use crate::sha_extend_sponge::logic::{
+    diff_address_ext_circuit_constraint, round_increment_ext_circuit_constraint,
+};
+use crate::stark::Stark;
+use crate::util::trace_rows_to_poly_values;
+use crate::witness::memory::MemoryAddress;
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
@@ -8,17 +22,8 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::membus::NUM_CHANNELS;
-use crate::cross_table_lookup::{Column, Filter};
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
-use crate::memory::segments::Segment;
-use crate::sha_extend::logic::{get_input_range, from_u32_to_be_bits, from_be_fbits_to_u32};
-use crate::sha_extend_sponge::columns::{ShaExtendSpongeColumnsView, NUM_EXTEND_INPUT, NUM_SHA_EXTEND_SPONGE_COLUMNS, SHA_EXTEND_SPONGE_COL_MAP};
-use crate::sha_extend_sponge::logic::{diff_address_ext_circuit_constraint, round_increment_ext_circuit_constraint};
-use crate::stark::Stark;
-use crate::util::trace_rows_to_poly_values;
-use crate::witness::memory::MemoryAddress;
+use std::borrow::Borrow;
+use std::marker::PhantomData;
 
 pub const NUM_ROUNDS: usize = 48;
 
@@ -31,9 +36,9 @@ pub(crate) fn ctl_looking_sha_extend_inputs<F: Field>() -> Vec<Column<F>> {
             cols.w_i_minus_16.as_slice(),
             cols.w_i_minus_7.as_slice(),
         ]
-            .concat(),
+        .concat(),
     )
-        .collect();
+    .collect();
     res.push(Column::single(cols.timestamp));
     res
 }
@@ -50,17 +55,15 @@ pub(crate) fn ctl_looking_sha_extend_outputs<F: Field>() -> Vec<Column<F>> {
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     let cols = SHA_EXTEND_SPONGE_COL_MAP;
     let w_i_usize = Column::linear_combination(
-        cols.w_i.iter()
+        cols.w_i
+            .iter()
             .enumerate()
             .map(|(i, &b)| (b, F::from_canonical_usize(1 << i))),
     );
 
-    Column::singles([
-        cols.context,
-        cols.segment,
-        cols.output_virt,
-        cols.timestamp,
-    ]).chain([w_i_usize]).collect()
+    Column::singles([cols.context, cols.segment, cols.output_virt, cols.timestamp])
+        .chain([w_i_usize])
+        .collect()
 }
 
 pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
@@ -84,7 +87,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
         le_bit = cols.w_i_minus_7;
     }
     // le_bit.reverse();
-    let u32_value: Column<F> = Column::le_bits(&le_bit);
+    let u32_value: Column<F> = Column::le_bits(le_bit);
     res.push(u32_value);
 
     res.push(Column::single(cols.timestamp));
@@ -99,13 +102,11 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
 pub(crate) fn ctl_looking_sha_extend_filter<F: Field>() -> Filter<F> {
     let cols = SHA_EXTEND_SPONGE_COL_MAP;
     // not the padding rows.
-    Filter::new_simple(Column::sum(
-        &cols.round,
-    ))
+    Filter::new_simple(Column::sum(cols.round))
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct  ShaExtendSpongeOp {
+pub(crate) struct ShaExtendSpongeOp {
     /// The base address at which inputs are read
     pub(crate) base_address: Vec<MemoryAddress>,
 
@@ -159,11 +160,11 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendSpongeStark<F, D> {
         rows
     }
 
-    fn generate_rows_for_op(&self, op: ShaExtendSpongeOp) -> ShaExtendSpongeColumnsView<F>{
+    fn generate_rows_for_op(&self, op: ShaExtendSpongeOp) -> ShaExtendSpongeColumnsView<F> {
         let mut row = ShaExtendSpongeColumnsView::default();
         row.timestamp = F::from_canonical_usize(op.timestamp);
         row.round = [F::ZEROS; 48];
-        row.round[op.i as usize] = F::ONE;
+        row.round[op.i] = F::ONE;
 
         row.context = F::from_canonical_usize(op.base_address[0].context);
         row.segment = F::from_canonical_usize(op.base_address[Segment::Code as usize].segment);
@@ -175,13 +176,29 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendSpongeStark<F, D> {
         row.output_virt = F::from_canonical_usize(op.output_address.virt);
 
         row.w_i_minus_15 = op.input[get_input_range(0)]
-            .iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap();
+            .iter()
+            .map(|&x| F::from_canonical_u8(x))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
         row.w_i_minus_2 = op.input[get_input_range(1)]
-            .iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap();
+            .iter()
+            .map(|&x| F::from_canonical_u8(x))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
         row.w_i_minus_16 = op.input[get_input_range(2)]
-            .iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap();
+            .iter()
+            .map(|&x| F::from_canonical_u8(x))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
         row.w_i_minus_7 = op.input[get_input_range(3)]
-            .iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap();
+            .iter()
+            .map(|&x| F::from_canonical_u8(x))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
 
         row.w_i = self.compute_w_i(&mut row);
         row
@@ -200,28 +217,32 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendSpongeStark<F, D> {
             .wrapping_add(w_i_minus_7);
 
         let w_i_bin = from_u32_to_be_bits(w_i_u32);
-        w_i_bin.iter().map(|&x| F::from_canonical_u8(x)).collect::<Vec<_>>().try_into().unwrap()
+        w_i_bin
+            .iter()
+            .map(|&x| F::from_canonical_u8(x))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
     }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpongeStark<F, D> {
     type EvaluationFrame<FE, P, const D2: usize>
-    = StarkFrame<P, NUM_SHA_EXTEND_SPONGE_COLUMNS>
+        = StarkFrame<P, NUM_SHA_EXTEND_SPONGE_COLUMNS>
     where
-        FE: FieldExtension<D2, BaseField=F>,
-        P: PackedField<Scalar=FE>;
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
 
     type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_SHA_EXTEND_SPONGE_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
         vars: &Self::EvaluationFrame<FE, P, D2>,
-        yield_constr: &mut ConstraintConsumer<P>
+        yield_constr: &mut ConstraintConsumer<P>,
     ) where
-        FE: FieldExtension<D2, BaseField=F>,
-        P: PackedField<Scalar=FE>
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
     {
-
         let local_values: &[P; NUM_SHA_EXTEND_SPONGE_COLUMNS] =
             vars.get_local_values().try_into().unwrap();
         let local_values: &ShaExtendSpongeColumnsView<P> = local_values.borrow();
@@ -231,10 +252,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
 
         // check the binary form
         for i in 0..32 {
-            yield_constr.constraint(local_values.w_i_minus_15[i] * (local_values.w_i_minus_15[i] - P::ONES));
-            yield_constr.constraint(local_values.w_i_minus_2[i] * (local_values.w_i_minus_2[i] - P::ONES));
-            yield_constr.constraint(local_values.w_i_minus_16[i] * (local_values.w_i_minus_16[i] - P::ONES));
-            yield_constr.constraint(local_values.w_i_minus_7[i] * (local_values.w_i_minus_7[i] - P::ONES));
+            yield_constr.constraint(
+                local_values.w_i_minus_15[i] * (local_values.w_i_minus_15[i] - P::ONES),
+            );
+            yield_constr
+                .constraint(local_values.w_i_minus_2[i] * (local_values.w_i_minus_2[i] - P::ONES));
+            yield_constr.constraint(
+                local_values.w_i_minus_16[i] * (local_values.w_i_minus_16[i] - P::ONES),
+            );
+            yield_constr
+                .constraint(local_values.w_i_minus_7[i] * (local_values.w_i_minus_7[i] - P::ONES));
             yield_constr.constraint(local_values.w_i[i] * (local_values.w_i[i] - P::ONES));
         }
 
@@ -248,15 +275,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
         yield_constr.constraint(is_final * (is_final - P::ONES));
         let not_final = P::ONES - is_final;
 
-        let sum_round_flags = (0..NUM_ROUNDS)
-            .map(|i| local_values.round[i])
-            .sum::<P>();
+        let sum_round_flags = (0..NUM_ROUNDS).map(|i| local_values.round[i]).sum::<P>();
 
         // If this is not the final step or a padding row,
         // the timestamp must be increased by 2 * NUM_CHANNELS.
         yield_constr.constraint(
-            sum_round_flags * not_final *
-                (next_values.timestamp - local_values.timestamp - FE::from_canonical_usize(2 * NUM_CHANNELS)),
+            sum_round_flags
+                * not_final
+                * (next_values.timestamp
+                    - local_values.timestamp
+                    - FE::from_canonical_usize(2 * NUM_CHANNELS)),
         );
 
         // If this is not the final step or a padding row,
@@ -269,18 +297,24 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
             .map(|i| next_values.round[i] * FE::from_canonical_u32(i as u32))
             .sum::<P>();
         yield_constr.constraint(
-            sum_round_flags * not_final * (next_round_index - local_round_index - P::ONES)
+            sum_round_flags * not_final * (next_round_index - local_round_index - P::ONES),
         );
 
         // If this is not the final step or a padding row,
         // input and output addresses should be increased by 4 each
         (0..NUM_EXTEND_INPUT).for_each(|i| {
             yield_constr.constraint(
-                sum_round_flags * not_final * (next_values.input_virt[i] - local_values.input_virt[i] - FE::from_canonical_u32(4))
+                sum_round_flags
+                    * not_final
+                    * (next_values.input_virt[i]
+                        - local_values.input_virt[i]
+                        - FE::from_canonical_u32(4)),
             );
         });
         yield_constr.constraint(
-            sum_round_flags * not_final * (next_values.output_virt - local_values.output_virt - FE::from_canonical_u32(4))
+            sum_round_flags
+                * not_final
+                * (next_values.output_virt - local_values.output_virt - FE::from_canonical_u32(4)),
         );
 
         // If it's not the padding row, check the virtual addresses
@@ -288,19 +322,31 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
 
         // add_w[i-15] = add_w[i-16] + 4
         yield_constr.constraint(
-            sum_round_flags * (local_values.input_virt[0] - local_values.input_virt[2] - FE::from_canonical_u32(4))
+            sum_round_flags
+                * (local_values.input_virt[0]
+                    - local_values.input_virt[2]
+                    - FE::from_canonical_u32(4)),
         );
         // add_w[i-2] = add_w[i-16] + 56
         yield_constr.constraint(
-            sum_round_flags * (local_values.input_virt[1] - local_values.input_virt[2] - FE::from_canonical_u32(56))
+            sum_round_flags
+                * (local_values.input_virt[1]
+                    - local_values.input_virt[2]
+                    - FE::from_canonical_u32(56)),
         );
         // add_w[i-7] = add_w[i-16] + 36
         yield_constr.constraint(
-            sum_round_flags * (local_values.input_virt[3] - local_values.input_virt[2] - FE::from_canonical_u32(36))
+            sum_round_flags
+                * (local_values.input_virt[3]
+                    - local_values.input_virt[2]
+                    - FE::from_canonical_u32(36)),
         );
         // add_w[i] = add_w[i-16] + 64
         yield_constr.constraint(
-            sum_round_flags * (local_values.output_virt - local_values.input_virt[2] - FE::from_canonical_u32(64))
+            sum_round_flags
+                * (local_values.output_virt
+                    - local_values.input_virt[2]
+                    - FE::from_canonical_u32(64)),
         );
     }
 
@@ -308,9 +354,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: &Self::EvaluationFrameTarget,
-        yield_constr: &mut RecursiveConstraintConsumer<F, D>
+        yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-
         let local_values: &[ExtensionTarget<D>; NUM_SHA_EXTEND_SPONGE_COLUMNS] =
             vars.get_local_values().try_into().unwrap();
         let local_values: &ShaExtendSpongeColumnsView<ExtensionTarget<D>> = local_values.borrow();
@@ -320,34 +365,52 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
 
         let one_ext = builder.one_extension();
         let four_ext = builder.constant_extension(F::Extension::from_canonical_u32(4));
-        let num_channel = builder.constant_extension(F::Extension::from_canonical_usize(2 * NUM_CHANNELS));
+        let num_channel =
+            builder.constant_extension(F::Extension::from_canonical_usize(2 * NUM_CHANNELS));
         // check the binary form
         for i in 0..32 {
             let constraint = builder.mul_sub_extension(
-                local_values.w_i_minus_15[i], local_values.w_i_minus_15[i], local_values.w_i_minus_15[i]);
+                local_values.w_i_minus_15[i],
+                local_values.w_i_minus_15[i],
+                local_values.w_i_minus_15[i],
+            );
             yield_constr.constraint(builder, constraint);
 
             let constraint = builder.mul_sub_extension(
-                local_values.w_i_minus_2[i], local_values.w_i_minus_2[i], local_values.w_i_minus_2[i]);
+                local_values.w_i_minus_2[i],
+                local_values.w_i_minus_2[i],
+                local_values.w_i_minus_2[i],
+            );
             yield_constr.constraint(builder, constraint);
 
             let constraint = builder.mul_sub_extension(
-                local_values.w_i_minus_16[i], local_values.w_i_minus_16[i], local_values.w_i_minus_16[i]);
+                local_values.w_i_minus_16[i],
+                local_values.w_i_minus_16[i],
+                local_values.w_i_minus_16[i],
+            );
             yield_constr.constraint(builder, constraint);
 
             let constraint = builder.mul_sub_extension(
-                local_values.w_i_minus_7[i], local_values.w_i_minus_7[i], local_values.w_i_minus_7[i]);
+                local_values.w_i_minus_7[i],
+                local_values.w_i_minus_7[i],
+                local_values.w_i_minus_7[i],
+            );
             yield_constr.constraint(builder, constraint);
 
             let constraint = builder.mul_sub_extension(
-                local_values.w_i[i], local_values.w_i[i], local_values.w_i[i]);
+                local_values.w_i[i],
+                local_values.w_i[i],
+                local_values.w_i[i],
+            );
             yield_constr.constraint(builder, constraint);
         }
 
         // check the round
         for i in 0..NUM_ROUNDS {
             let constraint = builder.mul_sub_extension(
-                local_values.round[i], local_values.round[i], local_values.round[i]
+                local_values.round[i],
+                local_values.round[i],
+                local_values.round[i],
             );
             yield_constr.constraint(builder, constraint);
         }
@@ -371,35 +434,27 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
         // If this is not the final step or a padding row,
         // round index should be increased by one
 
-        let round_increment = round_increment_ext_circuit_constraint(
-            builder,
-            local_values.round,
-            next_values.round
-        );
-        let constraint = builder.mul_many_extension(
-            [sum_round_flags, not_final, round_increment]
-        );
+        let round_increment =
+            round_increment_ext_circuit_constraint(builder, local_values.round, next_values.round);
+        let constraint = builder.mul_many_extension([sum_round_flags, not_final, round_increment]);
         yield_constr.constraint(builder, constraint);
 
         // If this is not the final step or a padding row,
         // input and output addresses should be increased by 4 each
         (0..NUM_EXTEND_INPUT).for_each(|i| {
-
-            let increment = builder.sub_extension(next_values.input_virt[i], local_values.input_virt[i]);
+            let increment =
+                builder.sub_extension(next_values.input_virt[i], local_values.input_virt[i]);
             let address_increment = builder.sub_extension(increment, four_ext);
-            let constraint = builder.mul_many_extension(
-                [sum_round_flags, not_final, address_increment]
-            );
+            let constraint =
+                builder.mul_many_extension([sum_round_flags, not_final, address_increment]);
             yield_constr.constraint(builder, constraint);
         });
 
         let increment = builder.sub_extension(next_values.output_virt, local_values.output_virt);
         let address_increment = builder.sub_extension(increment, four_ext);
-        let constraint = builder.mul_many_extension(
-            [sum_round_flags, not_final, address_increment]
-        );
+        let constraint =
+            builder.mul_many_extension([sum_round_flags, not_final, address_increment]);
         yield_constr.constraint(builder, constraint);
-
 
         // If it's not the padding row, check the virtual addresses
         // The list of input addresses are: w[i-15], w[i-2], w[i-16], w[i-7]
@@ -410,7 +465,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
             sum_round_flags,
             local_values.input_virt[0],
             local_values.input_virt[2],
-            4
+            4,
         );
         yield_constr.constraint(builder, constraint);
 
@@ -420,7 +475,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
             sum_round_flags,
             local_values.input_virt[1],
             local_values.input_virt[2],
-            56
+            56,
         );
         yield_constr.constraint(builder, constraint);
 
@@ -430,7 +485,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
             sum_round_flags,
             local_values.input_virt[3],
             local_values.input_virt[2],
-            36
+            36,
         );
         yield_constr.constraint(builder, constraint);
 
@@ -440,7 +495,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
             sum_round_flags,
             local_values.output_virt,
             local_values.input_virt[2],
-            64
+            64,
         );
         yield_constr.constraint(builder, constraint);
     }
@@ -450,9 +505,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
     }
 }
 
-
 #[cfg(test)]
 mod test {
+    use crate::config::StarkConfig;
+    use crate::cross_table_lookup::{
+        Column, CtlData, CtlZData, Filter, GrandProductChallenge, GrandProductChallengeSet,
+    };
+    use crate::memory::segments::Segment;
+    use crate::memory::NUM_CHANNELS;
+    use crate::prover::prove_single_table;
+    use crate::sha_extend_sponge::sha_extend_sponge_stark::{
+        ShaExtendSpongeOp, ShaExtendSpongeStark,
+    };
+    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+    use crate::witness::memory::MemoryAddress;
     use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::polynomial::PolynomialValues;
@@ -462,14 +528,6 @@ mod test {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::timed;
     use plonky2::util::timing::TimingTree;
-    use crate::config::StarkConfig;
-    use crate::cross_table_lookup::{Column, CtlData, CtlZData, Filter, GrandProductChallenge, GrandProductChallengeSet};
-    use crate::memory::NUM_CHANNELS;
-    use crate::memory::segments::Segment;
-    use crate::prover::prove_single_table;
-    use crate::sha_extend_sponge::sha_extend_sponge_stark::{ShaExtendSpongeOp, ShaExtendSpongeStark};
-    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
-    use crate::witness::memory::MemoryAddress;
 
     fn to_be_bits(value: u32) -> [u8; 32] {
         let mut result = [0; 32];
@@ -491,23 +549,28 @@ mod test {
         let input_values = input_values.into_iter().flatten().collect::<Vec<_>>();
 
         let op = ShaExtendSpongeOp {
-            base_address: vec![MemoryAddress {
-                context: 0,
-                segment: Segment::Code as usize,
-                virt: 4,
-            }, MemoryAddress {
-                context: 0,
-                segment: Segment::Code as usize,
-                virt: 56,
-            }, MemoryAddress {
-                context: 0,
-                segment: Segment::Code as usize,
-                virt: 0,
-            }, MemoryAddress {
-                context: 0,
-                segment: Segment::Code as usize,
-                virt: 36,
-            }],
+            base_address: vec![
+                MemoryAddress {
+                    context: 0,
+                    segment: Segment::Code as usize,
+                    virt: 4,
+                },
+                MemoryAddress {
+                    context: 0,
+                    segment: Segment::Code as usize,
+                    virt: 56,
+                },
+                MemoryAddress {
+                    context: 0,
+                    segment: Segment::Code as usize,
+                    virt: 0,
+                },
+                MemoryAddress {
+                    context: 0,
+                    segment: Segment::Code as usize,
+                    virt: 36,
+                },
+            ],
             timestamp: 0,
             input: input_values,
             i: 0,
@@ -557,18 +620,19 @@ mod test {
             w[i] = rand::random::<u32>();
         }
         for i in 16..64 {
-
-            let w_i_minus_15 = w[i-15];
-            let s0 = w_i_minus_15.rotate_right(7) ^ w_i_minus_15.rotate_right(18) ^ (w_i_minus_15 >> 3);
+            let w_i_minus_15 = w[i - 15];
+            let s0 =
+                w_i_minus_15.rotate_right(7) ^ w_i_minus_15.rotate_right(18) ^ (w_i_minus_15 >> 3);
 
             // Read w[i-2].
-            let w_i_minus_2 = w[i-2];
+            let w_i_minus_2 = w[i - 2];
             // Compute `s1`.
-            let s1 = w_i_minus_2.rotate_right(17) ^ w_i_minus_2.rotate_right(19) ^ (w_i_minus_2 >> 10);
+            let s1 =
+                w_i_minus_2.rotate_right(17) ^ w_i_minus_2.rotate_right(19) ^ (w_i_minus_2 >> 10);
 
             // Read w[i-16].
-            let w_i_minus_16 = w[i-16];
-            let w_i_minus_7 = w[i-7];
+            let w_i_minus_16 = w[i - 16];
+            let w_i_minus_7 = w[i - 7];
 
             // Compute `w_i`.
             w[i] = s1
@@ -579,10 +643,10 @@ mod test {
 
         let mut addresses = vec![];
         for i in 0..64 {
-            addresses.push(MemoryAddress{
+            addresses.push(MemoryAddress {
                 context: 0,
                 segment: Segment::Code as usize,
-                virt: i * 4
+                virt: i * 4,
             });
         }
 
@@ -597,7 +661,12 @@ mod test {
             input_values.extend(to_be_bits(w[i - 7]));
 
             let op = ShaExtendSpongeOp {
-                base_address: vec![addresses[i - 15], addresses[i - 2], addresses[i - 16], addresses[i - 7]],
+                base_address: vec![
+                    addresses[i - 15],
+                    addresses[i - 2],
+                    addresses[i - 16],
+                    addresses[i - 7],
+                ],
                 timestamp: time,
                 input: input_values,
                 i: i - 16,
@@ -609,7 +678,6 @@ mod test {
         }
 
         res
-
     }
     #[test]
     fn sha_extend_sponge_benchmark() -> anyhow::Result<()> {

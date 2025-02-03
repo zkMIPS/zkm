@@ -1,5 +1,5 @@
 use std::borrow::Borrow;
-use std::iter::repeat;
+use std::iter::repeat_n;
 use std::marker::PhantomData;
 
 use itertools::Itertools;
@@ -13,7 +13,6 @@ use super::columns::CpuColumnsView;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
-//use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::{
     bits, bootstrap_kernel, count, decode, jumps, membus, memio, misc, shift, syscall,
 };
@@ -212,7 +211,7 @@ pub fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
     cols.push(Column::le_bits(base));
 
     // High limbs of the value are all zero.
-    cols.extend(repeat(Column::constant(F::ZERO)).take(VALUE_LIMBS - 1));
+    cols.extend(repeat_n(Column::constant(F::ZERO), VALUE_LIMBS - 1));
 
     cols.push(mem_time_and_channel(MEM_CODE_CHANNEL_IDX));
 

@@ -19,14 +19,14 @@ use crate::poseidon::constants::{SPONGE_RATE, SPONGE_WIDTH};
 use crate::poseidon::poseidon_stark::poseidon_with_witness;
 use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeOp;
-use crate::witness::errors::ProgramError;
-use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
-use plonky2::field::extension::Extendable;
-use plonky2::plonk::config::GenericConfig;
 use crate::sha_compress::logic::from_be_bits_to_u32;
 use crate::sha_compress_sponge::constants::SHA_COMPRESS_K_BINARY;
 use crate::sha_compress_sponge::sha_compress_sponge_stark::ShaCompressSpongeOp;
 use crate::sha_extend_sponge::sha_extend_sponge_stark::ShaExtendSpongeOp;
+use crate::witness::errors::ProgramError;
+use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
+use plonky2::field::extension::Extendable;
+use plonky2::plonk::config::GenericConfig;
 
 fn to_byte_checked(n: u32) -> u8 {
     let res: u8 = n.to_le_bytes()[0];
@@ -561,7 +561,7 @@ pub(crate) fn sha_extend_sponge_log<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
-> (
+>(
     state: &mut GenerationState<F, C, D>,
     base_address: Vec<MemoryAddress>,
     inputs: Vec<[u8; 32]>, // BE bits
@@ -573,10 +573,9 @@ pub(crate) fn sha_extend_sponge_log<
 
     let clock = state.traces.clock();
     let mut n_gp = 0;
-    let mut addr_idx = 0;
     let extend_input: Vec<u8> = inputs.iter().flatten().cloned().collect();
 
-    for input in inputs {
+    for (addr_idx, input) in inputs.into_iter().enumerate() {
         let val = from_be_bits_to_u32(input);
         for _ in 0..32 {
             state.traces.push_memory(MemoryOp::new(
@@ -589,24 +588,26 @@ pub(crate) fn sha_extend_sponge_log<
             n_gp += 1;
             n_gp %= NUM_GP_CHANNELS - 1;
         }
-        addr_idx += 1;
     }
-    state.traces.push_sha_extend(extend_input.clone().try_into().unwrap(), clock * NUM_CHANNELS);
+    state.traces.push_sha_extend(
+        extend_input.clone().try_into().unwrap(),
+        clock * NUM_CHANNELS,
+    );
 
     state.traces.push_sha_extend_sponge(ShaExtendSpongeOp {
         base_address,
         timestamp: clock * NUM_CHANNELS,
         input: extend_input,
         i: round,
-        output_address
+        output_address,
     });
 }
 
-pub(crate) fn sha_compress_sponge_log <
+pub(crate) fn sha_compress_sponge_log<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
-> (
+>(
     state: &mut GenerationState<F, C, D>,
     hx_values: Vec<[u8; 32]>, // BE bits
     hx_addresses: Vec<MemoryAddress>,
@@ -621,7 +622,6 @@ pub(crate) fn sha_compress_sponge_log <
     let mut n_gp = 0;
 
     for i in 0..64 {
-
         // read hx as input
         for (j, hx) in hx_values.iter().enumerate() {
             let val = from_be_bits_to_u32(*hx);
@@ -651,15 +651,31 @@ pub(crate) fn sha_compress_sponge_log <
             n_gp %= NUM_GP_CHANNELS - 1;
         }
 
-
         let w_i = w_i_values[i];
         let k_i = SHA_COMPRESS_K_BINARY[i];
-        let base_address = hx_addresses.clone().into_iter().chain([w_i_addresses[i]]).collect_vec();
-        let compress_sponge_input: Vec<u8> = hx_values.iter().chain(&[w_i]).flatten().cloned().collect();
-        let compress_input: Vec<u8> = input_state_list[i].iter().chain(&[w_i, k_i]).flatten().cloned().collect();
-        let input_states: Vec<u8> = input_state_list[i].clone().iter().flatten().cloned().collect();
+        let base_address = hx_addresses
+            .clone()
+            .into_iter()
+            .chain([w_i_addresses[i]])
+            .collect_vec();
+        let compress_sponge_input: Vec<u8> =
+            hx_values.iter().chain(&[w_i]).flatten().cloned().collect();
+        let compress_input: Vec<u8> = input_state_list[i]
+            .iter()
+            .chain(&[w_i, k_i])
+            .flatten()
+            .cloned()
+            .collect();
+        let input_states: Vec<u8> = input_state_list[i]
+            .clone()
+            .iter()
+            .flatten()
+            .cloned()
+            .collect();
 
-        state.traces.push_sha_compress(compress_input.try_into().unwrap(), clock * NUM_CHANNELS);
+        state
+            .traces
+            .push_sha_compress(compress_input.try_into().unwrap(), clock * NUM_CHANNELS);
 
         state.traces.push_sha_compress_sponge(ShaCompressSpongeOp {
             base_address,
@@ -668,7 +684,6 @@ pub(crate) fn sha_compress_sponge_log <
             i,
             input: compress_sponge_input,
         });
-
     }
 }
 

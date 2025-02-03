@@ -1,10 +1,9 @@
-use std::borrow::{Borrow, BorrowMut};
-use std::intrinsics::transmute;
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
+use std::borrow::{Borrow, BorrowMut};
+use std::mem::transmute;
 
 pub(crate) struct ShaCompressSpongeColumnsView<T: Copy> {
-
-    pub hx: [T;256],
+    pub hx: [T; 256],
     pub input_state: [T; 256],
     pub output_state: [T; 256],
     pub output_hx: [T; 256],
@@ -22,7 +21,6 @@ pub(crate) struct ShaCompressSpongeColumnsView<T: Copy> {
     pub context: T,
     pub segment: T,
 }
-
 
 pub const NUM_SHA_COMPRESS_SPONGE_COLUMNS: usize = size_of::<ShaCompressSpongeColumnsView<u8>>(); //1420
 
@@ -71,7 +69,9 @@ impl<T: Copy + Default> Default for ShaCompressSpongeColumnsView<T> {
 const fn make_col_map() -> ShaCompressSpongeColumnsView<usize> {
     let indices_arr = indices_arr::<NUM_SHA_COMPRESS_SPONGE_COLUMNS>();
     unsafe {
-        transmute::<[usize; NUM_SHA_COMPRESS_SPONGE_COLUMNS], ShaCompressSpongeColumnsView<usize>>(indices_arr)
+        transmute::<[usize; NUM_SHA_COMPRESS_SPONGE_COLUMNS], ShaCompressSpongeColumnsView<usize>>(
+            indices_arr,
+        )
     }
 }
 
