@@ -7,6 +7,7 @@ use crate::sha_compress_sponge::columns::{
     ShaCompressSpongeColumnsView, NUM_SHA_COMPRESS_SPONGE_COLUMNS, SHA_COMPRESS_SPONGE_COL_MAP,
 };
 use crate::sha_compress_sponge::constants::{NUM_COMPRESS_ROWS, SHA_COMPRESS_K_BINARY};
+use crate::sha_compress_sponge::logic::{sha_ch, sha_ma, sha_sigma0, sha_sigma1};
 use crate::sha_extend::logic::{
     from_u32_to_be_bits, get_input_range, wrapping_add, wrapping_add_ext_circuit_constraints,
     wrapping_add_packed_constraints,
@@ -243,13 +244,16 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressSpongeStark<F, D> 
             .unwrap();
         let w_i = from_be_bits_to_u32(w_i.try_into().unwrap());
 
+        let ch_efg = sha_ch(e, f, g);
+        let sigma1_e = sha_sigma1(e);
+        let sigma0_a = sha_sigma0(a);
+        let major = sha_ma(a, b, c);
         let t1 = h
-            .wrapping_add(e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25))
-            .wrapping_add((e & f) ^ ((!e) & g))
+            .wrapping_add(sigma1_e)
+            .wrapping_add(ch_efg)
             .wrapping_add(SHA_COMPRESS_K[round])
             .wrapping_add(w_i);
-        let t2 = (a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22))
-            .wrapping_add((a & b) ^ (a & c) ^ (b & c));
+        let t2 = sigma0_a.wrapping_add(major);
         h = g;
         g = f;
         f = e;
