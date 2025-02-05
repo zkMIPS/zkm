@@ -76,15 +76,15 @@ RUST_LOG=info JSON_PATH=../../../../emulator/test-vectors/test.json SEG_OUTPUT=/
 
 ```
 
-## Prove precompile code
+## Prove composition code
 * Build the sha2-rust (**new**)
 ```
 cd prover/examples/sha2-rust/host
 cargo check
 ```
 
-* Build and run the sha2-precompile (**new**)
+* Build and run the sha2-composition (**new**)
 ```
-cd ../../sha2-precompile/host
+cd ../../sha2-composition/host
 RUST_LOG=info PRECOMPILE_PATH=../../sha2-rust/guest/elf/mips-zkm-zkvm-elf SEG_OUTPUT=/tmp/output cargo run --release
 ```

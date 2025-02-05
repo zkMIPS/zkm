@@ -2,7 +2,7 @@
 members = [
   "revme/host",
   "sha2-rust/host",
-  "sha2-precompile/host",
+  "sha2-composition/host",
   "sha2-go/host",
   "keccak/host",
   "split-seg",

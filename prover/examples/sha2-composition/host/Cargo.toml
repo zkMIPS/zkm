@@ -1,5 +1,5 @@
 [package]
-name = "precompile-host"
+name = "composition-host"
 version = { workspace = true }
 edition = { workspace = true }
 publish = false
