@@ -143,9 +143,9 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
         ctl_keccak_sponge(),
         ctl_keccak_inputs(),
         ctl_keccak_outputs(),
-        ctl_sha_extend_sponge(),
-        ctl_sha_extend_inputs(),
-        ctl_sha_extend_outputs(),
+        // ctl_sha_extend_sponge(),
+        // ctl_sha_extend_inputs(),
+        // ctl_sha_extend_outputs(),
         ctl_sha_compress_sponge(),
         ctl_sha_compress_inputs(),
         ctl_sha_compress_outputs(),
@@ -254,47 +254,47 @@ fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(vec![cpu_looking], keccak_sponge_looked)
 }
 
-fn ctl_sha_extend_inputs<F: Field>() -> CrossTableLookup<F> {
-    let sha_extend_sponge_looking = TableWithColumns::new(
-        Table::ShaExtendSponge,
-        sha_extend_sponge_stark::ctl_looking_sha_extend_inputs(),
-        Some(sha_extend_sponge_stark::ctl_looking_sha_extend_filter()),
-    );
-    let sha_extend_looked = TableWithColumns::new(
-        Table::ShaExtend,
-        sha_extend_stark::ctl_data_inputs(),
-        Some(sha_extend_stark::ctl_filter_inputs()),
-    );
-    CrossTableLookup::new(vec![sha_extend_sponge_looking], sha_extend_looked)
-}
+// fn ctl_sha_extend_inputs<F: Field>() -> CrossTableLookup<F> {
+//     let sha_extend_sponge_looking = TableWithColumns::new(
+//         Table::ShaExtendSponge,
+//         sha_extend_sponge_stark::ctl_looking_sha_extend_inputs(),
+//         Some(sha_extend_sponge_stark::ctl_looking_sha_extend_filter()),
+//     );
+//     let sha_extend_looked = TableWithColumns::new(
+//         Table::ShaExtend,
+//         sha_extend_stark::ctl_data_inputs(),
+//         Some(sha_extend_stark::ctl_filter_inputs()),
+//     );
+//     CrossTableLookup::new(vec![sha_extend_sponge_looking], sha_extend_looked)
+// }
+//
+// fn ctl_sha_extend_outputs<F: Field>() -> CrossTableLookup<F> {
+//     let sha_extend_sponge_looking = TableWithColumns::new(
+//         Table::ShaExtendSponge,
+//         sha_extend_sponge_stark::ctl_looking_sha_extend_outputs(),
+//         Some(sha_extend_sponge_stark::ctl_looking_sha_extend_filter()),
+//     );
+//     let sha_extend_looked = TableWithColumns::new(
+//         Table::ShaExtend,
+//         sha_extend_stark::ctl_data_outputs(),
+//         Some(sha_extend_stark::ctl_filter_outputs()),
+//     );
+//     CrossTableLookup::new(vec![sha_extend_sponge_looking], sha_extend_looked)
+// }
 
-fn ctl_sha_extend_outputs<F: Field>() -> CrossTableLookup<F> {
-    let sha_extend_sponge_looking = TableWithColumns::new(
-        Table::ShaExtendSponge,
-        sha_extend_sponge_stark::ctl_looking_sha_extend_outputs(),
-        Some(sha_extend_sponge_stark::ctl_looking_sha_extend_filter()),
-    );
-    let sha_extend_looked = TableWithColumns::new(
-        Table::ShaExtend,
-        sha_extend_stark::ctl_data_outputs(),
-        Some(sha_extend_stark::ctl_filter_outputs()),
-    );
-    CrossTableLookup::new(vec![sha_extend_sponge_looking], sha_extend_looked)
-}
-
-fn ctl_sha_extend_sponge<F: Field>() -> CrossTableLookup<F> {
-    let cpu_looking = TableWithColumns::new(
-        Table::Cpu,
-        cpu_stark::ctl_data_sha_extend_sponge(),
-        Some(cpu_stark::ctl_filter_sha_extend_sponge()),
-    );
-    let sha_extend_sponge_looked = TableWithColumns::new(
-        Table::ShaExtendSponge,
-        sha_extend_sponge_stark::ctl_looked_data(),
-        Some(sha_extend_sponge_stark::ctl_looking_sha_extend_filter()),
-    );
-    CrossTableLookup::new(vec![cpu_looking], sha_extend_sponge_looked)
-}
+// fn ctl_sha_extend_sponge<F: Field>() -> CrossTableLookup<F> {
+//     let cpu_looking = TableWithColumns::new(
+//         Table::Cpu,
+//         cpu_stark::ctl_data_sha_extend_sponge(),
+//         Some(cpu_stark::ctl_filter_sha_extend_sponge()),
+//     );
+//     let sha_extend_sponge_looked = TableWithColumns::new(
+//         Table::ShaExtendSponge,
+//         sha_extend_sponge_stark::ctl_looked_data(),
+//         Some(sha_extend_sponge_stark::ctl_looking_sha_extend_filter()),
+//     );
+//     CrossTableLookup::new(vec![cpu_looking], sha_extend_sponge_looked)
+// }
 
 fn ctl_sha_compress_inputs<F: Field>() -> CrossTableLookup<F> {
     let sha_compress_sponge_looking = TableWithColumns::new(
@@ -355,6 +355,8 @@ pub(crate) fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
         all_lookers.push(keccak_sponge_looking);
     }
 
+    // let sha_extend_looking = TableWithColumns::new()
+
     let logic_looked =
         TableWithColumns::new(Table::Logic, logic::ctl_data(), Some(logic::ctl_filter()));
 
@@ -385,13 +387,13 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         )
     });
 
-    let sha_extend_sponge_reads = (0..SHA_EXTEND_SPONGE_READ_BITS).map(|i| {
-        TableWithColumns::new(
-            Table::ShaExtendSponge,
-            sha_extend_sponge_stark::ctl_looking_memory(i),
-            Some(sha_extend_sponge_stark::ctl_looking_sha_extend_filter()),
-        )
-    });
+    // let sha_extend_sponge_reads = (0..SHA_EXTEND_SPONGE_READ_BITS).map(|i| {
+    //     TableWithColumns::new(
+    //         Table::ShaExtendSponge,
+    //         sha_extend_sponge_stark::ctl_looking_memory(i),
+    //         Some(sha_extend_sponge_stark::ctl_looking_sha_extend_filter()),
+    //     )
+    // });
 
     let sha_compress_sponge_reads = (0..SHA_COMPRESS_SPONGE_READ_BITS).map(|i| {
         TableWithColumns::new(
@@ -406,7 +408,7 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         .chain(cpu_memory_gp_ops)
         .chain(keccak_sponge_reads)
         .chain(poseidon_sponge_reads)
-        .chain(sha_extend_sponge_reads)
+        // .chain(sha_extend_sponge_reads)
         .chain(sha_compress_sponge_reads)
         .collect();
     let memory_looked = TableWithColumns::new(

@@ -1,36 +1,45 @@
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 use std::borrow::{Borrow, BorrowMut};
 use std::mem::transmute;
+use crate::sha_extend::rotate_right::RotateRightOp;
+use crate::sha_extend::shift_right::ShiftRightOp;
+use crate::sha_extend::wrapping_add_4::WrappingAdd4Op;
 
 pub(crate) struct ShaExtendColumnsView<T: Copy> {
-    /// Input in big-endian order
-    pub w_i_minus_15: [T; 32],
-    pub w_i_minus_2: [T; 32],
-    pub w_i_minus_16: [T; 32],
-    pub w_i_minus_7: [T; 32],
+
+    /// Output
+    pub w_i: WrappingAdd4Op<T>, // w_i_inter_1 + w_i_minus_16
+
+    pub w_i_minus_15_rr_7: RotateRightOp<T>,
+    pub w_i_minus_15_rr_18: RotateRightOp<T>,
+    pub w_i_minus_15_rs_3: ShiftRightOp<T>,
+    pub w_i_minus_2_rr_17: RotateRightOp<T>,
+    pub w_i_minus_2_rr_19: RotateRightOp<T>,
+    pub w_i_minus_2_rs_10: ShiftRightOp<T>,
+
+
+    /// Input in le bytes order
+    pub w_i_minus_15: [T; 4],
+    pub w_i_minus_2: [T; 4],
+    pub w_i_minus_16: [T; 4],
+    pub w_i_minus_7: [T; 4],
 
     /// Intermediate values
-    pub w_i_minus_15_rr_7: [T; 32],
-    pub w_i_minus_15_rr_18: [T; 32],
-    pub w_i_minus_15_rs_3: [T; 32],
-    pub s_0: [T; 32],
-    pub w_i_minus_2_rr_17: [T; 32],
-    pub w_i_minus_2_rr_19: [T; 32],
-    pub w_i_minus_2_rs_10: [T; 32],
-    pub s_1: [T; 32],
-    pub w_i_inter_0: [T; 32], // s_1 + w_i_minus_7]
-    pub carry_0: [T; 32],
-    pub w_i_inter_1: [T; 32], // w_i_inter_0 + s_0
-    pub carry_1: [T; 32],
-    pub carry_2: [T; 32],
-    /// Output
-    pub w_i: [T; 32], // w_i_inter_1 + w_i_minus_16
+    // pub w_i_minus_15_rr_7: RotateRightOp<T>,
+    // pub w_i_minus_15_rr_18: RotateRightOp<T>,
+    // pub w_i_minus_15_rs_3: ShiftRightOp<T>,
+    pub s_0_inter: [T; 4],
+    pub s_0: [T; 4],
+    pub s_1_inter: [T; 4],
+    pub s_1: [T; 4],
+
+
     /// The timestamp at which inputs should be read from memory.
     pub timestamp: T,
     pub is_normal_round: T,
 }
 
-pub const NUM_SHA_EXTEND_COLUMNS: usize = size_of::<ShaExtendColumnsView<u8>>(); //577
+pub const NUM_SHA_EXTEND_COLUMNS: usize = size_of::<ShaExtendColumnsView<u8>>();
 
 impl<T: Copy> From<[T; NUM_SHA_EXTEND_COLUMNS]> for ShaExtendColumnsView<T> {
     fn from(value: [T; NUM_SHA_EXTEND_COLUMNS]) -> Self {

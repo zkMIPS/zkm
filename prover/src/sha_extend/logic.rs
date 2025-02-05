@@ -6,7 +6,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 pub(crate) fn get_input_range(i: usize) -> std::ops::Range<usize> {
-    (i * 32)..(32 + i * 32)
+    (i * 4)..(4 + i * 4)
 }
 
 // these operators are applied in big-endian form
@@ -149,6 +149,7 @@ pub(crate) fn wrapping_add_packed_constraints<P: PackedField, const N: usize>(
 ) -> Vec<P> {
     let mut result = vec![];
     let mut pre_carry = P::ZEROS;
+
     for i in 0..N {
         let sum = x[i] + y[i] + pre_carry;
 

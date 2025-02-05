@@ -5,17 +5,18 @@ use std::mem::transmute;
 pub(crate) const NUM_EXTEND_INPUT: usize = 4;
 pub(crate) const SHA_EXTEND_SPONGE_READ_BITS: usize = NUM_EXTEND_INPUT * 32;
 pub(crate) struct ShaExtendSpongeColumnsView<T: Copy> {
-    /// Input
-    pub w_i_minus_15: [T; 32],
-    pub w_i_minus_2: [T; 32],
-    pub w_i_minus_16: [T; 32],
-    pub w_i_minus_7: [T; 32],
-
-    /// Output
-    pub w_i: [T; 32],
 
     /// round
     pub round: [T; 48],
+
+    /// Input
+    pub w_i_minus_15: [T; 4],
+    pub w_i_minus_2: [T; 4],
+    pub w_i_minus_16: [T; 4],
+    pub w_i_minus_7: [T; 4],
+
+    /// Output
+    pub w_i: [T; 4],
 
     /// Input address
     pub input_virt: [T; NUM_EXTEND_INPUT],

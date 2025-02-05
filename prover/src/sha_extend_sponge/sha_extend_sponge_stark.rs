@@ -27,83 +27,83 @@ use std::marker::PhantomData;
 
 pub const NUM_ROUNDS: usize = 48;
 
-pub(crate) fn ctl_looking_sha_extend_inputs<F: Field>() -> Vec<Column<F>> {
-    let cols = SHA_EXTEND_SPONGE_COL_MAP;
-    let mut res: Vec<_> = Column::singles(
-        [
-            cols.w_i_minus_15.as_slice(),
-            cols.w_i_minus_2.as_slice(),
-            cols.w_i_minus_16.as_slice(),
-            cols.w_i_minus_7.as_slice(),
-        ]
-        .concat(),
-    )
-    .collect();
-    res.push(Column::single(cols.timestamp));
-    res
-}
-
-pub(crate) fn ctl_looking_sha_extend_outputs<F: Field>() -> Vec<Column<F>> {
-    let cols = SHA_EXTEND_SPONGE_COL_MAP;
-
-    let mut res = vec![];
-    res.extend(Column::singles(&cols.w_i));
-    res.push(Column::single(cols.timestamp));
-    res
-}
-
-pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
-    let cols = SHA_EXTEND_SPONGE_COL_MAP;
-    let w_i_usize = Column::linear_combination(
-        cols.w_i
-            .iter()
-            .enumerate()
-            .map(|(i, &b)| (b, F::from_canonical_usize(1 << i))),
-    );
-
-    Column::singles([cols.context, cols.segment, cols.output_virt, cols.timestamp])
-        .chain([w_i_usize])
-        .collect()
-}
-
-pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
-    let cols = SHA_EXTEND_SPONGE_COL_MAP;
-
-    let mut res = vec![Column::constant(F::ONE)]; // is_read
-
-    res.extend(Column::singles([cols.context, cols.segment]));
-    res.push(Column::single(cols.input_virt[i / 32]));
-
-    // The u32 of i'th input bit being read.
-    let start = i / 32;
-    let le_bit;
-    if start == 0 {
-        le_bit = cols.w_i_minus_15;
-    } else if start == 1 {
-        le_bit = cols.w_i_minus_2;
-    } else if start == 2 {
-        le_bit = cols.w_i_minus_16;
-    } else {
-        le_bit = cols.w_i_minus_7;
-    }
-    // le_bit.reverse();
-    let u32_value: Column<F> = Column::le_bits(le_bit);
-    res.push(u32_value);
-
-    res.push(Column::single(cols.timestamp));
-
-    assert_eq!(
-        res.len(),
-        crate::memory::memory_stark::ctl_data::<F>().len()
-    );
-    res
-}
-
-pub(crate) fn ctl_looking_sha_extend_filter<F: Field>() -> Filter<F> {
-    let cols = SHA_EXTEND_SPONGE_COL_MAP;
-    // not the padding rows.
-    Filter::new_simple(Column::sum(cols.round))
-}
+// pub(crate) fn ctl_looking_sha_extend_inputs<F: Field>() -> Vec<Column<F>> {
+//     let cols = SHA_EXTEND_SPONGE_COL_MAP;
+//     let mut res: Vec<_> = Column::singles(
+//         [
+//             cols.w_i_minus_15.as_slice(),
+//             cols.w_i_minus_2.as_slice(),
+//             cols.w_i_minus_16.as_slice(),
+//             cols.w_i_minus_7.as_slice(),
+//         ]
+//         .concat(),
+//     )
+//     .collect();
+//     res.push(Column::single(cols.timestamp));
+//     res
+// }
+//
+// pub(crate) fn ctl_looking_sha_extend_outputs<F: Field>() -> Vec<Column<F>> {
+//     let cols = SHA_EXTEND_SPONGE_COL_MAP;
+//
+//     let mut res = vec![];
+//     res.extend(Column::singles(&cols.w_i));
+//     res.push(Column::single(cols.timestamp));
+//     res
+// }
+//
+// pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
+//     let cols = SHA_EXTEND_SPONGE_COL_MAP;
+//     let w_i_usize = Column::linear_combination(
+//         cols.w_i
+//             .iter()
+//             .enumerate()
+//             .map(|(i, &b)| (b, F::from_canonical_usize(1 << i))),
+//     );
+//
+//     Column::singles([cols.context, cols.segment, cols.output_virt, cols.timestamp])
+//         .chain([w_i_usize])
+//         .collect()
+// }
+//
+// pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
+//     let cols = SHA_EXTEND_SPONGE_COL_MAP;
+//
+//     let mut res = vec![Column::constant(F::ONE)]; // is_read
+//
+//     res.extend(Column::singles([cols.context, cols.segment]));
+//     res.push(Column::single(cols.input_virt[i / 32]));
+//
+//     // The u32 of i'th input bit being read.
+//     let start = i / 32;
+//     let le_bit;
+//     if start == 0 {
+//         le_bit = cols.w_i_minus_15;
+//     } else if start == 1 {
+//         le_bit = cols.w_i_minus_2;
+//     } else if start == 2 {
+//         le_bit = cols.w_i_minus_16;
+//     } else {
+//         le_bit = cols.w_i_minus_7;
+//     }
+//     // le_bit.reverse();
+//     let u32_value: Column<F> = Column::le_bits(le_bit);
+//     res.push(u32_value);
+//
+//     res.push(Column::single(cols.timestamp));
+//
+//     assert_eq!(
+//         res.len(),
+//         crate::memory::memory_stark::ctl_data::<F>().len()
+//     );
+//     res
+// }
+//
+// pub(crate) fn ctl_looking_sha_extend_filter<F: Field>() -> Filter<F> {
+//     let cols = SHA_EXTEND_SPONGE_COL_MAP;
+//     // not the padding rows.
+//     Filter::new_simple(Column::sum(cols.round))
+// }
 
 #[derive(Clone, Debug)]
 pub(crate) struct ShaExtendSpongeOp {
@@ -168,12 +168,15 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendSpongeStark<F, D> {
 
         row.context = F::from_canonical_usize(op.base_address[0].context);
         row.segment = F::from_canonical_usize(op.base_address[Segment::Code as usize].segment);
-        let virt = (0..op.input.len() / 32)
+        let virt = (0..op.input.len() / 4)
             .map(|i| op.base_address[i].virt)
             .collect_vec();
         let virt: [usize; 4] = virt.try_into().unwrap();
         row.input_virt = virt.map(F::from_canonical_usize);
         row.output_virt = F::from_canonical_usize(op.output_address.virt);
+
+        let input = op.input.clone();
+        row.w_i = self.compute_w_i(input);
 
         row.w_i_minus_15 = op.input[get_input_range(0)]
             .iter()
@@ -200,15 +203,14 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendSpongeStark<F, D> {
             .try_into()
             .unwrap();
 
-        row.w_i = self.compute_w_i(&mut row);
         row
     }
 
-    fn compute_w_i(&self, row: &mut ShaExtendSpongeColumnsView<F>) -> [F; 32] {
-        let w_i_minus_15 = from_be_fbits_to_u32(row.w_i_minus_15);
-        let w_i_minus_2 = from_be_fbits_to_u32(row.w_i_minus_2);
-        let w_i_minus_16 = from_be_fbits_to_u32(row.w_i_minus_16);
-        let w_i_minus_7 = from_be_fbits_to_u32(row.w_i_minus_7);
+    fn compute_w_i(&self, input: Vec<u8>) -> [F; 4] {
+        let w_i_minus_15 = u32::from_le_bytes(input[get_input_range(0)].try_into().unwrap());
+        let w_i_minus_2 = u32::from_le_bytes(input[get_input_range(1)].try_into().unwrap());
+        let w_i_minus_16 = u32::from_le_bytes(input[get_input_range(2)].try_into().unwrap());
+        let w_i_minus_7 = u32::from_le_bytes(input[get_input_range(3)].try_into().unwrap());
         let s0 = w_i_minus_15.rotate_right(7) ^ w_i_minus_15.rotate_right(18) ^ (w_i_minus_15 >> 3);
         let s1 = w_i_minus_2.rotate_right(17) ^ w_i_minus_2.rotate_right(19) ^ (w_i_minus_2 >> 10);
         let w_i_u32 = s1
@@ -216,13 +218,8 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendSpongeStark<F, D> {
             .wrapping_add(s0)
             .wrapping_add(w_i_minus_7);
 
-        let w_i_bin = from_u32_to_be_bits(w_i_u32);
-        w_i_bin
-            .iter()
-            .map(|&x| F::from_canonical_u8(x))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap()
+        w_i_u32.to_le_bytes().map(F::from_canonical_u8)
+
     }
 }
 
@@ -250,20 +247,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
             vars.get_next_values().try_into().unwrap();
         let next_values: &ShaExtendSpongeColumnsView<P> = next_values.borrow();
 
-        // check the binary form
-        for i in 0..32 {
-            yield_constr.constraint(
-                local_values.w_i_minus_15[i] * (local_values.w_i_minus_15[i] - P::ONES),
-            );
-            yield_constr
-                .constraint(local_values.w_i_minus_2[i] * (local_values.w_i_minus_2[i] - P::ONES));
-            yield_constr.constraint(
-                local_values.w_i_minus_16[i] * (local_values.w_i_minus_16[i] - P::ONES),
-            );
-            yield_constr
-                .constraint(local_values.w_i_minus_7[i] * (local_values.w_i_minus_7[i] - P::ONES));
-            yield_constr.constraint(local_values.w_i[i] * (local_values.w_i[i] - P::ONES));
-        }
 
         // check the round
         for i in 0..NUM_ROUNDS {
@@ -367,43 +350,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
         let four_ext = builder.constant_extension(F::Extension::from_canonical_u32(4));
         let num_channel =
             builder.constant_extension(F::Extension::from_canonical_usize(2 * NUM_CHANNELS));
-        // check the binary form
-        for i in 0..32 {
-            let constraint = builder.mul_sub_extension(
-                local_values.w_i_minus_15[i],
-                local_values.w_i_minus_15[i],
-                local_values.w_i_minus_15[i],
-            );
-            yield_constr.constraint(builder, constraint);
-
-            let constraint = builder.mul_sub_extension(
-                local_values.w_i_minus_2[i],
-                local_values.w_i_minus_2[i],
-                local_values.w_i_minus_2[i],
-            );
-            yield_constr.constraint(builder, constraint);
-
-            let constraint = builder.mul_sub_extension(
-                local_values.w_i_minus_16[i],
-                local_values.w_i_minus_16[i],
-                local_values.w_i_minus_16[i],
-            );
-            yield_constr.constraint(builder, constraint);
-
-            let constraint = builder.mul_sub_extension(
-                local_values.w_i_minus_7[i],
-                local_values.w_i_minus_7[i],
-                local_values.w_i_minus_7[i],
-            );
-            yield_constr.constraint(builder, constraint);
-
-            let constraint = builder.mul_sub_extension(
-                local_values.w_i[i],
-                local_values.w_i[i],
-                local_values.w_i[i],
-            );
-            yield_constr.constraint(builder, constraint);
-        }
 
         // check the round
         for i in 0..NUM_ROUNDS {
@@ -529,14 +475,6 @@ mod test {
     use plonky2::timed;
     use plonky2::util::timing::TimingTree;
 
-    fn to_be_bits(value: u32) -> [u8; 32] {
-        let mut result = [0; 32];
-        for i in 0..32 {
-            result[i] = ((value >> i) & 1) as u8;
-        }
-        result
-    }
-
     #[test]
     fn test_correction() -> Result<(), String> {
         const D: usize = 2;
@@ -545,7 +483,7 @@ mod test {
         type S = ShaExtendSpongeStark<F, D>;
 
         let mut input_values = vec![];
-        input_values.extend((0..4).map(|i| to_be_bits(i as u32)));
+        input_values.extend((0..4_u32).map(|i| i.to_le_bytes()));
         let input_values = input_values.into_iter().flatten().collect::<Vec<_>>();
 
         let op = ShaExtendSpongeOp {
@@ -584,7 +522,7 @@ mod test {
         let stark = S::default();
         let row = stark.generate_rows_for_op(op);
 
-        let w_i_bin = to_be_bits(40965);
+        let w_i_bin = 40965_u32.to_le_bytes();
         assert_eq!(row.w_i, w_i_bin.map(F::from_canonical_u8));
 
         Ok(())
@@ -655,10 +593,10 @@ mod test {
         let mut time = 0;
         for i in 16..64 {
             let mut input_values = vec![];
-            input_values.extend(to_be_bits(w[i - 15]));
-            input_values.extend(to_be_bits(w[i - 2]));
-            input_values.extend(to_be_bits(w[i - 16]));
-            input_values.extend(to_be_bits(w[i - 7]));
+            input_values.extend(w[i - 15].to_le_bytes());
+            input_values.extend(w[i - 2].to_le_bytes());
+            input_values.extend(w[i - 16].to_le_bytes());
+            input_values.extend(w[i - 7].to_le_bytes());
 
             let op = ShaExtendSpongeOp {
                 base_address: vec![

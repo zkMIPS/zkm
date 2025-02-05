@@ -1196,22 +1196,24 @@ pub(crate) fn generate_sha_extend<
         let mut cpu_row = CpuColumnsView::default();
         cpu_row.clock = F::from_canonical_usize(state.traces.clock());
         let mut input_addresses = vec![];
-        let mut input_value_bit_be = vec![];
-
+        // let mut input_value_bit_be = vec![];
+        let mut input_le_bytes = vec![];
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + (i - 15) * 4);
         let (w_i_minus_15, mem_op) = mem_read_gp_with_log_and_fill(0, addr, state, &mut cpu_row);
         state.traces.push_memory(mem_op);
         let s0 = w_i_minus_15.rotate_right(7) ^ w_i_minus_15.rotate_right(18) ^ (w_i_minus_15 >> 3);
         input_addresses.push(addr);
-        input_value_bit_be.push(from_u32_to_be_bits(w_i_minus_15));
-
+        // input_value_bit_be.push(from_u32_to_be_bits(w_i_minus_15));
+        input_le_bytes.push(w_i_minus_15.to_le_bytes());
         // Read w[i-2].
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + (i - 2) * 4);
         let (w_i_minus_2, mem_op) = mem_read_gp_with_log_and_fill(1, addr, state, &mut cpu_row);
         state.traces.push_memory(mem_op);
 
         input_addresses.push(addr);
-        input_value_bit_be.push(from_u32_to_be_bits(w_i_minus_2));
+        // input_value_bit_be.push(from_u32_to_be_bits(w_i_minus_2));
+        input_le_bytes.push(w_i_minus_2.to_le_bytes());
+
         // Compute `s1`.
         let s1 = w_i_minus_2.rotate_right(17) ^ w_i_minus_2.rotate_right(19) ^ (w_i_minus_2 >> 10);
 
@@ -1220,15 +1222,16 @@ pub(crate) fn generate_sha_extend<
         let (w_i_minus_16, mem_op) = mem_read_gp_with_log_and_fill(2, addr, state, &mut cpu_row);
         state.traces.push_memory(mem_op);
         input_addresses.push(addr);
-        input_value_bit_be.push(from_u32_to_be_bits(w_i_minus_16));
+        // input_value_bit_be.push(from_u32_to_be_bits(w_i_minus_16));
+        input_le_bytes.push(w_i_minus_16.to_le_bytes());
 
         // Read w[i-7].
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + (i - 7) * 4);
         let (w_i_minus_7, mem_op) = mem_read_gp_with_log_and_fill(3, addr, state, &mut cpu_row);
         state.traces.push_memory(mem_op);
         input_addresses.push(addr);
-        input_value_bit_be.push(from_u32_to_be_bits(w_i_minus_7));
-
+        // input_value_bit_be.push(from_u32_to_be_bits(w_i_minus_7));
+        input_le_bytes.push(w_i_minus_7.to_le_bytes());
         // Compute `w_i`.
         let w_i = s1
             .wrapping_add(w_i_minus_16)
@@ -1262,7 +1265,8 @@ pub(crate) fn generate_sha_extend<
         cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
         cpu_row.mem_channels[2].value = F::from_canonical_usize(addr.virt);
         cpu_row.general.element_mut().value = F::from_canonical_u32(w_i);
-        sha_extend_sponge_log(state, input_addresses, input_value_bit_be, addr, i - 16);
+        // sha_extend_sponge_log(state, input_addresses, input_value_bit_be, addr, i - 16);
+        sha_extend_sponge_log(state, input_addresses, input_le_bytes, addr, i - 16);
         state.traces.push_cpu(cpu_row);
     }
 
