@@ -573,7 +573,7 @@ impl InstrumentedState {
                 log::debug!("input: {:?}", vec);
                 assert_eq!(a0 % 4, 0, "hint read address not aligned to 4 bytes");
                 if a1 >= 1 {
-                    self.state.cycle += (a1 as u64 + 31) / 32;
+                    self.state.cycle += (a1 as u64).div_ceil(32);
                 }
                 for i in (0..a1).step_by(4) {
                     // Get each byte in the chunk
