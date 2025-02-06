@@ -1,11 +1,9 @@
-use num::traits::WrappingAdd;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2x::prelude::Field;
-use crate::sha_extend::shift_right::ShiftRightOp;
 
 pub struct WrappingAdd4Op<T> {
     /// The result of `a + b + c + d`.

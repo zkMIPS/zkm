@@ -4,7 +4,7 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use crate::sha_extend::rotate_right::{carry_multiplier, shifted_bits, shifted_bytes, shr_carry, RotateRightOp};
+use crate::sha_extend::rotate_right::{carry_multiplier, shifted_bits, shifted_bytes, shr_carry};
 
 pub struct ShiftRightOp<T: Copy> {
     pub value: [T; 4],

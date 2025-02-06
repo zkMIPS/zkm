@@ -1,11 +1,10 @@
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
-use crate::keccak::logic::{xor3_gen, xor3_gen_circuit};
 use crate::sha_extend::columns::{
     ShaExtendColumnsView, NUM_SHA_EXTEND_COLUMNS, SHA_EXTEND_COL_MAP,
 };
-use crate::sha_extend::logic::{get_input_range};
+use crate::sha_extend::logic::{get_input_range_4};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -17,48 +16,97 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use std::borrow::Borrow;
 use std::marker::PhantomData;
-use env_logger::builder;
-use num::traits::ToBytes;
 use crate::sha_extend::rotate_right::{rotate_right_ext_circuit_constraint, rotate_right_packed_constraints};
 use crate::sha_extend::shift_right::{shift_right_packed_constraints, shift_right_ext_circuit_constraints};
 use crate::sha_extend::wrapping_add_4::{wrapping_add_ext_circuit_constraints, wrapping_add_packed_constraints};
-use crate::sha_extend_sponge::columns::ShaExtendSpongeColumnsView;
 
 pub const NUM_INPUTS: usize = 4 * 4; // w_i_minus_15, w_i_minus_2, w_i_minus_16, w_i_minus_7
 
-// pub fn ctl_data_inputs<F: Field>() -> Vec<Column<F>> {
-//     let cols = SHA_EXTEND_COL_MAP;
-//     let mut res: Vec<_> = Column::singles(
-//         [
-//             cols.w_i_minus_15.as_slice(),
-//             cols.w_i_minus_2.as_slice(),
-//             cols.w_i_minus_16.as_slice(),
-//             cols.w_i_minus_7.as_slice(),
-//         ]
-//         .concat(),
-//     )
-//     .collect();
-//     res.push(Column::single(cols.timestamp));
-//     res
-// }
-//
-// pub fn ctl_data_outputs<F: Field>() -> Vec<Column<F>> {
-//     let cols = SHA_EXTEND_COL_MAP;
-//     let mut res: Vec<_> = Column::singles(&cols.w_i).collect();
-//     res.push(Column::single(cols.timestamp));
-//     res
-// }
-//
-// pub fn ctl_filter_inputs<F: Field>() -> Filter<F> {
-//     let cols = SHA_EXTEND_COL_MAP;
-//     // not the padding rows.
-//     Filter::new_simple(Column::single(cols.is_normal_round))
-// }
-// pub fn ctl_filter_outputs<F: Field>() -> Filter<F> {
-//     let cols = SHA_EXTEND_COL_MAP;
-//     // not the padding rows.
-//     Filter::new_simple(Column::single(cols.is_normal_round))
-// }
+pub fn ctl_data_inputs<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_EXTEND_COL_MAP;
+    let mut res: Vec<_> = Column::singles(
+        [
+            cols.w_i_minus_15.as_slice(),
+            cols.w_i_minus_2.as_slice(),
+            cols.w_i_minus_16.as_slice(),
+            cols.w_i_minus_7.as_slice(),
+        ]
+        .concat(),
+    )
+    .collect();
+    res.push(Column::single(cols.timestamp));
+    res
+}
+
+pub fn ctl_data_outputs<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_EXTEND_COL_MAP;
+    let mut res: Vec<_> = Column::singles(&cols.w_i.value).collect();
+    res.push(Column::single(cols.timestamp));
+    res
+}
+
+pub(crate) fn ctl_s_0_inter_looking_logic<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_EXTEND_COL_MAP;
+    let mut res = vec![
+        Column::constant(F::from_canonical_u32(0b100110 * (1 << 6))), // is_xor
+    ];
+    // Input 0
+    res.push(Column::le_bytes(cols.w_i_minus_15_rr_7.value));
+    // Input 1
+    res.push(Column::le_bytes(cols.w_i_minus_15_rr_18.value));
+    // The output
+    res.push(Column::le_bytes(cols.s_0_inter));
+    res
+}
+
+pub(crate) fn ctl_s_0_looking_logic<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_EXTEND_COL_MAP;
+    let mut res = vec![
+        Column::constant(F::from_canonical_u32(0b100110 * (1 << 6))), // is_xor
+    ];
+    // Input 0
+    res.push(Column::le_bytes(cols.s_0_inter));
+    // Input 1
+    res.push(Column::le_bytes(cols.w_i_minus_15_rs_3.value));
+    // The output
+    res.push(Column::le_bytes(cols.s_0));
+    res
+}
+
+pub(crate) fn ctl_s_1_inter_looking_logic<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_EXTEND_COL_MAP;
+    let mut res = vec![
+        Column::constant(F::from_canonical_u32(0b100110 * (1 << 6))), // is_xor
+    ];
+    // Input 0
+    res.push(Column::le_bytes(cols.w_i_minus_2_rr_17.value));
+    // Input 1
+    res.push(Column::le_bytes(cols.w_i_minus_2_rr_19.value));
+    // The output
+    res.push(Column::le_bytes(cols.s_1_inter));
+    res
+}
+
+pub(crate) fn ctl_s_1_looking_logic<F: Field>() -> Vec<Column<F>> {
+    let cols = SHA_EXTEND_COL_MAP;
+    let mut res = vec![
+        Column::constant(F::from_canonical_u32(0b100110 * (1 << 6))), // is_xor
+    ];
+    // Input 0
+    res.push(Column::le_bytes(cols.s_1_inter));
+    // Input 1
+    res.push(Column::le_bytes(cols.w_i_minus_2_rs_10.value));
+    // The output
+    res.push(Column::le_bytes(cols.s_1));
+    res
+}
+
+
+pub fn ctl_filter<F: Field>() -> Filter<F> {
+    let cols = SHA_EXTEND_COL_MAP;
+    // not the padding rows.
+    Filter::new_simple(Column::single(cols.is_normal_round))
+}
 
 #[derive(Copy, Clone, Default)]
 pub struct ShaExtendStark<F, const D: usize> {
@@ -107,10 +155,10 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
         let mut row = ShaExtendColumnsView::default();
 
         row.timestamp = F::from_canonical_usize(input_and_timestamp.1);
-        let w_i_minus_15: [u8; 4] = input_and_timestamp.0[get_input_range(0)].try_into().unwrap();
-        let w_i_minus_2: [u8; 4] = input_and_timestamp.0[get_input_range(1)].try_into().unwrap();
-        let w_i_minus_16: [u8; 4] = input_and_timestamp.0[get_input_range(2)].try_into().unwrap();
-        let w_i_minus_7: [u8; 4] = input_and_timestamp.0[get_input_range(3)].try_into().unwrap();
+        let w_i_minus_15: [u8; 4] = input_and_timestamp.0[get_input_range_4(0)].try_into().unwrap();
+        let w_i_minus_2: [u8; 4] = input_and_timestamp.0[get_input_range_4(1)].try_into().unwrap();
+        let w_i_minus_16: [u8; 4] = input_and_timestamp.0[get_input_range_4(2)].try_into().unwrap();
+        let w_i_minus_7: [u8; 4] = input_and_timestamp.0[get_input_range_4(3)].try_into().unwrap();
 
         row.w_i_minus_15 = w_i_minus_15
             .iter()

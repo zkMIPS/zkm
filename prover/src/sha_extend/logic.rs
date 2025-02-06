@@ -6,6 +6,10 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 pub(crate) fn get_input_range(i: usize) -> std::ops::Range<usize> {
+    (i * 32)..(32 + i * 32)
+}
+
+pub(crate) fn get_input_range_4(i: usize) -> std::ops::Range<usize> {
     (i * 4)..(4 + i * 4)
 }
 

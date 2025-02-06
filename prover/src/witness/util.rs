@@ -568,26 +568,25 @@ pub(crate) fn sha_extend_sponge_log<
     output_address: MemoryAddress,
     round: usize,
 ) {
-    // Since the Sha extend reads bit by bit, and the memory unit is of 4-byte, we just need to read
-    // the same memory for 32 sha-extend ops
+    // Since the Sha extend reads byte by byte, and the memory unit is of 4-byte, we just need to read
+    // the same memory for 4 sha-extend ops
 
     let clock = state.traces.clock();
     let mut n_gp = 0;
     let extend_input: Vec<u8> = inputs.iter().flatten().cloned().collect();
 
     for (addr_idx, input) in inputs.into_iter().enumerate() {
-        // let val = from_be_bits_to_u32(input);
         let val = u32::from_le_bytes(input);
         for _ in 0..4 {
-            // state.traces.push_memory(MemoryOp::new(
-            //     MemoryChannel::GeneralPurpose(n_gp),
-            //     clock,
-            //     base_address[addr_idx],
-            //     MemoryOpKind::Read,
-            //     val,
-            // ));
-            // n_gp += 1;
-            // n_gp %= NUM_GP_CHANNELS - 1;
+            state.traces.push_memory(MemoryOp::new(
+                MemoryChannel::GeneralPurpose(n_gp),
+                clock,
+                base_address[addr_idx],
+                MemoryOpKind::Read,
+                val,
+            ));
+            n_gp += 1;
+            n_gp %= NUM_GP_CHANNELS - 1;
         }
     }
     state.traces.push_sha_extend(
@@ -686,6 +685,16 @@ pub(crate) fn sha_compress_sponge_log<
             input: compress_sponge_input,
         });
     }
+}
+
+pub(crate) fn xor_logic_log<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    state: &mut GenerationState<F, C, D>,
+    lhs: u32,
+    rhs: u32,
+) {
+    state
+        .traces
+        .push_logic(logic::Operation::new(logic::Op::Xor, lhs, rhs));
 }
 
 fn xor_into_sponge<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
