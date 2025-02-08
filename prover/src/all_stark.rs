@@ -26,7 +26,7 @@ use crate::sha_compress::sha_compress_stark;
 use crate::sha_compress::sha_compress_stark::ShaCompressStark;
 use crate::sha_compress_sponge::sha_compress_sponge_stark;
 use crate::sha_compress_sponge::sha_compress_sponge_stark::{
-    ShaCompressSpongeStark, SHA_COMPRESS_SPONGE_READ_BITS,
+    ShaCompressSpongeStark, SHA_COMPRESS_SPONGE_READ_BYTES,
 };
 use crate::sha_extend::sha_extend_stark;
 use crate::sha_extend::sha_extend_stark::ShaExtendStark;
@@ -353,6 +353,7 @@ pub(crate) fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
         );
         all_lookers.push(keccak_sponge_looking);
     }
+    // sha extend logic
     {
         let sha_extend_s_0_inter_looking = TableWithColumns::new(
             Table::ShaExtend,
@@ -383,6 +384,93 @@ pub(crate) fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
         all_lookers.push(sha_extend_s_1_looking);
     }
 
+    // sha compress logic
+    {
+        let s_1_inter_looking = TableWithColumns::new(
+            Table::ShaCompress,
+            sha_compress_stark::ctl_s_1_inter_looking_logic(),
+            Some(sha_compress_stark::ctl_logic_filter())
+        );
+        let s_1_looking = TableWithColumns::new(
+            Table::ShaCompress,
+            sha_compress_stark::ctl_s_1_looking_logic(),
+            Some(sha_compress_stark::ctl_logic_filter())
+        );
+        let e_and_f_looking = TableWithColumns::new(
+            Table::ShaCompress,
+            sha_compress_stark::ctl_e_and_f_looking_logic(),
+            Some(sha_compress_stark::ctl_logic_filter())
+        );
+
+        let not_e_and_g_looking = TableWithColumns::new(
+            Table::ShaCompress,
+            sha_compress_stark::ctl_not_e_and_g_looking_logic(),
+            Some(sha_compress_stark::ctl_logic_filter())
+        );
+
+        let ch_looking = TableWithColumns::new(
+            Table::ShaCompress,
+            sha_compress_stark::ctl_ch_looking_logic(),
+            Some(sha_compress_stark::ctl_logic_filter())
+        );
+
+        let s_0_inter_looking = TableWithColumns::new(
+            Table::ShaCompress,
+            sha_compress_stark::ctl_s_0_inter_looking_logic(),
+            Some(sha_compress_stark::ctl_logic_filter())
+        );
+
+        let s_0_looking = TableWithColumns::new(
+            Table::ShaCompress,
+            sha_compress_stark::ctl_s_0_looking_logic(),
+            Some(sha_compress_stark::ctl_logic_filter())
+        );
+
+        let a_and_b_looking = TableWithColumns::new(
+            Table::ShaCompress,
+            sha_compress_stark::ctl_a_and_b_looking_logic(),
+            Some(sha_compress_stark::ctl_logic_filter())
+        );
+        let a_and_c_looking = TableWithColumns::new(
+            Table::ShaCompress,
+            sha_compress_stark::ctl_a_and_c_looking_logic(),
+            Some(sha_compress_stark::ctl_logic_filter())
+        );
+        let b_and_c_looking = TableWithColumns::new(
+            Table::ShaCompress,
+            sha_compress_stark::ctl_b_and_c_looking_logic(),
+            Some(sha_compress_stark::ctl_logic_filter())
+        );
+
+        let maj_inter_looking = TableWithColumns::new(
+            Table::ShaCompress,
+            sha_compress_stark::ctl_maj_inter_looking_logic(),
+            Some(sha_compress_stark::ctl_logic_filter())
+        );
+
+        let maj_looking = TableWithColumns::new(
+            Table::ShaCompress,
+            sha_compress_stark::ctl_maj_looking_logic(),
+            Some(sha_compress_stark::ctl_logic_filter())
+        );
+
+
+        all_lookers.extend([
+            s_1_inter_looking,
+            s_1_looking,
+            e_and_f_looking,
+            not_e_and_g_looking,
+            ch_looking,
+            s_0_inter_looking,
+            s_0_looking,
+            a_and_b_looking,
+            a_and_c_looking,
+            b_and_c_looking,
+            maj_inter_looking,
+            maj_looking
+        ]);
+
+    }
 
     let logic_looked =
         TableWithColumns::new(Table::Logic, logic::ctl_data(), Some(logic::ctl_filter()));
@@ -422,11 +510,19 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         )
     });
 
-    let sha_compress_sponge_reads = (0..SHA_COMPRESS_SPONGE_READ_BITS).map(|i| {
+    let sha_compress_sponge_reads = (0..SHA_COMPRESS_SPONGE_READ_BYTES).map(|i| {
         TableWithColumns::new(
             Table::ShaCompressSponge,
             sha_compress_sponge_stark::ctl_looking_memory(i),
             Some(sha_compress_sponge_stark::ctl_looking_sha_compress_filter()),
+        )
+    });
+
+    let sha_compress_reads = (0..4).map(|i| {
+        TableWithColumns::new(
+            Table::ShaCompress,
+            sha_compress_stark::ctl_looking_memory(i),
+            Some(sha_compress_stark::ctl_logic_filter())
         )
     });
 
@@ -437,6 +533,7 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         .chain(poseidon_sponge_reads)
         .chain(sha_extend_sponge_reads)
         .chain(sha_compress_sponge_reads)
+        .chain(sha_compress_reads)
         .collect();
     let memory_looked = TableWithColumns::new(
         Table::Memory,

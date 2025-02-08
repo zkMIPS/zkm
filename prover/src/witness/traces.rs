@@ -25,7 +25,7 @@ use crate::sha_extend::sha_extend_stark;
 use crate::sha_extend_sponge::sha_extend_sponge_stark::ShaExtendSpongeOp;
 use crate::util::join;
 use crate::util::trace_rows_to_poly_values;
-use crate::witness::memory::MemoryOp;
+use crate::witness::memory::{MemoryAddress, MemoryOp};
 use crate::{arithmetic, logic};
 
 #[derive(Clone, Copy, Debug)]
@@ -56,7 +56,7 @@ pub(crate) struct Traces<T: Copy> {
     pub(crate) keccak_sponge_ops: Vec<KeccakSpongeOp>,
     pub(crate) sha_extend_inputs: Vec<([u8; sha_extend_stark::NUM_INPUTS], usize)>,
     pub(crate) sha_extend_sponge_ops: Vec<ShaExtendSpongeOp>,
-    pub(crate) sha_compress_inputs: Vec<([u8; sha_compress_stark::NUM_INPUTS], usize)>,
+    pub(crate) sha_compress_inputs: Vec<([u8; sha_compress_stark::NUM_INPUTS], MemoryAddress, usize)>,
     pub(crate) sha_compress_sponge_ops: Vec<ShaCompressSpongeOp>,
 }
 
@@ -208,8 +208,8 @@ impl<T: Copy> Traces<T> {
         self.sha_extend_sponge_ops.push(op);
     }
 
-    pub fn push_sha_compress(&mut self, input: [u8; sha_compress_stark::NUM_INPUTS], clock: usize) {
-        self.sha_compress_inputs.push((input, clock));
+    pub fn push_sha_compress(&mut self, input: [u8; sha_compress_stark::NUM_INPUTS], memory_address: MemoryAddress, clock: usize) {
+        self.sha_compress_inputs.push((input, memory_address, clock));
     }
 
     pub fn push_sha_compress_sponge(&mut self, op: ShaCompressSpongeOp) {

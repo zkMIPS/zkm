@@ -21,6 +21,7 @@ use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::GenericConfig;
 use std::fs;
+use num::PrimInt;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
 
@@ -1305,8 +1306,8 @@ pub(crate) fn generate_sha_compress<
     cpu_row.clock = F::from_canonical_usize(state.traces.clock());
 
     let mut hx_addresses = vec![];
-    let mut hx_value_bit_be = vec![];
-    let mut w_i_value_bit_be = vec![];
+    let mut hx_values = vec![];
+    let mut w_i_values = vec![];
     let mut w_i_addresses = vec![];
     let mut state_values = vec![];
 
@@ -1316,7 +1317,7 @@ pub(crate) fn generate_sha_compress<
         state.traces.push_memory(mem_op);
         hx[i] = value;
         hx_addresses.push(addr);
-        hx_value_bit_be.push(from_u32_to_be_bits(value));
+        hx_values.push(value.to_le_bytes());
     }
     state.traces.push_cpu(cpu_row);
     // Execute the "compress" phase.
@@ -1334,23 +1335,30 @@ pub(crate) fn generate_sha_compress<
     for i in 0..64 {
         let input_state = [a, b, c, d, e, f, g, h]
             .iter()
-            .map(|x| from_u32_to_be_bits(*x))
+            .map(|x| x.to_le_bytes())
             .collect_vec();
         state_values.push(input_state);
 
-        let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
-        let ch = (e & f) ^ (!e & g);
+        let s_1_inter = e.rotate_right(6) ^ e.rotate_right(11);
+        let s1 = s_1_inter ^ e.rotate_right(25);
+
+        let e_not = !e;
+        let e_and_f = e & f;
+        let not_e_and_g = e_not & g;
+        let ch = e_and_f ^ not_e_and_g;
+
         if j == 8 {
             state.traces.push_cpu(cpu_row);
             cpu_row = CpuColumnsView::default();
             cpu_row.clock = F::from_canonical_usize(state.traces.clock());
             j = 0;
         }
+
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + i * 4);
         let (w_i, mem_op) = mem_read_gp_with_log_and_fill(j, addr, state, &mut cpu_row);
         state.traces.push_memory(mem_op);
         j += 1;
-        w_i_value_bit_be.push(from_u32_to_be_bits(w_i));
+        w_i_values.push(w_i.to_le_bytes());
         w_i_addresses.push(addr);
 
         let temp1 = h
@@ -1358,9 +1366,31 @@ pub(crate) fn generate_sha_compress<
             .wrapping_add(ch)
             .wrapping_add(SHA_COMPRESS_K[i])
             .wrapping_add(w_i);
-        let s0 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
-        let maj = (a & b) ^ (a & c) ^ (b & c);
+
+        let s0_inter = a.rotate_right(2) ^ a.rotate_right(13);
+        let s0 = s0_inter ^ a.rotate_right(22);
+
+        let a_and_b = a & b;
+        let a_and_c = a & c;
+        let b_and_c = b & c;
+        let maj_inter = a_and_b ^ a_and_c;
+        let maj = maj_inter ^ b_and_c;
+
         let temp2 = s0.wrapping_add(maj);
+
+        xor_logic_log(state, e.rotate_right(6), e.rotate_right(11));
+        xor_logic_log(state, s_1_inter, e.rotate_right(25));
+        and_logic_log(state, e, f);
+        and_logic_log(state, e_not, g);
+        xor_logic_log(state, e_and_f, not_e_and_g);
+        xor_logic_log(state, a.rotate_right(2), a.rotate_right(13));
+        xor_logic_log(state, s0_inter, a.rotate_right(22));
+        and_logic_log(state, a, b);
+        and_logic_log(state, a, c);
+        and_logic_log(state, b, c);
+        xor_logic_log(state, a_and_b, a_and_c);
+        xor_logic_log(state, maj_inter, b_and_c);
+
 
         h = g;
         g = f;
@@ -1371,6 +1401,12 @@ pub(crate) fn generate_sha_compress<
         b = a;
         a = temp1.wrapping_add(temp2);
     }
+    let input_state = [a, b, c, d, e, f, g, h]
+        .iter()
+        .map(|x| x.to_le_bytes())
+        .collect_vec();
+    state_values.push(input_state);
+
     state.traces.push_cpu(cpu_row);
     // Execute the "finalize" phase.
 
@@ -1397,9 +1433,9 @@ pub(crate) fn generate_sha_compress<
     // cpu_row.general.shash_mut().value.reverse();
     sha_compress_sponge_log(
         state,
-        hx_value_bit_be,
+        hx_values,
         hx_addresses,
-        w_i_value_bit_be,
+        w_i_values,
         w_i_addresses,
         state_values,
     );

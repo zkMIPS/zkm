@@ -1,25 +1,26 @@
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 use std::borrow::{Borrow, BorrowMut};
 use std::mem::transmute;
+use crate::sha_compress::wrapping_add_2::WrappingAdd2Op;
 
 pub(crate) struct ShaCompressSpongeColumnsView<T: Copy> {
-    pub hx: [T; 256],
-    pub input_state: [T; 256],
-    pub output_state: [T; 256],
-    pub output_hx: [T; 256],
-    pub carry: [T; 256],
-    pub round: [T; 64],
-    pub w_i: [T; 32],
-    pub k_i: [T; 32],
+    pub hx: [T; 32],
+    // a, b, c,..., h after compress
+    pub output_state: [T; 32],
+    // hx[i] + a,..., hx[i+7] + h
+    pub output_hx: [WrappingAdd2Op<T>; 8],
     pub hx_virt: [T; 8],
-    pub w_virt: T,
+    pub w_start_virt: T,
 
-    /// The timestamp at which inputs should be read from memory.
+    // The timestamp at which inputs should be read from memory.
     pub timestamp: T,
-
-    /// The base address at which we will read the input block.
     pub context: T,
     pub segment: T,
+    // The segment and context of w_start_virt
+    pub w_start_segment: T,
+    pub w_start_context: T,
+    pub is_normal_round: T,
+
 }
 
 pub const NUM_SHA_COMPRESS_SPONGE_COLUMNS: usize = size_of::<ShaCompressSpongeColumnsView<u8>>(); //1420

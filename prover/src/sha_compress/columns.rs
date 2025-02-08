@@ -1,53 +1,56 @@
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 use std::borrow::{Borrow, BorrowMut};
 use std::mem::transmute;
-#[derive(Clone)]
+use crate::sha_compress::not_operation::NotOperation;
+use crate::sha_compress::wrapping_add_2::WrappingAdd2Op;
+use crate::sha_compress::wrapping_add_5::WrappingAdd5Op;
+use crate::sha_extend::rotate_right::RotateRightOp;
+
 pub(crate) struct ShaCompressColumnsView<T: Copy> {
-    /// input state: a,b,c,d,e,f,g,h in binary form
-    pub input_state: [T; 256],
-    /// Out
-    pub output_state: [T; 256],
+    /// a,b,c,d,e,f,g,h in le bytes form
+    pub state: [T; 32],
+    pub tem1: WrappingAdd5Op<T>,
+
+    pub e_not: NotOperation<T>,
+    pub e_rr_6: RotateRightOp<T>,
+    pub e_rr_11: RotateRightOp<T>,
+    pub e_rr_25: RotateRightOp<T>,
+    pub a_rr_2: RotateRightOp<T>,
+    pub a_rr_13: RotateRightOp<T>,
+    pub a_rr_22: RotateRightOp<T>,
+
     /// w[i] and key[i]
-    pub w_i: [T; 32],
-    pub k_i: [T; 32],
+    pub w_i: [T; 4],
+    pub k_i: [T; 4],
 
     /// Intermediate values
-    pub e_rr_6: [T; 32],
-    pub e_rr_11: [T; 32],
-    pub e_rr_25: [T; 32],
-    pub s_1: [T; 32],
-    pub e_and_f: [T; 32],
-    pub not_e_and_g: [T; 32],
-    pub ch: [T; 32],
-    // h.wrapping_add(s1)
-    pub inter_1: [T; 32],
-    pub carry_1: [T; 32],
-    // inter_1.wrapping_add(ch)
-    pub inter_2: [T; 32],
-    pub carry_2: [T; 32],
-    // inter_2.wrapping_add(SHA_COMPRESS_K[i])
-    pub inter_3: [T; 32],
-    pub carry_3: [T; 32],
-    // inter_3.wrapping_add(w_i)
-    pub temp1: [T; 32],
-    pub carry_4: [T; 32],
 
-    pub a_rr_2: [T; 32],
-    pub a_rr_13: [T; 32],
-    pub a_rr_22: [T; 32],
-    pub s_0: [T; 32],
-    pub a_and_b: [T; 32],
-    pub a_and_c: [T; 32],
-    pub b_and_c: [T; 32],
-    pub maj: [T; 32],
-    pub temp2: [T; 32],
-    pub carry_5: [T; 32],
-    pub carry_a: [T; 32],
-    pub carry_e: [T; 32],
+    pub s_1_inter: [T; 4],
+    pub s_1: [T; 4],
+    pub e_and_f: [T; 4],
+    pub e_not_and_g: [T; 4],
+    pub ch: [T; 4],
 
-    /// The timestamp at which inputs should be read from memory.
+    pub s_0_inter: [T; 4],
+    pub s_0: [T; 4],
+    pub a_and_b: [T; 4],
+    pub a_and_c: [T; 4],
+    pub b_and_c: [T; 4],
+    pub maj_inter: [T; 4],
+    pub maj: [T; 4],
+
+    pub temp2: WrappingAdd2Op<T>,
+    pub d_add_temp1: WrappingAdd2Op<T>,
+    pub temp1_add_temp2: WrappingAdd2Op<T>,
+
+    // The timestamp at which inputs should be read from memory.
     pub timestamp: T,
-    pub is_normal_round: T,
+    pub segment: T,
+    pub context: T,
+    pub w_i_virt: T,
+
+    // round number
+    pub round: [T; 65],
 }
 
 pub const NUM_SHA_COMPRESS_COLUMNS: usize = size_of::<ShaCompressColumnsView<u8>>();
