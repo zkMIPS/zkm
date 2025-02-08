@@ -9,7 +9,7 @@ use std::mem::transmute;
 pub(crate) struct ShaCompressColumnsView<T: Copy> {
     /// a,b,c,d,e,f,g,h in le bytes form
     pub state: [T; 32],
-    pub tem1: WrappingAdd5Op<T>,
+    pub temp1: WrappingAdd5Op<T>,
 
     pub e_not: NotOperation<T>,
     pub e_rr_6: RotateRightOp<T>,

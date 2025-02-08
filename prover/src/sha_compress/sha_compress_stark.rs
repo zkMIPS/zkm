@@ -335,7 +335,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressStark<F, D> {
         let ch = e_and_f ^ e_not_and_g;
         row.ch = ch.to_le_bytes().map(F::from_canonical_u8);
 
-        let temp1 = row.tem1.generate_trace(
+        let temp1 = row.temp1.generate_trace(
             inputs[get_input_range_4(7)].try_into().unwrap(),
             s_1.to_le_bytes(),
             ch.to_le_bytes(),
@@ -504,7 +504,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSt
             local_values.ch,
             local_values.k_i,
             local_values.w_i,
-            &local_values.tem1,
+            &local_values.temp1,
         )
         .into_iter()
         .for_each(|c| yield_constr.constraint(sum_round_flags * c));
@@ -515,14 +515,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSt
 
         wrapping_add_2_packed_constraints(
             local_values.state[get_input_range_4(3)].try_into().unwrap(),
-            local_values.tem1.value,
+            local_values.temp1.value,
             &local_values.d_add_temp1,
         )
         .into_iter()
         .for_each(|c| yield_constr.constraint(c));
 
         wrapping_add_2_packed_constraints(
-            local_values.tem1.value,
+            local_values.temp1.value,
             local_values.temp2.value,
             &local_values.temp1_add_temp2,
         )
@@ -732,7 +732,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSt
             local_values.ch,
             local_values.k_i,
             local_values.w_i,
-            &local_values.tem1,
+            &local_values.temp1,
         )
         .into_iter()
         .for_each(|c| {
@@ -752,7 +752,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSt
         wrapping_add_2_ext_circuit_constraints(
             builder,
             local_values.state[get_input_range_4(3)].try_into().unwrap(),
-            local_values.tem1.value,
+            local_values.temp1.value,
             &local_values.d_add_temp1,
         )
         .into_iter()
@@ -760,7 +760,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSt
 
         wrapping_add_2_ext_circuit_constraints(
             builder,
-            local_values.tem1.value,
+            local_values.temp1.value,
             local_values.temp2.value,
             &local_values.temp1_add_temp2,
         )
