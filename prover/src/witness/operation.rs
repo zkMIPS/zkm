@@ -14,14 +14,12 @@ use plonky2::field::types::Field;
 use super::util::keccak_sponge_log;
 use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_RATE_U32S};
 use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
-use crate::sha_extend::logic::from_u32_to_be_bits;
 use itertools::Itertools;
 use keccak_hash::keccak;
 use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::GenericConfig;
 use std::fs;
-use num::PrimInt;
 
 pub const WORD_SIZE: usize = core::mem::size_of::<u32>();
 

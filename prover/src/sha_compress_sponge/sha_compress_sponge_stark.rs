@@ -2,17 +2,13 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
-use crate::sha_compress::logic::{equal_packed_constraint, from_be_bits_to_u32};
 use crate::sha_compress_sponge::columns::{
     ShaCompressSpongeColumnsView, NUM_SHA_COMPRESS_SPONGE_COLUMNS, SHA_COMPRESS_SPONGE_COL_MAP,
 };
-use crate::sha_compress_sponge::constants::{NUM_COMPRESS_ROWS, SHA_COMPRESS_K_BINARY, SHA_COMPRESS_K_LE_BYTES};
-use crate::sha_compress_sponge::logic::{sha_ch, sha_ma, sha_sigma0, sha_sigma1};
-use crate::sha_extend::logic::{from_u32_to_be_bits, get_input_range, get_input_range_4};
+use crate::sha_extend::logic::{get_input_range_4};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
-use crate::witness::operation::SHA_COMPRESS_K;
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
@@ -246,11 +242,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
             vars.get_local_values().try_into().unwrap();
         let local_values: &ShaCompressSpongeColumnsView<P> = local_values.borrow();
 
-        let next_values: &[P; NUM_SHA_COMPRESS_SPONGE_COLUMNS] =
-            vars.get_next_values().try_into().unwrap();
-        let next_values: &ShaCompressSpongeColumnsView<P> = next_values.borrow();
-
-        // // check the filter
+        // check the filter
         let is_normal_round = local_values.is_normal_round;
         yield_constr.constraint(is_normal_round * (is_normal_round - P::ONES));
 
@@ -337,7 +329,6 @@ mod test {
     use crate::sha_compress_sponge::sha_compress_sponge_stark::{
         ShaCompressSpongeOp, ShaCompressSpongeStark,
     };
-    use crate::sha_extend::logic::{from_u32_to_be_bits, get_input_range};
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
     use crate::witness::memory::MemoryAddress;
     use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};

@@ -1,7 +1,6 @@
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
-use crate::keccak::logic::{xor3_gen, xor3_gen_circuit, xor_gen, xor_gen_circuit};
 use crate::sha_compress::columns::{
     ShaCompressColumnsView, NUM_SHA_COMPRESS_COLUMNS, SHA_COMPRESS_COL_MAP,
 };
@@ -17,15 +16,11 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use std::borrow::Borrow;
 use std::marker::PhantomData;
-use log::__private_api::loc;
-use num::traits::ToBytes;
 use crate::sha_compress::logic::{equal_ext_circuit_constraints, equal_packed_constraint};
 use crate::sha_compress::not_operation::{not_operation_ext_circuit_constraints, not_operation_packed_constraints};
 use crate::sha_compress::wrapping_add_2::{wrapping_add_2_ext_circuit_constraints, wrapping_add_2_packed_constraints};
 use crate::sha_compress::wrapping_add_5::{wrapping_add_5_ext_circuit_constraints, wrapping_add_5_packed_constraints};
-use crate::sha_compress_sponge::columns::SHA_COMPRESS_SPONGE_COL_MAP;
-use crate::sha_compress_sponge::constants::{NUM_COMPRESS_ROWS, SHA_COMPRESS_K_BINARY, SHA_COMPRESS_K_LE_BYTES};
-use crate::sha_extend::columns::SHA_EXTEND_COL_MAP;
+use crate::sha_compress_sponge::constants::{NUM_COMPRESS_ROWS, SHA_COMPRESS_K_LE_BYTES};
 use crate::sha_extend::rotate_right::{rotate_right_ext_circuit_constraint, rotate_right_packed_constraints};
 use crate::witness::memory::MemoryAddress;
 
@@ -186,7 +181,7 @@ pub(crate) fn ctl_maj_looking_logic<F: Field>() -> Vec<Column<F>> {
 
 // read w_i ctl
 
-pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
+pub(crate) fn ctl_looking_memory<F: Field>(_: usize) -> Vec<Column<F>> {
     let cols = SHA_COMPRESS_COL_MAP;
     let mut res = vec![Column::constant(F::ONE)]; // is_read
 
@@ -362,10 +357,10 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressStark<F, D> {
         let temp2 = row.temp2.generate_trace(s_0.to_le_bytes(), maj.to_le_bytes());
 
         // next value of e
-        let d_add_temp1 = row.d_add_temp1.generate_trace(inputs[get_input_range_4(3)].try_into().unwrap(), temp1.to_le_bytes());
+        let _ = row.d_add_temp1.generate_trace(inputs[get_input_range_4(3)].try_into().unwrap(), temp1.to_le_bytes());
 
         // next value of a
-        let temp1_add_temp2 = row.temp1_add_temp2.generate_trace(temp1.to_le_bytes(), temp2.to_le_bytes());
+        let _ = row.temp1_add_temp2.generate_trace(temp1.to_le_bytes(), temp2.to_le_bytes());
 
         row.into()
     }
@@ -1129,7 +1124,7 @@ mod test {
         input.extend(state.clone());
         input.extend(0_u32.to_le_bytes());
         input.extend(0_u32.to_le_bytes());
-        input.push(64 as u8);
+        input.push(64_u8);
 
         res.push((input.try_into().unwrap(), w_addresses[64], 1));
         res
