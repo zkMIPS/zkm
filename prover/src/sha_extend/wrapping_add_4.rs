@@ -26,8 +26,8 @@ pub struct WrappingAdd4Op<T> {
     pub carry: [T; 4],
 }
 
-impl <F: Field> WrappingAdd4Op<F> {
-    pub fn generate_trace(&mut self, a: [u8; 4], b: [u8; 4], c: [u8; 4], d: [u8; 4]) -> u32{
+impl<F: Field> WrappingAdd4Op<F> {
+    pub fn generate_trace(&mut self, a: [u8; 4], b: [u8; 4], c: [u8; 4], d: [u8; 4]) -> u32 {
         let base = 256;
         let mut carry = [0u8, 0u8, 0u8, 0u8];
 
@@ -43,14 +43,17 @@ impl <F: Field> WrappingAdd4Op<F> {
             self.is_carry_3[i] = F::from_bool(carry[i] == 3);
             self.carry[i] = F::from_canonical_u8(carry[i]);
             debug_assert!(carry[i] <= 3);
-            self.value[i] =  F::from_canonical_u32(res % base);
+            self.value[i] = F::from_canonical_u32(res % base);
         }
 
         let a_u32 = u32::from_le_bytes(a);
         let b_u32 = u32::from_le_bytes(b);
         let c_u32 = u32::from_le_bytes(c);
         let d_u32 = u32::from_le_bytes(d);
-        a_u32.wrapping_add(b_u32).wrapping_add(c_u32).wrapping_add(d_u32)
+        a_u32
+            .wrapping_add(b_u32)
+            .wrapping_add(c_u32)
+            .wrapping_add(d_u32)
     }
 }
 
@@ -68,7 +71,10 @@ pub(crate) fn wrapping_add_4_packed_constraints<P: PackedField>(
         result.push(cols.is_carry_1[i] * (P::ONES - cols.is_carry_1[i]));
         result.push(cols.is_carry_2[i] * (P::ONES - cols.is_carry_2[i]));
         result.push(cols.is_carry_3[i] * (P::ONES - cols.is_carry_3[i]));
-        result.push(cols.is_carry_0[i] + cols.is_carry_1[i] + cols.is_carry_2[i] + cols.is_carry_3[i] - P::ONES);
+        result.push(
+            cols.is_carry_0[i] + cols.is_carry_1[i] + cols.is_carry_2[i] + cols.is_carry_3[i]
+                - P::ONES,
+        );
     }
 
     // Calculates carry from is_carry_{0,1,2,3}.
@@ -78,13 +84,12 @@ pub(crate) fn wrapping_add_4_packed_constraints<P: PackedField>(
 
     for i in 0..4 {
         result.push(
-            cols.carry[i] -
-            cols.is_carry_1[i] * one
+            cols.carry[i]
+                - cols.is_carry_1[i] * one
                 - cols.is_carry_2[i] * two
                 - cols.is_carry_3[i] * three,
         );
     }
-
 
     // Compare the sum and summands by looking at carry.
     let base = P::from(P::Scalar::from_canonical_u32(256));
@@ -144,7 +149,6 @@ pub(crate) fn wrapping_add_4_ext_circuit_constraints<
         let tmp5 = builder.add_extension(tmp4, tmp3);
         result.push(builder.sub_extension(cols.carry[i], tmp5));
     }
-
 
     // Compare the sum and summands by looking at carry.
     let base = builder.constant_extension(F::Extension::from_canonical_u32(256));

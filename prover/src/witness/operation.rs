@@ -1204,10 +1204,13 @@ pub(crate) fn generate_sha_extend<
         input_le_bytes.push(w_i_minus_15.to_le_bytes());
 
         let s0_inter = w_i_minus_15.rotate_right(7) ^ w_i_minus_15.rotate_right(18);
-        xor_logic_log(state, w_i_minus_15.rotate_right(7),  w_i_minus_15.rotate_right(18));
+        xor_logic_log(
+            state,
+            w_i_minus_15.rotate_right(7),
+            w_i_minus_15.rotate_right(18),
+        );
         let s0 = s0_inter ^ (w_i_minus_15 >> 3);
         xor_logic_log(state, s0_inter, w_i_minus_15 >> 3);
-
 
         // Read w[i-2].
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + (i - 2) * 4);
@@ -1218,11 +1221,13 @@ pub(crate) fn generate_sha_extend<
 
         // Compute `s1`.
         let s1_inter = w_i_minus_2.rotate_right(17) ^ w_i_minus_2.rotate_right(19);
-        xor_logic_log(state, w_i_minus_2.rotate_right(17), w_i_minus_2.rotate_right(19));
+        xor_logic_log(
+            state,
+            w_i_minus_2.rotate_right(17),
+            w_i_minus_2.rotate_right(19),
+        );
         let s1 = s1_inter ^ (w_i_minus_2 >> 10);
         xor_logic_log(state, s1_inter, w_i_minus_2 >> 10);
-
-
 
         // Read w[i-16].
         let addr = MemoryAddress::new(0, Segment::Code, w_ptr + (i - 16) * 4);
@@ -1388,7 +1393,6 @@ pub(crate) fn generate_sha_compress<
         and_logic_log(state, b, c);
         xor_logic_log(state, a_and_b, a_and_c);
         xor_logic_log(state, maj_inter, b_and_c);
-
 
         h = g;
         g = f;

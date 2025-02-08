@@ -4,7 +4,16 @@ use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::sha_extend::columns::{
     ShaExtendColumnsView, NUM_SHA_EXTEND_COLUMNS, SHA_EXTEND_COL_MAP,
 };
-use crate::sha_extend::logic::{get_input_range_4};
+use crate::sha_extend::logic::get_input_range_4;
+use crate::sha_extend::rotate_right::{
+    rotate_right_ext_circuit_constraint, rotate_right_packed_constraints,
+};
+use crate::sha_extend::shift_right::{
+    shift_right_ext_circuit_constraints, shift_right_packed_constraints,
+};
+use crate::sha_extend::wrapping_add_4::{
+    wrapping_add_4_ext_circuit_constraints, wrapping_add_4_packed_constraints,
+};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -16,9 +25,6 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use std::borrow::Borrow;
 use std::marker::PhantomData;
-use crate::sha_extend::rotate_right::{rotate_right_ext_circuit_constraint, rotate_right_packed_constraints};
-use crate::sha_extend::shift_right::{shift_right_packed_constraints, shift_right_ext_circuit_constraints};
-use crate::sha_extend::wrapping_add_4::{wrapping_add_4_ext_circuit_constraints, wrapping_add_4_packed_constraints};
 
 pub const NUM_INPUTS: usize = 4 * 4; // w_i_minus_15, w_i_minus_2, w_i_minus_16, w_i_minus_7
 
@@ -101,7 +107,6 @@ pub(crate) fn ctl_s_1_looking_logic<F: Field>() -> Vec<Column<F>> {
     res
 }
 
-
 pub fn ctl_filter<F: Field>() -> Filter<F> {
     let cols = SHA_EXTEND_COL_MAP;
     // not the padding rows.
@@ -155,10 +160,18 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
         let mut row = ShaExtendColumnsView::default();
 
         row.timestamp = F::from_canonical_usize(input_and_timestamp.1);
-        let w_i_minus_15: [u8; 4] = input_and_timestamp.0[get_input_range_4(0)].try_into().unwrap();
-        let w_i_minus_2: [u8; 4] = input_and_timestamp.0[get_input_range_4(1)].try_into().unwrap();
-        let w_i_minus_16: [u8; 4] = input_and_timestamp.0[get_input_range_4(2)].try_into().unwrap();
-        let w_i_minus_7: [u8; 4] = input_and_timestamp.0[get_input_range_4(3)].try_into().unwrap();
+        let w_i_minus_15: [u8; 4] = input_and_timestamp.0[get_input_range_4(0)]
+            .try_into()
+            .unwrap();
+        let w_i_minus_2: [u8; 4] = input_and_timestamp.0[get_input_range_4(1)]
+            .try_into()
+            .unwrap();
+        let w_i_minus_16: [u8; 4] = input_and_timestamp.0[get_input_range_4(2)]
+            .try_into()
+            .unwrap();
+        let w_i_minus_7: [u8; 4] = input_and_timestamp.0[get_input_range_4(3)]
+            .try_into()
+            .unwrap();
 
         row.w_i_minus_15 = w_i_minus_15
             .iter()
@@ -192,12 +205,19 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
 
         // s0_inter = (w[i-15] rightrotate 7) xor (w[i-15] rightrotate 18)
         let s_0_inter = w_i_minus_15_rr_7 ^ w_i_minus_15_rr_18;
-        row.s_0_inter = s_0_inter.to_le_bytes().map(F::from_canonical_u8).try_into().unwrap();
+        row.s_0_inter = s_0_inter
+            .to_le_bytes()
+            .map(F::from_canonical_u8)
+            .try_into()
+            .unwrap();
 
         // s0 := (w[i-15] rightrotate 7) xor (w[i-15] rightrotate 18) xor (w[i-15] rightshift 3)
         let s_0 = s_0_inter ^ w_i_minus_15_rs_3;
-        row.s_0 = s_0.to_le_bytes().map(F::from_canonical_u8).try_into().unwrap();
-
+        row.s_0 = s_0
+            .to_le_bytes()
+            .map(F::from_canonical_u8)
+            .try_into()
+            .unwrap();
 
         let w_i_minus_2_rr_17 = row.w_i_minus_2_rr_17.generate_trace(w_i_minus_2, 17);
         let w_i_minus_2_rr_19 = row.w_i_minus_2_rr_19.generate_trace(w_i_minus_2, 19);
@@ -205,11 +225,19 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
 
         // s1_inter = (w[i-2] rightrotate 17) xor (w[i-2] rightrotate 19)
         let s_1_inter = w_i_minus_2_rr_17 ^ w_i_minus_2_rr_19;
-        row.s_1_inter = s_1_inter.to_le_bytes().map(F::from_canonical_u8).try_into().unwrap();
+        row.s_1_inter = s_1_inter
+            .to_le_bytes()
+            .map(F::from_canonical_u8)
+            .try_into()
+            .unwrap();
 
         // s1 := (w[i-2] rightrotate 17) xor (w[i-2] rightrotate 19) xor (w[i-2] rightshift 10)
         let s_1 = s_1_inter ^ w_i_minus_2_rs_10;
-        row.s_1 = s_1.to_le_bytes().map(F::from_canonical_u8).try_into().unwrap();
+        row.s_1 = s_1
+            .to_le_bytes()
+            .map(F::from_canonical_u8)
+            .try_into()
+            .unwrap();
 
         let _ = row.w_i.generate_trace(
             s_1.to_le_bytes(),
@@ -306,7 +334,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendStar
             let constraint = c * local_values.is_normal_round;
             yield_constr.constraint(constraint)
         });
-
     }
 
     fn eval_ext_circuit(
@@ -383,12 +410,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendStar
             local_values.w_i_minus_16,
             &local_values.w_i,
         )
-            .into_iter()
-            .for_each(|c| {
-                let constraint = builder.mul_extension(c, local_values.is_normal_round);
-                yield_constr.constraint(builder, constraint)
-            });
-
+        .into_iter()
+        .for_each(|c| {
+            let constraint = builder.mul_extension(c, local_values.is_normal_round);
+            yield_constr.constraint(builder, constraint)
+        });
     }
 
     fn constraint_degree(&self) -> usize {

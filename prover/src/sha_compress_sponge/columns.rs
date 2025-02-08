@@ -1,7 +1,7 @@
+use crate::sha_compress::wrapping_add_2::WrappingAdd2Op;
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 use std::borrow::{Borrow, BorrowMut};
 use std::mem::transmute;
-use crate::sha_compress::wrapping_add_2::WrappingAdd2Op;
 
 pub(crate) struct ShaCompressSpongeColumnsView<T: Copy> {
     pub hx: [T; 32],
@@ -20,7 +20,6 @@ pub(crate) struct ShaCompressSpongeColumnsView<T: Copy> {
     pub w_start_segment: T,
     pub w_start_context: T,
     pub is_normal_round: T,
-
 }
 
 pub const NUM_SHA_COMPRESS_SPONGE_COLUMNS: usize = size_of::<ShaCompressSpongeColumnsView<u8>>(); //1420

@@ -10,8 +10,8 @@ pub struct NotOperation<T: Copy> {
     pub value: [T; 4],
 }
 
-impl <F: Field> NotOperation<F> {
-    pub fn generate_trace(&mut self, x: [u8; 4]) -> u32{
+impl<F: Field> NotOperation<F> {
+    pub fn generate_trace(&mut self, x: [u8; 4]) -> u32 {
         let x_u32 = u32::from_le_bytes(x);
         let expected = !x_u32;
         self.value = expected.to_le_bytes().map(F::from_canonical_u8);

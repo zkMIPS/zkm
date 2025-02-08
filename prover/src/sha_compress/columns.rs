@@ -1,10 +1,10 @@
-use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
-use std::borrow::{Borrow, BorrowMut};
-use std::mem::transmute;
 use crate::sha_compress::not_operation::NotOperation;
 use crate::sha_compress::wrapping_add_2::WrappingAdd2Op;
 use crate::sha_compress::wrapping_add_5::WrappingAdd5Op;
 use crate::sha_extend::rotate_right::RotateRightOp;
+use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
+use std::borrow::{Borrow, BorrowMut};
+use std::mem::transmute;
 
 pub(crate) struct ShaCompressColumnsView<T: Copy> {
     /// a,b,c,d,e,f,g,h in le bytes form
@@ -24,7 +24,6 @@ pub(crate) struct ShaCompressColumnsView<T: Copy> {
     pub k_i: [T; 4],
 
     /// Intermediate values
-
     pub s_1_inter: [T; 4],
     pub s_1: [T; 4],
     pub e_and_f: [T; 4],

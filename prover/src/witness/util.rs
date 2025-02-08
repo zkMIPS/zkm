@@ -19,7 +19,7 @@ use crate::poseidon::constants::{SPONGE_RATE, SPONGE_WIDTH};
 use crate::poseidon::poseidon_stark::poseidon_with_witness;
 use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeOp;
-use crate::sha_compress_sponge::constants::{SHA_COMPRESS_K_LE_BYTES};
+use crate::sha_compress_sponge::constants::SHA_COMPRESS_K_LE_BYTES;
 use crate::sha_compress_sponge::sha_compress_sponge_stark::ShaCompressSpongeOp;
 use crate::sha_extend_sponge::sha_extend_sponge_stark::ShaExtendSpongeOp;
 use crate::witness::errors::ProgramError;
@@ -637,7 +637,6 @@ pub(crate) fn sha_compress_sponge_log<
         }
     }
 
-
     for i in 0..64 {
         // read w_i as input
         let w_i_u32 = u32::from_le_bytes(w_i_values[i]);
@@ -665,10 +664,11 @@ pub(crate) fn sha_compress_sponge_log<
         compress_input.push(i as u8);
         debug_assert_eq!(compress_input.len(), 44);
 
-        state
-            .traces
-            .push_sha_compress(compress_input.try_into().unwrap(), w_i_addresses[i], clock * NUM_CHANNELS);
-
+        state.traces.push_sha_compress(
+            compress_input.try_into().unwrap(),
+            w_i_addresses[i],
+            clock * NUM_CHANNELS,
+        );
     }
     // the 65'th round
     let mut dummy_address = w_i_addresses[63].clone();
@@ -676,23 +676,28 @@ pub(crate) fn sha_compress_sponge_log<
     let mut compress_input: Vec<u8> = input_state_list[64].iter().flatten().cloned().collect();
     compress_input.extend([0; 8]); // k_i and w_i
     compress_input.push(64);
-    state.traces
-        .push_sha_compress(compress_input.try_into().unwrap(), dummy_address, clock * NUM_CHANNELS);
+    state.traces.push_sha_compress(
+        compress_input.try_into().unwrap(),
+        dummy_address,
+        clock * NUM_CHANNELS,
+    );
 
-
-    let compress_sponge_input: Vec<u8> =
-        hx_values.iter().flatten().cloned().collect();
+    let compress_sponge_input: Vec<u8> = hx_values.iter().flatten().cloned().collect();
     let mut base_address = hx_addresses.clone();
     base_address.push(w_i_addresses[0]);
     state.traces.push_sha_compress_sponge(ShaCompressSpongeOp {
         base_address,
         timestamp: clock * NUM_CHANNELS,
         input: compress_sponge_input,
-        w_i_s: w_i_values
+        w_i_s: w_i_values,
     });
 }
 
-pub(crate) fn xor_logic_log<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+pub(crate) fn xor_logic_log<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     state: &mut GenerationState<F, C, D>,
     lhs: u32,
     rhs: u32,
@@ -702,7 +707,11 @@ pub(crate) fn xor_logic_log<F: RichField + Extendable<D>, C: GenericConfig<D, F 
         .push_logic(logic::Operation::new(logic::Op::Xor, lhs, rhs));
 }
 
-pub(crate) fn and_logic_log<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+pub(crate) fn and_logic_log<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     state: &mut GenerationState<F, C, D>,
     lhs: u32,
     rhs: u32,

@@ -13,9 +13,8 @@ pub struct WrappingAdd2Op<T> {
     pub carry: [T; 3],
 }
 
-impl <F: Field> WrappingAdd2Op<F> {
-    pub fn generate_trace(&mut self, a: [u8; 4], b: [u8; 4]) -> u32{
-
+impl<F: Field> WrappingAdd2Op<F> {
+    pub fn generate_trace(&mut self, a: [u8; 4], b: [u8; 4]) -> u32 {
         let a_u32 = u32::from_le_bytes(a);
         let b_u32 = u32::from_le_bytes(b);
         let expected = a_u32.wrapping_add(b_u32);
@@ -36,7 +35,9 @@ impl <F: Field> WrappingAdd2Op<F> {
         }
 
         let base = 256u32;
-        let overflow = a[0].wrapping_add(b[0]).wrapping_sub(expected.to_le_bytes()[0]) as u32;
+        let overflow = a[0]
+            .wrapping_add(b[0])
+            .wrapping_sub(expected.to_le_bytes()[0]) as u32;
         debug_assert_eq!(overflow.wrapping_mul(overflow.wrapping_sub(base)), 0);
 
         expected
@@ -56,7 +57,7 @@ pub(crate) fn wrapping_add_2_packed_constraints<P: PackedField>(
     let overflow_1 = a[1] + b[1] - cols.value[1] + cols.carry[0];
     let overflow_2 = a[2] + b[2] - cols.value[2] + cols.carry[1];
     let overflow_3 = a[3] + b[3] - cols.value[3] + cols.carry[2];
-    result.push(overflow_0 * (overflow_0- base));
+    result.push(overflow_0 * (overflow_0 - base));
     result.push(overflow_1 * (overflow_1 - base));
     result.push(overflow_2 * (overflow_2 - base));
     result.push(overflow_3 * (overflow_3 - base));
@@ -116,7 +117,6 @@ pub(crate) fn wrapping_add_2_ext_circuit_constraints<
     let overflow_3 = builder.sub_extension(tmp3, cols.value[3]);
     let tmp3 = builder.sub_extension(overflow_3, base);
     result.push(builder.mul_extension(overflow_3, tmp3));
-
 
     // If the carry is one, then the overflow must be the base.
     result.push(builder.mul_extension(cols.carry[0], tmp));

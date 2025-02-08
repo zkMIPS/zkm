@@ -2,10 +2,13 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
+use crate::sha_compress::wrapping_add_2::{
+    wrapping_add_2_ext_circuit_constraints, wrapping_add_2_packed_constraints,
+};
 use crate::sha_compress_sponge::columns::{
     ShaCompressSpongeColumnsView, NUM_SHA_COMPRESS_SPONGE_COLUMNS, SHA_COMPRESS_SPONGE_COL_MAP,
 };
-use crate::sha_extend::logic::{get_input_range_4};
+use crate::sha_extend::logic::get_input_range_4;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
@@ -19,21 +22,19 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use std::borrow::Borrow;
 use std::marker::PhantomData;
-use crate::sha_compress::wrapping_add_2::{wrapping_add_2_ext_circuit_constraints, wrapping_add_2_packed_constraints};
 
 pub(crate) const NUM_ROUNDS: usize = 64;
 
 pub(crate) const SHA_COMPRESS_SPONGE_READ_BYTES: usize = 8 * 4; // h[0],...,h[7].
 pub(crate) fn ctl_looking_sha_compress_inputs<F: Field>() -> Vec<Column<F>> {
     let cols = SHA_COMPRESS_SPONGE_COL_MAP;
-    let mut res: Vec<_> = Column::singles(
-        [
-            cols.hx.as_slice(),
-        ]
-        .concat(),
-    )
-    .collect();
-    res.extend(Column::singles([cols.timestamp, cols.w_start_segment, cols.w_start_context, cols.w_start_virt]));
+    let mut res: Vec<_> = Column::singles([cols.hx.as_slice()].concat()).collect();
+    res.extend(Column::singles([
+        cols.timestamp,
+        cols.w_start_segment,
+        cols.w_start_context,
+        cols.w_start_virt,
+    ]));
     res
 }
 
@@ -107,7 +108,7 @@ pub(crate) struct ShaCompressSpongeOp {
     pub(crate) input: Vec<u8>,
 
     /// The value of w_i used for compute output
-    pub(crate) w_i_s: Vec<[u8; 4]>
+    pub(crate) w_i_s: Vec<[u8; 4]>,
 }
 
 #[derive(Copy, Clone, Default)]
@@ -153,38 +154,48 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressSpongeStark<F, D> 
         row.context = F::from_canonical_usize(op.base_address[0].context);
         row.segment = F::from_canonical_usize(op.base_address[Segment::Code as usize].segment);
         row.is_normal_round = F::ONE;
-        let hx_virt: [usize; 8] = (0..8).map(|i| op.base_address[i].virt).collect_vec().try_into().unwrap();
+        let hx_virt: [usize; 8] = (0..8)
+            .map(|i| op.base_address[i].virt)
+            .collect_vec()
+            .try_into()
+            .unwrap();
         row.hx_virt = hx_virt.map(F::from_canonical_usize);
         row.w_start_virt = F::from_canonical_usize(op.base_address[8].virt);
         row.w_start_segment = F::from_canonical_usize(op.base_address[8].segment);
         row.w_start_context = F::from_canonical_usize(op.base_address[8].context);
-        row.hx = op.input.iter()
+        row.hx = op
+            .input
+            .iter()
             .map(|&x| F::from_canonical_u8(x))
             .collect::<Vec<F>>()
             .try_into()
             .unwrap();
 
-        let h_x_t_minus_1 = op.input.chunks(4)
+        let h_x_t_minus_1 = op
+            .input
+            .chunks(4)
             .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
             .collect::<Vec<u32>>()
             .try_into()
             .unwrap();
 
-        let output_state = self.compress(
-            h_x_t_minus_1,
-            op.w_i_s,
-        );
+        let output_state = self.compress(h_x_t_minus_1, op.w_i_s);
 
         let output_state_bytes = output_state
             .iter()
             .flat_map(|&x| x.to_le_bytes())
             .collect_vec();
-        row.output_state = output_state_bytes.into_iter().map(F::from_canonical_u8).collect_vec().try_into().unwrap();
+        row.output_state = output_state_bytes
+            .into_iter()
+            .map(F::from_canonical_u8)
+            .collect_vec()
+            .try_into()
+            .unwrap();
 
         for i in 0..8 {
             let _ = row.output_hx[i].generate_trace(
                 h_x_t_minus_1[i].to_le_bytes(),
-                output_state[i].to_le_bytes()
+                output_state[i].to_le_bytes(),
             );
         }
 
@@ -264,7 +275,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
                 local_values.output_state[get_input_range_4(i)]
                     .try_into()
                     .unwrap(),
-                &local_values.output_hx[i]
+                &local_values.output_hx[i],
             )
             .into_iter()
             .for_each(|c| yield_constr.constraint(c));
@@ -285,8 +296,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
 
         // check the filter
         let is_normal_round = local_values.is_normal_round;
-        let constraint = builder.mul_sub_extension(
-            is_normal_round, is_normal_round, is_normal_round);
+        let constraint =
+            builder.mul_sub_extension(is_normal_round, is_normal_round, is_normal_round);
         yield_constr.constraint(builder, constraint);
 
         // if not the padding row, the hx address must be a sequence of numbers spaced 4 units apart
@@ -306,10 +317,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
                 local_values.output_state[get_input_range_4(i)]
                     .try_into()
                     .unwrap(),
-                &local_values.output_hx[i]
+                &local_values.output_hx[i],
             )
-                .into_iter()
-                .for_each(|c| yield_constr.constraint(builder, c));
+            .into_iter()
+            .for_each(|c| yield_constr.constraint(builder, c));
         }
     }
 
@@ -340,8 +351,8 @@ mod test {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::timed;
     use plonky2::util::timing::TimingTree;
-    use std::borrow::Borrow;
     use rand::Rng;
+    use std::borrow::Borrow;
 
     const W: [u32; 64] = [
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 34013193, 67559435, 1711661200,
@@ -388,10 +399,7 @@ mod test {
             .flat_map(|x| (*x).to_le_bytes())
             .collect::<Vec<_>>();
 
-        let w_i_s = W.iter()
-            .map(|x| x.to_le_bytes())
-            .collect::<Vec<_>>();
-
+        let w_i_s = W.iter().map(|x| x.to_le_bytes()).collect::<Vec<_>>();
 
         let op = ShaCompressSpongeOp {
             base_address: hx_addresses
@@ -403,7 +411,7 @@ mod test {
             timestamp: 0,
             // input_states: input_state,
             input,
-            w_i_s
+            w_i_s,
         };
 
         let row = stark.generate_rows_for_op(op);
@@ -411,42 +419,50 @@ mod test {
 
         assert_eq!(
             local_values.output_hx[0].value,
-            3592665057_u32.to_le_bytes()
+            3592665057_u32
+                .to_le_bytes()
                 .map(|x| F::from_canonical_u8(x))
         );
         assert_eq!(
             local_values.output_hx[1].value,
-            2164530888_u32.to_le_bytes()
+            2164530888_u32
+                .to_le_bytes()
                 .map(|x| F::from_canonical_u8(x))
         );
         assert_eq!(
             local_values.output_hx[2].value,
-            1223339564_u32.to_le_bytes()
+            1223339564_u32
+                .to_le_bytes()
                 .map(|x| F::from_canonical_u8(x))
         );
         assert_eq!(
             local_values.output_hx[3].value,
-            3041196771_u32.to_le_bytes()
+            3041196771_u32
+                .to_le_bytes()
                 .map(|x| F::from_canonical_u8(x))
         );
         assert_eq!(
             local_values.output_hx[4].value,
-            2006723467_u32.to_le_bytes()
+            2006723467_u32
+                .to_le_bytes()
                 .map(|x| F::from_canonical_u8(x))
         );
         assert_eq!(
             local_values.output_hx[5].value,
-            2963045520_u32.to_le_bytes()
+            2963045520_u32
+                .to_le_bytes()
                 .map(|x| F::from_canonical_u8(x))
         );
         assert_eq!(
             local_values.output_hx[6].value,
-            3851824201_u32.to_le_bytes()
+            3851824201_u32
+                .to_le_bytes()
                 .map(|x| F::from_canonical_u8(x))
         );
         assert_eq!(
             local_values.output_hx[7].value,
-            3453903005_u32.to_le_bytes()
+            3453903005_u32
+                .to_le_bytes()
                 .map(|x| F::from_canonical_u8(x))
         );
         Ok(())
@@ -483,7 +499,6 @@ mod test {
         type S = ShaCompressSpongeStark<F, D>;
         let stark = S::default();
 
-
         let mut rng = rand::thread_rng();
         let hx_start_virt: u32 = rng.gen();
         let hx_addresses: Vec<MemoryAddress> = (hx_start_virt..hx_start_virt + 32)
@@ -497,20 +512,16 @@ mod test {
 
         let w_start_virt: u32 = rng.gen();
         let w_start_address = MemoryAddress {
-                context: 0,
-                segment: 0,
-                virt: w_start_virt as usize,
-            };
+            context: 0,
+            segment: 0,
+            virt: w_start_virt as usize,
+        };
 
         let mut rng = rand::thread_rng();
         let hx: Vec<u32> = (0..8).map(|_| rng.gen()).collect();
-        let input = hx.iter()
-            .flat_map(|x| x.to_le_bytes())
-            .collect::<Vec<_>>();
+        let input = hx.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<_>>();
         let w_i = (0..64).map(|_| rng.gen()).collect::<Vec<u32>>();
-        let w_i_s = w_i.iter()
-            .map(|x| x.to_le_bytes())
-            .collect::<Vec<_>>();
+        let w_i_s = w_i.iter().map(|x| x.to_le_bytes()).collect::<Vec<_>>();
         let op = ShaCompressSpongeOp {
             base_address: hx_addresses
                 .iter()
@@ -538,7 +549,8 @@ mod test {
 
         init_logger();
 
-        let input = (0..NUM_INPUTS).map(|_| get_random_input()).collect();        let mut timing = TimingTree::new("prove", log::Level::Debug);
+        let input = (0..NUM_INPUTS).map(|_| get_random_input()).collect();
+        let mut timing = TimingTree::new("prove", log::Level::Debug);
         let trace_poly_values = stark.generate_trace(input, 8);
 
         // TODO: Cloning this isn't great; consider having `from_values` accept a reference,

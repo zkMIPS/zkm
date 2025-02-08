@@ -5,7 +5,6 @@ use std::mem::transmute;
 pub(crate) const NUM_EXTEND_INPUT: usize = 4;
 pub(crate) const SHA_EXTEND_SPONGE_READ_BYTES: usize = NUM_EXTEND_INPUT * 4;
 pub(crate) struct ShaExtendSpongeColumnsView<T: Copy> {
-
     /// round
     pub round: [T; 48],
 

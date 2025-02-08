@@ -5,9 +5,6 @@ use crate::cpu::cpu_stark;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
-use plonky2::field::extension::Extendable;
-use plonky2::field::types::Field;
-use plonky2::hash::hash_types::RichField;
 use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
@@ -30,10 +27,13 @@ use crate::sha_compress_sponge::sha_compress_sponge_stark::{
 };
 use crate::sha_extend::sha_extend_stark;
 use crate::sha_extend::sha_extend_stark::ShaExtendStark;
-use crate::sha_extend_sponge::columns::{SHA_EXTEND_SPONGE_READ_BYTES};
+use crate::sha_extend_sponge::columns::SHA_EXTEND_SPONGE_READ_BYTES;
 use crate::sha_extend_sponge::sha_extend_sponge_stark;
 use crate::sha_extend_sponge::sha_extend_sponge_stark::ShaExtendSpongeStark;
 use crate::stark::Stark;
+use plonky2::field::extension::Extendable;
+use plonky2::field::types::Field;
+use plonky2::hash::hash_types::RichField;
 
 #[derive(Clone)]
 pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
@@ -358,28 +358,28 @@ pub(crate) fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
         let sha_extend_s_0_inter_looking = TableWithColumns::new(
             Table::ShaExtend,
             sha_extend_stark::ctl_s_0_inter_looking_logic(),
-            Some(sha_extend_stark::ctl_filter())
+            Some(sha_extend_stark::ctl_filter()),
         );
         all_lookers.push(sha_extend_s_0_inter_looking);
 
         let sha_extend_s_0_looking = TableWithColumns::new(
             Table::ShaExtend,
             sha_extend_stark::ctl_s_0_looking_logic(),
-            Some(sha_extend_stark::ctl_filter())
+            Some(sha_extend_stark::ctl_filter()),
         );
         all_lookers.push(sha_extend_s_0_looking);
 
         let sha_extend_s_1_inter_looking = TableWithColumns::new(
             Table::ShaExtend,
             sha_extend_stark::ctl_s_1_inter_looking_logic(),
-            Some(sha_extend_stark::ctl_filter())
+            Some(sha_extend_stark::ctl_filter()),
         );
         all_lookers.push(sha_extend_s_1_inter_looking);
 
         let sha_extend_s_1_looking = TableWithColumns::new(
             Table::ShaExtend,
             sha_extend_stark::ctl_s_1_looking_logic(),
-            Some(sha_extend_stark::ctl_filter())
+            Some(sha_extend_stark::ctl_filter()),
         );
         all_lookers.push(sha_extend_s_1_looking);
     }
@@ -389,71 +389,70 @@ pub(crate) fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
         let s_1_inter_looking = TableWithColumns::new(
             Table::ShaCompress,
             sha_compress_stark::ctl_s_1_inter_looking_logic(),
-            Some(sha_compress_stark::ctl_logic_filter())
+            Some(sha_compress_stark::ctl_logic_filter()),
         );
         let s_1_looking = TableWithColumns::new(
             Table::ShaCompress,
             sha_compress_stark::ctl_s_1_looking_logic(),
-            Some(sha_compress_stark::ctl_logic_filter())
+            Some(sha_compress_stark::ctl_logic_filter()),
         );
         let e_and_f_looking = TableWithColumns::new(
             Table::ShaCompress,
             sha_compress_stark::ctl_e_and_f_looking_logic(),
-            Some(sha_compress_stark::ctl_logic_filter())
+            Some(sha_compress_stark::ctl_logic_filter()),
         );
 
         let not_e_and_g_looking = TableWithColumns::new(
             Table::ShaCompress,
             sha_compress_stark::ctl_not_e_and_g_looking_logic(),
-            Some(sha_compress_stark::ctl_logic_filter())
+            Some(sha_compress_stark::ctl_logic_filter()),
         );
 
         let ch_looking = TableWithColumns::new(
             Table::ShaCompress,
             sha_compress_stark::ctl_ch_looking_logic(),
-            Some(sha_compress_stark::ctl_logic_filter())
+            Some(sha_compress_stark::ctl_logic_filter()),
         );
 
         let s_0_inter_looking = TableWithColumns::new(
             Table::ShaCompress,
             sha_compress_stark::ctl_s_0_inter_looking_logic(),
-            Some(sha_compress_stark::ctl_logic_filter())
+            Some(sha_compress_stark::ctl_logic_filter()),
         );
 
         let s_0_looking = TableWithColumns::new(
             Table::ShaCompress,
             sha_compress_stark::ctl_s_0_looking_logic(),
-            Some(sha_compress_stark::ctl_logic_filter())
+            Some(sha_compress_stark::ctl_logic_filter()),
         );
 
         let a_and_b_looking = TableWithColumns::new(
             Table::ShaCompress,
             sha_compress_stark::ctl_a_and_b_looking_logic(),
-            Some(sha_compress_stark::ctl_logic_filter())
+            Some(sha_compress_stark::ctl_logic_filter()),
         );
         let a_and_c_looking = TableWithColumns::new(
             Table::ShaCompress,
             sha_compress_stark::ctl_a_and_c_looking_logic(),
-            Some(sha_compress_stark::ctl_logic_filter())
+            Some(sha_compress_stark::ctl_logic_filter()),
         );
         let b_and_c_looking = TableWithColumns::new(
             Table::ShaCompress,
             sha_compress_stark::ctl_b_and_c_looking_logic(),
-            Some(sha_compress_stark::ctl_logic_filter())
+            Some(sha_compress_stark::ctl_logic_filter()),
         );
 
         let maj_inter_looking = TableWithColumns::new(
             Table::ShaCompress,
             sha_compress_stark::ctl_maj_inter_looking_logic(),
-            Some(sha_compress_stark::ctl_logic_filter())
+            Some(sha_compress_stark::ctl_logic_filter()),
         );
 
         let maj_looking = TableWithColumns::new(
             Table::ShaCompress,
             sha_compress_stark::ctl_maj_looking_logic(),
-            Some(sha_compress_stark::ctl_logic_filter())
+            Some(sha_compress_stark::ctl_logic_filter()),
         );
-
 
         all_lookers.extend([
             s_1_inter_looking,
@@ -467,9 +466,8 @@ pub(crate) fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
             a_and_c_looking,
             b_and_c_looking,
             maj_inter_looking,
-            maj_looking
+            maj_looking,
         ]);
-
     }
 
     let logic_looked =
@@ -522,7 +520,7 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         TableWithColumns::new(
             Table::ShaCompress,
             sha_compress_stark::ctl_looking_memory(i),
-            Some(sha_compress_stark::ctl_logic_filter())
+            Some(sha_compress_stark::ctl_logic_filter()),
         )
     });
 

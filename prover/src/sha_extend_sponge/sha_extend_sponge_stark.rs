@@ -3,7 +3,7 @@ use crate::cpu::membus::NUM_CHANNELS;
 use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
-use crate::sha_extend::logic::{get_input_range_4};
+use crate::sha_extend::logic::get_input_range_4;
 use crate::sha_extend_sponge::columns::{
     ShaExtendSpongeColumnsView, NUM_EXTEND_INPUT, NUM_SHA_EXTEND_SPONGE_COLUMNS,
     SHA_EXTEND_SPONGE_COL_MAP,
@@ -214,7 +214,6 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendSpongeStark<F, D> {
             .wrapping_add(w_i_minus_7);
 
         w_i_u32.to_le_bytes().map(F::from_canonical_u8)
-
     }
 }
 
@@ -241,7 +240,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendSpon
         let next_values: &[P; NUM_SHA_EXTEND_SPONGE_COLUMNS] =
             vars.get_next_values().try_into().unwrap();
         let next_values: &ShaExtendSpongeColumnsView<P> = next_values.borrow();
-
 
         // check the round
         for i in 0..NUM_ROUNDS {

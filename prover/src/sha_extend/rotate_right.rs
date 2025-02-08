@@ -8,11 +8,11 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 pub struct RotateRightOp<T: Copy> {
     pub value: [T; 4],
     pub shift: [T; 4],
-    pub carry: [T; 4]
+    pub carry: [T; 4],
 }
 
-impl <F: Field> RotateRightOp<F> {
-    pub fn generate_trace(&mut self, le_input_bytes: [u8; 4], rotation: usize) -> u32{
+impl<F: Field> RotateRightOp<F> {
+    pub fn generate_trace(&mut self, le_input_bytes: [u8; 4], rotation: usize) -> u32 {
         let input_bytes = le_input_bytes.map(F::from_canonical_u8);
 
         // Compute some constants with respect to the rotation needed for the rotation.
@@ -84,19 +84,20 @@ pub(crate) fn rotate_right_packed_constraints<P: PackedField>(
         input_bytes[(3 + shifted_bytes) % 4],
     ];
 
-
     let mut first_shift = P::ZEROS;
     let mut last_carry = P::ZEROS;
     for i in (0..4).rev() {
-
         let constraint = input_bytes_rotated[i]
-            - rotated_value.shift[i].mul(shifted_bits_power) - rotated_value.carry[i];
+            - rotated_value.shift[i].mul(shifted_bits_power)
+            - rotated_value.carry[i];
         result.push(constraint);
 
         if i == 3 {
             first_shift = rotated_value.shift[i].into();
         } else {
-            result.push(rotated_value.value[i] - rotated_value.shift[i] - last_carry * carry_multiplier);
+            result.push(
+                rotated_value.value[i] - rotated_value.shift[i] - last_carry * carry_multiplier,
+            );
         }
 
         last_carry = rotated_value.carry[i].into();
@@ -116,9 +117,12 @@ pub(crate) fn rotate_right_ext_circuit_constraint<F: RichField + Extendable<D>, 
     // Compute some constants with respect to the rotation needed for the rotation.
     let shifted_bytes = shifted_bytes(rotation);
     let shifted_bits = shifted_bits(rotation);
-    let carry_multiplier = builder.constant_extension(F::Extension::from_canonical_u32(carry_multiplier(rotation)));
+    let carry_multiplier =
+        builder.constant_extension(F::Extension::from_canonical_u32(carry_multiplier(rotation)));
 
-    let shifted_bits_power = builder.constant_extension(F::Extension::from_canonical_u32(2u32.pow(shifted_bits as u32)));
+    let shifted_bits_power = builder.constant_extension(F::Extension::from_canonical_u32(
+        2u32.pow(shifted_bits as u32),
+    ));
 
     // Perform the byte shift.
     let input_bytes_rotated = [
@@ -131,20 +135,15 @@ pub(crate) fn rotate_right_ext_circuit_constraint<F: RichField + Extendable<D>, 
     let mut first_shift = builder.zero_extension();
     let mut last_carry = builder.zero_extension();
     for i in (0..4).rev() {
-
         let tmp1 = builder.mul_extension(rotated_value.shift[i], shifted_bits_power);
         let tmp2 = builder.add_extension(rotated_value.carry[i], tmp1);
 
-        let constraint = builder.sub_extension(
-            input_bytes_rotated[i],
-            tmp2
-        );
+        let constraint = builder.sub_extension(input_bytes_rotated[i], tmp2);
         result.push(constraint);
 
         if i == 3 {
             first_shift = rotated_value.shift[i];
         } else {
-
             let tmp1 = builder.mul_extension(last_carry, carry_multiplier);
             let tmp2 = builder.add_extension(rotated_value.shift[i], tmp1);
             result.push(builder.sub_extension(rotated_value.value[i], tmp2));
