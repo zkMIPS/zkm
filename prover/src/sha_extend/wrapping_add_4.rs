@@ -54,7 +54,7 @@ impl <F: Field> WrappingAdd4Op<F> {
     }
 }
 
-pub(crate) fn wrapping_add_packed_constraints<P: PackedField>(
+pub(crate) fn wrapping_add_4_packed_constraints<P: PackedField>(
     a: [P; 4],
     b: [P; 4],
     c: [P; 4],
@@ -100,7 +100,7 @@ pub(crate) fn wrapping_add_packed_constraints<P: PackedField>(
     result
 }
 
-pub(crate) fn wrapping_add_ext_circuit_constraints<
+pub(crate) fn wrapping_add_4_ext_circuit_constraints<
     F: RichField + Extendable<D>,
     const D: usize,
 >(

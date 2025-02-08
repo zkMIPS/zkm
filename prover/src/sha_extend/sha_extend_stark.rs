@@ -18,7 +18,7 @@ use std::borrow::Borrow;
 use std::marker::PhantomData;
 use crate::sha_extend::rotate_right::{rotate_right_ext_circuit_constraint, rotate_right_packed_constraints};
 use crate::sha_extend::shift_right::{shift_right_packed_constraints, shift_right_ext_circuit_constraints};
-use crate::sha_extend::wrapping_add_4::{wrapping_add_ext_circuit_constraints, wrapping_add_packed_constraints};
+use crate::sha_extend::wrapping_add_4::{wrapping_add_4_ext_circuit_constraints, wrapping_add_4_packed_constraints};
 
 pub const NUM_INPUTS: usize = 4 * 4; // w_i_minus_15, w_i_minus_2, w_i_minus_16, w_i_minus_7
 
@@ -294,7 +294,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendStar
 
         // check the wrapping add: w_i = s_1 + w_i_minus_7 + s_0 + w_i_minus_16
 
-        wrapping_add_packed_constraints(
+        wrapping_add_4_packed_constraints(
             local_values.s_1,
             local_values.w_i_minus_7,
             local_values.s_0,
@@ -375,7 +375,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendStar
         //  the XOR ops in s_0, s_1 computations are constrainted in logic table.
 
         // check the wrapping add: w_i = s_1 + w_i_minus_7 + s_0 + w_i_minus_16
-        wrapping_add_ext_circuit_constraints(
+        wrapping_add_4_ext_circuit_constraints(
             builder,
             local_values.s_1,
             local_values.w_i_minus_7,
