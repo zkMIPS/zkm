@@ -38,7 +38,7 @@ impl std::io::Write for SyscallWriter {
 pub fn read_vec() -> Vec<u8> {
     let len = unsafe { syscall_hint_len() };
     // Round up to the nearest multiple of 4 so that the memory allocated is in whole words
-    let capacity = len.div_ceil(4);
+    let capacity = len.div_ceil(4) * 4;
 
     // Allocate a buffer of the required length that is 4 byte aligned
     let layout = Layout::from_size_align(capacity, 4).expect("vec is too large");
