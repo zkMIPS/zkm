@@ -30,7 +30,7 @@ pub(crate) struct ShaExtendColumnsView<T: Copy> {
 
     /// The timestamp at which inputs should be read from memory.
     pub timestamp: T,
-    pub is_normal_round: T,
+    pub is_real_round: T,
 }
 
 pub const NUM_SHA_EXTEND_COLUMNS: usize = size_of::<ShaExtendColumnsView<u8>>();

@@ -110,7 +110,7 @@ pub(crate) fn ctl_s_1_looking_logic<F: Field>() -> Vec<Column<F>> {
 pub fn ctl_filter<F: Field>() -> Filter<F> {
     let cols = SHA_EXTEND_COL_MAP;
     // not the padding rows.
-    Filter::new_simple(Column::single(cols.is_normal_round))
+    Filter::new_simple(Column::single(cols.is_real_round))
 }
 
 #[derive(Copy, Clone, Default)]
@@ -197,7 +197,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
-        row.is_normal_round = F::ONE;
+        row.is_real_round = F::ONE;
 
         let w_i_minus_15_rr_7 = row.w_i_minus_15_rr_7.generate_trace(w_i_minus_15, 7);
         let w_i_minus_15_rr_18 = row.w_i_minus_15_rr_18.generate_trace(w_i_minus_15, 18);
@@ -315,7 +315,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendStar
         )
         .into_iter()
         .for_each(|c| {
-            let constraint = c * local_values.is_normal_round;
+            let constraint = c * local_values.is_real_round;
             yield_constr.constraint(constraint)
         });
     }
@@ -396,7 +396,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaExtendStar
         )
         .into_iter()
         .for_each(|c| {
-            let constraint = builder.mul_extension(c, local_values.is_normal_round);
+            let constraint = builder.mul_extension(c, local_values.is_real_round);
             yield_constr.constraint(builder, constraint)
         });
     }

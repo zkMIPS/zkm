@@ -19,7 +19,7 @@ pub(crate) struct ShaCompressSpongeColumnsView<T: Copy> {
     // The segment and context of w_start_virt
     pub w_start_segment: T,
     pub w_start_context: T,
-    pub is_normal_round: T,
+    pub is_real_round: T,
 }
 
 pub const NUM_SHA_COMPRESS_SPONGE_COLUMNS: usize = size_of::<ShaCompressSpongeColumnsView<u8>>(); //1420

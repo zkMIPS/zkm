@@ -83,7 +83,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
 pub(crate) fn ctl_looking_sha_compress_filter<F: Field>() -> Filter<F> {
     let cols = SHA_COMPRESS_SPONGE_COL_MAP;
     // only the normal round
-    Filter::new_simple(Column::single(cols.is_normal_round))
+    Filter::new_simple(Column::single(cols.is_real_round))
 }
 
 pub(crate) fn ctl_looked_filter<F: Field>() -> Filter<F> {
@@ -91,7 +91,7 @@ pub(crate) fn ctl_looked_filter<F: Field>() -> Filter<F> {
     // compress sponge output.
     let cols = SHA_COMPRESS_SPONGE_COL_MAP;
     // only the normal round
-    Filter::new_simple(Column::single(cols.is_normal_round))
+    Filter::new_simple(Column::single(cols.is_real_round))
 }
 
 #[derive(Clone, Debug)]
@@ -153,7 +153,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressSpongeStark<F, D> 
         row.timestamp = F::from_canonical_usize(op.timestamp);
         row.context = F::from_canonical_usize(op.base_address[0].context);
         row.segment = F::from_canonical_usize(op.base_address[Segment::Code as usize].segment);
-        row.is_normal_round = F::ONE;
+        row.is_real_round = F::ONE;
         let hx_virt: [usize; 8] = (0..8)
             .map(|i| op.base_address[i].virt)
             .collect_vec()
@@ -254,7 +254,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
         let local_values: &ShaCompressSpongeColumnsView<P> = local_values.borrow();
 
         // check the filter
-        let is_normal_round = local_values.is_normal_round;
+        let is_normal_round = local_values.is_real_round;
         yield_constr.constraint(is_normal_round * (is_normal_round - P::ONES));
 
         // if not the padding row, the hx address must be a sequence of numbers spaced 4 units apart
@@ -295,7 +295,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
         let four_ext = builder.constant_extension(F::Extension::from_canonical_u8(4));
 
         // check the filter
-        let is_normal_round = local_values.is_normal_round;
+        let is_normal_round = local_values.is_real_round;
         let constraint =
             builder.mul_sub_extension(is_normal_round, is_normal_round, is_normal_round);
         yield_constr.constraint(builder, constraint);
