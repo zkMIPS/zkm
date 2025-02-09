@@ -92,14 +92,14 @@ pub(crate) fn shift_right_packed_constraints<P: PackedField>(
         result.push(constraint);
 
         if i == 3 {
-            first_shift = shifted_value.shift[i].into();
+            first_shift = shifted_value.shift[i];
         } else {
             result.push(
                 shifted_value.value[i] - shifted_value.shift[i] - last_carry * carry_multiplier,
             );
         }
 
-        last_carry = shifted_value.carry[i].into();
+        last_carry = shifted_value.carry[i];
     }
     result.push(shifted_value.value[3] - first_shift);
     result

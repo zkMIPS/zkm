@@ -671,7 +671,7 @@ pub(crate) fn sha_compress_sponge_log<
         );
     }
     // the 65'th round
-    let mut dummy_address = w_i_addresses[63].clone();
+    let mut dummy_address = w_i_addresses[63];
     dummy_address.virt += 4;
     let mut compress_input: Vec<u8> = input_state_list[64].iter().flatten().cloned().collect();
     compress_input.extend([0; 8]); // k_i and w_i

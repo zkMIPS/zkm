@@ -205,19 +205,11 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
 
         // s0_inter = (w[i-15] rightrotate 7) xor (w[i-15] rightrotate 18)
         let s_0_inter = w_i_minus_15_rr_7 ^ w_i_minus_15_rr_18;
-        row.s_0_inter = s_0_inter
-            .to_le_bytes()
-            .map(F::from_canonical_u8)
-            .try_into()
-            .unwrap();
+        row.s_0_inter = s_0_inter.to_le_bytes().map(F::from_canonical_u8);
 
         // s0 := (w[i-15] rightrotate 7) xor (w[i-15] rightrotate 18) xor (w[i-15] rightshift 3)
         let s_0 = s_0_inter ^ w_i_minus_15_rs_3;
-        row.s_0 = s_0
-            .to_le_bytes()
-            .map(F::from_canonical_u8)
-            .try_into()
-            .unwrap();
+        row.s_0 = s_0.to_le_bytes().map(F::from_canonical_u8);
 
         let w_i_minus_2_rr_17 = row.w_i_minus_2_rr_17.generate_trace(w_i_minus_2, 17);
         let w_i_minus_2_rr_19 = row.w_i_minus_2_rr_19.generate_trace(w_i_minus_2, 19);
@@ -225,19 +217,11 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
 
         // s1_inter = (w[i-2] rightrotate 17) xor (w[i-2] rightrotate 19)
         let s_1_inter = w_i_minus_2_rr_17 ^ w_i_minus_2_rr_19;
-        row.s_1_inter = s_1_inter
-            .to_le_bytes()
-            .map(F::from_canonical_u8)
-            .try_into()
-            .unwrap();
+        row.s_1_inter = s_1_inter.to_le_bytes().map(F::from_canonical_u8);
 
         // s1 := (w[i-2] rightrotate 17) xor (w[i-2] rightrotate 19) xor (w[i-2] rightshift 10)
         let s_1 = s_1_inter ^ w_i_minus_2_rs_10;
-        row.s_1 = s_1
-            .to_le_bytes()
-            .map(F::from_canonical_u8)
-            .try_into()
-            .unwrap();
+        row.s_1 = s_1.to_le_bytes().map(F::from_canonical_u8);
 
         let _ = row.w_i.generate_trace(
             s_1.to_le_bytes(),

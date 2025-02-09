@@ -953,15 +953,11 @@ mod test {
 
         assert_eq!(
             local_values.temp1_add_temp2.value,
-            4228417613_u32
-                .to_le_bytes()
-                .map(|x| F::from_canonical_u8(x))
+            4228417613_u32.to_le_bytes().map(F::from_canonical_u8)
         );
         assert_eq!(
             local_values.d_add_temp1.value,
-            2563236514_u32
-                .to_le_bytes()
-                .map(|x| F::from_canonical_u8(x))
+            2563236514_u32.to_le_bytes().map(F::from_canonical_u8)
         );
 
         Ok(())
@@ -994,12 +990,6 @@ mod test {
     }
 
     fn get_random_input() -> Vec<([u8; NUM_INPUTS], MemoryAddress, usize)> {
-        const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-        type S = ShaCompressStark<F, D>;
-        let stark = S::default();
-
         let w_addresses: Vec<MemoryAddress> = (32..500)
             .step_by(4)
             .map(|i| MemoryAddress {

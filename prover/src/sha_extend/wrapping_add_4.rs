@@ -98,7 +98,7 @@ pub(crate) fn wrapping_add_4_packed_constraints<P: PackedField>(
     for i in 0..4 {
         let mut overflow = a[i] + b[i] + c[i] + d[i] - cols.value[i];
         if i > 0 {
-            overflow = overflow + cols.carry[i - 1];
+            overflow += cols.carry[i - 1];
         }
         result.push(cols.carry[i] * base - overflow);
     }

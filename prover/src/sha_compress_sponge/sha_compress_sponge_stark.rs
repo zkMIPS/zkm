@@ -394,7 +394,7 @@ mod test {
                 virt: i,
             })
             .collect();
-        let mut input = H256_256
+        let input = H256_256
             .iter()
             .flat_map(|x| (*x).to_le_bytes())
             .collect::<Vec<_>>();
@@ -419,51 +419,35 @@ mod test {
 
         assert_eq!(
             local_values.output_hx[0].value,
-            3592665057_u32
-                .to_le_bytes()
-                .map(|x| F::from_canonical_u8(x))
+            3592665057_u32.to_le_bytes().map(F::from_canonical_u8)
         );
         assert_eq!(
             local_values.output_hx[1].value,
-            2164530888_u32
-                .to_le_bytes()
-                .map(|x| F::from_canonical_u8(x))
+            2164530888_u32.to_le_bytes().map(F::from_canonical_u8)
         );
         assert_eq!(
             local_values.output_hx[2].value,
-            1223339564_u32
-                .to_le_bytes()
-                .map(|x| F::from_canonical_u8(x))
+            1223339564_u32.to_le_bytes().map(F::from_canonical_u8)
         );
         assert_eq!(
             local_values.output_hx[3].value,
-            3041196771_u32
-                .to_le_bytes()
-                .map(|x| F::from_canonical_u8(x))
+            3041196771_u32.to_le_bytes().map(F::from_canonical_u8)
         );
         assert_eq!(
             local_values.output_hx[4].value,
-            2006723467_u32
-                .to_le_bytes()
-                .map(|x| F::from_canonical_u8(x))
+            2006723467_u32.to_le_bytes().map(F::from_canonical_u8)
         );
         assert_eq!(
             local_values.output_hx[5].value,
-            2963045520_u32
-                .to_le_bytes()
-                .map(|x| F::from_canonical_u8(x))
+            2963045520_u32.to_le_bytes().map(F::from_canonical_u8)
         );
         assert_eq!(
             local_values.output_hx[6].value,
-            3851824201_u32
-                .to_le_bytes()
-                .map(|x| F::from_canonical_u8(x))
+            3851824201_u32.to_le_bytes().map(F::from_canonical_u8)
         );
         assert_eq!(
             local_values.output_hx[7].value,
-            3453903005_u32
-                .to_le_bytes()
-                .map(|x| F::from_canonical_u8(x))
+            3453903005_u32.to_le_bytes().map(F::from_canonical_u8)
         );
         Ok(())
     }
@@ -493,12 +477,6 @@ mod test {
     }
 
     fn get_random_input() -> ShaCompressSpongeOp {
-        const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-        type S = ShaCompressSpongeStark<F, D>;
-        let stark = S::default();
-
         let mut rng = rand::thread_rng();
         let hx_start_virt: u32 = rng.gen();
         let hx_addresses: Vec<MemoryAddress> = (hx_start_virt..hx_start_virt + 32)
