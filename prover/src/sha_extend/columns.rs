@@ -9,13 +9,6 @@ pub(crate) struct ShaExtendColumnsView<T: Copy> {
     /// Output
     pub w_i: WrappingAdd4Op<T>, // w_i_inter_1 + w_i_minus_16
 
-    pub w_i_minus_15_rr_7: RotateRightOp<T>,
-    pub w_i_minus_15_rr_18: RotateRightOp<T>,
-    pub w_i_minus_15_rs_3: ShiftRightOp<T>,
-    pub w_i_minus_2_rr_17: RotateRightOp<T>,
-    pub w_i_minus_2_rr_19: RotateRightOp<T>,
-    pub w_i_minus_2_rs_10: ShiftRightOp<T>,
-
     /// Input in le bytes order
     pub w_i_minus_15: [T; 4],
     pub w_i_minus_2: [T; 4],
@@ -27,6 +20,14 @@ pub(crate) struct ShaExtendColumnsView<T: Copy> {
     pub s_0: [T; 4],
     pub s_1_inter: [T; 4],
     pub s_1: [T; 4],
+
+    pub w_i_minus_15_rr_7: RotateRightOp<T>,
+    pub w_i_minus_15_rr_18: RotateRightOp<T>,
+    pub w_i_minus_2_rr_17: RotateRightOp<T>,
+    pub w_i_minus_2_rr_19: RotateRightOp<T>,
+
+    pub w_i_minus_2_rs_10: ShiftRightOp<T>,
+    pub w_i_minus_15_rs_3: ShiftRightOp<T>,
 
     /// The timestamp at which inputs should be read from memory.
     pub timestamp: T,

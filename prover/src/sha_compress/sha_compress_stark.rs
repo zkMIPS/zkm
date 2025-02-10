@@ -511,7 +511,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSt
 
         wrapping_add_2_packed_constraints(local_values.s_0, local_values.maj, &local_values.temp2)
             .into_iter()
-            .for_each(|c| yield_constr.constraint(c));
+            .for_each(|c| yield_constr.constraint(sum_round_flags * c));
 
         wrapping_add_2_packed_constraints(
             local_values.state[get_input_range_4(3)].try_into().unwrap(),
@@ -519,7 +519,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSt
             &local_values.d_add_temp1,
         )
         .into_iter()
-        .for_each(|c| yield_constr.constraint(c));
+        .for_each(|c| yield_constr.constraint(sum_round_flags * c));
 
         wrapping_add_2_packed_constraints(
             local_values.temp1.value,
@@ -527,7 +527,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSt
             &local_values.temp1_add_temp2,
         )
         .into_iter()
-        .for_each(|c| yield_constr.constraint(c));
+        .for_each(|c| yield_constr.constraint(sum_round_flags * c));
 
         // If this is not the final step or a padding row:
 
@@ -747,8 +747,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSt
             &local_values.temp2,
         )
         .into_iter()
-        .for_each(|c| yield_constr.constraint(builder, c));
-
+        .for_each(|c| {
+            let constraint = builder.mul_extension(c, sum_round_flags);
+            yield_constr.constraint(builder, constraint)
+        });
         wrapping_add_2_ext_circuit_constraints(
             builder,
             local_values.state[get_input_range_4(3)].try_into().unwrap(),
@@ -756,7 +758,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSt
             &local_values.d_add_temp1,
         )
         .into_iter()
-        .for_each(|c| yield_constr.constraint(builder, c));
+        .for_each(|c| {
+            let constraint = builder.mul_extension(c, sum_round_flags);
+            yield_constr.constraint(builder, constraint)
+        });
 
         wrapping_add_2_ext_circuit_constraints(
             builder,
@@ -765,7 +770,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSt
             &local_values.temp1_add_temp2,
         )
         .into_iter()
-        .for_each(|c| yield_constr.constraint(builder, c));
+        .for_each(|c| {
+            let constraint = builder.mul_extension(c, sum_round_flags);
+            yield_constr.constraint(builder, constraint)
+        });
 
         // If this is not the final step or a padding row:
         let normal_round = builder.mul_extension(sum_round_flags, not_final);

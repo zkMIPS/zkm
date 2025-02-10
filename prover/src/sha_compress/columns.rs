@@ -9,15 +9,8 @@ use std::mem::transmute;
 pub(crate) struct ShaCompressColumnsView<T: Copy> {
     /// a,b,c,d,e,f,g,h in le bytes form
     pub state: [T; 32],
-    pub temp1: WrappingAdd5Op<T>,
 
     pub e_not: NotOperation<T>,
-    pub e_rr_6: RotateRightOp<T>,
-    pub e_rr_11: RotateRightOp<T>,
-    pub e_rr_25: RotateRightOp<T>,
-    pub a_rr_2: RotateRightOp<T>,
-    pub a_rr_13: RotateRightOp<T>,
-    pub a_rr_22: RotateRightOp<T>,
 
     /// w[i] and key[i]
     pub w_i: [T; 4],
@@ -38,6 +31,13 @@ pub(crate) struct ShaCompressColumnsView<T: Copy> {
     pub maj_inter: [T; 4],
     pub maj: [T; 4],
 
+    pub e_rr_6: RotateRightOp<T>,
+    pub e_rr_11: RotateRightOp<T>,
+    pub e_rr_25: RotateRightOp<T>,
+    pub a_rr_2: RotateRightOp<T>,
+    pub a_rr_13: RotateRightOp<T>,
+    pub a_rr_22: RotateRightOp<T>,
+
     pub temp2: WrappingAdd2Op<T>,
     pub d_add_temp1: WrappingAdd2Op<T>,
     pub temp1_add_temp2: WrappingAdd2Op<T>,
@@ -47,7 +47,7 @@ pub(crate) struct ShaCompressColumnsView<T: Copy> {
     pub segment: T,
     pub context: T,
     pub w_i_virt: T,
-
+    pub temp1: WrappingAdd5Op<T>,
     // round number
     pub round: [T; 65],
 }

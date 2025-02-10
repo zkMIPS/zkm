@@ -278,7 +278,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
                 &local_values.output_hx[i],
             )
             .into_iter()
-            .for_each(|c| yield_constr.constraint(c));
+            .for_each(|c| yield_constr.constraint(c * local_values.is_real_round));
         }
     }
 
@@ -320,7 +320,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ShaCompressSp
                 &local_values.output_hx[i],
             )
             .into_iter()
-            .for_each(|c| yield_constr.constraint(builder, c));
+            .for_each(|c| {
+                let constraint = builder.mul_extension(c, local_values.is_real_round);
+                yield_constr.constraint(builder, constraint)
+            });
         }
     }
 
