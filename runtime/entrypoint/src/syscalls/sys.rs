@@ -26,7 +26,7 @@ static SYS_RAND_WARNING: std::sync::Once = std::sync::Once::new();
 ///
 /// Make sure that `buf` has at least `nwords` words.
 #[no_mangle]
-pub unsafe extern "C" fn sys_rand(recv_buf: *mut u8, words: usize) {
+pub unsafe extern "C" fn sys_rand(recv_buf: *mut u32, words: usize) {
     SYS_RAND_WARNING.call_once(|| {
         println!("WARNING: Using insecure random number generator.");
     });
