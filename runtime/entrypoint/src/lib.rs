@@ -39,10 +39,11 @@ pub const POSEIDON_NUM_WORDS: usize = 8;
 
 #[cfg(target_os = "zkvm")]
 mod zkvm {
-    use crate::syscalls::syscall_halt;
+    use crate::syscalls::{syscall_halt, sys_rand};
 
     use getrandom::{register_custom_getrandom, Error};
     use sha2::{Digest, Sha256};
+    use bytemuck;
 
     pub static mut PUBLIC_VALUES_HASHER: Option<Sha256> = None;
 
@@ -65,10 +66,35 @@ mod zkvm {
     core::arch::global_asm!(include_str!("memcpy.s"));
 
     fn zkvm_getrandom(s: &mut [u8]) -> Result<(), Error> {
-        unsafe {
-            crate::syscalls::sys_rand(s.as_mut_ptr(), s.len());
+
+        if s.is_empty() {
+            return Ok(());
         }
 
+        let (head, aligned, tail) = bytemuck::pod_align_to_mut::<_, u32>(s);
+
+        // Fill the aligned portion of the dest buffer with random words.
+        // sys_rand uses copy-in to fill the buffer at 4-words per cycle.
+        if aligned.len() > 0 {
+            unsafe {
+                sys_rand(aligned.as_mut_ptr(), aligned.len());
+            }
+        }
+
+        // Up to 4 bytes may be split between the head and tail.
+        // Sample an additional word and do an unaligned write to fill the last parts.
+        if head.len() > 0 || tail.len() > 0 {
+            assert!(head.len() < 4);
+            assert!(tail.len() < 4);
+
+            let mut words = [0u32; 2];
+            unsafe {
+                sys_rand(words.as_mut_ptr(), 2);
+            }
+
+            head.copy_from_slice(&words[0].to_ne_bytes()[..head.len()]);
+            tail.copy_from_slice(&words[1].to_ne_bytes()[..tail.len()]);
+        }
         Ok(())
     }
 
