@@ -224,10 +224,10 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaExtendStark<F, D> {
         row.s_1 = s_1.to_le_bytes().map(F::from_canonical_u8);
 
         let _ = row.w_i.generate_trace(
-            s_1.to_le_bytes(),
-            w_i_minus_7,
-            s_0.to_le_bytes(),
-            w_i_minus_16,
+            s_1,
+            u32::from_le_bytes(w_i_minus_7),
+            s_0,
+            u32::from_le_bytes(w_i_minus_16),
         );
 
         row

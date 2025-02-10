@@ -193,10 +193,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressSpongeStark<F, D> 
             .unwrap();
 
         for i in 0..8 {
-            let _ = row.output_hx[i].generate_trace(
-                h_x_t_minus_1[i].to_le_bytes(),
-                output_state[i].to_le_bytes(),
-            );
+            let _ = row.output_hx[i].generate_trace(h_x_t_minus_1[i], output_state[i]);
         }
 
         row

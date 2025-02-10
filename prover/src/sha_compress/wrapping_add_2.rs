@@ -14,13 +14,10 @@ pub struct WrappingAdd2Op<T> {
 }
 
 impl<F: Field> WrappingAdd2Op<F> {
-    pub fn generate_trace(&mut self, a: [u8; 4], b: [u8; 4]) -> u32 {
-        let a_u32 = u32::from_le_bytes(a);
-        let b_u32 = u32::from_le_bytes(b);
+    pub fn generate_trace(&mut self, a: u32, b: u32) -> u32 {
+        let expected = a.wrapping_add(b);
 
-        let expected = a_u32.wrapping_add(b_u32);
-
-        let overflowed_result = a_u32 as u64 + b_u32 as u64;
+        let overflowed_result = a as u64 + b as u64;
         let carry = overflowed_result >> 32;
 
         assert_eq!(carry * 2_u64.pow(32) + expected as u64, overflowed_result);

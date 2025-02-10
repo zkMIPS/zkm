@@ -336,11 +336,11 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressStark<F, D> {
         row.ch = ch.to_le_bytes().map(F::from_canonical_u8);
 
         let temp1 = row.temp1.generate_trace(
-            inputs[get_input_range_4(7)].try_into().unwrap(),
-            s_1.to_le_bytes(),
-            ch.to_le_bytes(),
-            inputs[get_input_range_4(9)].try_into().unwrap(),
-            inputs[get_input_range_4(8)].try_into().unwrap(),
+            u32::from_le_bytes(inputs[get_input_range_4(7)].try_into().unwrap()),
+            s_1,
+            ch,
+            u32::from_le_bytes(inputs[get_input_range_4(9)].try_into().unwrap()),
+            u32::from_le_bytes(inputs[get_input_range_4(8)].try_into().unwrap()),
         );
 
         let a_rr_2 = row
@@ -373,20 +373,16 @@ impl<F: RichField + Extendable<D>, const D: usize> ShaCompressStark<F, D> {
         row.maj_inter = maj_inter.to_le_bytes().map(F::from_canonical_u8);
         row.maj = maj.to_le_bytes().map(F::from_canonical_u8);
 
-        let temp2 = row
-            .temp2
-            .generate_trace(s_0.to_le_bytes(), maj.to_le_bytes());
+        let temp2 = row.temp2.generate_trace(s_0, maj);
 
         // next value of e
         let _ = row.d_add_temp1.generate_trace(
-            inputs[get_input_range_4(3)].try_into().unwrap(),
-            temp1.to_le_bytes(),
+            u32::from_le_bytes(inputs[get_input_range_4(3)].try_into().unwrap()),
+            temp1,
         );
 
         // next value of a
-        let _ = row
-            .temp1_add_temp2
-            .generate_trace(temp1.to_le_bytes(), temp2.to_le_bytes());
+        let _ = row.temp1_add_temp2.generate_trace(temp1, temp2);
 
         row.into()
     }
