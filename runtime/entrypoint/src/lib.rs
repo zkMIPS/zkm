@@ -39,11 +39,11 @@ pub const POSEIDON_NUM_WORDS: usize = 8;
 
 #[cfg(target_os = "zkvm")]
 mod zkvm {
-    use crate::syscalls::{syscall_halt, sys_rand};
+    use crate::syscalls::{sys_rand, syscall_halt};
 
+    use bytemuck;
     use getrandom::{register_custom_getrandom, Error};
     use sha2::{Digest, Sha256};
-    use bytemuck;
 
     pub static mut PUBLIC_VALUES_HASHER: Option<Sha256> = None;
 
@@ -66,7 +66,6 @@ mod zkvm {
     core::arch::global_asm!(include_str!("memcpy.s"));
 
     fn zkvm_getrandom(s: &mut [u8]) -> Result<(), Error> {
-
         if s.is_empty() {
             return Ok(());
         }
