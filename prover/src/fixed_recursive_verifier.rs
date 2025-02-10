@@ -406,6 +406,39 @@ where
             &all_stark.cross_table_lookups,
             stark_config,
         );
+
+        let sha_extend = RecursiveCircuitsForTable::new(
+            Table::ShaExtend,
+            &all_stark.sha_extend_stark,
+            degree_bits_ranges[Table::ShaExtend as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+
+        let sha_extend_sponge = RecursiveCircuitsForTable::new(
+            Table::ShaExtendSponge,
+            &all_stark.sha_extend_sponge_stark,
+            degree_bits_ranges[Table::ShaExtendSponge as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+
+        let sha_compress = RecursiveCircuitsForTable::new(
+            Table::ShaCompress,
+            &all_stark.sha_compress_stark,
+            degree_bits_ranges[Table::ShaCompress as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+
+        let sha_compress_sponge = RecursiveCircuitsForTable::new(
+            Table::ShaCompressSponge,
+            &all_stark.sha_compress_sponge_stark,
+            degree_bits_ranges[Table::ShaCompressSponge as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+
         let logic = RecursiveCircuitsForTable::new(
             Table::Logic,
             &all_stark.logic_stark,
@@ -428,6 +461,10 @@ where
             poseidon_sponge,
             keccak,
             keccak_sponge,
+            sha_extend,
+            sha_extend_sponge,
+            sha_compress,
+            sha_compress_sponge,
             logic,
             memory,
         ];
@@ -724,7 +761,6 @@ where
         let (all_proof, output) = prove_with_outputs::<F, C, D>(all_stark, kernel, config, timing)?;
         verify_proof(all_stark, all_proof.clone(), config).unwrap();
         let mut root_inputs = PartialWitness::new();
-
         for table in 0..NUM_TABLES {
             let stark_proof = &all_proof.stark_proofs[table];
             let original_degree_bits = stark_proof.proof.recover_degree_bits(config);

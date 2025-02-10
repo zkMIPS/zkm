@@ -19,9 +19,13 @@ use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::poseidon::constants::SPONGE_WIDTH;
 use crate::poseidon_sponge::columns::POSEIDON_RATE_BYTES;
 use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeOp;
+use crate::sha_compress::sha_compress_stark;
+use crate::sha_compress_sponge::sha_compress_sponge_stark::ShaCompressSpongeOp;
+use crate::sha_extend::sha_extend_stark;
+use crate::sha_extend_sponge::sha_extend_sponge_stark::ShaExtendSpongeOp;
 use crate::util::join;
 use crate::util::trace_rows_to_poly_values;
-use crate::witness::memory::MemoryOp;
+use crate::witness::memory::{MemoryAddress, MemoryOp};
 use crate::{arithmetic, logic};
 
 #[derive(Clone, Copy, Debug)]
@@ -32,6 +36,10 @@ pub struct TraceCheckpoint {
     pub(self) poseidon_sponge_len: usize,
     pub(self) keccak_len: usize,
     pub(self) keccak_sponge_len: usize,
+    pub(self) sha_extend_len: usize,
+    pub(self) sha_extend_sponge_len: usize,
+    pub(self) sha_compress_len: usize,
+    pub(self) sha_compress_sponge_len: usize,
     pub(self) logic_len: usize,
     pub(self) memory_len: usize,
 }
@@ -46,6 +54,11 @@ pub(crate) struct Traces<T: Copy> {
     pub(crate) poseidon_sponge_ops: Vec<PoseidonSpongeOp>,
     pub(crate) keccak_inputs: Vec<([u64; keccak_stark::NUM_INPUTS], usize)>,
     pub(crate) keccak_sponge_ops: Vec<KeccakSpongeOp>,
+    pub(crate) sha_extend_inputs: Vec<([u8; sha_extend_stark::NUM_INPUTS], usize)>,
+    pub(crate) sha_extend_sponge_ops: Vec<ShaExtendSpongeOp>,
+    pub(crate) sha_compress_inputs:
+        Vec<([u8; sha_compress_stark::NUM_INPUTS], MemoryAddress, usize)>,
+    pub(crate) sha_compress_sponge_ops: Vec<ShaCompressSpongeOp>,
 }
 
 impl<T: Copy> Traces<T> {
@@ -59,6 +72,10 @@ impl<T: Copy> Traces<T> {
             poseidon_sponge_ops: vec![],
             keccak_inputs: vec![],
             keccak_sponge_ops: vec![],
+            sha_extend_inputs: vec![],
+            sha_extend_sponge_ops: vec![],
+            sha_compress_inputs: vec![],
+            sha_compress_sponge_ops: vec![],
         }
     }
 
@@ -89,6 +106,10 @@ impl<T: Copy> Traces<T> {
                 .iter()
                 .map(|op| op.input.len() / keccak_sponge::columns::KECCAK_RATE_BYTES + 1)
                 .sum(),
+            sha_extend_len: self.sha_extend_inputs.len(),
+            sha_extend_sponge_len: self.sha_extend_sponge_ops.len(),
+            sha_compress_len: self.sha_compress_inputs.len(),
+            sha_compress_sponge_len: self.sha_compress_sponge_ops.len(),
             logic_len: self.logic_ops.len(),
             // This is technically a lower-bound, as we may fill gaps,
             // but this gives a relatively good estimate.
@@ -105,6 +126,10 @@ impl<T: Copy> Traces<T> {
             poseidon_sponge_len: self.poseidon_sponge_ops.len(),
             keccak_len: self.keccak_inputs.len(),
             keccak_sponge_len: self.keccak_sponge_ops.len(),
+            sha_extend_len: self.sha_extend_inputs.len(),
+            sha_extend_sponge_len: self.sha_extend_sponge_ops.len(),
+            sha_compress_len: self.sha_compress_inputs.len(),
+            sha_compress_sponge_len: self.sha_compress_sponge_ops.len(),
             logic_len: self.logic_ops.len(),
             memory_len: self.memory_ops.len(),
         }
@@ -119,6 +144,13 @@ impl<T: Copy> Traces<T> {
         self.keccak_inputs.truncate(checkpoint.keccak_len);
         self.keccak_sponge_ops
             .truncate(checkpoint.keccak_sponge_len);
+        self.sha_extend_inputs.truncate(checkpoint.sha_extend_len);
+        self.sha_extend_sponge_ops
+            .truncate(checkpoint.sha_extend_sponge_len);
+        self.sha_compress_inputs
+            .truncate(checkpoint.sha_compress_len);
+        self.sha_compress_sponge_ops
+            .truncate(checkpoint.sha_compress_sponge_len);
         self.logic_ops.truncate(checkpoint.logic_len);
         self.memory_ops.truncate(checkpoint.memory_len);
     }
@@ -169,6 +201,28 @@ impl<T: Copy> Traces<T> {
         self.keccak_sponge_ops.push(op);
     }
 
+    pub fn push_sha_extend(&mut self, input: [u8; sha_extend_stark::NUM_INPUTS], clock: usize) {
+        self.sha_extend_inputs.push((input, clock));
+    }
+
+    pub fn push_sha_extend_sponge(&mut self, op: ShaExtendSpongeOp) {
+        self.sha_extend_sponge_ops.push(op);
+    }
+
+    pub fn push_sha_compress(
+        &mut self,
+        input: [u8; sha_compress_stark::NUM_INPUTS],
+        memory_address: MemoryAddress,
+        clock: usize,
+    ) {
+        self.sha_compress_inputs
+            .push((input, memory_address, clock));
+    }
+
+    pub fn push_sha_compress_sponge(&mut self, op: ShaCompressSpongeOp) {
+        self.sha_compress_sponge_ops.push(op);
+    }
+
     pub fn clock(&self) -> usize {
         self.cpu.len()
     }
@@ -193,6 +247,10 @@ impl<T: Copy> Traces<T> {
             poseidon_sponge_ops,
             keccak_inputs,
             keccak_sponge_ops,
+            sha_extend_inputs,
+            sha_extend_sponge_ops,
+            sha_compress_inputs,
+            sha_compress_sponge_ops,
         } = self;
 
         let mut memory_trace = vec![];
@@ -203,7 +261,10 @@ impl<T: Copy> Traces<T> {
         let mut keccak_trace = vec![];
         let mut keccak_sponge_trace = vec![];
         let mut logic_trace = vec![];
-
+        let mut sha_extend_trace = vec![];
+        let mut sha_extend_sponge_trace = vec![];
+        let mut sha_compress_trace = vec![];
+        let mut sha_compress_sponge_trace = vec![];
         timed!(
             timing,
             "convert trace to table parallelly",
@@ -224,6 +285,18 @@ impl<T: Copy> Traces<T> {
                 || keccak_sponge_trace = all_stark
                     .keccak_sponge_stark
                     .generate_trace(keccak_sponge_ops, min_rows),
+                || sha_extend_trace = all_stark
+                    .sha_extend_stark
+                    .generate_trace(sha_extend_inputs, min_rows),
+                || sha_extend_sponge_trace = all_stark
+                    .sha_extend_sponge_stark
+                    .generate_trace(sha_extend_sponge_ops, min_rows),
+                || sha_compress_trace = all_stark
+                    .sha_compress_stark
+                    .generate_trace(sha_compress_inputs, min_rows),
+                || sha_compress_sponge_trace = all_stark
+                    .sha_compress_sponge_stark
+                    .generate_trace(sha_compress_sponge_ops, min_rows),
                 || logic_trace = all_stark.logic_stark.generate_trace(logic_ops, min_rows),
             )
         );
@@ -235,6 +308,10 @@ impl<T: Copy> Traces<T> {
             poseidon_sponge_trace,
             keccak_trace,
             keccak_sponge_trace,
+            sha_extend_trace,
+            sha_extend_sponge_trace,
+            sha_compress_trace,
+            sha_compress_sponge_trace,
             logic_trace,
             memory_trace,
         ]

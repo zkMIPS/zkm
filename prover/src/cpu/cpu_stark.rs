@@ -13,7 +13,6 @@ use super::columns::CpuColumnsView;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
-//use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::{
     bits, bootstrap_kernel, count, decode, jumps, membus, memio, misc, shift, syscall,
 };
@@ -43,8 +42,53 @@ pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     cols
 }
 
+pub fn ctl_data_sha_extend_sponge<F: Field>() -> Vec<Column<F>> {
+    // When executing SHA_EXTEND_GENERAL, the GP memory channels are used as follows:
+    // GP channel 0: stack[-1] = context
+    // GP channel 1: stack[-2] = segment
+    // GP channel 2: stack[-3] = virt
+    // GP channel 3: pushed = outputs
+    let context = Column::single(COL_MAP.mem_channels[0].value);
+    let segment = Column::single(COL_MAP.mem_channels[1].value);
+    let virt = Column::single(COL_MAP.mem_channels[2].value);
+
+    let num_channels = F::from_canonical_usize(NUM_CHANNELS);
+    let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
+
+    let mut cols = vec![context, segment, virt, timestamp];
+    cols.push(Column::single(COL_MAP.general.element().value));
+    cols
+}
+
+pub fn ctl_data_sha_compress_sponge<F: Field>() -> Vec<Column<F>> {
+    // When executing SHA_COMPRESS_GENERAL, the GP memory channels are used as follows:
+    // GP channel 0: stack[-1] = context
+    // GP channel 1: stack[-2] = segment
+    // GP channel 2: stack[-3] = start virt
+    // GP channel 3: pushed = outputs
+    let context = Column::single(COL_MAP.mem_channels[0].value);
+    let segment = Column::single(COL_MAP.mem_channels[1].value);
+    let virt = Column::single(COL_MAP.mem_channels[2].value);
+
+    let num_channels = F::from_canonical_usize(NUM_CHANNELS);
+    let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
+
+    let mut cols = vec![context, segment, virt, timestamp];
+    // let mut cols = vec![context, segment, virt];
+    cols.extend(COL_MAP.general.shash().value.map(Column::single));
+    cols
+}
+
 pub fn ctl_filter_keccak_sponge<F: Field>() -> Filter<F> {
     Filter::new_simple(Column::single(COL_MAP.is_keccak_sponge))
+}
+
+pub fn ctl_filter_sha_extend_sponge<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.is_sha_extend_sponge))
+}
+
+pub fn ctl_filter_sha_compress_sponge<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.is_sha_compress_sponge))
 }
 
 pub fn ctl_data_poseidon_sponge<F: Field>() -> Vec<Column<F>> {

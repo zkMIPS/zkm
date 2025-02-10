@@ -5,6 +5,7 @@ use crate::syscall_keccak;
 use crate::syscall_verify;
 use crate::syscall_write;
 use crate::{syscall_hint_len, syscall_hint_read};
+use crate::{syscall_sha256_compress, syscall_sha256_extend};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -149,4 +150,22 @@ pub fn keccak(data: &[u8]) -> [u8; 32] {
         syscall_keccak(u32_array.as_ptr(), len, result.as_mut_ptr());
     }
     result
+}
+
+pub fn compress(state: &mut [u32; 8], blocks: &[[u8; 64]]) {
+    unsafe {
+        for block in blocks {
+            let mut w = [0u32; 64];
+            for (j, item) in w.iter_mut().enumerate().take(16) {
+                *item = u32::from_be_bytes([
+                    block[j * 4],
+                    block[j * 4 + 1],
+                    block[j * 4 + 2],
+                    block[j * 4 + 3],
+                ]);
+            }
+            syscall_sha256_extend(w.as_mut_ptr());
+            syscall_sha256_compress(w.as_mut_ptr(), state.as_mut_ptr());
+        }
+    }
 }
