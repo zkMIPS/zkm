@@ -4,7 +4,7 @@
 
 * Compile the Go code to MIPS
 
-Write your own hello.go, and compile with
+Write your own hello.go, and compile it with
 
 ```
 GOOS=linux GOARCH=mips GOMIPS=softfloat go build hello.go
