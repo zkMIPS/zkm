@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 use std::fs;
+use std::fs::File;
+use std::io::BufReader;
 use std::io::{stderr, stdout, Read, Write};
 use std::path::Path;
 
@@ -136,6 +138,72 @@ impl State {
             exit_code: 0,
             dump_info: false,
         })
+    }
+
+    pub fn load_seg(seg_path: &str) -> (Box<Self>, u64) {
+        let reader = BufReader::new(File::open(seg_path).unwrap());
+        let segment: Segment = serde_json::from_reader(reader).unwrap();
+        let mut s = Box::new(Self {
+            memory: Box::new(Memory::new()),
+            registers: Default::default(),
+            pc: segment.pc,
+            next_pc: 0,
+            hi: 0,
+            lo: 0,
+            heap: 0,
+            local_user: 0,
+            step: 0,
+            total_step: 0,
+            cycle: 0,
+            total_cycle: 0,
+            brk: 0,
+            input_stream: segment.input_stream,
+            input_stream_ptr: segment.input_stream_ptr,
+            public_values_stream: segment.public_values_stream,
+            public_values_stream_ptr: segment.public_values_stream_ptr,
+            exited: false,
+            exit_code: 0,
+            dump_info: false,
+        });
+
+        let image = segment.mem_image;
+
+        for i in 0..32 {
+            let data = image.get(&(REGISTERS_START + (i << 2) as u32)).unwrap();
+            s.registers[i] = data.to_be();
+        }
+
+        s.lo = image
+            .get(&(REGISTERS_START + (32 << 2) as u32))
+            .unwrap()
+            .to_be();
+        s.hi = image
+            .get(&(REGISTERS_START + (33 << 2) as u32))
+            .unwrap()
+            .to_be();
+        s.heap = image
+            .get(&(REGISTERS_START + (34 << 2) as u32))
+            .unwrap()
+            .to_be();
+        s.next_pc = image
+            .get(&(REGISTERS_START + (36 << 2) as u32))
+            .unwrap()
+            .to_be();
+
+        s.brk = image
+            .get(&(REGISTERS_START + (37 << 2) as u32))
+            .unwrap()
+            .to_be();
+
+        s.local_user = image
+            .get(&(REGISTERS_START + (38 << 2) as u32))
+            .unwrap()
+            .to_be();
+
+        for (addr, data) in image {
+            s.memory.init_memory(addr, data);
+        }
+        (s, segment.step)
     }
 
     pub fn load_elf(f: &elf::ElfBytes<AnyEndian>) -> Box<Self> {

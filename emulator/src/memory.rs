@@ -322,6 +322,25 @@ impl Memory {
         self.count = count;
     }
 
+    pub fn init_memory<'a>(&mut self, addr: u32, v: u32) {
+        let page_index = addr >> PAGE_ADDR_SIZE;
+        let page_addr = (addr as usize) & PAGE_ADDR_MASK;
+        let cached_page = match self.page_lookup(page_index) {
+            None => {
+                // allocate the page if we have not already
+                // Golang may mmap relatively large ranges, but we only allocate just in time.
+                self.alloc_page(page_index)
+            }
+            Some(cached_page) => {
+                // self.invalidate(addr);
+                cached_page
+            }
+        };
+
+        let mut cached_page = cached_page.borrow_mut();
+        cached_page.data[page_addr..page_addr + 4].copy_from_slice(&v.to_le_bytes());
+    }
+
     pub fn set_memory_range<'a>(
         &mut self,
         mut addr: u32,
