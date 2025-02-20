@@ -33,6 +33,14 @@ BASEDIR=../../../emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_
     cargo run --release
 ```
 
+* Generate proof for specific large segment (Split large segment into small segments)
+
+```
+cd ../prove-large-seg
+BASEDIR=../../../emulator/test-vectors RUST_LOG=info SEG_FILE=/tmp/output/8 BLOCK_NO=13284491 SEG_OUTPUT=/tmp/output1 SEG_SIZE=16384 cargo run --release
+
+```
+
 ### Prove Go sdk code
 The SDK provide Read and Commit interface to read input and commit output.
 Take sha2-go for example:

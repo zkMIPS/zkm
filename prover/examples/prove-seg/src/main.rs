@@ -1,5 +1,5 @@
 use std::env;
-use zkm_prover::utils;
+use zkm_utils::utils;
 
 fn prove_segments() {
     let basedir = env::var("BASEDIR").unwrap_or("/tmp/cannon".to_string());
