@@ -67,7 +67,7 @@ pub fn split_seg_into_segs(
 ) -> (usize, usize, Box<State>) {
     let (state, final_step) = load_segment(seg_file);
     let mut instrumented_state = InstrumentedState::new(state, block_path.to_string());
-    log::info!("start pc: {:X} {}", instrumented_state.state.pc, final_step);
+    log::debug!("start pc: {:X} {}", instrumented_state.state.pc, final_step);
     std::fs::create_dir_all(seg_path).unwrap();
     let new_writer = |_: &str| -> Option<std::fs::File> { None };
     instrumented_state.split_segment(false, seg_path, new_writer);
@@ -79,7 +79,7 @@ pub fn split_seg_into_segs(
         }
         if cycles > (seg_size as isize - 1) as u64 {
             instrumented_state.split_segment(true, seg_path, new_writer);
-            log::info!(
+            log::debug!(
                 "Split at {} : {} into {}",
                 instrumented_state.state.total_step,
                 instrumented_state.state.total_cycle,
