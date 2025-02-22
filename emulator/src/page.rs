@@ -5,7 +5,7 @@ pub const PAGE_SIZE: usize = 1 << PAGE_ADDR_SIZE;
 pub const PAGE_ADDR_MASK: usize = PAGE_SIZE - 1;
 const MAX_PAGE_COUNT: usize = 1 << PAGE_KEY_SIZE;
 const PAGE_KEY_MASK: usize = MAX_PAGE_COUNT - 1;
-pub const MAX_MEMORY: usize = 0x10000000;
+pub const MAX_MEMORY: usize = 0x80000000;
 pub const HASH_LEVEL: usize = 3;
 
 #[derive(Debug, Clone)]

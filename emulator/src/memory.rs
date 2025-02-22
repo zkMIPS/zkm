@@ -14,7 +14,7 @@ use std::io::Read;
 use std::rc::Rc;
 
 pub const INIT_SP: u32 = MAX_MEMORY as u32 - 0x4000;
-pub const HASH_ADDRESS_BASE: u32 = 0x10000000;
+pub const HASH_ADDRESS_BASE: u32 = MAX_MEMORY as u32;
 pub const L0_HASH_ADDRESS_BASE: u32 = HASH_ADDRESS_BASE;
 pub const L1_HASH_ADDRESS_BASE: u32 = HASH_ADDRESS_BASE + (L0_HASH_ADDRESS_BASE >> 7);
 pub const L2_HASH_ADDRESS_BASE: u32 = HASH_ADDRESS_BASE + (L1_HASH_ADDRESS_BASE >> 7);
