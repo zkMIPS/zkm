@@ -205,6 +205,9 @@ pub struct CpuStark<F, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D> {
+    fn get_type(&self) -> usize{
+        2
+    }
     type EvaluationFrame<FE, P, const D2: usize>
         = StarkFrame<P, NUM_CPU_COLUMNS>
     where

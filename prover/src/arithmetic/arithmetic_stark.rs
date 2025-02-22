@@ -188,6 +188,9 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticStark<F, D> {
+    fn get_type(&self) -> usize{
+        1
+    }
     type EvaluationFrame<FE, P, const D2: usize>
         = StarkFrame<P, NUM_ARITH_COLUMNS>
     where

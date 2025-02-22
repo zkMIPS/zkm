@@ -3,7 +3,7 @@ members = [
   "runtime/*",
   "emulator",
   "prover",
-  "build",
+  "build", "mytest_get_opstreams",
 ]
 resolver = "2"
 

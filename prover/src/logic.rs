@@ -175,6 +175,9 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F, D> {
+    fn get_type(&self) -> usize{
+        5
+    }
     type EvaluationFrame<FE, P, const D2: usize>
         = StarkFrame<P, NUM_COLUMNS>
     where

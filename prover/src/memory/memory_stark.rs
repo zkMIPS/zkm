@@ -245,6 +245,9 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F, D> {
+    fn get_type(&self) -> usize{
+        6
+    }
     type EvaluationFrame<FE, P, const D2: usize>
         = StarkFrame<P, NUM_COLUMNS>
     where

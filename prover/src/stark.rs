@@ -20,6 +20,7 @@ const QUOTIENT_ORACLE_INDEX: usize = 2;
 
 /// Represents a STARK system.
 pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
+    fn get_type(&self) -> usize{0}
     /// The total number of columns in the trace.
     const COLUMNS: usize = Self::EvaluationFrameTarget::COLUMNS;
 

@@ -31,8 +31,8 @@ use crate::stark::Stark;
 
 #[derive(Clone, Debug)]
 pub struct Filter<F: Field> {
-    products: Vec<(Column<F>, Column<F>)>,
-    constants: Vec<Column<F>>,
+    pub products: Vec<(Column<F>, Column<F>)>,
+    pub constants: Vec<Column<F>>,
 }
 
 impl<F: Field> Filter<F> {
@@ -118,9 +118,9 @@ impl<F: Field> Filter<F> {
 /// Represent a linear combination of columns.
 #[derive(Clone, Debug)]
 pub struct Column<F: Field> {
-    linear_combination: Vec<(usize, F)>,
-    next_row_linear_combination: Vec<(usize, F)>,
-    constant: F,
+    pub linear_combination: Vec<(usize, F)>,
+    pub next_row_linear_combination: Vec<(usize, F)>,
+    pub constant: F,
 }
 
 impl<F: Field> Column<F> {

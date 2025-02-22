@@ -363,6 +363,9 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonSpongeStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonSpongeStark<F, D> {
+    fn get_type(&self) -> usize{
+        4
+    }
     type EvaluationFrame<FE, P, const D2: usize>
         = StarkFrame<P, NUM_POSEIDON_SPONGE_COLUMNS>
     where
