@@ -435,7 +435,7 @@ impl Memory {
         self.wtrace[2].clear();
     }
 
-    pub fn compute_image_id(&mut self, pc: u32, regiters: &[u8; 39 * 4]) -> ([u8; 32], [u8; 32]) {
+    pub fn compute_image_id(&mut self, pc: u32, registers: &[u8; 39 * 4]) -> ([u8; 32], [u8; 32]) {
         // ROOT PAGES  0x81020000.. 0x81020400
         let root_page = 0x81020u32;
         let hash = match self.pages.get(&root_page) {
@@ -444,7 +444,7 @@ impl Memory {
             }
             Some(page) => {
                 page.borrow_mut().data[REGISTERS_OFFSET..REGISTERS_OFFSET + 39 * 4]
-                    .copy_from_slice(regiters);
+                    .copy_from_slice(registers);
                 hash_page(&page.borrow().data)
             }
         };
