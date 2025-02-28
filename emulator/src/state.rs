@@ -1473,7 +1473,7 @@ impl InstrumentedState {
         self.state.cycle + (self.state.memory.page_count() + 1) * PAGE_CYCLES + RESERVE_CYCLES
     }
 
-    /// the caller should provide a write to write segemnt if proof is true
+    /// the caller should provide a write to write segment if proof is true
     pub fn split_segment<W: Write>(
         &mut self,
         proof: bool,
