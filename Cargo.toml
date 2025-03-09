@@ -3,6 +3,7 @@ members = [
   "runtime/*",
   "emulator",
   "prover",
+  "recursion",
   "build",
 ]
 resolver = "2"

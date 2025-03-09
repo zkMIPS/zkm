@@ -1,0 +1,33 @@
+[package]
+name = "recursion"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+libc = "0.2"
+bincode = "1.3.3"
+
+async-trait = "0.1"
+
+zkm-prover = { git = "https://github.com/zkMIPS/zkm", branch = "main", default-features = false }
+zkm-emulator = { git = "https://github.com/zkMIPS/zkm", branch = "main", default-features = false }
+plonky2 = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
+
+tonic = { version = "0.8.1", features = ["tls", "transport"] }
+prost = "0.11.0"
+
+reqwest = { version = "0.11", features = ["rustls-tls"] }
+tokio = { version = "1.21.0", features = ["macros", "rt-multi-thread", "signal"] }
+ethers = "2.0.14"
+sha2 = { version = "0.10.8", default-features = false }
+
+log = { version = "0.4.14", default-features = false }
+anyhow = "1.0.75"
+serde = { version = "1.0.144", features = ["derive"] }
+serde_json = "1.0"
+
+elf = { version = "0.7", default-features = false }
+uuid = { version = "1.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
+
+plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x", branch = "zkm" }
+env_logger = "0.10.2"
