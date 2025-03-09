@@ -9,7 +9,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let status = Command::new("go")
         .current_dir("src/snark/libsnark")
         .env("CGO_ENABLED", "1")
-        .args(["build", "-tags=debug", "-o", dest.to_str().unwrap(), "-buildmode=c-archive", "."])
+        .args([
+            "build",
+            "-tags=debug",
+            "-o",
+            dest.to_str().unwrap(),
+            "-buildmode=c-archive",
+            ".",
+        ])
         .status()
         .expect("Failed to build Go library");
     if !status.success() {

@@ -35,7 +35,12 @@ pub fn prove_snark(keypath: &str, inputdir: &str, outputdir: &str) -> anyhow::Re
     let mut result: *mut libc::c_char = std::ptr::null_mut();
 
     let ret = unsafe {
-        Stark2Snark(keypath.as_ptr(), inputdir.as_ptr(), outputdir.as_ptr(), &mut result)
+        Stark2Snark(
+            keypath.as_ptr(),
+            inputdir.as_ptr(),
+            outputdir.as_ptr(),
+            &mut result,
+        )
     };
     if ret == 0 {
         Ok(())

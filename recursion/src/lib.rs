@@ -1,23 +1,23 @@
 mod snark;
 pub use snark::*;
 
-use std::marker::PhantomData;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
-use std::time::Duration;
 use plonky2x::backend::circuit::Groth16WrapperParameters;
 use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::prelude::DefaultParameters;
+use std::marker::PhantomData;
+use std::time::Duration;
 
 use plonky2::plonk::circuit_data::CircuitData;
 use plonky2::util::serialization::{DefaultGateSerializer, DefaultGeneratorSerializer};
 
 use zkm_prover::all_stark::AllStark;
+use zkm_prover::config::StarkConfig;
 use zkm_prover::fixed_recursive_verifier::AllRecursiveCircuits;
 use zkm_prover::generation::state::Receipt;
-use zkm_prover::config::StarkConfig;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -26,10 +26,22 @@ type InnerParameters = DefaultParameters;
 type OuterParameters = Groth16WrapperParameters;
 
 /// This can be used for all external host program, like zkm-project-template and zkm-proof-network etc.
-pub const DEGREE_BITS_RANGE: [std::ops::Range<usize>; 12] =
-    [10..21, 12..22, 11..21, 8..21, 6..10, 6..10, 6..16, 6..16, 6..16, 6..16, 6..21, 13..23];
+pub const DEGREE_BITS_RANGE: [std::ops::Range<usize>; 12] = [
+    10..21,
+    12..22,
+    11..21,
+    8..21,
+    6..10,
+    6..10,
+    6..16,
+    6..16,
+    6..16,
+    6..16,
+    6..21,
+    13..23,
+];
 
-pub fn create_recursive_circuit() -> AllRecursiveCircuits<F, C, D>{
+pub fn create_recursive_circuit() -> AllRecursiveCircuits<F, C, D> {
     let timing = TimingTree::new("agg init all_circuits", log::Level::Info);
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
@@ -44,7 +56,7 @@ pub fn aggregate_proof(
     left: Receipt<F, C, D>,
     right: Receipt<F, C, D>,
     is_left_agg: bool,
-    is_right_agg: bool
+    is_right_agg: bool,
 ) -> anyhow::Result<Receipt<F, C, D>> {
     let timing = TimingTree::new("agg agg", log::Level::Info);
     // We can duplicate the proofs here because the state hasn't mutated.
@@ -55,7 +67,11 @@ pub fn aggregate_proof(
     Ok(new_agg_receipt)
 }
 
-pub fn wrap_stark_bn254(all_circuits: AllRecursiveCircuits<F, C, D>, new_agg_receipt: Receipt<F, C, D>, output_dir: &str) -> anyhow::Result<()> {
+pub fn wrap_stark_bn254(
+    all_circuits: AllRecursiveCircuits<F, C, D>,
+    new_agg_receipt: Receipt<F, C, D>,
+    output_dir: &str,
+) -> anyhow::Result<()> {
     let mut timing = TimingTree::new("agg prove_block", log::Level::Info);
 
     let block_receipt = all_circuits.prove_block(None, &new_agg_receipt)?;
@@ -76,7 +92,7 @@ pub fn wrap_stark_bn254(all_circuits: AllRecursiveCircuits<F, C, D>, new_agg_rec
         &gate_serializer,
         &generator_serializer,
     )
-        .unwrap();
+    .unwrap();
 
     let builder = WrapperBuilder::<DefaultParameters, 2>::new();
     let mut circuit = builder.build();
@@ -92,7 +108,7 @@ pub fn wrap_stark_bn254(all_circuits: AllRecursiveCircuits<F, C, D>, new_agg_rec
     std::fs::create_dir_all(output_dir)?;
 
     let wrapped_proof = wrapped_circuit.prove(&block_receipt.proof()).unwrap();
-    wrapped_proof.save(&output_dir)?;
+    wrapped_proof.save(output_dir)?;
 
     let src_public_inputs = match &block_receipt {
         Receipt::Segments(receipt) => &receipt.proof.public_inputs,
@@ -102,13 +118,19 @@ pub fn wrap_stark_bn254(all_circuits: AllRecursiveCircuits<F, C, D>, new_agg_rec
     let outdir_path = std::path::Path::new(&output_dir);
 
     let public_values_file = outdir_path.join("public_values.json");
-    std::fs::write(public_values_file, serde_json::to_string(&block_receipt.values())?)?;
+    std::fs::write(
+        public_values_file,
+        serde_json::to_string(&block_receipt.values())?,
+    )?;
 
     let block_public_inputs = serde_json::json!({
-            "public_inputs": src_public_inputs,
-        });
+        "public_inputs": src_public_inputs,
+    });
     let block_public_inputs_file = outdir_path.join("block_public_inputs.json");
-    std::fs::write(block_public_inputs_file, serde_json::to_string(&block_public_inputs)?)?;
+    std::fs::write(
+        block_public_inputs_file,
+        serde_json::to_string(&block_public_inputs)?,
+    )?;
 
     timing.filter(Duration::from_millis(100)).print();
     Ok(())
@@ -116,11 +138,7 @@ pub fn wrap_stark_bn254(all_circuits: AllRecursiveCircuits<F, C, D>, new_agg_rec
 
 // TODO: all the wrapped proof and groth16 proof are written into the disk, which is not friendly for distribution across the cloud
 pub fn as_groth16(key_path: &str, input_dir: &str, output_dir: &str) -> anyhow::Result<()> {
-    snark::prove_snark(
-        key_path,
-        input_dir,
-        output_dir,
-    )
+    snark::prove_snark(key_path, input_dir, output_dir)
 }
 
 // TODO: should setup the output path
@@ -128,15 +146,17 @@ pub fn groth16_setup(input_dir: &str) -> anyhow::Result<()> {
     snark::setup_and_generate_sol_verifier(input_dir)
 }
 
+#[allow(dead_code)]
+#[cfg(test)]
 pub mod tests {
-    use std::env;
+    use super::*;
+    use ethers::utils::hex::hex;
     use std::fs::File;
     use std::io::BufReader;
-    use ethers::utils::hex::hex;
     use zkm_emulator::utils::{load_elf_with_patch, split_prog_into_segs};
     use zkm_prover::cpu::kernel::assembler::segment_kernel;
-    use super::*;
-    const ELF_PATH: &str = "../prover/examples/sha2-rust/guest/elf/mips-zkm-zkvm-elf";
+
+    const ELF_PATH: &str = "./elf-files/sha2-elf";
     #[test]
     fn sha2_test_e2e() -> anyhow::Result<()> {
         env_logger::try_init().unwrap_or_default();
@@ -144,12 +164,13 @@ pub mod tests {
         let seg_size: usize = 8192;
         let mut state = load_elf_with_patch(ELF_PATH, vec![]);
 
-        let public_input: Vec<u8> = hex::decode("711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d")?;
+        let public_input: Vec<u8> =
+            hex::decode("711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d")?;
         state.add_input_stream(&public_input);
         let private_input = "world!".as_bytes().to_vec();
         state.add_input_stream(&private_input);
 
-        let (_total_steps, seg_num, mut state) = split_prog_into_segs(state, &seg_path, "", seg_size);
+        let (_total_steps, seg_num, _state) = split_prog_into_segs(state, seg_path, "", seg_size);
 
         let all_stark = AllStark::<F, D>::default();
         let config = StarkConfig::standard_fast_config();
@@ -193,7 +214,6 @@ pub mod tests {
 
             all_circuits.verify_root(receipt.clone())?;
 
-            timing = TimingTree::new("prove aggression", log::Level::Info);
             // We can duplicate the proofs here because the state hasn't mutated.
             agg_receipt = aggregate_proof(&all_circuits, agg_receipt, receipt, false, false)?;
 
@@ -235,11 +255,14 @@ pub mod tests {
 
             all_circuits.verify_root(root_receipt.clone())?;
 
-            timing = TimingTree::new("prove aggression", log::Level::Info);
             // We can duplicate the proofs here because the state hasn't mutated.
-            let new_agg_receipt =
-                aggregate_proof(&all_circuits, root_receipt_first, root_receipt, false, false)?;
-            timing = TimingTree::new("prove nested aggression", log::Level::Info);
+            let new_agg_receipt = aggregate_proof(
+                &all_circuits,
+                root_receipt_first,
+                root_receipt,
+                false,
+                false,
+            )?;
 
             // We can duplicate the proofs here because the state hasn't mutated.
             agg_receipt =
@@ -248,10 +271,10 @@ pub mod tests {
         }
 
         log::info!(
-        "proof size: {:?}",
-        serde_json::to_string(&agg_receipt.proof().proof)
-            .unwrap()
-            .len()
+            "proof size: {:?}",
+            serde_json::to_string(&agg_receipt.proof().proof)
+                .unwrap()
+                .len()
         );
 
         if seg_file_number > 1 {
@@ -259,8 +282,9 @@ pub mod tests {
         }
         log::info!("build finish");
 
-        groth16_setup("/tmp/input");
-        as_groth16("/tmp/input", "/tmp/input", "/tmp/output");
+        groth16_setup("/tmp/input")?;
+        as_groth16("/tmp/input", "/tmp/input", "/tmp/output")?;
+
         Ok(())
     }
 }

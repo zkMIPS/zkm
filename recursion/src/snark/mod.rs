@@ -1,3 +1,3 @@
-mod snark;
+mod snarks;
 
-pub use snark::*;
+pub use snarks::*;
