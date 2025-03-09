@@ -39,7 +39,13 @@ pub fn create_recursive_circuit() -> AllRecursiveCircuits<F, C, D>{
     all_circuits
 }
 
-pub fn aggregate_proof(all_circuits: AllRecursiveCircuits<F, C, D>, left: Receipt<F, C, D>, right: Receipt<F, C, D>, is_left_agg: bool, is_right_agg: bool) -> anyhow::Result<Receipt<F, C, D>> {
+pub fn aggregate_proof(
+    all_circuits: &AllRecursiveCircuits<F, C, D>,
+    left: Receipt<F, C, D>,
+    right: Receipt<F, C, D>,
+    is_left_agg: bool,
+    is_right_agg: bool
+) -> anyhow::Result<Receipt<F, C, D>> {
     let timing = TimingTree::new("agg agg", log::Level::Info);
     // We can duplicate the proofs here because the state hasn't mutated.
     let new_agg_receipt =
@@ -111,9 +117,9 @@ pub fn wrap_stark_bn254(all_circuits: AllRecursiveCircuits<F, C, D>, new_agg_rec
 // TODO: all the wrapped proof and groth16 proof are written into the disk, which is not friendly for distribution across the cloud
 pub fn as_groth16(key_path: &str, input_dir: &str, output_dir: &str) -> anyhow::Result<()> {
     snark::prove_snark(
-       key_path,
-       input_dir,
-       output_dir,
+        key_path,
+        input_dir,
+        output_dir,
     )
 }
 
@@ -123,9 +129,138 @@ pub fn groth16_setup(input_dir: &str) -> anyhow::Result<()> {
 }
 
 pub mod tests {
+    use std::env;
+    use std::fs::File;
+    use std::io::BufReader;
+    use ethers::utils::hex::hex;
+    use zkm_emulator::utils::{load_elf_with_patch, split_prog_into_segs};
+    use zkm_prover::cpu::kernel::assembler::segment_kernel;
     use super::*;
+    const ELF_PATH: &str = "../prover/examples/sha2-rust/guest/elf/mips-zkm-zkvm-elf";
     #[test]
-    fn sha2_test_e2e() {
-        println!("Should run an e2e");
+    fn sha2_test_e2e() -> anyhow::Result<()> {
+        env_logger::try_init().unwrap_or_default();
+        let seg_path = "/tmp/output";
+        let seg_size: usize = 8192;
+        let mut state = load_elf_with_patch(ELF_PATH, vec![]);
+
+        let public_input: Vec<u8> = hex::decode("711e9609339e92b03ddc0a211827dba421f38f9ed8b9d806e1ffdd8c15ffa03d")?;
+        state.add_input_stream(&public_input);
+        let private_input = "world!".as_bytes().to_vec();
+        state.add_input_stream(&private_input);
+
+        let (_total_steps, seg_num, mut state) = split_prog_into_segs(state, &seg_path, "", seg_size);
+
+        let all_stark = AllStark::<F, D>::default();
+        let config = StarkConfig::standard_fast_config();
+        let all_circuits = create_recursive_circuit();
+
+        let seg_start_id = 0;
+        let assumptions = vec![];
+        let seg_file = format!("{}/{}", seg_path, seg_start_id);
+        log::info!("Process segment {}", seg_file);
+        let seg_reader = BufReader::new(File::open(seg_file)?);
+        let input_first = segment_kernel("", "", "", seg_reader);
+        let mut timing = TimingTree::new("prove root first", log::Level::Info);
+        let mut agg_receipt = all_circuits.prove_root_with_assumption(
+            &all_stark,
+            &input_first,
+            &config,
+            &mut timing,
+            assumptions.clone(),
+        )?;
+
+        let mut base_seg = seg_start_id + 1;
+        let seg_file_number = seg_num;
+        let mut seg_num = seg_file_number - 1;
+        let mut is_agg = false;
+
+        println!("seg_file_number: {:?}", seg_file_number);
+        if seg_file_number % 2 == 0 {
+            let seg_file = format!("{}/{}", seg_path, seg_start_id + 1);
+            log::info!("Process segment {}", seg_file);
+            let seg_reader = BufReader::new(File::open(seg_file)?);
+            let input = segment_kernel("", "", "", seg_reader);
+            timing = TimingTree::new("prove root second", log::Level::Info);
+            let receipt = all_circuits.prove_root_with_assumption(
+                &all_stark,
+                &input,
+                &config,
+                &mut timing,
+                assumptions.clone(),
+            )?;
+            timing.filter(Duration::from_millis(100)).print();
+
+            all_circuits.verify_root(receipt.clone())?;
+
+            timing = TimingTree::new("prove aggression", log::Level::Info);
+            // We can duplicate the proofs here because the state hasn't mutated.
+            agg_receipt = aggregate_proof(&all_circuits, agg_receipt, receipt, false, false)?;
+
+            is_agg = true;
+            base_seg = seg_start_id + 2;
+            seg_num -= 1;
+        }
+
+        for i in 0..seg_num / 2 {
+            let seg_file = format!("{}/{}", seg_path, base_seg + (i << 1));
+            log::info!("Process segment {}", seg_file);
+            let seg_reader = BufReader::new(File::open(&seg_file)?);
+            let input_first = segment_kernel("", "", "", seg_reader);
+            let mut timing = TimingTree::new("prove root first", log::Level::Info);
+            let root_receipt_first = all_circuits.prove_root_with_assumption(
+                &all_stark,
+                &input_first,
+                &config,
+                &mut timing,
+                assumptions.clone(),
+            )?;
+
+            timing.filter(Duration::from_millis(100)).print();
+            all_circuits.verify_root(root_receipt_first.clone())?;
+
+            let seg_file = format!("{}/{}", seg_path, base_seg + (i << 1) + 1);
+            log::info!("Process segment {}", seg_file);
+            let seg_reader = BufReader::new(File::open(&seg_file)?);
+            let input = segment_kernel("", "", "", seg_reader);
+            let mut timing = TimingTree::new("prove root second", log::Level::Info);
+            let root_receipt = all_circuits.prove_root_with_assumption(
+                &all_stark,
+                &input,
+                &config,
+                &mut timing,
+                assumptions.clone(),
+            )?;
+            timing.filter(Duration::from_millis(100)).print();
+
+            all_circuits.verify_root(root_receipt.clone())?;
+
+            timing = TimingTree::new("prove aggression", log::Level::Info);
+            // We can duplicate the proofs here because the state hasn't mutated.
+            let new_agg_receipt =
+                aggregate_proof(&all_circuits, root_receipt_first, root_receipt, false, false)?;
+            timing = TimingTree::new("prove nested aggression", log::Level::Info);
+
+            // We can duplicate the proofs here because the state hasn't mutated.
+            agg_receipt =
+                aggregate_proof(&all_circuits, agg_receipt, new_agg_receipt, is_agg, true)?;
+            is_agg = true;
+        }
+
+        log::info!(
+        "proof size: {:?}",
+        serde_json::to_string(&agg_receipt.proof().proof)
+            .unwrap()
+            .len()
+        );
+
+        if seg_file_number > 1 {
+            wrap_stark_bn254(all_circuits, agg_receipt, "/tmp/input")?;
+        }
+        log::info!("build finish");
+
+        groth16_setup("/tmp/input");
+        as_groth16("/tmp/input", "/tmp/input", "/tmp/output");
+        Ok(())
     }
 }
