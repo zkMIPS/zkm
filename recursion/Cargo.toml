@@ -30,3 +30,4 @@ elf = { version = "0.7", default-features = false }
 uuid = { version = "1.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
 
 plonky2x = { git = "https://github.com/zkMIPS/succinctx.git", package = "plonky2x", branch = "zkm" }
+env_logger = "0.10.2"
