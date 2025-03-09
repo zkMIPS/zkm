@@ -367,7 +367,7 @@ pub(crate) fn generate_keccak_general<
             let val = state.memory.get(address);
             val as u8
         })
-        .collect_vec();
+        .collect();
     log::trace!("Hashing {:?}", input);
 
     let hash = keccak(&input); // FIXME
@@ -1127,7 +1127,7 @@ pub(crate) fn generate_sha_compress<
         let input_state = [a, b, c, d, e, f, g, h]
             .iter()
             .map(|x| x.to_le_bytes())
-            .collect_vec();
+            .collect();
         state_values.push(input_state);
 
         let s_1_inter = e.rotate_right(6) ^ e.rotate_right(11);
@@ -1194,7 +1194,7 @@ pub(crate) fn generate_sha_compress<
     let input_state = [a, b, c, d, e, f, g, h]
         .iter()
         .map(|x| x.to_le_bytes())
-        .collect_vec();
+        .collect();
     state_values.push(input_state);
 
     state.traces.push_cpu(cpu_row);
@@ -1212,12 +1212,12 @@ pub(crate) fn generate_sha_compress<
         .iter()
         .enumerate()
         .map(|(i, x)| hx[i].wrapping_add(*x))
-        .collect_vec();
+        .collect();
 
     cpu_row.general.shash_mut().value = u32_result
         .into_iter()
         .map(F::from_canonical_u32)
-        .collect_vec()
+        .collect::<Vec<_>>()
         .try_into()
         .unwrap();
     // cpu_row.general.shash_mut().value.reverse();

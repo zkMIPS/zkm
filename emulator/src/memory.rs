@@ -441,7 +441,7 @@ impl Memory {
         self.wtrace[2].clear();
     }
 
-    pub fn compute_image_id(&mut self, pc: u32, regiters: &[u8; 39 * 4]) -> ([u8; 32], [u8; 32]) {
+    pub fn compute_image_id(&mut self, pc: u32, registers: &[u8; 39 * 4]) -> ([u8; 32], [u8; 32]) {
         // ROOT PAGES  L2_HASH_ADDRESS_BASE.. L2_HASH_ADDRESS_BASE + PAGE_SIZE
         let root_page = HASH_END_PAGE_INDEX;
         let hash = match self.pages.get(&root_page) {
