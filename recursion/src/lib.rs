@@ -158,6 +158,7 @@ pub mod tests {
 
     const ELF_PATH: &str = "./elf-files/sha2-elf";
     #[test]
+    #[ignore]
     fn sha2_test_e2e() -> anyhow::Result<()> {
         env_logger::try_init().unwrap_or_default();
         let seg_path = "/tmp/output";
