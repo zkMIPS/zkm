@@ -117,6 +117,7 @@ pub fn as_groth16(key_path: &str, input_dir: &str, output_dir: &str) -> anyhow::
     )
 }
 
+// TODO: should setup the output path
 pub fn groth16_setup(input_dir: &str) -> anyhow::Result<()> {
     snark::setup_and_generate_sol_verifier(input_dir)
 }
