@@ -1,5 +1,5 @@
 [package]
-name = "recursion"
+name = "zkm-recursion"
 version.workspace = true
 edition.workspace = true
 
