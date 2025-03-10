@@ -217,10 +217,6 @@ memcpy:                                # @memcpy
 	.set	nomacro
 	.set	noat
 # %bb.0: #23
-	addiu	$sp, $sp, -8
-	sw	$ra, 4($sp)                     # 4-byte Folded Spill
-	sw	$fp, 0($sp)                     # 4-byte Folded Spill
-	move	$fp, $sp
 	andi	$1, $5, 3
 	beqz	$1, $BB0_15
 	nop
@@ -399,12 +395,8 @@ $BB0_44: #118
 	lbu	$1, 0($5)
 	sb	$1, 0($2)
 $BB0_45: #120
-	move	$2, $4
-	move	$sp, $fp
-	lw	$fp, 0($sp)                     # 4-byte Folded Reload
-	lw	$ra, 4($sp)                     # 4-byte Folded Reload
 	jr	$ra
-	addiu	$sp, $sp, 8
+	move	$2, $4
 	.set	at
 	.set	macro
 	.set	reorder

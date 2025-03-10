@@ -217,13 +217,7 @@ memset:                                 # @memset
 	.set	nomacro
 	.set	noat
 # %bb.0:
-	addiu	$sp, $sp, -8
-	sw	$ra, 4($sp)             # 4-byte Folded Spill
-	sw	$fp, 0($sp)             # 4-byte Folded Spill
-	move	$fp, $sp
 	beqz	$6, $BBmemset0_9
-	nop
-# %bb.1:
 	addu	$2, $6, $4
 	sltiu	$1, $6, 3
 	sb	$5, 0($4)
@@ -242,68 +236,60 @@ memset:                                 # @memset
 	bnez	$1, $BBmemset0_9
 	sb	$5, -4($2)
 # %bb.4:
-	andi	$2, $5, 255
-	negu	$1, $4
-	sll	$5, $2, 8
-	sll	$7, $2, 16
-	andi	$1, $1, 3
-	or	$5, $5, $2
-	sll	$2, $2, 24
-	addu	$3, $4, $1
-	subu	$1, $6, $1
-	or	$5, $7, $5
-	or	$2, $2, $5
-	addiu	$5, $zero, -4
-	and	$5, $1, $5
-	sw	$2, 0($3)
-	addu	$6, $3, $5
-	sltiu	$1, $5, 9
-	bnez	$1, $BBmemset0_9
-	sw	$2, -4($6)
+	negu	$2, $4
+	andi	$1, $2, 3
+	addu	$2, $4, $1
+	subu	$6, $6, $1
+	addiu	$7, $zero, -4
+	and		$6, $6, $7
+	andi    $5, $5, 255
+	lui     $1, 257
+	addi    $1, $1, 257
+	mult    $5, $1
+	mflo    $5
+	sw	$5, 0($2)
+	addu	$1, $2, $6
+	sltiu	$3, $6, 9
+	bnez	$3, $BBmemset0_9
+	sw	$5, -4($1)
 # %bb.5:
-	sltiu	$1, $5, 25
-	sw	$2, 8($3)
-	sw	$2, 4($3)
-	sw	$2, -8($6)
-	bnez	$1, $BBmemset0_9
-	sw	$2, -12($6)
+	sltiu	$3, $6, 25
+	sw	$5, 8($2)
+	sw	$5, 4($2)
+	sw	$5, -8($1)
+	bnez	$3, $BBmemset0_9
+	sw	$5, -12($1)
 # %bb.6:
-	andi	$1, $3, 4
-	sw	$2, 24($3)
-	sw	$2, 20($3)
-	sw	$2, 16($3)
-	sw	$2, 12($3)
-	sw	$2, -16($6)
-	sw	$2, -20($6)
-	sw	$2, -24($6)
-	sw	$2, -28($6)
-	ori	$6, $1, 24
-	subu	$5, $5, $6
-	sltiu	$1, $5, 32
-	bnez	$1, $BBmemset0_9
-	nop
-# %bb.7:
-	addu	$3, $3, $6
+	sw	$5, 24($2)
+	sw	$5, 20($2)
+	sw	$5, 16($2)
+	sw	$5, 12($2)
+	sw	$5, -16($1)
+	sw	$5, -20($1)
+	sw	$5, -24($1)
+	andi	$3, $2, 4
+	ori	$3, $3, 24
+	subu	$6, $6, $3
+	sltiu	$7, $6, 32
+	bnez	$7, $BBmemset0_9
+	sw	$5, -28($1)
+	add $2, $2, $3
 $BBmemset0_8:                                 # =>This Inner Loop Header: Depth=1
-	addiu	$5, $5, -32
-	sw	$2, 24($3)
-	sw	$2, 16($3)
-	sw	$2, 8($3)
-	sw	$2, 0($3)
-	sw	$2, 28($3)
-	sw	$2, 20($3)
-	sw	$2, 12($3)
-	sw	$2, 4($3)
-	sltiu	$1, $5, 32
+	sw	$5, 24($2)
+	sw	$5, 16($2)
+	sw	$5, 8($2)
+	sw	$5, 0($2)
+	sw	$5, 28($2)
+	sw	$5, 20($2)
+	sw	$5, 12($2)
+	sw	$5, 4($2)
+	addiu	$6, $6, -32
+	sltiu	$1, $6, 32
 	beqz	$1, $BBmemset0_8
-	addiu	$3, $3, 32
+	addiu   $2, $2, 32
 $BBmemset0_9:
-	move	$2, $4
-	move	$sp, $fp
-	lw	$fp, 0($sp)             # 4-byte Folded Reload
-	lw	$ra, 4($sp)             # 4-byte Folded Reload
 	jr	$ra
-	addiu	$sp, $sp, 8
+	move	$2, $4
 	.set	at
 	.set	macro
 	.set	reorder
