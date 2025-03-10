@@ -41,6 +41,9 @@ pub const DEGREE_BITS_RANGE: [std::ops::Range<usize>; 12] = [
     13..23,
 ];
 
+const PUBLIC_INPUT_PATH: &str = "public_values.json";
+const BLOCK_PUBLIC_INPUTS_PATH: &str = "block_public_inputs.json";
+
 pub fn create_recursive_circuit() -> AllRecursiveCircuits<F, C, D> {
     let timing = TimingTree::new("agg init all_circuits", log::Level::Info);
     let all_stark = AllStark::<F, D>::default();
@@ -117,7 +120,7 @@ pub fn wrap_stark_bn254(
 
     let outdir_path = std::path::Path::new(&output_dir);
 
-    let public_values_file = outdir_path.join("public_values.json");
+    let public_values_file = outdir_path.join(PUBLIC_INPUT_PATH);
     std::fs::write(
         public_values_file,
         serde_json::to_string(&block_receipt.values())?,
@@ -126,7 +129,7 @@ pub fn wrap_stark_bn254(
     let block_public_inputs = serde_json::json!({
         "public_inputs": src_public_inputs,
     });
-    let block_public_inputs_file = outdir_path.join("block_public_inputs.json");
+    let block_public_inputs_file = outdir_path.join(BLOCK_PUBLIC_INPUTS_PATH);
     std::fs::write(
         block_public_inputs_file,
         serde_json::to_string(&block_public_inputs)?,
