@@ -71,7 +71,7 @@ pub fn aggregate_proof(
 }
 
 pub fn wrap_stark_bn254(
-    all_circuits: AllRecursiveCircuits<F, C, D>,
+    all_circuits: &AllRecursiveCircuits<F, C, D>,
     new_agg_receipt: Receipt<F, C, D>,
     output_dir: &str,
 ) -> anyhow::Result<()> {
@@ -282,7 +282,7 @@ pub mod tests {
         );
 
         if seg_file_number > 1 {
-            wrap_stark_bn254(all_circuits, agg_receipt, "/tmp/input")?;
+            wrap_stark_bn254(&all_circuits, agg_receipt, "/tmp/input")?;
         }
         log::info!("build finish");
 
