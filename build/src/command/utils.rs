@@ -45,7 +45,7 @@ pub(crate) fn get_program_build_args(args: &BuildArgs) -> Vec<String> {
 pub(crate) fn get_rust_compiler_flags() -> String {
     let rust_flags = [
         "-C".to_string(),
-        "target-cpu=mips2".to_string(),
+        "target-cpu=mips32r2".to_string(),
         "-C".to_string(),
         "target-feature=+crt-static".to_string(),
         "-C".to_string(),
