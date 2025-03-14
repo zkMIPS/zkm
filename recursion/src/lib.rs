@@ -1,4 +1,6 @@
 mod snark;
+
+use std::env;
 pub use snark::*;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -9,6 +11,7 @@ use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::prelude::DefaultParameters;
 use std::marker::PhantomData;
+use std::ops::Range;
 use std::time::Duration;
 
 use plonky2::plonk::circuit_data::CircuitData;
@@ -26,7 +29,7 @@ type InnerParameters = DefaultParameters;
 type OuterParameters = Groth16WrapperParameters;
 
 /// This can be used for all external host program, like zkm-project-template and zkm-proof-network etc.
-pub const DEGREE_BITS_RANGE: [std::ops::Range<usize>; 12] = [
+pub const DEGREE_BITS_RANGE: [Range<usize>; 12] = [
     10..21,
     12..22,
     11..21,
@@ -45,11 +48,12 @@ const PUBLIC_INPUT_PATH: &str = "public_values.json";
 const BLOCK_PUBLIC_INPUTS_PATH: &str = "block_public_inputs.json";
 
 pub fn create_recursive_circuit() -> AllRecursiveCircuits<F, C, D> {
+    let degree_bits_range = degree_from_env();
     let timing = TimingTree::new("agg init all_circuits", log::Level::Info);
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
     let all_circuits =
-        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &DEGREE_BITS_RANGE, &config);
+        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &degree_bits_range, &config);
     timing.filter(Duration::from_millis(100)).print();
     all_circuits
 }
@@ -147,6 +151,30 @@ pub fn as_groth16(key_path: &str, input_dir: &str, output_dir: &str) -> anyhow::
 // TODO: should setup the output path
 pub fn groth16_setup(input_dir: &str) -> anyhow::Result<()> {
     snark::setup_and_generate_sol_verifier(input_dir)
+}
+
+fn degree_from_env() -> [Range<usize>; 12] {
+    if let Ok(degree_bits_range) = env::var("DEGREE_BITS_RANGE") {
+        let degree_bits_range: Vec<Range<usize>> = degree_bits_range
+            .split(',')
+            .map(|table| {
+                let bounds: Vec<usize> = table
+                    .split("..")
+                    .map(|s| s.trim().parse().expect("Invalid number in range"))
+                    .collect();
+                assert_eq!(bounds.len(), 2);
+                Range {
+                    start: bounds[0],
+                    end: bounds[1],
+                }
+            })
+            .collect();
+        degree_bits_range.try_into().unwrap_or(DEGREE_BITS_RANGE)
+    } else {
+        // If the env var is not set, return the default value
+        DEGREE_BITS_RANGE
+    }
+
 }
 
 #[allow(dead_code)]
