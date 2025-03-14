@@ -51,6 +51,21 @@ use crate::verifier::verify_proof;
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
 const THRESHOLD_DEGREE_BITS: usize = 13;
 
+pub const RANGE_TABLES: [&str; 12] = [
+    "ARITHMETIC",
+    "CPU",
+    "POSEIDON",
+    "POSEIDON_SPONGE",
+    "KECCAK",
+    "KECCAK_SPONGE",
+    "SHA_EXTEND",
+    "SHA_EXTEND_SPONGE",
+    "SHA_COMPRESS",
+    "SHA_COMPRESS_SPONGE",
+    "LOGIC",
+    "MEMORY",
+];
+
 /// Contains all recursive circuits used in the system.
 ///
 /// For each STARK and each initial `degree_bits`, this contains a chain of
@@ -770,9 +785,12 @@ where
                 .get(&original_degree_bits)
                 .ok_or_else(|| {
                     anyhow::Error::msg(format!(
-                        "Missing preprocessed circuits for {:?} table with size {}.",
+                        "Missing preprocessed circuits for {:?} table with size {}. To set it, run: export {}=\"{}..{}\" ",
                         Table::all()[table],
                         original_degree_bits,
+                        RANGE_TABLES[table],
+                        original_degree_bits,
+                        original_degree_bits + 1,
                     ))
                 })?
                 .shrink(stark_proof, &all_proof.ctl_challenges)?;
@@ -844,9 +862,12 @@ where
                 .get(&original_degree_bits)
                 .ok_or_else(|| {
                     anyhow::Error::msg(format!(
-                        "Missing preprocessed circuits for {:?} table with size {}.",
+                        "Missing preprocessed circuits for {:?} table with size {}. To set it, run: export {}=\"{}..{}\" ",
                         Table::all()[table],
                         original_degree_bits,
+                        RANGE_TABLES[table],
+                        original_degree_bits,
+                        original_degree_bits + 1,
                     ))
                 })?
                 .shrink(stark_proof, &all_proof.ctl_challenges)?;

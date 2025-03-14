@@ -1,5 +1,7 @@
 mod snark;
+
 pub use snark::*;
+use std::env;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
@@ -9,6 +11,7 @@ use plonky2x::backend::wrapper::wrap::WrappedCircuit;
 use plonky2x::frontend::builder::CircuitBuilder as WrapperBuilder;
 use plonky2x::prelude::DefaultParameters;
 use std::marker::PhantomData;
+use std::ops::Range;
 use std::time::Duration;
 
 use plonky2::plonk::circuit_data::CircuitData;
@@ -26,7 +29,7 @@ type InnerParameters = DefaultParameters;
 type OuterParameters = Groth16WrapperParameters;
 
 /// This can be used for all external host program, like zkm-project-template and zkm-proof-network etc.
-pub const DEGREE_BITS_RANGE: [std::ops::Range<usize>; 12] = [
+pub const DEFAULT_DEGREE_BITS_RANGE: [Range<usize>; 12] = [
     10..21,
     12..22,
     11..21,
@@ -41,15 +44,31 @@ pub const DEGREE_BITS_RANGE: [std::ops::Range<usize>; 12] = [
     13..23,
 ];
 
+pub const RANGE_TABLES: [&str; 12] = [
+    "ARITHMETIC",
+    "CPU",
+    "POSEIDON",
+    "POSEIDON_SPONGE",
+    "KECCAK",
+    "KECCAK_SPONGE",
+    "SHA_EXTEND",
+    "SHA_EXTEND_SPONGE",
+    "SHA_COMPRESS",
+    "SHA_COMPRESS_SPONGE",
+    "LOGIC",
+    "MEMORY",
+];
+
 const PUBLIC_INPUT_PATH: &str = "public_values.json";
 const BLOCK_PUBLIC_INPUTS_PATH: &str = "block_public_inputs.json";
 
 pub fn create_recursive_circuit() -> AllRecursiveCircuits<F, C, D> {
+    let degree_bits_range = degree_from_env();
     let timing = TimingTree::new("agg init all_circuits", log::Level::Info);
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
     let all_circuits =
-        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &DEGREE_BITS_RANGE, &config);
+        AllRecursiveCircuits::<F, C, D>::new(&all_stark, &degree_bits_range, &config);
     timing.filter(Duration::from_millis(100)).print();
     all_circuits
 }
@@ -147,6 +166,32 @@ pub fn as_groth16(key_path: &str, input_dir: &str, output_dir: &str) -> anyhow::
 // TODO: should setup the output path
 pub fn groth16_setup(input_dir: &str) -> anyhow::Result<()> {
     snark::setup_and_generate_sol_verifier(input_dir)
+}
+
+fn degree_from_env() -> [Range<usize>; 12] {
+    RANGE_TABLES.map(|table| {
+        env::var(table)
+            .ok()
+            .and_then(|val| {
+                let bounds: Vec<usize> = val
+                    .split("..")
+                    .map(|s| s.trim().parse().ok())
+                    .collect::<Option<Vec<usize>>>()?;
+
+                if bounds.len() == 2 {
+                    Some(Range {
+                        start: bounds[0],
+                        end: bounds[1],
+                    })
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| {
+                let index = RANGE_TABLES.iter().position(|&r| r == table).unwrap();
+                DEFAULT_DEGREE_BITS_RANGE[index].clone()
+            })
+    })
 }
 
 #[allow(dead_code)]
