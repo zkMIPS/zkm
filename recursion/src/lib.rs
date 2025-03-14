@@ -74,7 +74,7 @@ pub fn wrap_stark_bn254(
     all_circuits: &AllRecursiveCircuits<F, C, D>,
     new_agg_receipt: Receipt<F, C, D>,
     output_dir: &str,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Receipt<F, C, D>> {
     let mut timing = TimingTree::new("agg prove_block", log::Level::Info);
 
     let block_receipt = all_circuits.prove_block(None, &new_agg_receipt)?;
@@ -136,7 +136,7 @@ pub fn wrap_stark_bn254(
     )?;
 
     timing.filter(Duration::from_millis(100)).print();
-    Ok(())
+    Ok(block_receipt)
 }
 
 // TODO: all the wrapped proof and groth16 proof are written into the disk, which is not friendly for distribution across the cloud
@@ -281,9 +281,11 @@ pub mod tests {
                 .len()
         );
 
-        if seg_file_number > 1 {
-            wrap_stark_bn254(&all_circuits, agg_receipt, "/tmp/input")?;
-        }
+        let _ = if seg_file_number > 1 {
+            wrap_stark_bn254(&all_circuits, agg_receipt, "/tmp/input").unwrap()
+        } else {
+            agg_receipt
+        };
         log::info!("build finish");
 
         groth16_setup("/tmp/input")?;
