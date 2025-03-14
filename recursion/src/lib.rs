@@ -1,7 +1,7 @@
 mod snark;
 
-use std::env;
 pub use snark::*;
+use std::env;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
@@ -29,19 +29,34 @@ type InnerParameters = DefaultParameters;
 type OuterParameters = Groth16WrapperParameters;
 
 /// This can be used for all external host program, like zkm-project-template and zkm-proof-network etc.
-pub const DEGREE_BITS_RANGE: [Range<usize>; 12] = [
-    10..21,
-    12..22,
-    11..21,
+pub const DEFAULT_DEGREE_BITS_RANGE: [Range<usize>; 12] = [
+    10..11,
+    12..13,
+    11..12,
     8..21,
-    6..10,
-    6..10,
-    6..16,
-    6..16,
+    10..11,
+    10..11,
+    10..16,
+    10..16,
     6..16,
     6..16,
     6..21,
     13..23,
+];
+
+pub const RANGE_TABLES: [&str; 12] = [
+    "ARITHMETIC",
+    "CPU",
+    "POSEIDON",
+    "POSEIDON_SPONGE",
+    "KECCAK",
+    "KECCAK_SPONGE",
+    "SHA_EXTEND",
+    "SHA_EXTEND_SPONGE",
+    "SHA_COMPRESS",
+    "SHA_COMPRESS_SPONGE",
+    "LOGIC",
+    "MEMORY",
 ];
 
 const PUBLIC_INPUT_PATH: &str = "public_values.json";
@@ -154,27 +169,29 @@ pub fn groth16_setup(input_dir: &str) -> anyhow::Result<()> {
 }
 
 fn degree_from_env() -> [Range<usize>; 12] {
-    if let Ok(degree_bits_range) = env::var("DEGREE_BITS_RANGE") {
-        let degree_bits_range: Vec<Range<usize>> = degree_bits_range
-            .split(',')
-            .map(|table| {
-                let bounds: Vec<usize> = table
+    RANGE_TABLES.map(|table| {
+        env::var(table)
+            .ok()
+            .and_then(|val| {
+                let bounds: Vec<usize> = val
                     .split("..")
-                    .map(|s| s.trim().parse().expect("Invalid number in range"))
-                    .collect();
-                assert_eq!(bounds.len(), 2);
-                Range {
-                    start: bounds[0],
-                    end: bounds[1],
+                    .map(|s| s.trim().parse().ok())
+                    .collect::<Option<Vec<usize>>>()?;
+
+                if bounds.len() == 2 {
+                    Some(Range {
+                        start: bounds[0],
+                        end: bounds[1],
+                    })
+                } else {
+                    None
                 }
             })
-            .collect();
-        degree_bits_range.try_into().unwrap_or(DEGREE_BITS_RANGE)
-    } else {
-        // If the env var is not set, return the default value
-        DEGREE_BITS_RANGE
-    }
-
+            .unwrap_or_else(|| {
+                let index = RANGE_TABLES.iter().position(|&r| r == table).unwrap();
+                DEFAULT_DEGREE_BITS_RANGE[index].clone()
+            })
+    })
 }
 
 #[allow(dead_code)]
@@ -189,7 +206,6 @@ pub mod tests {
 
     const ELF_PATH: &str = "./elf-files/sha2-elf";
     #[test]
-    #[ignore]
     fn sha2_test_e2e() -> anyhow::Result<()> {
         env_logger::try_init().unwrap_or_default();
         let seg_path = "/tmp/output";
