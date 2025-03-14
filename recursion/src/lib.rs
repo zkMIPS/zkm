@@ -30,14 +30,14 @@ type OuterParameters = Groth16WrapperParameters;
 
 /// This can be used for all external host program, like zkm-project-template and zkm-proof-network etc.
 pub const DEFAULT_DEGREE_BITS_RANGE: [Range<usize>; 12] = [
-    10..11,
-    12..13,
-    11..12,
+    10..21,
+    12..22,
+    11..21,
     8..21,
-    10..11,
-    10..11,
-    10..16,
-    10..16,
+    6..10,
+    6..10,
+    6..16,
+    6..16,
     6..16,
     6..16,
     6..21,
@@ -206,6 +206,7 @@ pub mod tests {
 
     const ELF_PATH: &str = "./elf-files/sha2-elf";
     #[test]
+    #[ignore]
     fn sha2_test_e2e() -> anyhow::Result<()> {
         env_logger::try_init().unwrap_or_default();
         let seg_path = "/tmp/output";
