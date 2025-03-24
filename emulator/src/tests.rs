@@ -44,14 +44,12 @@ mod tests {
             if file_name_path_buf.ends_with(Path::new("oracle.bin")) {
                 continue;
             }
-
             println!("testing: {:?}", &file_name_path_buf);
             execute_open_mips(file_name_path_buf);
         }
     }
 
     #[test]
-    #[ignore]
     fn test_execute_hello() {
         let state = load_elf_with_patch("test-vectors/hello", vec!["aab", "ccd"]);
 
@@ -65,9 +63,7 @@ mod tests {
         }
     }
 
-
     #[test]
-    #[ignore]
     fn test_execute_rust_fib() {
         let state = load_elf_with_patch("test-vectors/rust_fib", vec![]);
 
@@ -93,7 +89,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_execute_split_hello() {
         let state = load_elf_with_patch("test-vectors/hello", vec![]);
         let _ = split_prog_into_segs(state, OUTPUT, "", SEGMENT_STEPS);

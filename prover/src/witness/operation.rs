@@ -13,7 +13,7 @@ use plonky2::field::types::Field;
 
 use super::util::keccak_sponge_log;
 use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_RATE_U32S};
-// use itertools::Itertools;
+use itertools::Itertools;
 use keccak_hash::keccak;
 use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
@@ -121,6 +121,8 @@ pub(crate) enum Operation {
     BinaryLogicImm(logic::Op, u8, u8, u32),
     BinaryArithmetic(arithmetic::BinaryOperator, u8, u8, u8),
     BinaryArithmeticImm(arithmetic::BinaryOperator, u8, u8, u32),
+    Count(bool, u8, u8),
+    CondMov(MovCond, u8, u8, u8),
     KeccakGeneral,
     Jump(u8, u8),
     Jumpi(u8, u32),
@@ -132,7 +134,98 @@ pub(crate) enum Operation {
     MloadGeneral(MemOp, u8, u8, u32),
     MstoreGeneral(MemOp, u8, u8, u32),
     Nop,
+    Ext(u8, u8, u8, u8),
+    Ins(u8, u8, u8, u8),
+    Maddu(u8, u8),
+    Ror(u8, u8, u8),
+    Rdhwr(u8, u8),
+    Signext(u8, u8, u8),
+    SwapHalf(u8, u8),
     Teq(u8, u8),
+}
+
+pub(crate) fn generate_cond_mov_op<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    cond: MovCond,
+    rs: u8,
+    rt: u8,
+    rd: u8,
+    state: &mut GenerationState<F, C, D>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let (in2, log_in2) = reg_read_with_log(rd, 2, state, &mut row)?;
+
+    let mov = match cond {
+        MovCond::EQ => in1 == 0,
+        MovCond::NE => in1 != 0,
+    };
+
+    let out = if mov { in0 } else { in2 };
+
+    generate_pinv_diff(in1 as u32, 0, &mut row);
+
+    let log_out0 = reg_write_with_log(rd, 3, out, state, &mut row)?;
+    let log_out1 = reg_write_with_log(0, 4, mov as usize, state, &mut row)?;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_out0);
+    state.traces.push_memory(log_out1);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_count_op<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    is_clo: bool,
+    rs: u8,
+    rd: u8,
+    state: &mut GenerationState<F, C, D>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let in0 = if is_clo { !(in0 as u32) } else { in0 as u32 };
+    let out = in0.leading_zeros() as usize;
+
+    let log_out0 = reg_write_with_log(rd, 1, out, state, &mut row)?;
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_out0);
+
+    let bits_le = (0..32)
+        .map(|i| {
+            let bit = (in0 >> i) & 0x01;
+            F::from_canonical_u32(bit)
+        })
+        .collect_vec();
+    row.general.io_mut().rs_le = bits_le.try_into().unwrap();
+
+    let mut conds = vec![];
+    let mut inv = vec![];
+    for i in (0..31).rev() {
+        let x = in0 >> i;
+        conds.push(F::from_bool(x == 1));
+
+        let b = F::from_canonical_u32(x) - F::ONE;
+        inv.push(b.try_inverse().unwrap_or(F::ZERO));
+    }
+    conds.push(F::from_bool(in0 == 0));
+    inv.push(F::from_canonical_u32(in0).try_inverse().unwrap_or(F::ZERO));
+    // Used for aux data, nothing to do with `le`
+    row.general.io_mut().rt_le = conds.try_into().unwrap();
+    row.general.io_mut().mem_le = inv.try_into().unwrap();
+
+    state.traces.push_cpu(row);
+
+    Ok(())
 }
 
 pub(crate) fn generate_binary_logic_op<
@@ -771,6 +864,40 @@ pub(crate) fn generate_srav<
     let outlog = reg_write_with_log(rd, 2, result as usize, state, &mut row)?;
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
+    state.traces.push_memory(outlog);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_ror<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    rd: u8,
+    rt: u8,
+    sa: u8,
+    state: &mut GenerationState<F, C, D>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (input0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
+
+    let sin = (input0 as u64) + ((input0 as u64) << 32);
+    let result = (sin >> sa) as u32;
+
+    let bits_le = (0..32)
+        .map(|i| {
+            let bit = (input0 >> i) & 0x01;
+            F::from_canonical_u32(bit as u32)
+        })
+        .collect_vec();
+    row.general.misc_mut().rs_bits = bits_le.try_into().unwrap();
+
+    row.general.misc_mut().is_lsb = [F::ZERO; 32];
+    row.general.misc_mut().is_lsb[sa as usize] = F::ONE;
+
+    let outlog = reg_write_with_log(rd, 1, result as usize, state, &mut row)?;
+    state.traces.push_memory(log_in0);
     state.traces.push_memory(outlog);
     state.traces.push_cpu(row);
     Ok(())
@@ -1610,6 +1737,231 @@ pub(crate) fn generate_nop<
     state: &mut GenerationState<F, C, D>,
     row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
+    state.traces.push_cpu(row);
+
+    Ok(())
+}
+
+pub(crate) fn generate_extract<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    rt: u8,
+    rs: u8,
+    msbd: u8,
+    lsb: u8,
+    state: &mut GenerationState<F, C, D>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    assert!(msbd + lsb < 32);
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let mask_msb = (1 << (msbd + lsb + 1)) - 1;
+
+    let bits_le = (0..32)
+        .map(|i| {
+            let bit = (in0 >> i) & 0x01;
+            F::from_canonical_u32(bit as u32)
+        })
+        .collect_vec();
+    row.general.misc_mut().rs_bits = bits_le.try_into().unwrap();
+
+    row.general.misc_mut().is_msb = [F::ZERO; 32];
+    row.general.misc_mut().is_msb[(msbd + lsb) as usize] = F::ONE;
+    row.general.misc_mut().is_lsb = [F::ZERO; 32];
+    row.general.misc_mut().is_lsb[lsb as usize] = F::ONE;
+    row.general.misc_mut().auxs = F::from_canonical_u32(1 << lsb);
+
+    let mask_lsb = (1 << lsb) - 1;
+    let result = (in0 & mask_msb) >> lsb;
+    row.general.misc_mut().auxm = F::from_canonical_u32((in0 & mask_msb) as u32);
+    row.general.misc_mut().auxl = F::from_canonical_u32((in0 & mask_lsb) as u32);
+    let log_out0 = reg_write_with_log(rt, 1, result, state, &mut row)?;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+
+    Ok(())
+}
+
+pub(crate) fn generate_insert<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    rt: u8,
+    rs: u8,
+    msb: u8,
+    lsb: u8,
+    state: &mut GenerationState<F, C, D>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    assert!(msb < 32);
+    assert!(lsb <= msb);
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let mask = (1 << (msb - lsb + 1)) - 1;
+    let mask_field = mask << lsb;
+
+    let rs_bits_le = (0..32)
+        .map(|i| {
+            let bit: usize = (in0 >> i) & 0x01;
+            F::from_canonical_u32(bit as u32)
+        })
+        .collect_vec();
+    row.general.misc_mut().rs_bits = rs_bits_le.try_into().unwrap();
+
+    row.general.misc_mut().is_msb = [F::ZERO; 32];
+    row.general.misc_mut().is_msb[(msb - lsb) as usize] = F::ONE;
+    row.general.misc_mut().is_lsb = [F::ZERO; 32];
+    row.general.misc_mut().is_lsb[lsb as usize] = F::ONE;
+    row.general.misc_mut().auxs = F::from_canonical_u32(1 << lsb);
+
+    row.general.misc_mut().auxm = F::from_canonical_u32((in1 & !mask_field) as u32);
+    row.general.misc_mut().auxl = F::from_canonical_u32((in0 & mask) as u32);
+    row.general.misc_mut().auxs = F::from_canonical_u32((1 << lsb) as u32);
+
+    let result = (in1 & !mask_field) | ((in0 << lsb) & mask_field);
+    let log_out0 = reg_write_with_log(rt, 2, result, state, &mut row)?;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+
+    Ok(())
+}
+
+pub(crate) fn generate_maddu<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    rt: u8,
+    rs: u8,
+    state: &mut GenerationState<F, C, D>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rs, 0, state, &mut row)?;
+    let (in1, log_in1) = reg_read_with_log(rt, 1, state, &mut row)?;
+    let (in2, log_in2) = reg_read_with_log(33, 2, state, &mut row)?;
+    let (in3, log_in3) = reg_read_with_log(32, 3, state, &mut row)?;
+    let mul = in0 * in1;
+    let addend = (in2 << 32) + in3;
+    let (result, overflow) = (mul as u64).overflowing_add(addend as u64);
+    let log_out0 = reg_write_with_log(33, 4, (result >> 32) as usize, state, &mut row)?;
+    let log_out1 = reg_write_with_log(32, 5, (result as u32) as usize, state, &mut row)?;
+    row.general.misc_mut().auxm = F::from_canonical_usize((overflow as usize) << 32);
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_in3);
+    state.traces.push_memory(log_out0);
+    state.traces.push_memory(log_out1);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+pub(crate) fn generate_rdhwr<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    rt: u8,
+    rd: u8,
+    state: &mut GenerationState<F, C, D>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    row.general.misc_mut().rd_index = F::from_canonical_u8(rd);
+    let result = if rd == 0 {
+        row.general.misc_mut().rd_index_eq_0 = F::ONE;
+        1
+    } else if rd == 29 {
+        row.general.misc_mut().rd_index_eq_29 = F::ONE;
+        let (in0, log_in0) = reg_read_with_log(38, 1, state, &mut row)?;
+        state.traces.push_memory(log_in0);
+        in0
+    } else {
+        0
+    };
+
+    let log_out0 = reg_write_with_log(rt, 0, result, state, &mut row)?;
+
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+
+    Ok(())
+}
+
+pub(crate) fn generate_signext<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    rd: u8,
+    rt: u8,
+    bits: u8,
+    state: &mut GenerationState<F, C, D>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
+
+    let bits_le = (0..32)
+        .map(|i| {
+            let bit = (in0 as u32 >> i) & 0x01;
+            F::from_canonical_u32(bit)
+        })
+        .collect_vec();
+    row.general.io_mut().rt_le = bits_le.try_into().unwrap();
+
+    let bits = bits as usize;
+    let is_signed = ((in0 >> (bits - 1)) & 0x1) != 0;
+    let signed = ((1 << (32 - bits)) - 1) << bits;
+    let mask = (1 << bits) - 1;
+    let result = if is_signed {
+        in0 & mask | signed
+    } else {
+        in0 & mask
+    };
+
+    let log_out0 = reg_write_with_log(rd, 1, result, state, &mut row)?;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_out0);
+    state.traces.push_cpu(row);
+
+    Ok(())
+}
+
+pub(crate) fn generate_swaphalf<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    rd: u8,
+    rt: u8,
+    state: &mut GenerationState<F, C, D>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let (in0, log_in0) = reg_read_with_log(rt, 0, state, &mut row)?;
+
+    let bits_le = (0..32)
+        .map(|i| {
+            let bit = (in0 as u32 >> i) & 0x01;
+            F::from_canonical_u32(bit)
+        })
+        .collect_vec();
+    row.general.io_mut().rt_le = bits_le.try_into().unwrap();
+
+    let result = (((in0 >> 16) & 0xFF) << 24)
+        | (((in0 >> 24) & 0xFF) << 16)
+        | ((in0 & 0xFF) << 8)
+        | ((in0 >> 8) & 0xFF);
+
+    let log_out0 = reg_write_with_log(rd, 1, result, state, &mut row)?;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_out0);
     state.traces.push_cpu(row);
 
     Ok(())
