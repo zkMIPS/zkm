@@ -1,10 +1,10 @@
 [workspace]
 members = [
-  "runtime/*",
-  "emulator",
-  "prover",
-  "recursion",
-  "build",
+    "runtime/*",
+    "emulator",
+    "prover",
+    "recursion",
+    "build",
 ]
 resolver = "2"
 
@@ -23,3 +23,8 @@ inherits = "release"
 debug = true
 debug-assertions = true
 
+[patch."https://github.com/zkMIPS/plonky2.git"]
+plonky2 = { path = "../plonky2-origin/plonky2" }
+starky = { path = "../plonky2-origin/starky" }
+plonky2_util = { path = "../plonky2-origin/util" }
+plonky2_maybe_rayon = { path = "../plonky2-origin/maybe_rayon" }

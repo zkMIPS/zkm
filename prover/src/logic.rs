@@ -38,7 +38,7 @@ pub(crate) mod columns {
     // The result is packed in limbs of `PACKED_LIMB_BITS` bits.
     pub const RESULT: Range<usize> = INPUT1.end..INPUT1.end + PACKED_LEN;
 
-    pub fn limb_bit_cols_for_input(input_bits: Range<usize>) -> impl Iterator<Item = Range<usize>> {
+    pub fn limb_bit_cols_for_input(input_bits: Range<usize>) -> impl Iterator<Item=Range<usize>> {
         (0..PACKED_LEN).map(move |i| {
             let start = input_bits.start + i * PACKED_LIMB_BITS;
             let end = min(start + PACKED_LIMB_BITS, input_bits.end);
@@ -176,20 +176,24 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F, D> {
     type EvaluationFrame<FE, P, const D2: usize>
-        = StarkFrame<P, NUM_COLUMNS>
+    = StarkFrame<P, NUM_COLUMNS>
     where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>;
+        FE: FieldExtension<D2, BaseField=F>,
+        P: PackedField<Scalar=FE>;
 
     type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_COLUMNS>;
+
+    fn get_type(&self) -> usize {
+        5
+    }
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
         vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        FE: FieldExtension<D2, BaseField=F>,
+        P: PackedField<Scalar=FE>,
     {
         let lv = vars.get_local_values();
 
@@ -321,7 +325,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
 
 #[cfg(test)]
 mod tests {
-
     use crate::logic::{LogicStark, Op, Operation};
 
     use crate::stark_testing::{

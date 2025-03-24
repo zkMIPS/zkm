@@ -31,8 +31,8 @@ use crate::stark::Stark;
 
 #[derive(Clone, Debug)]
 pub struct Filter<F: Field> {
-    products: Vec<(Column<F>, Column<F>)>,
-    constants: Vec<Column<F>>,
+    pub products: Vec<(Column<F>, Column<F>)>,
+    pub constants: Vec<Column<F>>,
 }
 
 impl<F: Field> Filter<F> {
@@ -55,18 +55,18 @@ impl<F: Field> Filter<F> {
     /// Given the column values for the current and next rows, evaluates the filter.
     pub(crate) fn eval_filter<FE, P, const D: usize>(&self, v: &[P], next_v: &[P]) -> P
     where
-        FE: FieldExtension<D, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        FE: FieldExtension<D, BaseField=F>,
+        P: PackedField<Scalar=FE>,
     {
         self.products
             .iter()
             .map(|(col1, col2)| col1.eval_with_next(v, next_v) * col2.eval_with_next(v, next_v))
             .sum::<P>()
             + self
-                .constants
-                .iter()
-                .map(|col| col.eval_with_next(v, next_v))
-                .sum::<P>()
+            .constants
+            .iter()
+            .map(|col| col.eval_with_next(v, next_v))
+            .sum::<P>()
     }
 
     /// Circuit version of `eval_filter`:
@@ -108,19 +108,19 @@ impl<F: Field> Filter<F> {
             .map(|(col1, col2)| col1.eval_table(table, row) * col2.eval_table(table, row))
             .sum::<F>()
             + self
-                .constants
-                .iter()
-                .map(|col| col.eval_table(table, row))
-                .sum()
+            .constants
+            .iter()
+            .map(|col| col.eval_table(table, row))
+            .sum()
     }
 }
 
 /// Represent a linear combination of columns.
 #[derive(Clone, Debug)]
 pub struct Column<F: Field> {
-    linear_combination: Vec<(usize, F)>,
-    next_row_linear_combination: Vec<(usize, F)>,
-    constant: F,
+    pub linear_combination: Vec<(usize, F)>,
+    pub next_row_linear_combination: Vec<(usize, F)>,
+    pub constant: F,
 }
 
 impl<F: Field> Column<F> {
@@ -132,9 +132,9 @@ impl<F: Field> Column<F> {
         }
     }
 
-    pub fn singles<I: IntoIterator<Item = impl Borrow<usize>>>(
+    pub fn singles<I: IntoIterator<Item=impl Borrow<usize>>>(
         cs: I,
-    ) -> impl Iterator<Item = Self> {
+    ) -> impl Iterator<Item=Self> {
         cs.into_iter().map(|c| Self::single(*c.borrow()))
     }
 
@@ -146,9 +146,9 @@ impl<F: Field> Column<F> {
         }
     }
 
-    pub fn singles_next_row<I: IntoIterator<Item = impl Borrow<usize>>>(
+    pub fn singles_next_row<I: IntoIterator<Item=impl Borrow<usize>>>(
         cs: I,
-    ) -> impl Iterator<Item = Self> {
+    ) -> impl Iterator<Item=Self> {
         cs.into_iter().map(|c| Self::single_next_row(*c.borrow()))
     }
 
@@ -168,7 +168,7 @@ impl<F: Field> Column<F> {
         Self::constant(F::ONE)
     }
 
-    pub fn linear_combination_with_constant<I: IntoIterator<Item = (usize, F)>>(
+    pub fn linear_combination_with_constant<I: IntoIterator<Item=(usize, F)>>(
         iter: I,
         constant: F,
     ) -> Self {
@@ -186,7 +186,7 @@ impl<F: Field> Column<F> {
         }
     }
 
-    pub fn linear_combination_and_next_row_with_constant<I: IntoIterator<Item = (usize, F)>>(
+    pub fn linear_combination_and_next_row_with_constant<I: IntoIterator<Item=(usize, F)>>(
         iter: I,
         next_row_iter: I,
         constant: F,
@@ -213,15 +213,15 @@ impl<F: Field> Column<F> {
         }
     }
 
-    pub fn linear_combination<I: IntoIterator<Item = (usize, F)>>(iter: I) -> Self {
+    pub fn linear_combination<I: IntoIterator<Item=(usize, F)>>(iter: I) -> Self {
         Self::linear_combination_with_constant(iter, F::ZERO)
     }
 
-    pub fn le_bits<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+    pub fn le_bits<I: IntoIterator<Item=impl Borrow<usize>>>(cs: I) -> Self {
         Self::linear_combination(cs.into_iter().map(|c| *c.borrow()).zip(F::TWO.powers()))
     }
 
-    pub fn le_bytes<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+    pub fn le_bytes<I: IntoIterator<Item=impl Borrow<usize>>>(cs: I) -> Self {
         Self::linear_combination(
             cs.into_iter()
                 .map(|c| *c.borrow())
@@ -229,14 +229,14 @@ impl<F: Field> Column<F> {
         )
     }
 
-    pub fn sum<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+    pub fn sum<I: IntoIterator<Item=impl Borrow<usize>>>(cs: I) -> Self {
         Self::linear_combination(cs.into_iter().map(|c| *c.borrow()).zip(repeat(F::ONE)))
     }
 
     pub fn eval<FE, P, const D: usize>(&self, v: &[P]) -> P
     where
-        FE: FieldExtension<D, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        FE: FieldExtension<D, BaseField=F>,
+        P: PackedField<Scalar=FE>,
     {
         self.linear_combination
             .iter()
@@ -247,18 +247,18 @@ impl<F: Field> Column<F> {
 
     pub fn eval_with_next<FE, P, const D: usize>(&self, v: &[P], next_v: &[P]) -> P
     where
-        FE: FieldExtension<D, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        FE: FieldExtension<D, BaseField=F>,
+        P: PackedField<Scalar=FE>,
     {
         self.linear_combination
             .iter()
             .map(|&(c, f)| v[c] * FE::from_basefield(f))
             .sum::<P>()
             + self
-                .next_row_linear_combination
-                .iter()
-                .map(|&(c, f)| next_v[c] * FE::from_basefield(f))
-                .sum::<P>()
+            .next_row_linear_combination
+            .iter()
+            .map(|&(c, f)| next_v[c] * FE::from_basefield(f))
+            .sum::<P>()
             + FE::from_basefield(self.constant)
     }
 
@@ -491,13 +491,13 @@ pub(crate) struct GrandProductChallenge<T: Copy + Eq + PartialEq + Debug> {
 }
 
 impl<F: Field> GrandProductChallenge<F> {
-    pub(crate) fn combine<'a, FE, P, T: IntoIterator<Item = &'a P>, const D2: usize>(
+    pub(crate) fn combine<'a, FE, P, T: IntoIterator<Item=&'a P>, const D2: usize>(
         &self,
         terms: T,
     ) -> P
     where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        FE: FieldExtension<D2, BaseField=F>,
+        P: PackedField<Scalar=FE>,
         T::IntoIter: DoubleEndedIterator,
     {
         reduce_with_powers(terms, FE::from_basefield(self.beta)) + FE::from_basefield(self.gamma)
@@ -875,8 +875,8 @@ fn partial_sums<F: Field>(
 pub struct CtlCheckVars<'a, F, FE, P, const D2: usize>
 where
     F: Field,
-    FE: FieldExtension<D2, BaseField = F>,
-    P: PackedField<Scalar = FE>,
+    FE: FieldExtension<D2, BaseField=F>,
+    P: PackedField<Scalar=FE>,
 {
     pub(crate) helper_columns: Vec<P>,
     pub(crate) local_z: P,
@@ -887,9 +887,9 @@ where
 }
 
 impl<'a, F: RichField + Extendable<D>, const D: usize>
-    CtlCheckVars<'a, F, F::Extension, F::Extension, D>
+CtlCheckVars<'a, F, F::Extension, F::Extension, D>
 {
-    pub(crate) fn from_proofs<C: GenericConfig<D, F = F>>(
+    pub(crate) fn from_proofs<C: GenericConfig<D, F=F>>(
         proofs: &[StarkProofWithMetadata<F, C, D>; NUM_TABLES],
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
@@ -982,7 +982,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 
                 let (looked_z, looked_z_next) = ctl_zs[looked_table.table as usize]
                     [total_num_helper_cols_by_table[looked_table.table as usize]
-                        + z_indices[looked_table.table as usize]];
+                    + z_indices[looked_table.table as usize]];
 
                 z_indices[looked_table.table as usize] += 1;
 
@@ -1014,8 +1014,8 @@ pub(crate) fn eval_helper_columns<F, FE, P, const D: usize, const D2: usize>(
     consumer: &mut ConstraintConsumer<P>,
 ) where
     F: RichField + Extendable<D>,
-    FE: FieldExtension<D2, BaseField = F>,
-    P: PackedField<Scalar = FE>,
+    FE: FieldExtension<D2, BaseField=F>,
+    P: PackedField<Scalar=FE>,
 {
     if !helper_columns.is_empty() {
         for (j, chunk) in columns.chunks(constraint_degree - 1).enumerate() {
@@ -1071,8 +1071,8 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
     constraint_degree: usize,
 ) where
     F: RichField + Extendable<D>,
-    FE: FieldExtension<D2, BaseField = F>,
-    P: PackedField<Scalar = FE>,
+    FE: FieldExtension<D2, BaseField=F>,
+    P: PackedField<Scalar=FE>,
     S: Stark<F, D>,
 {
     let local_values = vars.get_local_values();

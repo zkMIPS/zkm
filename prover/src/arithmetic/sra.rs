@@ -118,8 +118,43 @@ pub fn eval_packed_generic<P: PackedField>(
     // Compute the added number if negative
     let intermediate1 = lv[AUX_EXTRA].to_vec();
     let intermediate2 = nv[AUX_EXTRA].to_vec();
-    let mut coeffs = sign_extend_poly::<P::Scalar>().coeffs;
-    coeffs.reverse();
+    // let mut coeffs = sign_extend_poly::<P::Scalar>().coeffs;
+    // coeffs.reverse();
+    let mut coeffs = vec![P::Scalar::ONE; 32];
+    coeffs[0] = P::Scalar::from_canonical_u64(12473867207094203560);
+    coeffs[1] = P::Scalar::from_canonical_u64(11759614642361326477);
+    coeffs[2] = P::Scalar::from_canonical_u64(15034969890298596498);
+    coeffs[3] = P::Scalar::from_canonical_u64(14209687019612721744);
+    coeffs[4] = P::Scalar::from_canonical_u64(12214710769812389200);
+    coeffs[5] = P::Scalar::from_canonical_u64(8529652317273235355);
+    coeffs[6] = P::Scalar::from_canonical_u64(2414861715068685227);
+    coeffs[7] = P::Scalar::from_canonical_u64(4946066446722770778);
+    coeffs[8] = P::Scalar::from_canonical_u64(13351797609243744194);
+    coeffs[9] = P::Scalar::from_canonical_u64(17525415630691714770);
+    coeffs[10] = P::Scalar::from_canonical_u64(18353552016915605209);
+    coeffs[11] = P::Scalar::from_canonical_u64(16893122587496637607);
+    coeffs[12] = P::Scalar::from_canonical_u64(8218921582491356248);
+    coeffs[13] = P::Scalar::from_canonical_u64(16483774255748568464);
+    coeffs[14] = P::Scalar::from_canonical_u64(11713039910610883359);
+    coeffs[15] = P::Scalar::from_canonical_u64(14800830534546910133);
+    coeffs[16] = P::Scalar::from_canonical_u64(5105723605058418965);
+    coeffs[17] = P::Scalar::from_canonical_u64(7621994036651826023);
+    coeffs[18] = P::Scalar::from_canonical_u64(10787744126197692619);
+    coeffs[19] = P::Scalar::from_canonical_u64(1593346132779232121);
+    coeffs[20] = P::Scalar::from_canonical_u64(13442593302542460522);
+    coeffs[21] = P::Scalar::from_canonical_u64(13529437519242381204);
+    coeffs[22] = P::Scalar::from_canonical_u64(6047636245641262293);
+    coeffs[25] = P::Scalar::from_canonical_u64(4659039088580492741);
+    coeffs[23] = P::Scalar::from_canonical_u64(1391456848276765763);
+    coeffs[24] = P::Scalar::from_canonical_u64(14725394300870097084);
+    coeffs[25] = P::Scalar::from_canonical_u64(4659039088580492741);
+    coeffs[26] = P::Scalar::from_canonical_u64(6003928160650219699);
+    coeffs[27] = P::Scalar::from_canonical_u64(3218865349166832205);
+    coeffs[28] = P::Scalar::from_canonical_u64(9575747500968261281);
+    coeffs[29] = P::Scalar::from_canonical_u64(10411650145091517360);
+    coeffs[30] = P::Scalar::from_canonical_u64(6556208684488608402);
+    coeffs[30] = P::Scalar::from_canonical_u64(6556208684488608402);
+    coeffs[31] = P::Scalar::from_canonical_u64(0);
 
     let mut acc = P::ZEROS;
     for (w, j) in intermediate1

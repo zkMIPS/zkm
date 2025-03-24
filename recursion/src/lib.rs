@@ -31,7 +31,7 @@ type OuterParameters = Groth16WrapperParameters;
 /// This can be used for all external host program, like zkm-project-template and zkm-proof-network etc.
 pub const DEFAULT_DEGREE_BITS_RANGE: [Range<usize>; 12] = [
     10..21,
-    12..22,
+    11..22,
     11..21,
     8..21,
     6..10,

@@ -595,20 +595,24 @@ fn eval_packed_generic<P: PackedField>(lv: &[P], yield_constr: &mut ConstraintCo
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark<F, D> {
     type EvaluationFrame<FE, P, const D2: usize>
-        = StarkFrame<P, NUM_COLUMNS>
+    = StarkFrame<P, NUM_COLUMNS>
     where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>;
+        FE: FieldExtension<D2, BaseField=F>,
+        P: PackedField<Scalar=FE>;
 
     type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_COLUMNS>;
+
+    fn get_type(&self) -> usize {
+        3
+    }
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
         vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        FE: FieldExtension<D2, BaseField=F>,
+        P: PackedField<Scalar=FE>,
     {
         let lv = vars.get_local_values();
         eval_packed_generic(lv, yield_constr);

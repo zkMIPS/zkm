@@ -250,20 +250,24 @@ pub struct CpuStark<F, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D> {
     type EvaluationFrame<FE, P, const D2: usize>
-        = StarkFrame<P, NUM_CPU_COLUMNS>
+    = StarkFrame<P, NUM_CPU_COLUMNS>
     where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>;
+        FE: FieldExtension<D2, BaseField=F>,
+        P: PackedField<Scalar=FE>;
 
     type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_CPU_COLUMNS>;
+
+    fn get_type(&self) -> usize {
+        2
+    }
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
         vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        FE: FieldExtension<D2, BaseField=F>,
+        P: PackedField<Scalar=FE>,
     {
         let local_values: &[P; NUM_CPU_COLUMNS] = vars.get_local_values().try_into().unwrap();
         let local_values: &CpuColumnsView<P> = local_values.borrow();

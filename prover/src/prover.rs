@@ -49,7 +49,7 @@ pub fn prove<F, C, const D: usize>(
 ) -> Result<AllProof<F, C, D>>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    C: GenericConfig<D, F=F>,
 {
     let (proof, _outputs) = prove_with_outputs(all_stark, kernel, config, timing)?;
     Ok(proof)
@@ -64,7 +64,7 @@ pub fn prove_with_assumptions<F, C, const D: usize>(
 ) -> Result<(AllProof<F, C, D>, Rc<RefCell<AssumptionUsage<F, C, D>>>)>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    C: GenericConfig<D, F=F>,
 {
     let (proof, _outputs, receipts) =
         prove_with_output_and_assumptions(all_stark, kernel, config, timing, assumptions)?;
@@ -81,16 +81,31 @@ pub fn prove_with_outputs<F, C, const D: usize>(
 ) -> Result<(AllProof<F, C, D>, GenerationOutputs)>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    C: GenericConfig<D, F=F>,
 {
     let (traces, public_values, outputs) = timed!(
         timing,
+        log::Level::Info,
         "generate all traces",
         generate_traces::<F, C, D>(all_stark, kernel, config, timing)?
     );
 
+    traces.iter().for_each(|t| {
+        log::info!(
+            "Trace steps: {}  lengths {} iten_len: {}",
+            kernel.program.step,
+            t.len(),
+            t[0].len()
+        );
+    });
+
     let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
     Ok((proof, outputs))
+}
+
+fn fast_copy<F: RichField>(vec_polys: &Vec<PolynomialValues<F>>) -> Vec<PolynomialValues<F>> {
+    println!("fast_copy {:?} {:?}", vec_polys.len(), vec_polys[0].values.len());
+    vec_polys.par_iter().map(|poly| poly.clone()).collect()
 }
 
 /// Generate traces, then create all STARK proofs. Returns information about the post-state,
@@ -108,7 +123,7 @@ pub fn prove_with_output_and_assumptions<F, C, const D: usize>(
 )>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    C: GenericConfig<D, F=F>,
 {
     let (traces, public_values, outputs, receipts) = timed!(
         timing,
@@ -136,32 +151,65 @@ pub(crate) fn prove_with_traces<F, C, const D: usize>(
 ) -> Result<AllProof<F, C, D>>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    C: GenericConfig<D, F=F>,
 {
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
 
+    timing.push("clone polys", log::Level::Info);
+    let trace_poly_values_clone = trace_poly_values
+        .iter()
+        .map(|a| fast_copy(a))
+        .collect::<Vec<_>>();
+    timing.pop();
     let trace_commitments = timed!(
         timing,
+        log::Level::Info,
         "compute all trace commitments",
-        trace_poly_values
-            .iter()
+        trace_poly_values_clone
+            .into_iter()
             .zip_eq(Table::all())
             .map(|(trace, table)| {
-                timed!(
-                    timing,
-                    &format!("compute trace commitment for {:?}", table),
-                    PolynomialBatch::<F, C, D>::from_values(
-                        // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
-                        // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
-                        trace.clone(),
-                        rate_bits,
-                        false,
-                        cap_height,
+                  let mut total_item: u64 = 0;
+                trace.iter().for_each(|item|{
+                    total_item += item.len() as u64;
+                });
+                log::info!(
+                    "prove_with_traces trace_len: {} total_item {}, item_size: {} rate_bits: {} cap_height: {} table: {:?}",
+                    trace.len(),
+                    total_item,
+                    std::mem::size_of::<F>(),
+                    rate_bits,
+                    cap_height,
+                    table
+                );
+                // 2**25 33554432
+                if trace[0].len() <= 33554432usize {
+                    timed!(
                         timing,
-                        None,
+                        &format!("gpu compute trace commitment for {:?}", table),
+                        PolynomialBatch::<F, C, D>::from_values_cuda(
+                            // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
+                            // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
+                            trace, rate_bits, false, cap_height, timing, None,
+                        )
                     )
-                )
+                } else {
+                    timed!(
+                        timing,
+                        &format!("cpu compute trace commitment for {:?}", table),
+                        PolynomialBatch::<F, C, D>::from_values(
+                            // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
+                            // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
+                            trace.clone(),
+                            rate_bits,
+                            false,
+                            cap_height,
+                            timing,
+                            None,
+                        )
+                    )
+                }
             })
             .collect::<Vec<_>>()
     );
@@ -190,6 +238,7 @@ where
     let ctl_challenges = get_grand_product_challenge_set(&mut challenger, config.num_challenges);
     let ctl_data_per_table = timed!(
         timing,
+        log::Level::Info,
         "compute CTL data",
         cross_table_lookup_data::<F, D>(
             &trace_poly_values,
@@ -201,6 +250,7 @@ where
 
     let stark_proofs = timed!(
         timing,
+        log::Level::Info,
         "compute all proofs given commitments",
         prove_with_commitments(
             all_stark,
@@ -243,10 +293,11 @@ fn prove_with_commitments<F, C, const D: usize>(
 ) -> Result<[StarkProofWithMetadata<F, C, D>; NUM_TABLES]>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    C: GenericConfig<D, F=F>,
 {
     let arithmetic_proof = timed!(
         timing,
+        log::Level::Info,
         "prove Arithmetic STARK",
         prove_single_table(
             &all_stark.arithmetic_stark,
@@ -261,6 +312,7 @@ where
     );
     let cpu_proof = timed!(
         timing,
+        log::Level::Info,
         "prove CPU STARK",
         prove_single_table(
             &all_stark.cpu_stark,
@@ -276,6 +328,7 @@ where
 
     let poseidon_proof = timed!(
         timing,
+        log::Level::Info,
         "prove Poseidon STARK",
         prove_single_table(
             &all_stark.poseidon_stark,
@@ -290,6 +343,7 @@ where
     );
     let poseidon_sponge_proof = timed!(
         timing,
+        log::Level::Info,
         "prove Poseidon sponge STARK",
         prove_single_table(
             &all_stark.poseidon_sponge_stark,
@@ -305,6 +359,7 @@ where
 
     let keccak_proof = timed!(
         timing,
+        log::Level::Info,
         "prove Keccak STARK",
         prove_single_table(
             &all_stark.keccak_stark,
@@ -319,6 +374,7 @@ where
     );
     let keccak_sponge_proof = timed!(
         timing,
+        log::Level::Info,
         "prove Keccak sponge STARK",
         prove_single_table(
             &all_stark.keccak_sponge_stark,
@@ -334,6 +390,7 @@ where
 
     let sha_extend_proof = timed!(
         timing,
+        log::Level::Info,
         "prove SHA Extend STARK",
         prove_single_table(
             &all_stark.sha_extend_stark,
@@ -349,6 +406,7 @@ where
 
     let sha_extend_sponge_proof = timed!(
         timing,
+        log::Level::Info,
         "prove SHA Extend sponge STARK",
         prove_single_table(
             &all_stark.sha_extend_sponge_stark,
@@ -364,6 +422,7 @@ where
 
     let sha_compress_proof = timed!(
         timing,
+        log::Level::Info,
         "prove SHA Compress STARK",
         prove_single_table(
             &all_stark.sha_compress_stark,
@@ -379,6 +438,7 @@ where
 
     let sha_compress_sponge_proof = timed!(
         timing,
+        log::Level::Info,
         "prove SHA Compress sponge STARK",
         prove_single_table(
             &all_stark.sha_compress_sponge_stark,
@@ -394,6 +454,7 @@ where
 
     let logic_proof = timed!(
         timing,
+        log::Level::Info,
         "prove Logic STARK",
         prove_single_table(
             &all_stark.logic_stark,
@@ -408,6 +469,7 @@ where
     );
     let memory_proof = timed!(
         timing,
+        log::Level::Info,
         "prove Memory STARK",
         prove_single_table(
             &all_stark.memory_stark,
@@ -450,7 +512,7 @@ pub(crate) fn prove_single_table<F, C, S, const D: usize>(
 ) -> Result<StarkProofWithMetadata<F, C, D>>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    C: GenericConfig<D, F=F>,
     S: Stark<F, D>,
 {
     let degree = trace_poly_values[0].len();
@@ -508,18 +570,49 @@ where
     };
     assert!(!auxiliary_polys.is_empty(), "No CTL?");
 
-    let auxiliary_polys_commitment = timed!(
-        timing,
-        "compute auxiliary polynomials commitment",
-        PolynomialBatch::from_values(
-            auxiliary_polys,
-            rate_bits,
-            false,
-            config.fri_config.cap_height,
-            timing,
-            None,
-        )
+    let mut total_item: u64 = 0;
+    auxiliary_polys.iter().for_each(|item| {
+        total_item += item.len() as u64;
+    });
+
+    log::info!(
+        "prove_single_table {} total_item {}, item_size: {} rate_bits: {} cap_height: {}",
+        auxiliary_polys.len(),
+        total_item,
+        std::mem::size_of::<F>(),
+        rate_bits,
+        config.fri_config.cap_height,
     );
+
+    // 2**25 33554432
+    let auxiliary_polys_commitment = if auxiliary_polys[0].len() <= 33554432usize {
+        timed!(
+            timing,
+                        log::Level::Info,
+            "compute auxiliary polynomials commitment",
+            PolynomialBatch::from_values_cuda(
+                auxiliary_polys,
+                rate_bits,
+                false,
+                config.fri_config.cap_height,
+                timing,
+                None,
+            )
+        )
+    } else {
+        timed!(
+            timing,
+            "compute auxiliary polynomials commitment",
+            PolynomialBatch::from_values(
+                auxiliary_polys,
+                rate_bits,
+                false,
+                config.fri_config.cap_height,
+                timing,
+                None,
+            )
+        )
+    };
 
     let auxiliary_polys_cap = auxiliary_polys_commitment.merkle_tree.cap.clone();
     challenger.observe_cap(&auxiliary_polys_cap);
@@ -540,25 +633,55 @@ where
             &num_ctl_polys,
         );
     }
-    let quotient_polys = timed!(
-        timing,
-        "compute quotient polys",
-        compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
-            stark,
-            trace_commitment,
-            &auxiliary_polys_commitment,
-            lookup_challenges.as_ref(),
-            &lookups,
-            ctl_data,
-            alphas,
-            degree_bits,
-            num_lookup_columns,
-            &num_ctl_polys,
-            config,
+
+
+    log::info!("trace_commitment.polynomials[0].len: {}, auxiliary_polys_commitment.polynomials[0].len: {}",
+        trace_commitment.polynomials[0].len(), auxiliary_polys_commitment.polynomials[0].len());
+    let use_gpu = trace_commitment.polynomials[0].len() < 4194304usize && auxiliary_polys_commitment.polynomials[0].len() < 4194304usize;
+    let quotient_polys = if use_gpu {
+        timed!(
+            timing,
+            log::Level::Info,
+            "compute quotient polys",
+            compute_quotient_polys_cuda::<F, <F as Packable>::Packing, C, S, D>(
+                stark,
+                trace_commitment,
+                &auxiliary_polys_commitment,
+                lookup_challenges.as_ref(),
+                &lookups,
+                ctl_data,
+                alphas,
+                degree_bits,
+                num_lookup_columns,
+                &num_ctl_polys,
+                config,
+                timing,
+            )
         )
-    );
-    let all_quotient_chunks = timed!(
+    } else {
+        timed!(
+            timing,
+            log::Level::Info,
+            "compute quotient polys",
+            compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
+                stark,
+                trace_commitment,
+                &auxiliary_polys_commitment,
+                lookup_challenges.as_ref(),
+                &lookups,
+                ctl_data,
+                alphas,
+                degree_bits,
+                num_lookup_columns,
+                &num_ctl_polys,
+                config,
+            )
+        )
+    };
+
+    let all_quotient_chunks: Vec<PolynomialCoeffs<F>> = timed!(
         timing,
+         log::Level::Info,
         "split quotient polys",
         quotient_polys
             .into_par_iter()
@@ -573,18 +696,35 @@ where
             })
             .collect()
     );
-    let quotient_commitment = timed!(
-        timing,
-        "compute quotient commitment",
-        PolynomialBatch::from_coeffs(
-            all_quotient_chunks,
-            rate_bits,
-            false,
-            config.fri_config.cap_height,
+    let quotient_commitment = if all_quotient_chunks[0].len() <= 33554432usize {
+        timed!(
             timing,
-            None,
+                        log::Level::Info,
+            "compute quotient commitment",
+            PolynomialBatch::from_coeffs_cuda(
+                all_quotient_chunks,
+                rate_bits,
+                false,
+                config.fri_config.cap_height,
+                timing,
+                None,
+            )
         )
-    );
+    } else {
+        timed!(
+            timing,
+            log::Level::Info,
+            "compute quotient commitment",
+            PolynomialBatch::from_coeffs(
+                all_quotient_chunks,
+                rate_bits,
+                false,
+                config.fri_config.cap_height,
+                timing,
+                None,
+            )
+        )
+    };
     let quotient_polys_cap = quotient_commitment.merkle_tree.cap.clone();
     challenger.observe_cap(&quotient_polys_cap);
 
@@ -617,8 +757,10 @@ where
 
     let opening_proof = timed!(
         timing,
+         log::Level::Info,
         "compute openings proof",
-        PolynomialBatch::prove_openings(
+        // PolynomialBatch::prove_openings(
+        PolynomialBatch::prove_openings_cuda(
             &stark.fri_instance(zeta, g, num_ctl_polys.iter().sum(), num_ctl_polys, config),
             &initial_merkle_trees,
             challenger,
@@ -657,8 +799,8 @@ fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
 ) -> Vec<PolynomialCoeffs<F>>
 where
     F: RichField + Extendable<D>,
-    P: PackedField<Scalar = F>,
-    C: GenericConfig<D, F = F>,
+    P: PackedField<Scalar=F>,
+    C: GenericConfig<D, F=F>,
     S: Stark<F, D>,
 {
     let degree = 1 << degree_bits;
@@ -803,7 +945,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
     num_ctl_helper_cols: &[usize],
 ) where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    C: GenericConfig<D, F=F>,
     S: Stark<F, D>,
 {
     let degree = 1 << degree_bits;
@@ -907,4 +1049,291 @@ fn check_constraints<'a, F, C, S, const D: usize>(
             type_name::<S>()
         );
     }
+}
+
+fn compute_quotient_polys_cuda<'a, F, P, C, S, const D: usize>(
+    stark: &S,
+    trace_commitment: &'a PolynomialBatch<F, C, D>,
+    auxiliary_polys_commitment: &'a PolynomialBatch<F, C, D>,
+    lookup_challenges: Option<&'a Vec<F>>,
+    lookups: &[Lookup<F>],
+    ctl_data: &CtlData<F>,
+    alphas: Vec<F>,
+    degree_bits: usize,
+    num_lookup_columns: usize,
+    num_ctl_columns: &[usize],
+    config: &StarkConfig,
+    timing: &mut TimingTree,
+) -> Vec<PolynomialCoeffs<F>>
+where
+    F: RichField + Extendable<D>,
+    P: PackedField<Scalar=F>,
+    C: GenericConfig<D, F=F>,
+    S: Stark<F, D>,
+{
+    use core::any::TypeId;
+    use std::mem::transmute;
+    use plonky2::compute_quotient_polys_cuda_warp;
+    use std::ptr;
+    use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::plonk::config::PoseidonGoldilocksConfig;
+    // println!();
+    // println!();
+    // println!();
+    if TypeId::of::<F>() != TypeId::of::<GoldilocksField>()
+        || TypeId::of::<PoseidonGoldilocksConfig>() != TypeId::of::<C>()
+        || D != 2
+        || trace_commitment.blinding != false
+        || auxiliary_polys_commitment.blinding != false
+        || stark.get_type() == 0 // 0 for Keccak and KeccakSponge type
+        || alphas.len() != 2
+    {
+        println!("type mismatch! go to compute_quotient_polys!!!");
+        return compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
+            stark,
+            trace_commitment,
+            &auxiliary_polys_commitment,
+            lookup_challenges,
+            &lookups,
+            ctl_data,
+            alphas,
+            degree_bits,
+            num_lookup_columns,
+            num_ctl_columns,
+            config,
+        );
+    }
+    // -------------------------------------------------------------------- //
+    timing.push("0 compute_quotient_values data parse", log::Level::Info);
+    let degree = 1 << degree_bits;
+    let rate_bits = config.fri_config.rate_bits;
+    let quotient_degree_bits = log2_ceil(stark.quotient_degree_factor());
+    assert!(
+        quotient_degree_bits <= rate_bits,
+        "Having constraints of degree higher than the rate is not support
+        ed yet."
+    );
+    let alpha_len = alphas.len();
+    let stark_type = stark.get_type();
+    let abstract_field_vec = plonky2::field::abstract_field::SIMPLE_STARKS_ABSTRACT_FIELD_VEC
+        .lock()
+        .unwrap();
+    let ops_streams = abstract_field_vec[stark_type - 1].clone().unwrap();
+    let ops_streams_len = ops_streams.len();
+    let mut ops_streams_vec: Vec<u64> = Vec::new();
+    assert!(ops_streams_len < 16000, "ops_streams_len must < 16000");
+    for node in ops_streams {
+        ops_streams_vec.push(node.op);
+        ops_streams_vec.push(node.tmp1_type);
+        ops_streams_vec.push(node.tmp1_idx);
+        ops_streams_vec.push(node.tmp1_f);
+        ops_streams_vec.push(node.tmp2_type);
+        ops_streams_vec.push(node.tmp2_idx);
+        ops_streams_vec.push(node.tmp2_f);
+    }
+    let alphas_gf: *const GoldilocksField = unsafe { transmute(alphas.as_ptr()) };
+    let trace_commitment_polynum = trace_commitment.merkle_tree.leave_size;
+    let trace_commitment_polylen = trace_commitment.merkle_tree.leaves_len;
+    let trace_commitment_leaves_gf: *mut GoldilocksField =
+        unsafe {
+            transmute(trace_commitment.merkle_tree.leaves.as_ptr())
+        }; // poly_len * poly_num
+    let auxiliary_polys_commitment_polynum = auxiliary_polys_commitment.merkle_tree.leave_size;
+    let auxiliary_polys_commitment_polylen = auxiliary_polys_commitment.merkle_tree.leaves_len;
+    let auxiliary_polys_commitment_leaves_gf: *mut GoldilocksField =
+        unsafe { transmute(auxiliary_polys_commitment.merkle_tree.leaves.as_ptr()) };
+    assert!(lookups.len() <= 1, "lookups.len() must <= 1");
+    let step2_exec_flag = lookups.len() == 1;
+    let mut lookups_columns_linear_idx: Vec<usize> = Vec::new();
+    let mut lookups_columns_linear_f: Vec<F> = Vec::new();
+    let mut lookups_columns_len = 0;
+    if step2_exec_flag {
+        // lookups-columns
+        lookups_columns_len = lookups[0].columns.len();
+        for c in &lookups[0].columns {
+            assert!(c.linear_combination.len() == 1);
+            assert!(c.next_row_linear_combination.len() == 0);
+            assert!(c.constant == F::ZERO);
+            lookups_columns_linear_idx.push(c.linear_combination[0].0);
+            lookups_columns_linear_f.push(c.linear_combination[0].1);
+        }
+        // lookups-table_column
+        let table_column = &lookups[0].table_column;
+        assert!(table_column.linear_combination.len() == 1);
+        assert!(table_column.next_row_linear_combination.len() == 0);
+        assert!(table_column.constant == F::ZEROS);
+        lookups_columns_linear_idx.push(table_column.linear_combination[0].0);
+        lookups_columns_linear_f.push(table_column.linear_combination[0].1);
+        // lookups-frequencies_column
+        let frequencies_column = &lookups[0].frequencies_column;
+        assert!(frequencies_column.linear_combination.len() == 1);
+        assert!(frequencies_column.next_row_linear_combination.len() == 0);
+        assert!(frequencies_column.constant == F::ZEROS);
+        lookups_columns_linear_idx.push(frequencies_column.linear_combination[0].0);
+        lookups_columns_linear_f.push(frequencies_column.linear_combination[0].1);
+        for filter in &lookups[0].filter_columns {
+            assert!(filter.is_none());
+        }
+    }
+    let lookups_columns_linear_gf: *mut GoldilocksField = if !lookups_columns_linear_f.is_empty() {
+        unsafe { transmute(&mut lookups_columns_linear_f[0]) }
+    } else {
+        ptr::null_mut()
+    };
+
+    let mut lookup_vars_lookup_challenges_len = 0;
+    let mut lookup_vars_lookup_challenges_f: Vec<F> = Vec::new();
+    if !lookup_challenges.is_none() {
+        for data in lookup_challenges.unwrap() {
+            lookup_vars_lookup_challenges_f.push(*data);
+        }
+        lookup_vars_lookup_challenges_len = lookup_vars_lookup_challenges_f.len();
+    }
+    let lookup_vars_lookup_challenges_gf: *mut GoldilocksField =
+        if lookup_vars_lookup_challenges_len > 0 {
+            unsafe { transmute(&mut lookup_vars_lookup_challenges_f[0]) }
+        } else {
+            ptr::null_mut()
+        };
+
+    let ctl_data_len = ctl_data.zs_columns.len();
+    let mut each_ctl_vars_columns_dim1: Vec<usize> = vec![0; ctl_data_len];
+    let mut each_ctl_vars_columns_dim2: Vec<usize> = vec![0; ctl_data_len];
+    let mut ctl_data_challenges_beta_gamma: Vec<F> = vec![F::ZERO; ctl_data_len * 2];
+    let mut ctl_data_columns_constant_f: Vec<F> = Vec::new(); //总⻓度 sum_i(each_ctl_vars_columns_dim1[i] * each_ctl_vars_columns_dim2[i])
+    let mut ctl_data_columns_constant_f_cursor: Vec<usize> = vec![0; ctl_data_len];
+    let mut ctl_data_columns_linear_i: Vec<usize> = Vec::new();
+    let mut ctl_data_columns_linear_f: Vec<F> = Vec::new();
+    let mut ctl_data_columns_linear_f_len: Vec<usize> = Vec::new(); //总⻓度 sum_i(each_ctl_vars_columns_dim1[i] * each_ctl_vars_columns_dim2[i])
+    let mut ctl_data_columns_linear_f_cursor: Vec<usize> = Vec::new(); //总⻓度 sum_i(each_ctl_vars_columns_dim1[i] * each_ctl_vars_columns_dim2[i])
+    let mut ctl_data_filter_constant_f: Vec<F> = Vec::new(); //总⻓度 sum_i(each_ctl_vars_columns_dim1[i] * 1)
+    let mut ctl_data_filter_constant_f_cursor: Vec<usize> = vec![0; ctl_data_len];
+    let mut ctl_data_filter_linear_i: Vec<usize> = Vec::new();
+    let mut ctl_data_filter_linear_f: Vec<F> = Vec::new();
+    let mut ctl_data_filter_linear_f_len: Vec<usize> = Vec::new(); //总⻓度 sum_i(each_ctl_vars_columns_dim1[i] * 1)
+    let mut ctl_data_filter_linear_f_cursor: Vec<usize> = Vec::new(); //总⻓度 sum_i(each_ctl_vars_columns_dim1[i] * 1)
+    for i in 0..ctl_data_len {
+        ctl_data_challenges_beta_gamma[i * 2] = ctl_data.zs_columns[i].challenge.beta;
+        ctl_data_challenges_beta_gamma[i * 2 + 1] = ctl_data.zs_columns[i].challenge.gamma;
+        each_ctl_vars_columns_dim1[i] = ctl_data.zs_columns[i].columns.len();
+        each_ctl_vars_columns_dim2[i] = ctl_data.zs_columns[i].columns[0].len();
+        ctl_data_columns_constant_f_cursor[i] = ctl_data_columns_constant_f.len();
+        for ci in 0..each_ctl_vars_columns_dim1[i] {
+            for cj in 0..each_ctl_vars_columns_dim2[i] {
+                let c = &ctl_data.zs_columns[i].columns[ci][cj];
+                // next
+                assert!(
+                    c.next_row_linear_combination.len() == 0,
+                    "ctl_data'columns next must empty!"
+                );
+                // constant
+                ctl_data_columns_constant_f.push(c.constant);
+                // linear
+                ctl_data_columns_linear_f_cursor.push(ctl_data_columns_linear_f.len());
+                ctl_data_columns_linear_f_len.push(c.linear_combination.len());
+                for tp in &c.linear_combination {
+                    ctl_data_columns_linear_i.push(tp.0);
+                    ctl_data_columns_linear_f.push(tp.1);
+                }
+            }
+        }
+        assert!(ctl_data.zs_columns[i].filter.len() == each_ctl_vars_columns_dim1[i]);
+        ctl_data_filter_constant_f_cursor[i] = ctl_data_filter_constant_f.len();
+        for filt in &ctl_data.zs_columns[i].filter {
+            assert!(filt.is_some());
+            assert!(filt.as_ref().unwrap().products.len() == 0);
+            assert!(filt.as_ref().unwrap().constants.len() == 1);
+            let c = &filt.as_ref().unwrap().constants[0];
+            // next
+            assert!(
+                c.next_row_linear_combination.len() == 0,
+                "ctl_data'filter next must empty!"
+            );
+            // constant
+            ctl_data_filter_constant_f.push(c.constant);
+            // linear
+            ctl_data_filter_linear_f_cursor.push(ctl_data_filter_linear_f.len());
+            ctl_data_filter_linear_f_len.push(c.linear_combination.len());
+            for tp in &c.linear_combination {
+                ctl_data_filter_linear_i.push(tp.0);
+                ctl_data_filter_linear_f.push(tp.1);
+            }
+        }
+    }
+
+    let ctl_data_challenges_beta_gamma_gf: *mut GoldilocksField = unsafe
+        { transmute(&mut ctl_data_challenges_beta_gamma[0]) };
+    let ctl_data_columns_linear_gf: *mut GoldilocksField = unsafe { transmute(&mut ctl_data_columns_linear_f[0]) };
+    let ctl_data_columns_constant_gf: *mut GoldilocksField = unsafe { transmute(&mut ctl_data_columns_constant_f[0]) };
+    let ctl_data_filter_linear_gf: *mut GoldilocksField = unsafe { transmute(&mut ctl_data_filter_linear_f[0]) };
+    let ctl_data_filter_constant_gf: *mut GoldilocksField = unsafe { transmute(&mut ctl_data_filter_constant_f[0]) };
+    timing.pop();
+
+    timing.push("1 compute_quotient_polys_cuda_wrap", log::Level::Info);
+    let mut constraint_accs_vec: Vec<GoldilocksField> = vec![GoldilocksField::ZERO; (degree << quotient_degree_bits) * alpha_len];
+    unsafe {
+        compute_quotient_polys_cuda_warp(
+            constraint_accs_vec.as_mut_ptr(),
+            stark_type,
+            degree,
+            degree_bits,
+            quotient_degree_bits,
+            trace_commitment_polynum,
+            trace_commitment_polylen,
+            trace_commitment_leaves_gf,
+            alphas_gf,
+            alpha_len,
+            ops_streams_vec.as_mut_ptr(),
+            ops_streams_len as _,
+            // step_2 data
+            step2_exec_flag,
+            auxiliary_polys_commitment_polynum,
+            auxiliary_polys_commitment_polylen,
+            auxiliary_polys_commitment_leaves_gf,
+            lookups_columns_len,
+            lookups_columns_linear_idx.as_mut_ptr(),
+            lookups_columns_linear_gf,
+            lookup_vars_lookup_challenges_len,
+            lookup_vars_lookup_challenges_gf,
+            num_lookup_columns,
+            // step_3 data
+            ctl_data_len,
+            num_ctl_columns.as_ptr(),
+            each_ctl_vars_columns_dim1.as_ptr(),
+            each_ctl_vars_columns_dim2.as_ptr(),
+            ctl_data_challenges_beta_gamma_gf,
+            ctl_data_columns_constant_f.len(),
+            ctl_data_columns_constant_gf, //总⻓度 sum_i(each_ctl_vars_columns_dim1[i] * each_ctl_vars_columns_dim2[i])
+            ctl_data_columns_constant_f_cursor.as_ptr(), // vec![0; ctl_data_len];
+            ctl_data_columns_linear_f.len(),
+            ctl_data_columns_linear_i.as_ptr(),
+            ctl_data_columns_linear_gf,
+            ctl_data_columns_linear_f_len.as_ptr(), //⻓度与 ctl_data_columns_constant_f 相同
+            ctl_data_columns_linear_f_cursor.as_ptr(), //⻓度与 ctl_data_columns_constant_f 相同
+            ctl_data_filter_constant_f.len(),
+            ctl_data_filter_constant_gf,
+            ctl_data_filter_constant_f_cursor.as_ptr(),
+            ctl_data_filter_linear_f.len(),
+            ctl_data_filter_linear_i.as_ptr(),
+            ctl_data_filter_linear_gf,
+            ctl_data_filter_linear_f_len.as_ptr(), //⻓度与 ctl_data_filter_constant_f 相同
+            ctl_data_filter_linear_f_cursor.as_ptr(), //⻓度与 ctl_data_filter_constant_f 相同
+            timing,
+        );
+    }
+    timing.pop();
+    timing.push("2 compute result back_to_Field", log::Level::Info);
+    let constraint_accs_vec_f: *mut F = unsafe { transmute(&mut constraint_accs_vec[0]) };
+    let mut vec_of_result_f: Vec<PolynomialCoeffs<F>> = Vec::with_capacity(alpha_len); // 创建一个容量为2的 Vec
+    unsafe {
+        for i in 0..alpha_len {
+            let start: isize = (i << (degree_bits + quotient_degree_bits)) as isize; // 计算每个向量的起始索引
+            let slice = std::slice::from_raw_parts(constraint_accs_vec_f.
+                offset(start), 1 << (degree_bits + quotient_degree_bits));
+            vec_of_result_f.push(PolynomialCoeffs::new(slice.to_vec()));
+            // 将切片转换为 Vec 并推入
+        }
+    }
+    timing.pop();
+    vec_of_result_f
 }

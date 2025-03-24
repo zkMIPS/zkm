@@ -3,7 +3,7 @@ use std::env;
 use zkm_emulator::utils::{load_elf_with_patch, split_prog_into_segs};
 use zkm_utils::utils::prove_segments;
 
-const ELF_PATH: &str = "../guest/elf/mips-zkm-zkvm-elf";
+const ELF_PATH: &str = "sha2-rust/guest/elf/mips-zkm-zkvm-elf";
 
 fn prove_sha2_rust() {
     // 1. split ELF into segs

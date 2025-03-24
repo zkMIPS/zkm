@@ -35,10 +35,11 @@ fn ethereum_test() {
 }
 
 fn read_suite(s: &Vec<u8>) -> TestSuite {
-    let suite: TestUnit = serde_json::from_slice(s).map_err(|e| e).unwrap();
-    let mut btm = BTreeMap::new();
-    btm.insert("test".to_string(), suite);
-    TestSuite(btm)
+    // let suite: TestUnit = serde_json::from_slice(s).map_err(|e| e).unwrap();
+    // let mut btm = BTreeMap::new();
+    // btm.insert("test".to_string(), suite);
+    let suite: TestSuite = serde_json::from_slice(s).map_err(|e| e).unwrap();
+    suite
 }
 
 fn execute_test_suite(suite: TestSuite) -> Result<(), String> {
@@ -47,7 +48,8 @@ fn execute_test_suite(suite: TestSuite) -> Result<(), String> {
         let mut cache_state = CacheState::new(false);
         for (address, info) in unit.pre {
             let acc_info = revm::primitives::AccountInfo {
-                balance: info.balance, code_hash: B256::from(zkm_runtime::io::keccak(&info.code)),
+                balance: info.balance,
+                code_hash: B256::from(zkm_runtime::io::keccak(&info.code)),
                 code: Some(Bytecode::new_raw(info.code)),
                 nonce: info.nonce,
             };

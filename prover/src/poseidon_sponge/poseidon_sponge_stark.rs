@@ -364,20 +364,24 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonSpongeStark<F, D> {
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonSpongeStark<F, D> {
     type EvaluationFrame<FE, P, const D2: usize>
-        = StarkFrame<P, NUM_POSEIDON_SPONGE_COLUMNS>
+    = StarkFrame<P, NUM_POSEIDON_SPONGE_COLUMNS>
     where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>;
+        FE: FieldExtension<D2, BaseField=F>,
+        P: PackedField<Scalar=FE>;
 
     type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_POSEIDON_SPONGE_COLUMNS>;
+
+    fn get_type(&self) -> usize {
+        4
+    }
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
         vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        FE: FieldExtension<D2, BaseField=F>,
+        P: PackedField<Scalar=FE>,
     {
         let local_values: &[P; NUM_POSEIDON_SPONGE_COLUMNS] =
             vars.get_local_values().try_into().unwrap();
@@ -459,7 +463,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonSpong
         yield_constr.constraint_transition(
             is_full_input_block
                 * (already_absorbed_bytes + P::from(FE::from_canonical_usize(POSEIDON_RATE_BYTES))
-                    - next_values.already_absorbed_bytes),
+                - next_values.already_absorbed_bytes),
         );
 
         // A dummy row is always followed by another dummy row, so the prover can't put dummy rows "in between" to avoid the above checks.

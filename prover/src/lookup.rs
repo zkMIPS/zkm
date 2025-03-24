@@ -126,12 +126,12 @@ pub(crate) fn lookup_helper_columns<F: Field>(
 pub struct LookupCheckVars<F, FE, P, const D2: usize>
 where
     F: Field,
-    FE: FieldExtension<D2, BaseField = F>,
-    P: PackedField<Scalar = FE>,
+    FE: FieldExtension<D2, BaseField=F>,
+    P: PackedField<Scalar=FE>,
 {
-    pub(crate) local_values: Vec<P>,
-    pub(crate) next_values: Vec<P>,
-    pub(crate) challenges: Vec<F>,
+    pub local_values: Vec<P>,
+    pub next_values: Vec<P>,
+    pub challenges: Vec<F>,
 }
 
 /// Constraints for the logUp lookup argument.
@@ -143,8 +143,8 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
     yield_constr: &mut ConstraintConsumer<P>,
 ) where
     F: RichField + Extendable<D>,
-    FE: FieldExtension<D2, BaseField = F>,
-    P: PackedField<Scalar = FE>,
+    FE: FieldExtension<D2, BaseField=F>,
+    P: PackedField<Scalar=FE>,
     S: Stark<F, D>,
 {
     let local_values = vars.get_local_values();
