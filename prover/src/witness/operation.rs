@@ -68,6 +68,8 @@ pub fn generate_pinv_diff<F: Field>(val0: u32, val1: u32, lv: &mut CpuColumnsVie
     logic.diff_pinv = (val0_f - val1_f).try_inverse().unwrap_or(F::ZERO) * num_unequal_limbs_inv;
 }
 
+pub(crate) const SYSSHAEXTEND: usize = 0x00300105;
+pub(crate) const SYSSHACOMPRESS: usize = 0x00010106;
 pub(crate) const SYSKECCAK: usize = 0x010109;
 pub(crate) const SYSGETPID: usize = 4020;
 pub(crate) const SYSGETGID: usize = 4047;
@@ -966,6 +968,283 @@ pub(crate) fn generate_keccak<
     Ok(())
 }
 
+pub(crate) fn generate_sha_extend<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
+    w_ptr: usize,
+    a1: usize,
+) -> Result<()> {
+    assert!(a1 == 0, "arg2 must be 0");
+
+    for i in 16..64 {
+        let mut cpu_row = CpuColumnsView::default();
+        cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+        let mut input_addresses = vec![];
+        // let mut input_value_bit_be = vec![];
+        let mut input_le_bytes = vec![];
+        let addr = MemoryAddress::new(0, Segment::Code, w_ptr + (i - 15) * 4);
+        let (w_i_minus_15, mem_op) = mem_read_gp_with_log_and_fill(0, addr, state, &mut cpu_row);
+        state.traces.push_memory(mem_op);
+        input_addresses.push(addr);
+        input_le_bytes.push(w_i_minus_15.to_le_bytes());
+
+        let s0_inter = w_i_minus_15.rotate_right(7) ^ w_i_minus_15.rotate_right(18);
+        xor_logic_log(
+            state,
+            w_i_minus_15.rotate_right(7),
+            w_i_minus_15.rotate_right(18),
+        );
+        let s0 = s0_inter ^ (w_i_minus_15 >> 3);
+        xor_logic_log(state, s0_inter, w_i_minus_15 >> 3);
+
+        // Read w[i-2].
+        let addr = MemoryAddress::new(0, Segment::Code, w_ptr + (i - 2) * 4);
+        let (w_i_minus_2, mem_op) = mem_read_gp_with_log_and_fill(1, addr, state, &mut cpu_row);
+        state.traces.push_memory(mem_op);
+        input_addresses.push(addr);
+        input_le_bytes.push(w_i_minus_2.to_le_bytes());
+
+        // Compute `s1`.
+        let s1_inter = w_i_minus_2.rotate_right(17) ^ w_i_minus_2.rotate_right(19);
+        xor_logic_log(
+            state,
+            w_i_minus_2.rotate_right(17),
+            w_i_minus_2.rotate_right(19),
+        );
+        let s1 = s1_inter ^ (w_i_minus_2 >> 10);
+        xor_logic_log(state, s1_inter, w_i_minus_2 >> 10);
+
+        // Read w[i-16].
+        let addr = MemoryAddress::new(0, Segment::Code, w_ptr + (i - 16) * 4);
+        let (w_i_minus_16, mem_op) = mem_read_gp_with_log_and_fill(2, addr, state, &mut cpu_row);
+        state.traces.push_memory(mem_op);
+        input_addresses.push(addr);
+        // input_value_bit_be.push(from_u32_to_be_bits(w_i_minus_16));
+        input_le_bytes.push(w_i_minus_16.to_le_bytes());
+
+        // Read w[i-7].
+        let addr = MemoryAddress::new(0, Segment::Code, w_ptr + (i - 7) * 4);
+        let (w_i_minus_7, mem_op) = mem_read_gp_with_log_and_fill(3, addr, state, &mut cpu_row);
+        state.traces.push_memory(mem_op);
+        input_addresses.push(addr);
+        input_le_bytes.push(w_i_minus_7.to_le_bytes());
+
+        // Compute `w_i`.
+        let w_i = s1
+            .wrapping_add(w_i_minus_16)
+            .wrapping_add(s0)
+            .wrapping_add(w_i_minus_7);
+
+        // Write w[i].
+        log::debug!(
+            "{:X}, {:X}, {:X} {:X} {:X} {:X}",
+            s1,
+            s0,
+            w_i_minus_16,
+            w_i_minus_7,
+            w_i_minus_15,
+            w_i_minus_2
+        );
+        let addr = MemoryAddress::new(0, Segment::Code, w_ptr + i * 4);
+        log::debug!("extend write {:X} {:X}", w_ptr + i * 4, w_i);
+        let mem_op = mem_write_gp_log_and_fill(4, addr, state, &mut cpu_row, w_i);
+
+        state.traces.push_memory(mem_op);
+        state.traces.push_cpu(cpu_row);
+        state.memory.apply_ops(&state.traces.memory_ops);
+
+        cpu_row = CpuColumnsView::default();
+        cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+        cpu_row.is_sha_extend_sponge = F::ONE;
+
+        // The SHA extend sponge CTL uses memory value columns for its inputs and outputs.
+        cpu_row.mem_channels[0].value = F::ZERO; // context
+        cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
+        cpu_row.mem_channels[2].value = F::from_canonical_usize(addr.virt);
+        cpu_row.general.element_mut().value = F::from_canonical_u32(w_i);
+        sha_extend_sponge_log(state, input_addresses, input_le_bytes, addr, i - 16);
+        state.traces.push_cpu(cpu_row);
+    }
+
+    Ok(())
+}
+
+pub const SHA_COMPRESS_K: [u32; 64] = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+];
+
+pub(crate) fn generate_sha_compress<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    state: &mut GenerationState<F, C, D>,
+    w_ptr: usize,
+    h_ptr: usize,
+) -> Result<()> {
+    let mut hx = [0u32; 8];
+    let mut cpu_row = CpuColumnsView::default();
+    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+
+    let mut hx_addresses = vec![];
+    let mut hx_values = vec![];
+    let mut w_i_values = vec![];
+    let mut w_i_addresses = vec![];
+    let mut state_values = vec![];
+
+    for i in 0..8 {
+        let addr = MemoryAddress::new(0, Segment::Code, h_ptr + i * 4);
+        let (value, mem_op) = mem_read_gp_with_log_and_fill(i, addr, state, &mut cpu_row);
+        state.traces.push_memory(mem_op);
+        hx[i] = value;
+        hx_addresses.push(addr);
+        hx_values.push(value.to_le_bytes());
+    }
+    state.traces.push_cpu(cpu_row);
+    // Execute the "compress" phase.
+    let mut a = hx[0];
+    let mut b = hx[1];
+    let mut c = hx[2];
+    let mut d = hx[3];
+    let mut e = hx[4];
+    let mut f = hx[5];
+    let mut g = hx[6];
+    let mut h = hx[7];
+    let mut j = 0;
+    cpu_row = CpuColumnsView::default();
+    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+    for i in 0..64 {
+        let input_state = [a, b, c, d, e, f, g, h]
+            .iter()
+            .map(|x| x.to_le_bytes())
+            .collect_vec();
+        state_values.push(input_state);
+
+        let s_1_inter = e.rotate_right(6) ^ e.rotate_right(11);
+        let s1 = s_1_inter ^ e.rotate_right(25);
+
+        let e_not = !e;
+        let e_and_f = e & f;
+        let not_e_and_g = e_not & g;
+        let ch = e_and_f ^ not_e_and_g;
+
+        if j == 8 {
+            state.traces.push_cpu(cpu_row);
+            cpu_row = CpuColumnsView::default();
+            cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+            j = 0;
+        }
+
+        let addr = MemoryAddress::new(0, Segment::Code, w_ptr + i * 4);
+        let (w_i, mem_op) = mem_read_gp_with_log_and_fill(j, addr, state, &mut cpu_row);
+        state.traces.push_memory(mem_op);
+        j += 1;
+        w_i_values.push(w_i.to_le_bytes());
+        w_i_addresses.push(addr);
+
+        let temp1 = h
+            .wrapping_add(s1)
+            .wrapping_add(ch)
+            .wrapping_add(SHA_COMPRESS_K[i])
+            .wrapping_add(w_i);
+
+        let s0_inter = a.rotate_right(2) ^ a.rotate_right(13);
+        let s0 = s0_inter ^ a.rotate_right(22);
+
+        let a_and_b = a & b;
+        let a_and_c = a & c;
+        let b_and_c = b & c;
+        let maj_inter = a_and_b ^ a_and_c;
+        let maj = maj_inter ^ b_and_c;
+
+        let temp2 = s0.wrapping_add(maj);
+
+        xor_logic_log(state, e.rotate_right(6), e.rotate_right(11));
+        xor_logic_log(state, s_1_inter, e.rotate_right(25));
+        and_logic_log(state, e, f);
+        and_logic_log(state, e_not, g);
+        xor_logic_log(state, e_and_f, not_e_and_g);
+        xor_logic_log(state, a.rotate_right(2), a.rotate_right(13));
+        xor_logic_log(state, s0_inter, a.rotate_right(22));
+        and_logic_log(state, a, b);
+        and_logic_log(state, a, c);
+        and_logic_log(state, b, c);
+        xor_logic_log(state, a_and_b, a_and_c);
+        xor_logic_log(state, maj_inter, b_and_c);
+
+        h = g;
+        g = f;
+        f = e;
+        e = d.wrapping_add(temp1);
+        d = c;
+        c = b;
+        b = a;
+        a = temp1.wrapping_add(temp2);
+    }
+    let input_state = [a, b, c, d, e, f, g, h]
+        .iter()
+        .map(|x| x.to_le_bytes())
+        .collect_vec();
+    state_values.push(input_state);
+
+    state.traces.push_cpu(cpu_row);
+    // Execute the "finalize" phase.
+
+    let mut cpu_row = CpuColumnsView::default();
+    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+    cpu_row.is_sha_compress_sponge = F::ONE;
+
+    cpu_row.mem_channels[0].value = F::ZERO; // context
+    cpu_row.mem_channels[1].value = F::from_canonical_usize(Segment::Code as usize);
+    cpu_row.mem_channels[2].value = F::from_canonical_usize(hx_addresses[0].virt); // start address of hx
+
+    let u32_result: Vec<u32> = [a, b, c, d, e, f, g, h]
+        .iter()
+        .enumerate()
+        .map(|(i, x)| hx[i].wrapping_add(*x))
+        .collect_vec();
+
+    cpu_row.general.shash_mut().value = u32_result
+        .into_iter()
+        .map(F::from_canonical_u32)
+        .collect_vec()
+        .try_into()
+        .unwrap();
+    // cpu_row.general.shash_mut().value.reverse();
+    sha_compress_sponge_log(
+        state,
+        hx_values,
+        hx_addresses,
+        w_i_values,
+        w_i_addresses,
+        state_values,
+    );
+    state.traces.push_cpu(cpu_row);
+
+    let v = [a, b, c, d, e, f, g, h];
+    let mut cpu_row = CpuColumnsView::default();
+    cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+    for i in 0..8 {
+        let addr = MemoryAddress::new(0, Segment::Code, h_ptr + i * 4);
+        let mem_op =
+            mem_write_gp_log_and_fill(i, addr, state, &mut cpu_row, hx[i].wrapping_add(v[i]));
+        state.traces.push_memory(mem_op);
+        log::debug!("write {:X} {:X}", h_ptr + i * 4, hx[i].wrapping_add(v[i]));
+    }
+    state.traces.push_cpu(cpu_row);
+    Ok(())
+}
+
 pub(crate) fn generate_syscall<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -985,6 +1264,8 @@ pub(crate) fn generate_syscall<
     let mut is_verify = false;
     let mut is_keccak = false;
     let mut is_commit = false;
+    let mut is_sha_extend = false;
+    let mut is_sha_compress = false;
     let result = match sys_num {
         SYSEXITGROUP => {
             state.registers.exited = true;
@@ -1033,6 +1314,14 @@ pub(crate) fn generate_syscall<
             is_keccak = true;
             Ok(())
         }
+        SYSSHACOMPRESS => {
+            is_sha_compress = true;
+            Ok(())
+        }
+        SYSSHAEXTEND => {
+            is_sha_extend = true;
+            Ok(())
+        }
         _ => {
             Ok(())
         }
@@ -1059,6 +1348,12 @@ pub(crate) fn generate_syscall<
     }
     if is_keccak {
         let _ = generate_keccak(state, a0, a1, a2);
+    }
+    if is_sha_compress {
+        let _ = generate_sha_compress(state, a0, a1);
+    }
+    if is_sha_extend {
+        let _ = generate_sha_extend(state, a0, a1);
     }
     result
 }

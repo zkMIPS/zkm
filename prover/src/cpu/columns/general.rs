@@ -12,7 +12,9 @@ pub(crate) union CpuGeneralColumnsView<T: Copy> {
     io: CpuIOAuxView<T>,
     hash: CpuHashView<T>,
     khash: CpuKHashView<T>,
-    // misc: CpuMiscView<T>,
+    shash: CpuSHashView<T>,
+    element: CpuElementView<T>,
+    misc: CpuMiscView<T>,
 }
 
 impl<T: Copy> CpuGeneralColumnsView<T> {
@@ -34,6 +36,26 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn khash_mut(&mut self) -> &mut CpuKHashView<T> {
         unsafe { &mut self.khash }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn element(&self) -> &CpuElementView<T> {
+        unsafe { &self.element }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn element_mut(&mut self) -> &mut CpuElementView<T> {
+        unsafe { &mut self.element }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn shash(&self) -> &CpuSHashView<T> {
+        unsafe { &self.shash }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn shash_mut(&mut self) -> &mut CpuSHashView<T> {
+        unsafe { &mut self.shash }
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
@@ -66,7 +88,6 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
         unsafe { &mut self.shift }
     }
 
-    /*
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn misc(&self) -> &CpuMiscView<T> {
         unsafe { &self.misc }
@@ -76,7 +97,6 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     pub(crate) fn misc_mut(&mut self) -> &mut CpuMiscView<T> {
         unsafe { &mut self.misc }
     }
-    */
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn io(&self) -> &CpuIOAuxView<T> {
@@ -120,10 +140,12 @@ impl<T: Copy> BorrowMut<[T; NUM_SHARED_COLUMNS]> for CpuGeneralColumnsView<T> {
 
 #[derive(Copy, Clone)]
 pub(crate) struct CpuSyscallView<T: Copy> {
-    pub(crate) cond: [T; 2],
+    pub(crate) cond: [T; 12],
+    pub(crate) sysnum: [T; 12],
+    pub(crate) a0: [T; 3],
+    pub(crate) a1: T,
 }
 
-/*
 #[derive(Copy, Clone)]
 pub(crate) struct CpuMiscView<T: Copy> {
     pub(crate) rs_bits: [T; 32],
@@ -136,7 +158,6 @@ pub(crate) struct CpuMiscView<T: Copy> {
     pub(crate) rd_index_eq_0: T,
     pub(crate) rd_index_eq_29: T,
 }
-*/
 
 #[derive(Copy, Clone)]
 pub(crate) struct CpuLogicView<T: Copy> {
@@ -167,6 +188,16 @@ pub(crate) struct CpuHashView<T: Copy> {
 #[derive(Copy, Clone)]
 pub(crate) struct CpuKHashView<T: Copy> {
     pub(crate) value: [T; 8],
+}
+
+#[derive(Copy, Clone)]
+pub(crate) struct CpuSHashView<T: Copy> {
+    pub(crate) value: [T; 8],
+}
+
+#[derive(Copy, Clone)]
+pub(crate) struct CpuElementView<T: Copy> {
+    pub(crate) value: T,
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.

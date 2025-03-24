@@ -43,15 +43,15 @@ There are two ways to prove the program:
 An end-to-end example has been presented in [examples](https://github.com/zkMIPS/zkm/tree/main/prover/examples#examples).
 ## 2.2 Network Proving
 > [!NOTE]
-> The proving network is demo at present. The production version is coming soon.
+> The proving network is a demo at present. The production version is coming soon.
 ### Requirements
 * CA certificate:  ca.pem, ca.key
-* Register in the https://www.zkm.io/apply (Let your public key be in the whitelist)
+* Register at the https://www.zkm.io/apply (Let your public key be in the whitelist)
 * Set up a local node for some blockchain(eg, sepolia)
 ### 2.2.1 Network Proving Guide
 An end-to-end example has been presented in [examples](https://github.com/zkMIPS/zkm/blob/main/prover/examples).
 # 3. ZKM Project Template
-A project template to facilitate creating an end-to-end ZKM project which can generate the EVM-Compatible proof and the on chain verification contract.
+A project template to facilitate creating an end-to-end ZKM project that can generate the EVM-Compatible proof and the on chain verification contract.
 [ZKM Project Template](https://github.com/zkMIPS/zkm-project-template/tree/main)
 # 4. FAQs
 ### 1. My node is unable to compile.
@@ -69,7 +69,7 @@ This project follows the [all-contributors](https://github.com/all-contributors
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 ## General guidance for your PR
-- The PR fixes a bug In the PR description, please clearly but briefly describe the bug, including how to reproduce, and the error/exception you got, and how your PR fixes the bugs.
+- The PR fixes a bug In the PR description, please clearly but briefly describe the bug, including how to reproduce it, and the error/exception you got, and how your PR fixes the bugs.
 - The PR implements a new feature
 
 In the PR description, please clearly but briefly describe

@@ -4,7 +4,7 @@
 
 * Compile the Go code to MIPS
 
-Write your own hello.go, and compile with
+Write your own hello.go, and compile it with
 
 ```
 GOOS=linux GOARCH=mips GOMIPS=softfloat go build hello.go
@@ -31,6 +31,14 @@ BASEDIR=../../../emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_
 ```
 BASEDIR=../../../emulator/test-vectors RUST_LOG=info BLOCK_NO=13284491 SEG_FILE_DIR="/tmp/output" SEG_START_ID=0 SEG_NUM=299 SEG_SIZE=65536 \
     cargo run --release
+```
+
+* Generate proof for specific large segment (Split large segment into small segments)
+
+```
+cd ../prove-large-seg
+BASEDIR=../../../emulator/test-vectors RUST_LOG=info SEG_FILE=/tmp/output/8 BLOCK_NO=13284491 SEG_OUTPUT=/tmp/output1 SEG_SIZE=16384 cargo run --release
+
 ```
 
 ### Prove Go sdk code
@@ -76,15 +84,15 @@ RUST_LOG=info JSON_PATH=../../../../emulator/test-vectors/test.json SEG_OUTPUT=/
 
 ```
 
-## Prove precompile code
+## Prove composition code
 * Build the sha2-rust (**new**)
 ```
 cd prover/examples/sha2-rust/host
 cargo check
 ```
 
-* Build and run the sha2-precompile (**new**)
+* Build and run the sha2-composition (**new**)
 ```
-cd ../../sha2-precompile/host
+cd ../../sha2-composition/host
 RUST_LOG=info PRECOMPILE_PATH=../../sha2-rust/guest/elf/mips-zkm-zkvm-elf SEG_OUTPUT=/tmp/output cargo run --release
 ```

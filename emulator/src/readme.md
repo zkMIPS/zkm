@@ -13,11 +13,11 @@ Supported 55 instructions:
 'xor', 'xori'
 ```
 
-This repository acts as a spec for `zkMIPS`, a tool for generating zero knowledge proof for any
+This repository acts as a spec for `zkMIPS`, a tool for generating zero-knowledge proof for any
 MIPS program. Of course, the main purpose of `zkMIPS` is to prove the state transition of `EVM`.
 
 
-For this repository, it is a MIPS emulator. It utilizes merkle tree to proof the memory integrity.
+For this repository, it is a MIPS emulator. It utilizes merkle tree to prove the memory integrity.
 
 Here is the roadmap:
 

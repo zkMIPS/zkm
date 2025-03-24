@@ -4,7 +4,7 @@
 // 
 // This was compiled into assembly with:
 // 
-// clang-10 -target mips -O3 -S memcpy.c -nostdlib -fno-builtin -funroll-loops
+// clang -target mips -O3 -S memcpy.c -nostdlib -fno-builtin -funroll-loops
 // 
 // and labels manually updated to not conflict.
 // 
@@ -203,133 +203,207 @@
 // obstacle to adoption, that text has been removed.
 	.text
 	.file	"memcpy.c"
-	.globl	memccpy                 # -- Begin function memccpy
+	.globl	memcpy                 # -- Begin function memcpy
 	.p2align	2
-	.type	memccpy,@function
+	.type	memcpy,@function
 	.set	nomicromips
 	.set	nomips16
-	.ent	memccpy
-memccpy:                                # @memccpy
+	.ent	memcpy
+memcpy:                                # @memcpy
 	.frame	$fp,8,$ra
 	.mask 	0xc0000000,-4
 	.fmask	0x00000000,0
 	.set	noreorder
 	.set	nomacro
 	.set	noat
-# %bb.0:
-	addiu	$sp, $sp, -8
-	sw	$ra, 4($sp)             # 4-byte Folded Spill
-	sw	$fp, 0($sp)             # 4-byte Folded Spill
-	move	$fp, $sp
-	xor	$1, $5, $4
-	andi	$1, $1, 3
-	beqz	$1, $BBmemcpy0_7
-	andi	$3, $6, 255
-$BBmemcpy0_1:
-	beqz	$7, $BBmemcpy0_5
+# %bb.0: #23
+	andi	$1, $5, 3
+	beqz	$1, $BB0_15
 	nop
-# %bb.2:
-	addiu	$2, $4, 1
-$BBmemcpy0_3:                                 # =>This Inner Loop Header: Depth=1
+# %bb.1:  #23
+	beqz	$6, $BB0_6
+	nop
+# %bb.2:  #23
+	addiu	$3, $5, 1
+	addiu	$7, $zero, 1
+	move	$2, $4
+$BB0_3:   #23                              # =>This Inner Loop Header: Depth=1
 	lbu	$1, 0($5)
-	beq	$1, $3, $BBmemcpy0_6
-	sb	$1, -1($2)
-# %bb.4:                                #   in Loop: Header=BBmemcpy0_3 Depth=1
-	addiu	$2, $2, 1
-	addiu	$7, $7, -1
-	bnez	$7, $BBmemcpy0_3
+	move	$8, $6
+	addiu	$6, $6, -1
 	addiu	$5, $5, 1
-$BBmemcpy0_5:
-	addiu	$2, $zero, 0
-$BBmemcpy0_6:
-	move	$sp, $fp
-	lw	$fp, 0($sp)             # 4-byte Folded Reload
-	lw	$ra, 4($sp)             # 4-byte Folded Reload
-	jr	$ra
-	addiu	$sp, $sp, 8
-$BBmemcpy0_7:
-	andi	$6, $5, 3
-	beqz	$7, $BBmemcpy0_14
-	sltu	$2, $zero, $6
-# %bb.8:
-	beqz	$6, $BBmemcpy0_14
+	sb	$1, 0($2)
+	andi	$1, $3, 3
+	beqz	$1, $BB0_7
+	addiu	$2, $2, 1
+# %bb.4:                                #   in Loop: Header=BB0_3 Depth=1
+	bne	$8, $7, $BB0_3
+	addiu	$3, $3, 1
+# %bb.5:
+	j	$BB0_7
 	nop
-# %bb.9:
-	addiu	$2, $7, -1
-	addiu	$6, $zero, 0
-$BBmemcpy0_10:                                # =>This Inner Loop Header: Depth=1
-	addu	$9, $5, $6
-	addu	$8, $4, $6
-	lbu	$1, 0($9)
-	beq	$1, $3, $BBmemcpy0_22
-	sb	$1, 0($8)
-# %bb.11:                               #   in Loop: Header=BBmemcpy0_10 Depth=1
-	addiu	$1, $9, 1
-	addiu	$8, $6, 1
-	beq	$2, $6, $BBmemcpy0_13
-	andi	$9, $1, 3
-# %bb.12:                               #   in Loop: Header=BBmemcpy0_10 Depth=1
-	bnez	$9, $BBmemcpy0_10
-	move	$6, $8
-$BBmemcpy0_13:
-	sltu	$2, $zero, $9
-	subu	$7, $7, $8
-	addu	$4, $4, $8
-	addu	$5, $5, $8
-$BBmemcpy0_14:
-	beqz	$2, $BBmemcpy0_17
+$BB0_6: #23
+	move	$2, $4
+$BB0_7: #25
+	andi	$7, $2, 3
+	beqz	$7, $BB0_16
 	nop
-# %bb.15:
-	bnez	$7, $BBmemcpy0_6
-	addiu	$2, $4, 1
-# %bb.16:
-	j	$BBmemcpy0_5
+$BB0_8: #50
+	sltiu	$1, $6, 16
+	bnez	$1, $BB0_32
 	nop
-$BBmemcpy0_17:
-	sltiu	$1, $7, 4
-	bnez	$1, $BBmemcpy0_1
+$BB0_12: #51~106
+	lw	$3, 0($5)
+	swl $3, 0($2)
+	swr $3, 3($2)
+	lw	$3, 4($5)
+	swl $3, 4($2)
+	swr $3, 7($2)
+	lw	$3, 8($5)
+	swl $3, 8($2)
+	swr $3, 11($2)
+	lw	$3, 12($5)
+	swl $3, 12($2)
+	swr $3, 15($2)
+	addiu	$5, $5, 16
+	addiu	$6, $6, -16
+	sltiu 	$9, $6, 16
+	beqz	$9, $BB0_12
+	addiu   $2, $2, 16
+# %bb.14:
+	j	$BB0_32
 	nop
-# %bb.18:
-	sll	$1, $3, 8
-	sll	$2, $3, 16
-	or	$1, $1, $3
-	or	$1, $2, $1
-	sll	$2, $3, 24
-	or	$6, $2, $1
-	lui	$1, 65278
-	andi	$2, $7, 3
-	ori	$8, $1, 65279
-	lui	$1, 32896
-	ori	$9, $1, 32896
-$BBmemcpy0_19:                                # =>This Inner Loop Header: Depth=1
-	lw	$10, 0($5)
-	xor	$1, $10, $6
-	addu	$11, $1, $8
-	not	$1, $1
-	and	$1, $1, $11
-	and	$1, $1, $9
-	bnez	$1, $BBmemcpy0_1
+$BB0_15:  #23
+	move	$2, $4
+	andi	$7, $2, 3
+	bnez	$7, $BB0_8
 	nop
-# %bb.20:                               #   in Loop: Header=BBmemcpy0_19 Depth=1
-	addiu	$7, $7, -4
-	sw	$10, 0($4)
-	addiu	$4, $4, 4
-	sltiu	$1, $7, 4
-	beqz	$1, $BBmemcpy0_19
+$BB0_16: #26
+	sltiu	$1, $6, 16
+	bnez	$1, $BB0_23
+	nop
+$BB0_17: #27~30                              # =>This Inner Loop Header: Depth=1
+	lw	$1, 0($5)
+	addiu	$6, $6, -16
+	sw	$1, 0($2)
+	lw	$1, 4($5)
+	sw	$1, 4($2)
+	lw	$1, 8($5)
+	sw	$1, 8($2)
+	lw	$1, 12($5)
+	addiu	$5, $5, 16
+	sw	$1, 12($2)
+	sltiu	$1, $6, 16
+	beqz	$1, $BB0_17
+	addiu	$2, $2, 16
+# %bb.18: #32
+	sltiu	$1, $6, 8
+	beqz	$1, $BB0_24
+	nop
+$BB0_19: #37
+	andi	$1, $6, 4
+	bnez	$1, $BB0_25
+	nop
+$BB0_20: #41
+	andi	$1, $6, 2
+	bnez	$1, $BB0_26
+	nop
+$BB0_21: #44
+	andi	$1, $6, 1
+	beqz	$1, $BB0_45
+	nop
+# %bb.22: #47
+	j	$BB0_44
+	nop
+$BB0_23: #32
+	sltiu	$1, $6, 8
+	bnez	$1, $BB0_19
+	nop
+$BB0_24: #33-34
+	lw	$1, 0($5)
+	sw	$1, 0($2)
+	lw	$1, 4($5)
+	addiu	$5, $5, 8
+	sw	$1, 4($2)
+	andi	$1, $6, 4
+	beqz	$1, $BB0_20
+	addiu	$2, $2, 8
+$BB0_25: #38-39
+	lw	$1, 0($5)
 	addiu	$5, $5, 4
-# %bb.21:
-	j	$BBmemcpy0_1
-	move	$7, $2
-$BBmemcpy0_22:
-	j	$BBmemcpy0_6
-	addiu	$2, $8, 1
+	sw	$1, 0($2)
+	andi	$1, $6, 2
+	beqz	$1, $BB0_21
+	addiu	$2, $2, 4
+$BB0_26:  #42
+	lhu	$1, 0($5)
+	addiu	$5, $5, 2
+	sh	$1, 0($2)
+	andi	$1, $6, 1
+	beqz	$1, $BB0_45
+	addiu	$2, $2, 2
+# %bb.27:
+	j	$BB0_44
+	nop
+$BB0_32:
+	andi	$1, $6, 8
+	beqz	$1, $BB0_40     #107
+	nop
+$BB0_33:   #108~109
+	lw	$1, 0($5)
+	swl	$1, 0($2)
+	swr $1, 3($2)
+	lw	$1, 4($5)
+	swl	$1, 4($2)
+	swr $1, 7($2)
+	addiu	$2, $2, 8
+	andi	$1, $6, 4
+	beqz	$1, $BB0_41  #111
+	addiu	$5, $5, 8
+$BB0_34:  #112
+	lw	$1, 0($5)
+	swl	$1, 0($2)
+	swr $1, 3($2)
+	addiu	$2, $2, 4
+	andi	$1, $6, 2
+	beqz	$1, $BB0_43 #117
+	addiu	$5, $5, 4
+# %bb.35:  #120
+	j	$BB0_42
+	nop
+
+$BB0_40:
+	andi	$1, $6, 4
+	bnez	$1, $BB0_34
+	nop
+$BB0_41: #114
+	andi	$1, $6, 2
+	beqz	$1, $BB0_43
+	nop
+$BB0_42:
+	lbu	$1, 0($5)
+	sb	$1, 0($2)
+	lbu	$1, 1($5)
+	addiu	$5, $5, 2
+	sb	$1, 1($2)
+	addiu	$2, $2, 2
+$BB0_43: #117
+	andi	$1, $6, 1
+	beqz	$1, $BB0_45
+	nop
+$BB0_44: #118
+	lbu	$1, 0($5)
+	sb	$1, 0($2)
+$BB0_45: #120
+	jr	$ra
+	move	$2, $4
 	.set	at
 	.set	macro
 	.set	reorder
-	.end	memccpy
-$memcpy_func_end0:
-	.size	memccpy, ($memcpy_func_end0)-memccpy
+	.end	memcpy
+$func_end0:
+	.size	memcpy, ($func_end0)-memcpy
                                         # -- End function
-	.ident	"clang version 10.0.0-4ubuntu1 "
+	.ident	"Ubuntu clang version 18.1.3 (1ubuntu1)"
 	.section	".note.GNU-stack","",@progbits
 	.addrsig

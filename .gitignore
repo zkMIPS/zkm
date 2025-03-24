@@ -4,3 +4,4 @@
 /examples/target
 **/.DS_Store
 mips-zkm-zkvm-elf
+verifier
