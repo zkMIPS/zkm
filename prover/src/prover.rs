@@ -1,8 +1,14 @@
+use core::any::TypeId;
 use std::any::type_name;
-
+use std::mem::transmute;
+use std::ptr;
+use std::{cell::RefCell, rc::Rc};
 use anyhow::{ensure, Result};
 use itertools::Itertools;
+
+use plonky2::compute_quotient_polys_cuda_warp;
 use plonky2::field::extension::Extendable;
+use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::field::packable::Packable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
@@ -11,7 +17,7 @@ use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::Challenger;
-use plonky2::plonk::config::GenericConfig;
+use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
@@ -35,7 +41,6 @@ use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
-use std::{cell::RefCell, rc::Rc};
 
 #[cfg(any(feature = "test", test))]
 use crate::cross_table_lookup::testutils::check_ctls;
@@ -1071,15 +1076,6 @@ where
     C: GenericConfig<D, F=F>,
     S: Stark<F, D>,
 {
-    use core::any::TypeId;
-    use std::mem::transmute;
-    use plonky2::compute_quotient_polys_cuda_warp;
-    use std::ptr;
-    use plonky2::field::goldilocks_field::GoldilocksField;
-    use plonky2::plonk::config::PoseidonGoldilocksConfig;
-    // println!();
-    // println!();
-    // println!();
     if TypeId::of::<F>() != TypeId::of::<GoldilocksField>()
         || TypeId::of::<PoseidonGoldilocksConfig>() != TypeId::of::<C>()
         || D != 2
