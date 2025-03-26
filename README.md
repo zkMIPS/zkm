@@ -32,21 +32,15 @@ ZKM is a general verifiable computing infrastructure based on [Plonky2](https:/
 There are two ways to prove the program:
 - Use your local machine
 - Use ZKM Proving network
-## 2.1  Local Proving
-### Requirements:
-- [Go : 1.22.1](https://go.dev/dl)
-- [Rust: 1.81.0-nightly](https://www.rust-lang.org/tools/install)
-- Hardware: X86 CPU, 32 cores, 32G memory
-- OS: Ubuntu22
 
-### 2.1.1 Local Proving Guide
+## 2.1 Local Proving Guide
 An end-to-end example has been presented in [examples](https://github.com/zkMIPS/zkm/tree/main/prover/examples#examples).
 ## 2.2 Network Proving
 > [!NOTE]
 > The proving network is a demo at present. The production version is coming soon.
 ### Requirements
 * CA certificate:  ca.pem, ca.key
-* Register at the https://www.zkm.io/apply (Let your public key be in the whitelist)
+* Register at https://www.zkm.io/apply (Let your public key be in the whitelist)
 * Set up a local node for some blockchain(eg, sepolia)
 ### 2.2.1 Network Proving Guide
 An end-to-end example has been presented in [examples](https://github.com/zkMIPS/zkm/blob/main/prover/examples).
@@ -83,6 +77,6 @@ To help filter out false positives, the PR description for a performance improve
  2. how performance is measured
  3. characteristics of the machine used (CPU, OS, #threads if appropriate) performance before and after the PR
 # 6. Licenses
-The ZKM is distributed under the terms of MIT license.
+ZKM is distributed under the terms of MIT license.
 # 7. Security
 This code has not yet been audited, and should not be used in any production systems.
