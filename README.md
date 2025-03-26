@@ -37,7 +37,6 @@ There are two ways to prove the program:
 - [Go : 1.22.1](https://go.dev/dl)
 - [Rust: 1.81.0-nightly](https://www.rust-lang.org/tools/install)
 - Hardware: X86 CPU, 32 cores, 32G memory
-- OS: Ubuntu 22
 
 ### 2.1.1 Local Proving Guide
 An end-to-end example has been presented in [examples](https://github.com/zkMIPS/zkm/tree/main/prover/examples#examples).
