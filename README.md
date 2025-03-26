@@ -32,13 +32,8 @@ ZKM is a general verifiable computing infrastructure based on [Plonky2](https:/
 There are two ways to prove the program:
 - Use your local machine
 - Use ZKM Proving network
-## 2.1  Local Proving
-### Requirements:
-- [Go : 1.22.1](https://go.dev/dl)
-- [Rust: 1.81.0-nightly](https://www.rust-lang.org/tools/install)
-- Hardware: X86 CPU, 32 cores, 32G memory
 
-### 2.1.1 Local Proving Guide
+## 2.1 Local Proving Guide
 An end-to-end example has been presented in [examples](https://github.com/zkMIPS/zkm/tree/main/prover/examples#examples).
 ## 2.2 Network Proving
 > [!NOTE]
