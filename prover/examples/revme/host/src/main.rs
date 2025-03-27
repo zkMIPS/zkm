@@ -9,17 +9,22 @@ const ELF_PATH: &str = "../guest/elf/mips-zkm-zkvm-elf";
 
 fn prove_revm() {
     // 1. split ELF into segs
-    let seg_path = env::var("SEG_OUTPUT").expect("Segment output path is missing");
-    let json_path = env::var("JSON_PATH").expect("JSON file is missing");
+    let seg_path = env::var("SEG_OUTPUT").unwrap_or("output".to_owned());
+    let json_path = env::var("JSON_PATH").unwrap_or("../test-vectors/test.json".to_owned());
     let seg_size = env::var("SEG_SIZE").unwrap_or("0".to_string());
     let seg_size = seg_size.parse::<_>().unwrap_or(0);
     let mut f = File::open(json_path).unwrap();
     let mut data = vec![];
     f.read_to_end(&mut data).unwrap();
 
+    let encoded = guest_std::cbor_serialize(&data);
+    let mut buf = Vec::new();
+    bincode::serialize_into(&mut buf, &encoded).expect("serialization failed");
+
     let mut state = load_elf_with_patch(ELF_PATH, vec![]);
+
     // load input
-    state.input_stream.push(data);
+    state.input_stream.push(buf);
 
     let (_total_steps, seg_num, mut _state) = split_prog_into_segs(state, &seg_path, "", seg_size);
 

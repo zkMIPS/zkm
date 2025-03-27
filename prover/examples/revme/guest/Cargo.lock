@@ -387,12 +387,9 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 name = "evm"
 version = "0.1.0"
 dependencies = [
+ "guest",
  "k256",
  "libc",
- "models",
- "revm",
- "serde",
- "serde_json",
  "zkm-runtime 0.2.0",
 ]
 
@@ -451,6 +448,26 @@ dependencies = [
  "rand_core",
  "subtle",
 ]
+
+[[package]]
+name = "guest"
+version = "1.1.0"
+source = "git+https://github.com/zkMIPS/revme.git?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
+dependencies = [
+ "k256",
+ "libc",
+ "models",
+ "revm",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+]
+
+[[package]]
+name = "half"
+version = "1.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b43ede17f21864e81be2fa654110bf1e793774238d86ef8555c37e6519c0403"
 
 [[package]]
 name = "hashbrown"
@@ -572,7 +589,7 @@ checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 [[package]]
 name = "models"
 version = "0.1.0"
-source = "git+https://github.com/zkMIPS/revme?branch=feat%2Fzkm#fc6c5dbe3eda99e622a2597d8c3dc04c01b8184d"
+source = "git+https://github.com/zkMIPS/revme.git?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
 dependencies = [
  "revm",
  "serde",
@@ -912,6 +929,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_cbor"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bef2ebfde456fb76bbcf9f59315333decc4fda0b2b44b420243c11e0f5ec1f5"
+dependencies = [
+ "half",
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.215"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1139,7 +1166,7 @@ dependencies = [
 [[package]]
 name = "zkm-precompiles"
 version = "0.2.0"
-source = "git+https://github.com/zkMIPS/zkm#b8014509756b34bb92f90301801d67e7a3645094"
+source = "git+https://github.com/zkMIPS/zkm#0e816d3ae3fe0efa7b5056592afe84ce6e39e862"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -1166,7 +1193,7 @@ dependencies = [
 [[package]]
 name = "zkm-runtime"
 version = "0.2.0"
-source = "git+https://github.com/zkMIPS/zkm#b8014509756b34bb92f90301801d67e7a3645094"
+source = "git+https://github.com/zkMIPS/zkm#0e816d3ae3fe0efa7b5056592afe84ce6e39e862"
 dependencies = [
  "bincode",
  "bytemuck",
