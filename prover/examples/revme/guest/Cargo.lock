@@ -452,7 +452,7 @@ dependencies = [
 [[package]]
 name = "guest"
 version = "1.1.0"
-source = "git+https://github.com/zkMIPS/revme.git?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
+source = "git+https://github.com/zkMIPS/revme?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
 dependencies = [
  "k256",
  "libc",
@@ -589,7 +589,7 @@ checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 [[package]]
 name = "models"
 version = "0.1.0"
-source = "git+https://github.com/zkMIPS/revme.git?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
+source = "git+https://github.com/zkMIPS/revme?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
 dependencies = [
  "revm",
  "serde",

@@ -10,7 +10,7 @@ edition = "2021"
 
 [dependencies]
 zkm-runtime = { path = "../../../../runtime/entrypoint" }
-guest = { git = "https://github.com/zkMIPS/revme.git", package = "guest", branch = "cbor-zkm" }
+guest = { git = "https://github.com/zkMIPS/revme", package = "guest", branch = "cbor-zkm" }
 k256 = { version = "0.13.3", features = ["ecdsa"], default-features = false }
 libc = { version = "0.2", features = ["extra_traits"] }
 

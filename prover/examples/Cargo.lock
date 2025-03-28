@@ -1944,7 +1944,7 @@ dependencies = [
 [[package]]
 name = "guest"
 version = "1.1.0"
-source = "git+https://github.com/zkMIPS/revme.git?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
+source = "git+https://github.com/zkMIPS/revme?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
 dependencies = [
  "k256",
  "libc",
@@ -1958,7 +1958,7 @@ dependencies = [
 [[package]]
 name = "guest-std"
 version = "0.0.1"
-source = "git+https://github.com/zkMIPS/revme.git?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
+source = "git+https://github.com/zkMIPS/revme?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
 dependencies = [
  "guest",
  "models",
@@ -2762,7 +2762,7 @@ dependencies = [
 [[package]]
 name = "models"
 version = "0.1.0"
-source = "git+https://github.com/zkMIPS/revme.git?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
+source = "git+https://github.com/zkMIPS/revme?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
 dependencies = [
  "revm",
  "serde",
@@ -3734,7 +3734,6 @@ name = "revme-host"
 version = "1.1.0"
 dependencies = [
  "anyhow",
- "bincode",
  "byteorder",
  "env_logger 0.11.7",
  "guest-std",
