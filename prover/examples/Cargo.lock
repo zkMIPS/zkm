@@ -1944,7 +1944,7 @@ dependencies = [
 [[package]]
 name = "guest"
 version = "1.1.0"
-source = "git+https://github.com/zkMIPS/revme?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
+source = "git+https://github.com/zkMIPS/revme?branch=cbor-zkm#f2a91868f0ef24df374476cf17d3b183f727bdef"
 dependencies = [
  "k256",
  "libc",
@@ -1958,7 +1958,7 @@ dependencies = [
 [[package]]
 name = "guest-std"
 version = "0.0.1"
-source = "git+https://github.com/zkMIPS/revme?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
+source = "git+https://github.com/zkMIPS/revme?branch=cbor-zkm#f2a91868f0ef24df374476cf17d3b183f727bdef"
 dependencies = [
  "guest",
  "models",
@@ -2762,7 +2762,7 @@ dependencies = [
 [[package]]
 name = "models"
 version = "0.1.0"
-source = "git+https://github.com/zkMIPS/revme?branch=cbor-zkm#ce13ae2b73e25bcb6f6888d3c34a28bfe43f3e65"
+source = "git+https://github.com/zkMIPS/revme?branch=cbor-zkm#f2a91868f0ef24df374476cf17d3b183f727bdef"
 dependencies = [
  "revm",
  "serde",
@@ -2927,9 +2927,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.21.1"
+version = "1.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d75b0bedcc4fe52caa0e03d9f1151a323e4aa5e2d78ba3580400cd3c9e2bc4bc"
+checksum = "c2806eaa3524762875e21c3dcd057bc4b7bfa01ce4da8d46be1cd43649e1cc6b"
 
 [[package]]
 name = "open-fastrlp"
