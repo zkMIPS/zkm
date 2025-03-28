@@ -4,7 +4,7 @@
 <p align="center">
     <a href="https://discord.gg/zkm"><img src="https://img.shields.io/discord/700454073459015690?logo=discord"/></a>
     <a href="https://twitter.com/ProjectZKM"><img src="https://img.shields.io/twitter/follow/ProjectZKM?style=social"/></a>
-    <a href="https://GitHub.com/zkMIPS"><img src="https://img.shields.io/badge/contributors-17-ee8449"/></a>
+    <a href="https://github.com/zkMIPS/zkm/graphs/contributors"><img src="https://img.shields.io/badge/contributors-17-ee8449"/></a>
 </p>
 
 # Table of Contents
