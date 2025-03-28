@@ -30,6 +30,7 @@ fn prove_revm() {
     state.input_stream.push(encoded);
 
     let (_total_steps, seg_num, mut _state) = split_prog_into_segs(state, &seg_path, "", seg_size);
+    println!("cycles: {:?}", _total_steps);
 
     let _ = prove_segments(&seg_path, "", "", "", seg_num, 0, vec![]);
 }
