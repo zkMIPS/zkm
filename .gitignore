@@ -1,7 +1,7 @@
-/target
+target
 /Cargo.lock
-/output
-/examples/target
+output
+examples/target
 **/.DS_Store
 mips-zkm-zkvm-elf
 verifier
