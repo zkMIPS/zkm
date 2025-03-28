@@ -23,13 +23,11 @@ fn prove_revm() {
     };
 
     let encoded = guest_std::cbor_serialize(&data).unwrap();
-    let mut buf = Vec::new();
-    bincode::serialize_into(&mut buf, &encoded).expect("serialization failed");
 
     let mut state = load_elf_with_patch(ELF_PATH, vec![]);
 
     // load input
-    state.input_stream.push(buf);
+    state.input_stream.push(encoded);
 
     let (_total_steps, seg_num, mut _state) = split_prog_into_segs(state, &seg_path, "", seg_size);
     println!("cycles: {:?}", _total_steps);
