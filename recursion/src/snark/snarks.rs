@@ -24,7 +24,7 @@ pub fn prove_snark(keypath: &str, inputdir: &str, outputdir: &str) -> anyhow::Re
 
     if !pk_file.exists() || !vk_file.exists() {
         panic!(
-            "The vk or pk doesn't exist in the path: {}. Please first set the SNARK_SETUP=true to run setup_and_generate_sol_verifier.",inputdir
+            "The vk or pk doesn't exist in the path: {}. Please first set the SNARK_SETUP=true to finish the trust setup.",inputdir
         );
     }
 

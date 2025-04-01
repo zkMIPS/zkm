@@ -9,8 +9,8 @@ bincode = "1.3.3"
 
 async-trait = "0.1"
 
-zkm-prover = { git = "https://github.com/zkMIPS/zkm", branch = "main", default-features = false }
-zkm-emulator = { git = "https://github.com/zkMIPS/zkm", branch = "main", default-features = false }
+zkm-prover = { path="../prover", default-features = false }
+zkm-emulator = { path="../emulator", default-features = false }
 plonky2 = { git = "https://github.com/zkMIPS/plonky2.git", branch = "zkm_dev" }
 
 tonic = { version = "0.8.1", features = ["tls", "transport"] }
