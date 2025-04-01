@@ -3,7 +3,10 @@ package main
 import (
 	"C"
 )
+
 //import "fmt"
+
+var prover = &SnarkProver{}
 
 //export Stark2Snark
 func Stark2Snark(keypath *C.char, inputdir *C.char, outputdir *C.char, result **C.char) C.int {
@@ -11,7 +14,7 @@ func Stark2Snark(keypath *C.char, inputdir *C.char, outputdir *C.char, result **
 	keyPath := C.GoString(keypath)
 	inputDir := C.GoString(inputdir)
 	outputDir := C.GoString(outputdir)
-	var prover SnarkProver
+
 	err := prover.Prove(keyPath, inputDir, outputDir)
 	if err != nil {
 		//fmt.Printf("Stark2Snark error: %v\n", err)
@@ -36,6 +39,5 @@ func SetupAndGenerateSolVerifier(inputdir *C.char, result **C.char) C.int {
 	}
 	return 0
 }
-
 
 func main() {}
