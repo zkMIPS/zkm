@@ -56,7 +56,7 @@ impl Program {
     }
 
     pub fn load_segment<T: Read>(reader: T) -> Result<Program> {
-        let segment: Segment = serde_json::from_reader(reader).unwrap();
+        let segment: Segment = bincode::deserialize_from(reader)?;
 
         let entry = segment.pc;
         let image = segment.mem_image;

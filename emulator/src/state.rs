@@ -1513,7 +1513,9 @@ impl InstrumentedState {
             let name = format!("{output}/{}", self.pre_segment_id);
             log::debug!("split: file {}", name);
             let mut f = new_writer(&name).unwrap();
-            let data = serde_json::to_vec(&segment).unwrap();
+            // let data = serde_json::to_vec(&segment).unwrap();
+            let mut data = Vec::new();
+            bincode::serialize_into(&mut data, &segment).expect("serialization failed");
             f.write_all(data.as_slice()).unwrap();
             self.pre_segment_id += 1;
         }
