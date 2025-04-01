@@ -25,7 +25,7 @@
 - [6. Licenses](#6-licenses)
 - [7. Security](#7-security)
 # 1. Overview
-ZKM is a general verifiable computing infrastructure based on [Plonky2](https://github.com/0xPolygonZero/plonky2) and the [MIPS microarchitecture](https://en.wikipedia.org/wiki/MIPS_architecture), empowering Ethereum as the Global Settlement Layer. The proof generation and verification guide can be found in the [docs](https://docs.zkm.io/guides/proof-generation-guide).
+ZKM is a general verifiable computing infrastructure based on [Plonky2](https://github.com/0xPolygonZero/plonky2) and the [MIPS microarchitecture](https://en.wikipedia.org/wiki/MIPS_architecture), empowering Ethereum as the Global Settlement Layer. The proof generation and verification guide can be found in the [docs](https://docs.zkm.io/introduction).
 # 2. Build Guide
 **ZKM can generate proofs for Go and Rust (guest) Programs.**
 
