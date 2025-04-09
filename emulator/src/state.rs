@@ -1095,7 +1095,8 @@ impl InstrumentedState {
             // R-type (stores rd), partial Special3 insts: seb, seh, wsbh
             rt = self.state.registers[rt_reg as usize];
             rd_reg = (insn >> 11) & 0x1f;
-        } else if  opcode == 0x1F && fun == 0x4 { // ins
+        } else if opcode == 0x1F && fun == 0x4 {
+            // ins read/write rt
             rt = self.state.registers[rt_reg as usize];
             rd_reg = rt_reg;
         } else if opcode < 0x20 {
